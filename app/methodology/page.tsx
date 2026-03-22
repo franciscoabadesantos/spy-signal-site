@@ -1,18 +1,9 @@
+import Nav from '@/components/Nav'
+
 export default function Methodology() {
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px' }}>
-
-      {/* Nav */}
-      <nav style={{
-        borderBottom: '1px solid #e5e7eb',
-        display: 'flex', alignItems: 'center',
-        gap: '24px', height: '48px',
-      }}>
-        <a href="/" style={{ fontWeight: 600, fontSize: '15px', textDecoration: 'none', color: '#1a1a1a' }}>
-          SPY · ML Signal
-        </a>
-        <span style={{ fontSize: '13px', color: '#6b7280' }}>Research project · Not investment advice</span>
-      </nav>
+      <Nav active="methodology" />
 
       {/* Header */}
       <div style={{ padding: '20px 0 16px', borderBottom: '1px solid #e5e7eb' }}>
@@ -23,25 +14,6 @@ export default function Methodology() {
         <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
           System design, validation framework, and research approach
         </div>
-      </div>
-
-      {/* Tab bar */}
-      <div style={{ borderBottom: '1px solid #e5e7eb', display: 'flex' }}>
-        {[
-          { label: 'Overview', href: '/' },
-          { label: 'Performance', href: '/performance' },
-          { label: 'Methodology', href: '/methodology' },
-        ].map((tab) => (
-          <a key={tab.label} href={tab.href} style={{
-            padding: '10px 16px', fontSize: '13px',
-            color: tab.href === '/methodology' ? '#1a1a1a' : '#6b7280',
-            borderBottom: tab.href === '/methodology' ? '2px solid #1a1a1a' : '2px solid transparent',
-            fontWeight: tab.href === '/methodology' ? 500 : 400,
-            textDecoration: 'none',
-          }}>
-            {tab.label}
-          </a>
-        ))}
       </div>
 
       {/* Content */}

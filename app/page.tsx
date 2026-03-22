@@ -1,5 +1,5 @@
 import { getLatestSignal, getRecentSignals } from '@/lib/signals'
-import { Signal } from '@/lib/types'
+import Nav from '@/components/Nav'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -50,19 +50,7 @@ export default async function Home() {
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px' }}>
-
-      {/* Nav */}
-      <nav style={{
-        borderBottom: '1px solid #e5e7eb',
-        padding: '0',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '24px',
-        height: '48px',
-      }}>
-        <span style={{ fontWeight: 600, fontSize: '15px' }}>SPY · ML Signal</span>
-        <span style={{ fontSize: '13px', color: '#6b7280' }}>Research project · Not investment advice</span>
-      </nav>
+      <Nav active="overview" />
 
       {/* Hero */}
       <div style={{ padding: '20px 0 16px', borderBottom: '1px solid #e5e7eb' }}>
@@ -93,22 +81,6 @@ export default async function Home() {
         ) : (
           <div style={{ color: '#6b7280' }}>No signals yet</div>
         )}
-      </div>
-
-      {/* Tab bar */}
-      <div style={{ borderBottom: '1px solid #e5e7eb', display: 'flex', gap: '0' }}>
-        {['Overview', 'Performance', 'Methodology'].map((tab, i) => (
-          <div key={tab} style={{
-            padding: '10px 16px',
-            fontSize: '13px',
-            color: i === 0 ? '#1a1a1a' : '#6b7280',
-            borderBottom: i === 0 ? '2px solid #1a1a1a' : '2px solid transparent',
-            fontWeight: i === 0 ? 500 : 400,
-            cursor: 'pointer',
-          }}>
-            {tab}
-          </div>
-        ))}
       </div>
 
       {/* Main content */}

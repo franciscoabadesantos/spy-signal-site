@@ -1,5 +1,5 @@
 import { getRecentSignals } from '@/lib/signals'
-import Link from 'next/link'
+import Nav from '@/components/Nav'
 
 function formatReturn(val: number | null) {
   if (val === null) return '—'
@@ -41,18 +41,7 @@ export default async function Performance() {
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px' }}>
-
-      {/* Nav */}
-      <nav style={{
-        borderBottom: '1px solid #e5e7eb',
-        display: 'flex', alignItems: 'center',
-        gap: '24px', height: '48px',
-      }}>
-        <Link href="/" style={{ fontWeight: 600, fontSize: '15px', textDecoration: 'none', color: '#1a1a1a' }}>
-          SPY · ML Signal
-        </Link>
-        <span style={{ fontSize: '13px', color: '#6b7280' }}>Research project · Not investment advice</span>
-      </nav>
+      <Nav active="performance" />
 
       {/* Header */}
       <div style={{ padding: '20px 0 16px', borderBottom: '1px solid #e5e7eb' }}>
@@ -63,25 +52,6 @@ export default async function Performance() {
         <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
           Out-of-sample signals only · Outcomes filled after prediction horizon matures
         </div>
-      </div>
-
-      {/* Tab bar */}
-      <div style={{ borderBottom: '1px solid #e5e7eb', display: 'flex' }}>
-        {[
-          { label: 'Overview', href: '/' },
-          { label: 'Performance', href: '/performance' },
-          { label: 'Methodology', href: '/methodology' },
-        ].map((tab) => (
-          <Link key={tab.label} href={tab.href} style={{
-            padding: '10px 16px', fontSize: '13px',
-            color: tab.href === '/performance' ? '#1a1a1a' : '#6b7280',
-            borderBottom: tab.href === '/performance' ? '2px solid #1a1a1a' : '2px solid transparent',
-            fontWeight: tab.href === '/performance' ? 500 : 400,
-            textDecoration: 'none',
-          }}>
-            {tab.label}
-          </Link>
-        ))}
       </div>
 
       {/* Content */}
