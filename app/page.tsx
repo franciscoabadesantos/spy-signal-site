@@ -1,5 +1,5 @@
 import { getLatestSignal, getRecentSignals } from '@/lib/signals'
-import { Signal } from '@/lib/types'
+import Link from 'next/link'
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -97,17 +97,22 @@ export default async function Home() {
 
       {/* Tab bar */}
       <div style={{ borderBottom: '1px solid #e5e7eb', display: 'flex', gap: '0' }}>
-        {['Overview', 'Performance', 'Methodology'].map((tab, i) => (
-          <div key={tab} style={{
+        {[
+          { label: 'Overview', href: '/' },
+          { label: 'Performance', href: '/performance' },
+          { label: 'Methodology', href: '/methodology' },
+        ].map((tab) => (
+          <Link key={tab.label} href={tab.href} style={{
             padding: '10px 16px',
             fontSize: '13px',
-            color: i === 0 ? '#1a1a1a' : '#6b7280',
-            borderBottom: i === 0 ? '2px solid #1a1a1a' : '2px solid transparent',
-            fontWeight: i === 0 ? 500 : 400,
+            color: tab.href === '/' ? '#1a1a1a' : '#6b7280',
+            borderBottom: tab.href === '/' ? '2px solid #1a1a1a' : '2px solid transparent',
+            fontWeight: tab.href === '/' ? 500 : 400,
             cursor: 'pointer',
+            textDecoration: 'none',
           }}>
-            {tab}
-          </div>
+            {tab.label}
+          </Link>
         ))}
       </div>
 
