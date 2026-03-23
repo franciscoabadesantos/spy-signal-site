@@ -9,8 +9,8 @@ export async function getRecentSignals(limit = 20): Promise<Signal[]> {
     .limit(limit)
 
   if (error) {
-    console.error('Error fetching signals:', error)
-    return []
+    console.error('Error fetching signals:', error.message, error.details)
+    throw new Error(`Failed to fetch signals: ${error.message}`)
   }
 
   return data as Signal[]
