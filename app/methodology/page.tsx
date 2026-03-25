@@ -5,10 +5,9 @@ export default function Methodology() {
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px' }}>
       <Nav active="methodology" />
 
-      {/* Header */}
       <div style={{ padding: '20px 0 16px', borderBottom: '1px solid #e5e7eb' }}>
         <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
-          S&P 500 ETF (SPY) · ML Directional Model
+          S&amp;P 500 ETF (SPY) · Timing &amp; Allocation System
         </div>
         <div style={{ fontSize: '22px', fontWeight: 600 }}>Methodology</div>
         <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
@@ -16,49 +15,110 @@ export default function Methodology() {
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: '48px', padding: '32px 0' }}>
-
-        {/* Article */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 220px',
+          gap: '48px',
+          padding: '32px 0',
+        }}
+      >
         <article style={{ lineHeight: '1.75', fontSize: '14px', color: '#374151' }}>
-
-          <section style={{ marginBottom: '36px' }}>
-            <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
+          <section id="overview" style={{ marginBottom: '36px' }}>
+            <h2
+              style={{
+                fontSize: '17px',
+                fontWeight: 600,
+                color: '#1a1a1a',
+                marginBottom: '12px',
+              }}
+            >
               Overview
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              This project is a full end-to-end machine learning system for predicting the directional
-              movement of SPY (the S&P 500 ETF) over a 20 trading day horizon. It was built by one person
-              over approximately 12 months with the goal of producing something closer to a production-grade
-              research system than a typical portfolio project.
+              This project is a full end-to-end machine learning system for timing and
+              allocating exposure to SPY, the S&amp;P 500 ETF. It was built as a long-term
+              research project with the goal of producing something closer to a
+              production-grade research system than a typical portfolio project.
+            </p>
+            <p style={{ marginBottom: '12px' }}>
+              The live system is a long-flat timing model. It decides when to hold SPY and
+              when to stay flat. It does not short the market. The objective is not to
+              maximize directional hit rate in isolation, but to improve capital allocation:
+              be invested when expected conditions are favorable, and step aside when they
+              are not.
             </p>
             <p>
-              The system is designed around strong validation principles — walk-forward testing,
-              strict avoidance of lookahead bias, and realistic backtesting with transaction costs
-              and position constraints. The signal currently running live uses a monthly retraining
-              cadence with a 2-year rolling training window.
+              The system is built around walk-forward validation, strict control of timing
+              assumptions, release-aware macro handling, and a deployment path that reuses
+              the same pipeline used in research.
             </p>
           </section>
 
-          <section style={{ marginBottom: '36px' }}>
-            <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
+          <section id="pipeline-architecture" style={{ marginBottom: '36px' }}>
+            <h2
+              style={{
+                fontSize: '17px',
+                fontWeight: 600,
+                color: '#1a1a1a',
+                marginBottom: '12px',
+              }}
+            >
               Pipeline architecture
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The system is structured as a sequential pipeline with six stages, each with a
-              clearly defined interface and no data leakage between them:
+              The system is structured as a sequential pipeline with clear stage boundaries
+              and explicit timing contracts:
             </p>
-            <div style={{ borderLeft: '3px solid #e5e7eb', paddingLeft: '16px', marginBottom: '12px' }}>
+
+            <div
+              style={{
+                borderLeft: '3px solid #e5e7eb',
+                paddingLeft: '16px',
+                marginBottom: '12px',
+              }}
+            >
               {[
-                { stage: 'Data ingestion', desc: 'Price, volume, and macro data fetched from external sources. All data is timestamped and stored with the exact availability date to prevent future leakage.' },
-                { stage: 'Feature engineering', desc: 'Technical indicators, return windows, and regime-based features are computed strictly using information available at prediction time.' },
-                { stage: 'Model training', desc: 'An ensemble model is trained on a rolling window of historical data. The model family and training procedure are not disclosed.' },
-                { stage: 'Signal generation', desc: 'The trained model produces a directional prediction and confidence score for the target horizon. Position sizing is scaled by signal strength.' },
-                { stage: 'Portfolio construction', desc: 'Signals are translated into positions with constraints on maximum exposure and turnover. Transaction costs are modelled explicitly.' },
-                { stage: 'Backtesting and validation', desc: 'Performance is evaluated on held-out data using walk-forward testing. No information from the test period is used during training.' },
-              ].map(item => (
+                {
+                  stage: 'Data ingestion',
+                  desc:
+                    'Price, volume, and macro data are fetched from external sources. Data is stored with explicit date handling, and macro releases are aligned using release-timed availability rather than revised series.',
+                },
+                {
+                  stage: 'Feature engineering',
+                  desc:
+                    'Technical, return-based, and macro regime features are computed only from information available at the prediction timestamp.',
+                },
+                {
+                  stage: 'Model training',
+                  desc:
+                    'A model is trained on rolling historical windows and retrained on a fixed schedule. The exact feature set and model configuration are not publicly disclosed.',
+                },
+                {
+                  stage: 'Signal generation',
+                  desc:
+                    'The model produces a 20-trading-day directional expectation for SPY using data available at market close.',
+                },
+                {
+                  stage: 'Allocation layer',
+                  desc:
+                    'The model output is transformed into a target stance. In the public live version, this results in either positive SPY exposure or a flat position.',
+                },
+                {
+                  stage: 'Backtesting and validation',
+                  desc:
+                    'Performance is evaluated on held-out periods through walk-forward testing, with no leakage from the evaluation window into training or feature construction.',
+                },
+              ].map((item) => (
                 <div key={item.stage} style={{ marginBottom: '14px' }}>
-                  <div style={{ fontWeight: 500, color: '#1a1a1a', marginBottom: '2px', fontSize: '13px' }}>
+                  <div
+                    style={{
+                      fontWeight: 500,
+                      color: '#1a1a1a',
+                      marginBottom: '2px',
+                      fontSize: '13px',
+                    }}
+                  >
                     {item.stage}
                   </div>
                   <div style={{ color: '#6b7280', fontSize: '13px' }}>{item.desc}</div>
@@ -67,126 +127,271 @@ export default function Methodology() {
             </div>
           </section>
 
-          <section style={{ marginBottom: '36px' }}>
-            <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
+          <section id="strategy-design" style={{ marginBottom: '36px' }}>
+            <h2
+              style={{
+                fontSize: '17px',
+                fontWeight: 600,
+                color: '#1a1a1a',
+                marginBottom: '12px',
+              }}
+            >
+              Strategy design
+            </h2>
+            <p style={{ marginBottom: '12px' }}>
+              This is not a stock picker and not a discretionary forecasting dashboard. It is
+              a timing and allocation system for a single underlying instrument: SPY.
+            </p>
+            <p style={{ marginBottom: '12px' }}>
+              In the public live setup, the effective states are simple:
+            </p>
+            <div
+              style={{
+                background: '#f9fafb',
+                borderRadius: '8px',
+                padding: '14px 16px',
+                fontSize: '13px',
+                marginBottom: '12px',
+              }}
+            >
+              <div style={{ marginBottom: '8px' }}>
+                <strong>Bullish</strong> = positive SPY exposure
+              </div>
+              <div>
+                <strong>Neutral</strong> = flat, no position
+              </div>
+            </div>
+            <p style={{ marginBottom: '12px' }}>
+              That means a neutral signal is not a “wrong” prediction or a hidden bearish
+              view. It is simply a no-allocation state. The system is choosing not to commit
+              capital because expected conditions do not justify exposure.
+            </p>
+            <p>
+              This creates an asymmetry by design: the model can participate in favorable
+              conditions while avoiding forced exposure during periods where expected returns
+              are weaker or risk-adjusted attractiveness is lower.
+            </p>
+          </section>
+
+          <section id="validation-framework" style={{ marginBottom: '36px' }}>
+            <h2
+              style={{
+                fontSize: '17px',
+                fontWeight: 600,
+                color: '#1a1a1a',
+                marginBottom: '12px',
+              }}
+            >
               Validation framework
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The most important design decision in the system is how validation is handled.
-              Most ML projects overfit to their evaluation set — either through direct data leakage,
-              repeated use of the same test period, or hyperparameter tuning that implicitly uses
-              future information.
+              The central research problem is not just model fitting, but evaluation quality.
+              Many ML finance projects look good only because their validation process leaks
+              future information, reuses the same test set repeatedly, or tunes implicitly on
+              the final evaluation period.
             </p>
             <p style={{ marginBottom: '12px' }}>
-              This system uses walk-forward testing throughout. The model is retrained on a fixed
-              rolling window, then evaluated on the immediately following period before the window
-              advances. At no point does the training set include any data from the evaluation period.
+              This system uses walk-forward validation. A model is trained on a historical
+              window, evaluated on the immediately following period, then advanced forward in
+              time. At no point does the training window contain observations from the period
+              being evaluated.
             </p>
-            <p style={{ marginBottom: '12px' }}>
-              Additional safeguards include:
-            </p>
-            <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '14px 16px', fontSize: '13px' }}>
+            <div
+              style={{
+                background: '#f9fafb',
+                borderRadius: '8px',
+                padding: '14px 16px',
+                fontSize: '13px',
+              }}
+            >
               {[
                 'Feature computation uses only data available at the prediction timestamp',
-                'No hyperparameters were tuned on the final out-of-sample test period',
-                'Transaction costs and slippage are modelled at realistic levels',
-                'Position constraints prevent unrealistic concentration',
-                'The live signal uses the same pipeline as the backtest with no modifications',
-              ].map(point => (
-                <div key={point} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#27500A', fontWeight: 600, marginTop: '1px' }}>✓</span>
+                'Macro features use release-timed values to avoid look-ahead into revisions',
+                'No hyperparameters were tuned on the final out-of-sample period',
+                'Transaction costs and execution assumptions are modeled explicitly in research',
+                'Position and turnover constraints are enforced in the allocation layer',
+                'The live signal reuses the same core pipeline rather than a separate simplified path',
+              ].map((point) => (
+                <div
+                  key={point}
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    marginBottom: '8px',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <span style={{ color: '#27500A', fontWeight: 600, marginTop: '1px' }}>
+                    ✓
+                  </span>
                   <span style={{ color: '#374151' }}>{point}</span>
                 </div>
               ))}
             </div>
           </section>
 
-          <section style={{ marginBottom: '36px' }}>
-            <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
+          <section id="live-signal-and-display-lag" style={{ marginBottom: '36px' }}>
+            <h2
+              style={{
+                fontSize: '17px',
+                fontWeight: 600,
+                color: '#1a1a1a',
+                marginBottom: '12px',
+              }}
+            >
               Live signal and display lag
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The system generates a new signal each trading day after US market close. The signal
-              is based on data available at that close and predicts the direction of SPY over the
-              following 20 trading days.
+              The system generates a signal using data available at US market close. That
+              signal is intended for next-open execution under the timing contract used in
+              research and live runtime.
             </p>
             <p style={{ marginBottom: '12px' }}>
-              Signals displayed on this site are shown with a 45-day lag. This means what you see
-              today was generated 45 days ago. The actual outcome — whether the prediction was
-              correct — is shown alongside it once the prediction horizon has passed.
+              Signals displayed on this site are delayed by 45 days. This means the public
+              site does not show today’s live output in real time. Instead, it shows prior
+              signals once enough time has passed to make their subsequent path and outcome
+              more interpretable.
             </p>
             <p>
-              This lag is intentional. It allows the site to show verified predictions with real
-              outcomes rather than unverifiable live calls, while keeping the signal generation
-              details proprietary.
+              The purpose of the lag is to let the site function as a verifiable research and
+              portfolio artifact rather than a public trading feed.
             </p>
           </section>
 
-          <section style={{ marginBottom: '36px' }}>
-            <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
+          <section id="how-to-read-results" style={{ marginBottom: '36px' }}>
+            <h2
+              style={{
+                fontSize: '17px',
+                fontWeight: 600,
+                color: '#1a1a1a',
+                marginBottom: '12px',
+              }}
+            >
+              How to read results
+            </h2>
+            <p style={{ marginBottom: '12px' }}>
+              The public results should be interpreted as allocation decisions, not pure
+              directional calls.
+            </p>
+            <p style={{ marginBottom: '12px' }}>
+              A bullish signal means the system chose to allocate to SPY. A neutral signal
+              means the system chose to stay flat. Because of that, directional hit rate is a
+              secondary metric, not the primary one.
+            </p>
+            <p style={{ marginBottom: '12px' }}>
+              For a long-flat system, a raw overall hit rate can be misleading. Flat periods
+              are not active bets, and the real question is whether the system improves when
+              it is invested versus when it is not.
+            </p>
+            <p>
+              That is why the most meaningful public metrics are allocation-aware ones, such
+              as performance during allocated periods, share of time invested, and the quality
+              of active entries rather than simple classification accuracy across all rows.
+            </p>
+          </section>
+
+          <section id="what-is-not-disclosed" style={{ marginBottom: '36px' }}>
+            <h2
+              style={{
+                fontSize: '17px',
+                fontWeight: 600,
+                color: '#1a1a1a',
+                marginBottom: '12px',
+              }}
+            >
               What is not disclosed
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The following details are kept proprietary and are not disclosed on this site:
+              The following details remain proprietary and are not disclosed on this site:
             </p>
             <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: '1.8' }}>
-              <div>· The specific features used in signal generation</div>
-              <div>· The model architecture, hyperparameters, and ensemble weights</div>
-              <div>· The exact entry and exit logic in portfolio construction</div>
-              <div>· Any data sources that provide informational edge</div>
+              <div>· The exact feature set used in the live signal</div>
+              <div>· The model architecture and training configuration</div>
+              <div>· The detailed allocation and threshold logic</div>
+              <div>· Any implementation details that could reveal informational edge</div>
             </div>
             <p style={{ marginTop: '12px' }}>
-              The source code for the data pipeline, backtesting engine, and infrastructure
-              is available in a sanitised form on GitHub, with the proprietary components removed.
+              What is shared publicly is the research structure: pipeline design, validation
+              approach, timing discipline, and productionization work.
             </p>
           </section>
 
-          <section style={{ marginBottom: '36px' }}>
-            <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#1a1a1a', marginBottom: '12px' }}>
+          <section id="limitations-and-known-risks" style={{ marginBottom: '36px' }}>
+            <h2
+              style={{
+                fontSize: '17px',
+                fontWeight: 600,
+                color: '#1a1a1a',
+                marginBottom: '12px',
+              }}
+            >
               Limitations and known risks
             </h2>
-            <p style={{ marginBottom: '12px' }}>
-              No model predicts markets reliably over long periods. Known limitations of this system include:
-            </p>
             <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: '1.8' }}>
-              <div>· Regime changes can cause rapid performance degradation</div>
-              <div>· The training history is limited and may not cover all market conditions</div>
-              <div>· Transaction cost estimates may not reflect live execution reality</div>
-              <div>· The model is not designed for live trading and has not been used for that purpose</div>
+              <div>· Regime changes can degrade model behavior quickly</div>
+              <div>· Historical coverage does not span every possible market environment</div>
+              <div>· Execution costs in reality may differ from research assumptions</div>
+              <div>· A long-flat design can miss sharp upside moves while out of the market</div>
+              <div>· Public metrics are simplified representations of a richer research process</div>
             </div>
           </section>
 
-          <div style={{
-            fontSize: '11px', color: '#9ca3af', lineHeight: '1.6',
-            padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px'
-          }}>
+          <div
+            style={{
+              fontSize: '11px',
+              color: '#9ca3af',
+              lineHeight: '1.6',
+              padding: '12px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+            }}
+          >
             This is a research and portfolio project built for educational and professional
             demonstration purposes. Nothing on this site constitutes investment advice or a
             recommendation to buy or sell any security.
           </div>
-
         </article>
 
-        {/* Sidebar TOC */}
         <div style={{ position: 'sticky', top: '24px', alignSelf: 'start' }}>
-          <div style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div
+            style={{
+              fontSize: '12px',
+              fontWeight: 500,
+              color: '#6b7280',
+              marginBottom: '10px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}
+          >
             On this page
           </div>
+
           {[
-            'Overview',
-            'Pipeline architecture',
-            'Validation framework',
-            'Live signal and display lag',
-            'What is not disclosed',
-            'Limitations and known risks',
-          ].map(section => (
-            <div key={section} style={{
-              fontSize: '13px', color: '#6b7280',
-              padding: '4px 0', borderLeft: '2px solid #e5e7eb',
-              paddingLeft: '12px', marginBottom: '2px',
-            }}>
-              {section}
-            </div>
+            { label: 'Overview', href: '#overview' },
+            { label: 'Pipeline architecture', href: '#pipeline-architecture' },
+            { label: 'Strategy design', href: '#strategy-design' },
+            { label: 'Validation framework', href: '#validation-framework' },
+            { label: 'Live signal and display lag', href: '#live-signal-and-display-lag' },
+            { label: 'How to read results', href: '#how-to-read-results' },
+            { label: 'What is not disclosed', href: '#what-is-not-disclosed' },
+            { label: 'Limitations and known risks', href: '#limitations-and-known-risks' },
+          ].map((section) => (
+            <a
+              key={section.label}
+              href={section.href}
+              style={{
+                display: 'block',
+                fontSize: '13px',
+                color: '#6b7280',
+                padding: '4px 0',
+                borderLeft: '2px solid #e5e7eb',
+                paddingLeft: '12px',
+                marginBottom: '2px',
+                textDecoration: 'none',
+              }}
+            >
+              {section.label}
+            </a>
           ))}
         </div>
       </div>
