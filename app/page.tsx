@@ -145,6 +145,8 @@ export default async function Home() {
                   <td style={{ padding: '9px 0', borderBottom: '1px solid #f3f4f6' }}>
                     {signal.correct === null ? (
                       <span style={{ color: '#9ca3af' }}>Pending</span>
+                    ) : signal.direction === 'neutral' ? (
+                      <span style={{ color: '#6b7280' }}>— No call</span>
                     ) : signal.correct ? (
                       <span style={{ color: '#27500A' }}>✓ Correct</span>
                     ) : (
@@ -176,8 +178,8 @@ export default async function Home() {
               { key: 'Horizon', val: `${latest?.prediction_horizon ?? 20} trading days` },
               { key: 'Validation', val: 'Walk-forward (OOS)' },
               { key: 'Retrain', val: 'Monthly' },
-              { key: 'Display lag', val: '45 days' },
-              { key: 'Built by', val: '1 person · 12 months' },
+              { key: 'Display lag', val: 'Live' },
+              { key: 'Built by', val: 'Francisco Santos' },
             ].map(row => (
               <div key={row.key} style={{
                 display: 'flex', justifyContent: 'space-between',
@@ -194,8 +196,7 @@ export default async function Home() {
             fontSize: '11px', color: '#9ca3af', lineHeight: '1.6',
             padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px'
           }}>
-            This is a research and portfolio project. Signals are displayed with a 45-day lag.
-            Nothing on this site constitutes investment advice or a recommendation to buy or sell any security.
+            This is a research and portfolio project. Nothing on this site constitutes investment advice or a recommendation to buy or sell any security.
           </div>
         </div>
       </div>
