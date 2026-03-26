@@ -1,6 +1,8 @@
 import { getRecentSignals } from '@/lib/signals'
 import Nav from '@/components/Nav'
 
+export const dynamic = 'force-dynamic'
+
 function formatReturn(val: number | null) {
   if (val === null) return '—'
   const pct = (val * 100).toFixed(2)
