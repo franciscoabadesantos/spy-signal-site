@@ -11,7 +11,7 @@ export default function Methodology() {
         </div>
         <div style={{ fontSize: '22px', fontWeight: 600 }}>Methodology</div>
         <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
-          System design, validation framework, and research approach
+          System design, validation framework, and live signal contract
         </div>
       </div>
 
@@ -36,22 +36,23 @@ export default function Methodology() {
               Overview
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              This project is a full end-to-end machine learning system for timing and
-              allocating exposure to SPY, the S&amp;P 500 ETF. It was built as a long-term
-              research project with the goal of producing something closer to a
-              production-grade research system than a typical portfolio project.
+              This project is an end-to-end machine learning system for timing and
+              allocating exposure to SPY, the S&amp;P 500 ETF. It was built as a
+              long-term research project with the goal of producing something closer
+              to a production-quality research and deployment system than a typical
+              portfolio project.
             </p>
             <p style={{ marginBottom: '12px' }}>
-              The live system is a long-flat timing model. It decides when to hold SPY and
-              when to stay flat. It does not short the market. The objective is not to
-              maximize directional hit rate in isolation, but to improve capital allocation:
-              be invested when expected conditions are favorable, and step aside when they
-              are not.
+              The live system is a long-flat timing model. It decides when to hold
+              SPY and when to remain flat. It does not short the market. The goal is
+              not to maximize directional hit rate in isolation, but to improve
+              capital allocation: participate when expected conditions are favorable
+              and step aside when they are not.
             </p>
             <p>
-              The system is built around walk-forward validation, strict control of timing
-              assumptions, release-aware macro handling, and a deployment path that reuses
-              the same pipeline used in research.
+              The system is built around walk-forward validation, strict timing
+              discipline, release-aware macro handling, and a live runtime that
+              reuses the same core pipeline contract used in research.
             </p>
           </section>
 
@@ -67,8 +68,8 @@ export default function Methodology() {
               Pipeline architecture
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The system is structured as a sequential pipeline with clear stage boundaries
-              and explicit timing contracts:
+              The system is structured as a sequential pipeline with clear stage
+              boundaries and explicit timing assumptions:
             </p>
 
             <div
@@ -82,32 +83,32 @@ export default function Methodology() {
                 {
                   stage: 'Data ingestion',
                   desc:
-                    'Price, volume, and macro data are fetched from external sources. Data is stored with explicit date handling, and macro releases are aligned using release-timed availability rather than revised series.',
+                    'Price, volume, and macro data are fetched from external sources. Data is stored with explicit date handling, and macro inputs are aligned using release-aware availability rules rather than revised hindsight values.',
                 },
                 {
                   stage: 'Feature engineering',
                   desc:
-                    'Technical, return-based, and macro regime features are computed only from information available at the prediction timestamp.',
+                    'Technical, return-based, and macro regime features are computed only from information that should be available at the decision timestamp.',
                 },
                 {
                   stage: 'Model training',
                   desc:
-                    'A model is trained on rolling historical windows and retrained on a fixed schedule. The exact feature set and model configuration are not publicly disclosed.',
+                    'A model is trained on rolling historical windows and retrained on a fixed schedule. The exact live feature set, model specification, and parameterization are not publicly disclosed.',
                 },
                 {
                   stage: 'Signal generation',
                   desc:
-                    'The model produces a 20-trading-day directional expectation for SPY using data available at market close.',
+                    'The model produces a forward expectation for SPY using end-of-day information under a fixed timing contract.',
                 },
                 {
-                  stage: 'Allocation layer',
+                  stage: 'Risk and allocation layer',
                   desc:
-                    'The model output is transformed into a target stance. In the public live version, this results in either positive SPY exposure or a flat position.',
+                    'Model output is translated into an invest-or-flat stance through risk-scaling and allocation logic. In the public live version, this results in either positive SPY exposure or a flat position.',
                 },
                 {
                   stage: 'Backtesting and validation',
                   desc:
-                    'Performance is evaluated on held-out periods through walk-forward testing, with no leakage from the evaluation window into training or feature construction.',
+                    'Performance is evaluated on held-out periods through walk-forward testing, with no leakage from evaluation windows into training or feature construction.',
                 },
               ].map((item) => (
                 <div key={item.stage} style={{ marginBottom: '14px' }}>
@@ -125,6 +126,12 @@ export default function Methodology() {
                 </div>
               ))}
             </div>
+
+            <p>
+              The same core system contract is used across research and live runtime.
+              Public results are intended to reflect the deployed process rather than
+              a separate simplified demonstration path.
+            </p>
           </section>
 
           <section id="strategy-design" style={{ marginBottom: '36px' }}>
@@ -139,8 +146,9 @@ export default function Methodology() {
               Strategy design
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              This is not a stock picker and not a discretionary forecasting dashboard. It is
-              a timing and allocation system for a single underlying instrument: SPY.
+              This is not a stock picker and not a discretionary forecasting
+              dashboard. It is a timing and allocation system for a single
+              underlying instrument: SPY.
             </p>
             <p style={{ marginBottom: '12px' }}>
               In the public live setup, the effective states are simple:
@@ -162,14 +170,14 @@ export default function Methodology() {
               </div>
             </div>
             <p style={{ marginBottom: '12px' }}>
-              That means a neutral signal is not a “wrong” prediction or a hidden bearish
-              view. It is simply a no-allocation state. The system is choosing not to commit
-              capital because expected conditions do not justify exposure.
+              A neutral signal is not a hidden short view and not necessarily a
+              directional prediction failure. It is a no-allocation state. The
+              system is choosing not to commit capital because expected conditions
+              do not justify exposure.
             </p>
             <p>
-              This creates an asymmetry by design: the model can participate in favorable
-              conditions while avoiding forced exposure during periods where expected returns
-              are weaker or risk-adjusted attractiveness is lower.
+              This asymmetry is deliberate. The objective is to improve exposure
+              quality rather than force continuous market participation.
             </p>
           </section>
 
@@ -185,16 +193,16 @@ export default function Methodology() {
               Validation framework
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The central research problem is not just model fitting, but evaluation quality.
-              Many ML finance projects look good only because their validation process leaks
-              future information, reuses the same test set repeatedly, or tunes implicitly on
-              the final evaluation period.
+              The central research problem is not only model fitting, but evaluation
+              quality. Many ML finance projects look strong only because their
+              validation process leaks future information, reuses the same test set
+              repeatedly, or tunes implicitly on the final evaluation period.
             </p>
             <p style={{ marginBottom: '12px' }}>
-              This system uses walk-forward validation. A model is trained on a historical
-              window, evaluated on the immediately following period, then advanced forward in
-              time. At no point does the training window contain observations from the period
-              being evaluated.
+              This system uses walk-forward validation. A model is trained on a
+              historical window, evaluated on the immediately following period, then
+              advanced forward through time. At no point does the training window
+              contain observations from the period being evaluated.
             </p>
             <div
               style={{
@@ -205,12 +213,12 @@ export default function Methodology() {
               }}
             >
               {[
-                'Feature computation uses only data available at the prediction timestamp',
-                'Macro features use release-timed values to avoid look-ahead into revisions',
-                'No hyperparameters were tuned on the final out-of-sample period',
+                'Feature computation uses only information intended to be available at the prediction timestamp',
+                'Macro features use release-aware handling to reduce look-ahead into later revisions',
+                'No final out-of-sample period is used as an informal tuning playground',
                 'Transaction costs and execution assumptions are modeled explicitly in research',
                 'Position and turnover constraints are enforced in the allocation layer',
-                'The live signal reuses the same core pipeline rather than a separate simplified path',
+                'The live signal follows the same core pipeline contract used in research rather than a separate simplified path',
               ].map((point) => (
                 <div
                   key={point}
@@ -230,7 +238,7 @@ export default function Methodology() {
             </div>
           </section>
 
-          <section id="live-signal-and-display-lag" style={{ marginBottom: '36px' }}>
+          <section id="live-signal-contract" style={{ marginBottom: '36px' }}>
             <h2
               style={{
                 fontSize: '17px',
@@ -239,22 +247,25 @@ export default function Methodology() {
                 marginBottom: '12px',
               }}
             >
-              Live signal and display lag
+              Live signal contract
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The system generates a signal using data available at US market close. That
-              signal is intended for next-open execution under the timing contract used in
-              research and live runtime.
+              The system generates a live signal each trading day using information
+              available at US market close. That signal is intended to correspond to
+              next-open execution under the same timing assumptions used in research
+              and live runtime.
             </p>
             <p style={{ marginBottom: '12px' }}>
-              Signals displayed on this site are delayed by 45 days. This means the public
-              site does not show today’s live output in real time. Instead, it shows prior
-              signals once enough time has passed to make their subsequent path and outcome
-              more interpretable.
+              Signals shown on this site are therefore live outputs of the system
+              rather than delayed retrospective examples. The purpose of publishing
+              them is to expose how the process behaves over time, not to operate as
+              a trading service or instruction feed.
             </p>
             <p>
-              The purpose of the lag is to let the site function as a verifiable research and
-              portfolio artifact rather than a public trading feed.
+              Public presentation does not change the underlying constraints of the
+              system: execution quality, slippage, fees, latency, and account-level
+              considerations can all cause realized outcomes to differ from modeled
+              behavior.
             </p>
           </section>
 
@@ -270,27 +281,28 @@ export default function Methodology() {
               How to read results
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The public results should be interpreted as allocation decisions, not pure
-              directional calls.
+              Public results should be interpreted as allocation decisions, not as
+              pure directional calls.
             </p>
             <p style={{ marginBottom: '12px' }}>
-              A bullish signal means the system chose to allocate to SPY. A neutral signal
-              means the system chose to stay flat. Because of that, directional hit rate is a
-              secondary metric, not the primary one.
+              A bullish signal means the system chose to allocate to SPY. A neutral
+              signal means the system chose to stay flat. Because of that,
+              directional hit rate is a secondary metric rather than the primary one.
             </p>
             <p style={{ marginBottom: '12px' }}>
-              For a long-flat system, a raw overall hit rate can be misleading. Flat periods
-              are not active bets, and the real question is whether the system improves when
-              it is invested versus when it is not.
+              For a long-flat system, a raw overall hit rate can be misleading. Flat
+              periods are not active bets, and the more important question is whether
+              the system improves outcomes when it is invested versus when it is not.
             </p>
             <p>
-              That is why the most meaningful public metrics are allocation-aware ones, such
-              as performance during allocated periods, share of time invested, and the quality
-              of active entries rather than simple classification accuracy across all rows.
+              The most meaningful public metrics are therefore allocation-aware ones,
+              such as performance during invested periods, share of time allocated,
+              turnover, drawdown behavior, and the quality of active entries rather
+              than simple classification accuracy across all rows.
             </p>
           </section>
 
-          <section id="what-is-not-disclosed" style={{ marginBottom: '36px' }}>
+          <section id="what-is-public-vs-proprietary" style={{ marginBottom: '36px' }}>
             <h2
               style={{
                 fontSize: '17px',
@@ -299,21 +311,25 @@ export default function Methodology() {
                 marginBottom: '12px',
               }}
             >
-              What is not disclosed
+              What is public vs. proprietary
             </h2>
             <p style={{ marginBottom: '12px' }}>
-              The following details remain proprietary and are not disclosed on this site:
+              This site is intended to disclose the system contract and research
+              discipline without disclosing implementation details that would reveal
+              the live edge directly.
             </p>
             <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: '1.8' }}>
-              <div>· The exact feature set used in the live signal</div>
-              <div>· The model architecture and training configuration</div>
-              <div>· The detailed allocation and threshold logic</div>
-              <div>· Any implementation details that could reveal informational edge</div>
+              <div>
+                <strong>Public:</strong> strategy structure, timing assumptions,
+                validation approach, deployment philosophy, and the interpretation of
+                signals and results
+              </div>
+              <div>
+                <strong>Not disclosed:</strong> the exact live feature set, model
+                architecture, training configuration, threshold logic, and other
+                implementation details that would expose the informational edge
+              </div>
             </div>
-            <p style={{ marginTop: '12px' }}>
-              What is shared publicly is the research structure: pipeline design, validation
-              approach, timing discipline, and productionization work.
-            </p>
           </section>
 
           <section id="limitations-and-known-risks" style={{ marginBottom: '36px' }}>
@@ -328,10 +344,11 @@ export default function Methodology() {
               Limitations and known risks
             </h2>
             <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: '1.8' }}>
-              <div>· Regime changes can degrade model behavior quickly</div>
+              <div>· Regime changes can degrade model behavior</div>
               <div>· Historical coverage does not span every possible market environment</div>
-              <div>· Execution costs in reality may differ from research assumptions</div>
+              <div>· Real-world execution costs may differ from research assumptions</div>
               <div>· A long-flat design can miss sharp upside moves while out of the market</div>
+              <div>· Live performance can differ materially from backtested behavior</div>
               <div>· Public metrics are simplified representations of a richer research process</div>
             </div>
           </section>
@@ -346,9 +363,12 @@ export default function Methodology() {
               borderRadius: '8px',
             }}
           >
-            This is a research and portfolio project built for educational and professional
-            demonstration purposes. Nothing on this site constitutes investment advice or a
-            recommendation to buy or sell any security.
+            This is a research and portfolio project built for educational and
+            professional demonstration purposes. Nothing on this site constitutes
+            investment advice or a recommendation to buy or sell any security. The
+            site does not account for individual objectives, constraints, taxes,
+            transaction costs, slippage, or execution quality, and real-world results
+            may differ materially from modeled or displayed outcomes.
           </div>
         </article>
 
@@ -371,9 +391,12 @@ export default function Methodology() {
             { label: 'Pipeline architecture', href: '#pipeline-architecture' },
             { label: 'Strategy design', href: '#strategy-design' },
             { label: 'Validation framework', href: '#validation-framework' },
-            { label: 'Live signal and display lag', href: '#live-signal-and-display-lag' },
+            { label: 'Live signal contract', href: '#live-signal-contract' },
             { label: 'How to read results', href: '#how-to-read-results' },
-            { label: 'What is not disclosed', href: '#what-is-not-disclosed' },
+            {
+              label: 'What is public vs. proprietary',
+              href: '#what-is-public-vs-proprietary',
+            },
             { label: 'Limitations and known risks', href: '#limitations-and-known-risks' },
           ].map((section) => (
             <a

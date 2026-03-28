@@ -43,18 +43,13 @@ function extractDaysFromStatus(status: string | null): number | null {
 
 export default async function Performance() {
   const signals = await getRecentSignals(200)
-  const maturedSignals = signals.filter((signal, index) => {
-    const horizon = Math.max(signal.prediction_horizon ?? 0, 0)
-    return index >= horizon
-  })
-
-  const allocated = maturedSignals.filter(
-    s => s.direction === 'bullish' && s.live_episode_return_to_date !== null
+  const allocated = signals.filter(
+    s => s.live_episode_return_to_date !== null
   )
-  const flat = maturedSignals.filter(
-    s => s.direction !== 'bullish' && s.live_flat_episode_spy_move_to_date !== null
+  const flat = signals.filter(
+    s => s.live_episode_return_to_date === null && s.live_flat_episode_spy_move_to_date !== null
   )
-  const hasEpisodeData = allocated.length > 0 || flat.length > 0
+  const hasSignals = signals.length > 0
 
   const avgAllocatedReturn = avg(allocated.map(s => s.live_episode_return_to_date!))
   const avgFlatReturn = avg(flat.map(s => s.live_flat_episode_spy_move_to_date!))
@@ -69,7 +64,7 @@ export default async function Performance() {
     ? (positiveEpisodes / allocated.length * 100).toFixed(1)
     : null
 
-  const allEpisodes = [...allocated, ...flat].sort(
+  const allEpisodes = [...signals].sort(
     (a, b) => new Date(b.signal_date).getTime() - new Date(a.signal_date).getTime()
   )
 
@@ -94,11 +89,12 @@ export default async function Performance() {
         <div style={{
           background: '#f9fafb', borderRadius: '8px',
           padding: '12px 16px', marginBottom: '24px',
-          fontSize: '13px', color: '#374151', lineHeight: '1.6'
+          fontSize: '12px', color: '#374151', lineHeight: '1.6'
         }}>
           Performance is measured by allocation episode — the return earned while the system
           was invested, compared to periods when it chose to stay flat. The goal is to be
-          allocated during favourable conditions and out during unfavourable ones.
+          allocated during favourable conditions and out during unfavourable ones. Test data
+          started on January 1st, 2026.
         </div>
 
         {/* Primary metrics */}
@@ -182,12 +178,12 @@ export default async function Performance() {
         <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>
           Each row shows the return earned (or avoided) during that episode.
           Flat rows show what SPY did while the system was uninvested.
-          Only signals with a fully elapsed prediction horizon are included.
+          Signals are shown through today.
         </div>
 
-        {!hasEpisodeData ? (
+        {!hasSignals ? (
           <div style={{ color: '#9ca3af', padding: '24px 0' }}>
-            No matured episode returns yet — data appears after the full horizon elapses.
+            No signals yet — check back after market close.
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -204,14 +200,27 @@ export default async function Performance() {
             </thead>
             <tbody>
               {allEpisodes.map(signal => {
-                const isAllocated = signal.direction === 'bullish'
-                const ret = isAllocated
+                const hasAllocatedReturn = signal.live_episode_return_to_date !== null
+                const hasFlatReturn = signal.live_flat_episode_spy_move_to_date !== null
+                const isAllocated = hasAllocatedReturn
+                  ? true
+                  : hasFlatReturn
+                    ? false
+                    : signal.direction === 'bullish'
+                const ret = hasAllocatedReturn
                   ? signal.live_episode_return_to_date
-                  : signal.live_flat_episode_spy_move_to_date
-                const status = isAllocated
+                  : hasFlatReturn
+                    ? signal.live_flat_episode_spy_move_to_date
+                    : null
+                const status = hasAllocatedReturn
                   ? signal.live_episode_status
-                  : signal.live_flat_episode_status
+                  : hasFlatReturn
+                    ? signal.live_flat_episode_status
+                    : (signal.direction === 'bullish'
+                      ? signal.live_episode_status
+                      : signal.live_flat_episode_status)
                 const daysInEpisode = signal.live_episode_days_in_trade ?? extractDaysFromStatus(status)
+                const hasReturn = ret !== null
                 const isPositive = (ret ?? 0) > 0
 
                 return (
@@ -241,7 +250,9 @@ export default async function Performance() {
                       {formatReturn(ret)}
                     </td>
                     <td style={{ padding: '9px 0', borderBottom: '1px solid #f3f4f6' }}>
-                      {!isAllocated ? (
+                      {!hasReturn ? (
+                        <span style={{ color: '#6b7280' }}>Pending</span>
+                      ) : !isAllocated ? (
                         <span style={{ color: '#6b7280' }}>Flat / avoided</span>
                       ) : isPositive ? (
                         <span style={{ color: '#27500A' }}>✓ Positive</span>
@@ -262,7 +273,7 @@ export default async function Performance() {
           borderRadius: '8px', marginTop: '28px'
         }}>
           Past performance does not guarantee future results. This is a research project.
-          All signals are displayed after a 45-day lag. Nothing here constitutes investment advice.
+          Signals are displayed through today. Nothing here constitutes investment advice.
         </div>
       </div>
     </div>
