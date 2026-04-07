@@ -1,9 +1,17 @@
 import { getRecentSignals } from '@/lib/signals'
-import { getStockQuote, getHistoricalData, getTickerFundamentals, type PricePoint } from '@/lib/finance'
+import {
+  getStockQuote,
+  getHistoricalData,
+  getTickerFundamentals,
+  getTickerNews,
+  getRelatedTickers,
+  type PricePoint,
+  type StockQuote,
+} from '@/lib/finance'
 import { getViewerUserId } from '@/lib/auth'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 import Nav from '@/components/Nav'
-import { ShieldCheck, Activity, Target, Clock, Lock } from 'lucide-react'
+import { ShieldCheck, Activity, Target, Clock, Lock, Newspaper } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import StockChartPanel from '@/components/StockChartPanel'
@@ -91,6 +99,39 @@ function formatPercent(value: number | null, digits = 0): string {
   return `${(value * 100).toFixed(digits)}%`
 }
 
+function formatTimeAgo(value: string | null): string {
+  if (!value) return 'Recent'
+  const ts = Date.parse(value)
+  if (!Number.isFinite(ts)) return 'Recent'
+
+  const diffMs = Date.now() - ts
+  if (diffMs < 60 * 60 * 1000) {
+    const mins = Math.max(1, Math.floor(diffMs / (60 * 1000)))
+    return `${mins}m ago`
+  }
+  if (diffMs < 24 * 60 * 60 * 1000) {
+    const hours = Math.max(1, Math.floor(diffMs / (60 * 60 * 1000)))
+    return `${hours}h ago`
+  }
+
+  const days = Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)))
+  return `${days}d ago`
+}
+
+function getSourceIconUrl(articleUrl: string): string | null {
+  try {
+    const host = new URL(articleUrl).hostname
+    if (!host) return null
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`
+  } catch {
+    return null
+  }
+}
+
+function getNewsIconUrl(item: { sourceUrl: string | null; url: string }): string | null {
+  return getSourceIconUrl(item.sourceUrl || item.url)
+}
+
 function computeMaxDrawdown(returns: number[]): number | null {
   if (returns.length === 0) return null
 
@@ -172,13 +213,16 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
   const viewerUserId = await getViewerUserId()
+  const relatedTickerSymbols = getRelatedTickers(ticker)
 
   const hasSignals = ticker === 'SPY'
-  const [quote, historicalData, recentSignals, fundamentals] = await Promise.all([
+  const [quote, historicalData, recentSignals, fundamentals, newsItems, relatedQuotes] = await Promise.all([
     getStockQuote(ticker),
     getHistoricalData(ticker, 1825),
     hasSignals ? getRecentSignals(180) : Promise.resolve([]),
     getTickerFundamentals(ticker),
+    getTickerNews(ticker, 5),
+    Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
   ])
   const isInWatchlist = viewerUserId ? await isTickerInWatchlist(viewerUserId, ticker) : false
   
@@ -189,6 +233,12 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   // Extract Snapshot stats for the Key Stats grid
   const keyStats = fundamentals.snapshot.slice(0, 16) // Limit to 16 for a clean grid
   const modelProof = hasSignals ? computeModelProofMetrics(recentSignals, historicalData) : null
+  const relatedAssets = relatedTickerSymbols
+    .map((symbol, index) => {
+      const peerQuote = relatedQuotes[index] as StockQuote | null | undefined
+      return { symbol, quote: peerQuote ?? null }
+    })
+    .filter((item) => item.quote !== null)
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
@@ -288,9 +338,60 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                          </span>
                        </div>
                      ))}
-                   </div>
-                 </div>
-               )}
+                  </div>
+                </div>
+              )}
+
+              {/* NEWS FEED */}
+              <div className="mt-8">
+                <div className="flex justify-between items-end border-b border-border pb-2 mb-3">
+                  <h2 className="text-xl font-bold text-gray-900">Latest News</h2>
+                </div>
+                {newsItems.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No recent news available for this ticker.</div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {newsItems.map((item) => {
+                      const sourceIconUrl = getNewsIconUrl(item)
+                      return (
+                        <a
+                          key={item.id}
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="grid grid-cols-[112px_1fr] gap-3 rounded-lg border border-border bg-card p-2 hover:bg-muted/20 hover:border-muted-foreground/20 transition-colors"
+                        >
+                          <div className="h-[76px] w-[112px] overflow-hidden rounded-md border border-border bg-muted/40">
+                            {item.imageUrl ? (
+                              <div
+                                className="h-full w-full bg-center bg-cover bg-no-repeat"
+                                style={{ backgroundImage: `url(${item.imageUrl})` }}
+                              />
+                            ) : sourceIconUrl ? (
+                              <div
+                                className="h-full w-full bg-white bg-center bg-no-repeat bg-contain"
+                                style={{ backgroundImage: `url(${sourceIconUrl})` }}
+                              />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                                <Newspaper className="h-5 w-5" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[14px] font-semibold text-gray-900 leading-snug line-clamp-2">
+                              {item.title}
+                            </div>
+                            <div className="text-[12px] text-muted-foreground mt-1.5 line-clamp-1">
+                              {item.publisher} · {formatTimeAgo(item.publishedAt)}
+                            </div>
+                          </div>
+                        </a>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -389,6 +490,41 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
           </div>
         </div>
+
+        {/* RELATED ASSETS */}
+        <section className="mt-10">
+          <div className="flex justify-between items-end border-b border-border pb-2 mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Similar Assets</h2>
+          </div>
+          {relatedAssets.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No peer assets available right now.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {relatedAssets.map((asset) => {
+                const peerQuote = asset.quote
+                const changePercent = peerQuote?.changePercent ?? null
+                const up = changePercent !== null && changePercent >= 0
+
+                return (
+                  <Link
+                    key={asset.symbol}
+                    href={`/stocks/${asset.symbol}`}
+                    className="bg-card border border-border rounded-lg p-3 hover:border-primary/50 hover:bg-muted/10 transition-colors"
+                  >
+                    <div className="text-[16px] font-bold text-gray-900">{asset.symbol}</div>
+                    <div className="text-[12px] text-muted-foreground truncate mt-0.5">{peerQuote?.name ?? asset.symbol}</div>
+                    <div className="text-[20px] font-semibold text-gray-900 mt-2">
+                      {peerQuote ? `$${peerQuote.price.toFixed(2)}` : '—'}
+                    </div>
+                    <div className={`text-[13px] font-medium mt-1 ${up ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {changePercent === null ? '—' : `${up ? '+' : ''}${changePercent.toFixed(2)}%`}
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   )

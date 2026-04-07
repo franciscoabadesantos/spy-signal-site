@@ -16,6 +16,15 @@ export async function getRecentSignals(limit = 20): Promise<Signal[]> {
   return data as Signal[]
 }
 
+export async function getSignalHistoryForTicker(
+  tickerRaw: string,
+  limit = 250
+): Promise<Signal[]> {
+  const ticker = tickerRaw.trim().toUpperCase()
+  if (ticker !== 'SPY') return []
+  return getRecentSignals(limit)
+}
+
 export async function getLatestSignal(): Promise<Signal | null> {
   const signals = await getRecentSignals(1)
   return signals[0] ?? null
@@ -49,9 +58,14 @@ export type ScreenerSignal = {
   changePercent: number | null
 }
 
+export type ScreenerSort = 'conviction' | 'latest' | 'movers' | 'ticker'
+
 export type ScreenerQuery = {
   signal?: SignalDirection
   minConvictionPct?: number
+  maxSignalAgeDays?: number
+  textQuery?: string
+  sortBy?: ScreenerSort
   limit?: number
   tickers?: string[]
 }
@@ -262,15 +276,44 @@ async function enrichWithQuotes(rows: ScreenerSignal[]): Promise<ScreenerSignal[
   })
 }
 
-function sortScreenerRows(rows: ScreenerSignal[]): ScreenerSignal[] {
+function parseSignalDateMs(value: string | null): number {
+  if (!value) return 0
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function sortScreenerRows(rows: ScreenerSignal[], sortBy: ScreenerSort): ScreenerSignal[] {
   return rows.slice().sort((a, b) => {
+    if (sortBy === 'ticker') {
+      return a.ticker.localeCompare(b.ticker)
+    }
+
+    if (sortBy === 'latest') {
+      const dateDelta = parseSignalDateMs(b.signalDate) - parseSignalDateMs(a.signalDate)
+      if (dateDelta !== 0) return dateDelta
+      const convictionA = a.conviction ?? -1
+      const convictionB = b.conviction ?? -1
+      if (convictionA !== convictionB) return convictionB - convictionA
+      return a.ticker.localeCompare(b.ticker)
+    }
+
+    if (sortBy === 'movers') {
+      const moveA = Math.abs(a.changePercent ?? -1)
+      const moveB = Math.abs(b.changePercent ?? -1)
+      if (moveA !== moveB) return moveB - moveA
+      const convictionA = a.conviction ?? -1
+      const convictionB = b.conviction ?? -1
+      if (convictionA !== convictionB) return convictionB - convictionA
+      return a.ticker.localeCompare(b.ticker)
+    }
+
     const convictionA = a.conviction ?? -1
     const convictionB = b.conviction ?? -1
     if (convictionA !== convictionB) return convictionB - convictionA
 
-    const dateA = a.signalDate ? new Date(a.signalDate).getTime() : 0
-    const dateB = b.signalDate ? new Date(b.signalDate).getTime() : 0
-    return dateB - dateA
+    const dateDelta = parseSignalDateMs(b.signalDate) - parseSignalDateMs(a.signalDate)
+    if (dateDelta !== 0) return dateDelta
+    return a.ticker.localeCompare(b.ticker)
   })
 }
 
@@ -300,6 +343,7 @@ function dedupeByTicker(rows: ScreenerSignal[]): ScreenerSignal[] {
 
 export async function getScreenerSignals(query: ScreenerQuery = {}): Promise<ScreenerResult> {
   const limit = Math.max(1, Math.min(500, query.limit ?? 200))
+  const sortBy: ScreenerSort = query.sortBy ?? 'conviction'
   const tickerFilter = (query.tickers ?? [])
     .map((ticker) => ticker.trim().toUpperCase())
     .filter((ticker) => ticker.length > 0)
@@ -337,7 +381,23 @@ export async function getScreenerSignals(query: ScreenerQuery = {}): Promise<Scr
     rows = rows.filter((row) => row.conviction !== null && row.conviction * 100 >= minConvictionPct)
   }
 
-  rows = sortScreenerRows(rows).slice(0, limit)
+  const maxSignalAgeDays = query.maxSignalAgeDays ?? 0
+  if (maxSignalAgeDays > 0) {
+    const cutoff = Date.now() - maxSignalAgeDays * 24 * 60 * 60 * 1000
+    rows = rows.filter((row) => parseSignalDateMs(row.signalDate) >= cutoff)
+  }
+
+  const rawQuery = (query.textQuery ?? '').trim().toLowerCase()
+  if (rawQuery.length > 0) {
+    const tokens = rawQuery.split(/[,\s]+/).filter((token) => token.length > 0).slice(0, 12)
+    rows = rows.filter((row) => {
+      const ticker = row.ticker.toLowerCase()
+      const name = row.name?.toLowerCase() ?? ''
+      return tokens.some((token) => ticker.includes(token) || name.includes(token))
+    })
+  }
+
+  rows = sortScreenerRows(rows, sortBy).slice(0, limit)
 
   return { rows, source }
 }

@@ -20,6 +20,7 @@ const YAHOO_SUMMARY_AUTH_COOLDOWN_MS = 30 * 60 * 1000
 
 let yahooQuoteCooldownUntil = 0
 let yahooHistoricalCooldownUntil = 0
+let yahooNewsCooldownUntil = 0
 let marketCacheAvailable: boolean | null = null
 let missingSchemaLogged = false
 let writeSupportLogged = false
@@ -89,6 +90,16 @@ export interface TickerFundamentals {
   risk: TickerFinancialRow[]
 }
 
+export interface TickerNewsItem {
+  id: string
+  title: string
+  publisher: string
+  url: string
+  publishedAt: string | null
+  imageUrl: string | null
+  sourceUrl: string | null
+}
+
 interface QuoteApiResult {
   symbol?: string
   shortName?: string
@@ -116,6 +127,29 @@ interface ChartApiResponse {
       }
     }>
   }
+}
+
+interface YahooNewsResponse {
+  news?: Array<{
+    uuid?: string
+    title?: string
+    publisher?: string
+    providerPublishTime?: number
+    link?: string
+    clickThroughUrl?: {
+      url?: string
+    }
+    canonicalUrl?: {
+      url?: string
+    }
+    thumbnail?: {
+      resolutions?: Array<{
+        url?: string
+        width?: number
+        height?: number
+      }>
+    }
+  }>
 }
 
 interface YahooValue {
@@ -194,6 +228,19 @@ class YahooAuthError extends Error {
 
 function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase()
+}
+
+const RELATED_TICKER_MAP: Record<string, string[]> = {
+  SPY: ['QQQ', 'DIA', 'IWM', 'VOO'],
+  QQQ: ['SPY', 'VGT', 'XLK', 'DIA'],
+  DIA: ['SPY', 'QQQ', 'IWM', 'VOO'],
+  IWM: ['SPY', 'DIA', 'QQQ', 'VTWO'],
+  VOO: ['SPY', 'IVV', 'SCHX', 'QQQ'],
+  IVV: ['SPY', 'VOO', 'SCHX', 'VTI'],
+  VTI: ['SPY', 'VOO', 'IVV', 'SCHB'],
+  XLK: ['QQQ', 'VGT', 'SPY', 'SOXX'],
+  XLF: ['SPY', 'VFH', 'IYF', 'DIA'],
+  XLE: ['SPY', 'VDE', 'IYE', 'OIH'],
 }
 
 function sleep(ms: number) {
@@ -381,9 +428,17 @@ function hasFreshTimestamp(fetchedAt: string, maxAgeMs: number): boolean {
 }
 
 async function fetchYahooJson<T>(url: string): Promise<T> {
-  const requestKind = url.includes('/v8/finance/chart/') ? 'historical' : 'quote'
+  const requestKind = url.includes('/v8/finance/chart/')
+    ? 'historical'
+    : url.includes('/v1/finance/search')
+      ? 'news'
+      : 'quote'
   const cooldownUntil =
-    requestKind === 'historical' ? yahooHistoricalCooldownUntil : yahooQuoteCooldownUntil
+    requestKind === 'historical'
+      ? yahooHistoricalCooldownUntil
+      : requestKind === 'news'
+        ? yahooNewsCooldownUntil
+        : yahooQuoteCooldownUntil
 
   if (Date.now() < cooldownUntil) {
     throw new YahooHttpError(
@@ -409,6 +464,8 @@ async function fetchYahooJson<T>(url: string): Promise<T> {
         if (res.status === 429) {
           if (requestKind === 'historical') {
             yahooHistoricalCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS
+          } else if (requestKind === 'news') {
+            yahooNewsCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS
           } else {
             yahooQuoteCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS
           }
@@ -478,6 +535,185 @@ async function fetchYahooHistorical(ticker: string, periodDays: number): Promise
   }
 
   return points
+}
+
+function normalizeNewsUrl(item: {
+  link?: string
+  clickThroughUrl?: { url?: string }
+  canonicalUrl?: { url?: string }
+}): string | null {
+  const candidate = item.clickThroughUrl?.url || item.link || item.canonicalUrl?.url || null
+  if (!candidate) return null
+  const trimmed = candidate.trim()
+  if (!trimmed.startsWith('http')) return null
+  return trimmed
+}
+
+function normalizePublishedAt(raw: number | undefined): string | null {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
+  return new Date(raw * 1000).toISOString()
+}
+
+function normalizeNewsImage(item: {
+  thumbnail?: {
+    resolutions?: Array<{
+      url?: string
+      width?: number
+      height?: number
+    }>
+  }
+}): string | null {
+  const resolutions = item.thumbnail?.resolutions
+  if (!Array.isArray(resolutions) || resolutions.length === 0) return null
+
+  const sorted = resolutions
+    .filter((entry) => typeof entry.url === 'string' && entry.url.trim().startsWith('http'))
+    .slice()
+    .sort((a, b) => {
+      const areaA = (a.width ?? 0) * (a.height ?? 0)
+      const areaB = (b.width ?? 0) * (b.height ?? 0)
+      return areaB - areaA
+    })
+
+  const candidate = sorted[0]?.url?.trim()
+  return candidate || null
+}
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replaceAll('&amp;', '&')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+}
+
+function readRssTag(block: string, tag: string): string | null {
+  const cdataRegex = new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, 'i')
+  const plainRegex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i')
+  const cdataMatch = block.match(cdataRegex)
+  if (cdataMatch?.[1]) return decodeXmlEntities(cdataMatch[1].trim())
+  const plainMatch = block.match(plainRegex)
+  if (plainMatch?.[1]) return decodeXmlEntities(plainMatch[1].trim())
+  return null
+}
+
+function readRssSourceUrl(block: string): string | null {
+  const sourceTagMatch = block.match(/<source[^>]*url="([^"]+)"[^>]*>/i)
+  const url = sourceTagMatch?.[1]?.trim()
+  if (!url || !url.startsWith('http')) return null
+  return decodeXmlEntities(url)
+}
+
+async function fetchGoogleNewsRss(ticker: string, limit: number): Promise<TickerNewsItem[]> {
+  const query = encodeURIComponent(`${ticker} ETF OR ${ticker} stock`)
+  const url = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/rss+xml,application/xml,text/xml,*/*',
+        'User-Agent':
+          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+      },
+      cache: 'no-store',
+    })
+    if (!response.ok) return []
+
+    const xml = await response.text()
+    const itemBlocks = xml
+      .split('<item>')
+      .slice(1)
+      .map((chunk) => chunk.split('</item>')[0] || '')
+      .filter(Boolean)
+
+    const items: TickerNewsItem[] = []
+    for (let i = 0; i < itemBlocks.length; i++) {
+      const block = itemBlocks[i]
+      const title = readRssTag(block, 'title')
+      const link = readRssTag(block, 'link')
+      const publisher = readRssTag(block, 'source') ?? 'Google News'
+      const sourceUrl = readRssSourceUrl(block)
+      const pubDate = readRssTag(block, 'pubDate')
+      const publishedAt =
+        pubDate && Number.isFinite(Date.parse(pubDate))
+          ? new Date(pubDate).toISOString()
+          : null
+      if (!title || !link || !link.startsWith('http')) continue
+
+      items.push({
+        id: `google:${ticker}:${i}:${title.slice(0, 40)}`,
+        title,
+        publisher,
+        url: link,
+        publishedAt,
+        imageUrl: null,
+        sourceUrl,
+      })
+      if (items.length >= limit) break
+    }
+
+    return items
+  } catch {
+    return []
+  }
+}
+
+async function fetchYahooNews(ticker: string, limit: number): Promise<TickerNewsItem[]> {
+  const desiredCount = Math.max(limit, 6)
+  const queries = [ticker]
+  const deduped = new Map<string, TickerNewsItem>()
+
+  for (const q of queries) {
+    const url = new URL(`${YAHOO_SUMMARY_API_BASE}/v1/finance/search`)
+    url.searchParams.set('q', q)
+    url.searchParams.set('quotesCount', '0')
+    url.searchParams.set('newsCount', String(desiredCount))
+    url.searchParams.set('enableFuzzyQuery', 'true')
+    url.searchParams.set('lang', 'en-US')
+    url.searchParams.set('region', 'US')
+
+    try {
+      const data = await fetchYahooJson<YahooNewsResponse>(url.toString())
+      const rawNews = Array.isArray(data.news) ? data.news : []
+
+      for (const item of rawNews) {
+        const title = getString(item.title)
+        const publisher = getString(item.publisher) ?? 'Market News'
+        const newsUrl = normalizeNewsUrl(item)
+        if (!title || !newsUrl) continue
+        const id = getString(item.uuid) ?? `${ticker}:${title.slice(0, 48)}`
+        const key = id || newsUrl
+        if (deduped.has(key)) continue
+        deduped.set(key, {
+          id,
+          title,
+          publisher,
+          url: newsUrl,
+          publishedAt: normalizePublishedAt(item.providerPublishTime),
+          imageUrl: normalizeNewsImage(item),
+          sourceUrl: null,
+        })
+      }
+
+      if (deduped.size >= limit) break
+    } catch {
+      continue
+    }
+  }
+
+  if (deduped.size < limit) {
+    const googleFallback = await fetchGoogleNewsRss(ticker, limit)
+    for (const item of googleFallback) {
+      const key = `${item.url}:${item.title}`
+      if (!deduped.has(key)) deduped.set(key, item)
+      if (deduped.size >= limit) break
+    }
+  }
+
+  const items = [...deduped.values()].slice(0, limit)
+  if (items.length === 0) console.warn(`No usable news articles found for ${ticker}.`)
+  return items
 }
 
 const QUOTE_SUMMARY_MODULES = [
@@ -1695,3 +1931,18 @@ export const getTickerFundamentals = unstable_cache(
   ['stock-fundamentals-cache-v5'],
   { revalidate: 21600 }
 )
+
+export async function getTickerNews(
+  ticker: string,
+  limit: number = 5
+): Promise<TickerNewsItem[]> {
+  return fetchYahooNews(normalizeTicker(ticker), limit)
+}
+
+export function getRelatedTickers(tickerRaw: string): string[] {
+  const ticker = normalizeTicker(tickerRaw)
+  const mapped = RELATED_TICKER_MAP[ticker]
+  if (mapped && mapped.length > 0) return mapped
+
+  return ['SPY', 'QQQ', 'DIA', 'IWM', 'VOO'].filter((candidate) => candidate !== ticker).slice(0, 4)
+}

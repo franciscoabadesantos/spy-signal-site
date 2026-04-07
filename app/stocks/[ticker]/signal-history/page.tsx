@@ -1,8 +1,9 @@
 import Nav from '@/components/Nav'
-import { getRecentSignals } from '@/lib/signals'
+import { getSignalHistoryForTicker } from '@/lib/signals'
 import type { Metadata } from 'next'
 import StockSubnav from '@/components/StockSubnav'
 import { getStockQuote } from '@/lib/finance'
+import { getViewerUserId } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,8 +59,10 @@ export default async function SignalHistoryPage({
 }) {
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
+  const viewerUserId = await getViewerUserId()
   const hasLiveSignals = ticker === 'SPY'
-  const signals = hasLiveSignals ? await getRecentSignals(250) : []
+  const signals = await getSignalHistoryForTicker(ticker, 250)
+  const canExport = Boolean(viewerUserId) && hasLiveSignals && signals.length > 0
 
   return (
     <div className="min-h-screen bg-[#f9fafb] text-[#111827]">
@@ -77,6 +80,23 @@ export default async function SignalHistoryPage({
         </div>
 
         <StockSubnav ticker={ticker} active="signal-history" />
+
+        <div className="mt-5 flex items-center justify-end">
+          {canExport ? (
+            <a
+              href={`/api/export-signals?ticker=${ticker}`}
+              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Download CSV
+            </a>
+          ) : (
+            <div className="text-[12px] text-gray-500">
+              {viewerUserId
+                ? 'CSV export is available when live signal history exists.'
+                : 'Sign in to download signal history as CSV.'}
+            </div>
+          )}
+        </div>
 
         <div className="mt-8 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
           {!hasLiveSignals ? (

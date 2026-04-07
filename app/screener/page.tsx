@@ -1,13 +1,16 @@
 import Nav from '@/components/Nav'
 import { Filter, Lock } from 'lucide-react'
 import Link from 'next/link'
-import { getScreenerSignals } from '@/lib/signals'
+import { getScreenerSignals, type ScreenerSort } from '@/lib/signals'
 
 export const dynamic = 'force-dynamic'
 
 type ScreenerSearchParams = {
   signal?: string | string[]
   minConviction?: string | string[]
+  q?: string | string[]
+  sort?: string | string[]
+  maxAgeDays?: string | string[]
 }
 
 function singleParam(value: string | string[] | undefined): string | undefined {
@@ -22,8 +25,25 @@ function parseSignalFilter(raw: string | undefined): 'all' | 'bullish' | 'neutra
 
 function parseMinConviction(raw: string | undefined): number {
   const parsed = Number(raw)
-  if (!Number.isFinite(parsed)) return 70
+  if (!Number.isFinite(parsed)) return 0
   return Math.max(0, Math.min(100, Math.round(parsed)))
+}
+
+function parseTextQuery(raw: string | undefined): string {
+  if (!raw) return ''
+  return raw.trim().slice(0, 80)
+}
+
+function parseSort(raw: string | undefined): ScreenerSort {
+  if (raw === 'latest' || raw === 'movers' || raw === 'ticker') return raw
+  return 'conviction'
+}
+
+function parseMaxAgeDays(raw: string | undefined): number {
+  if (!raw || raw.trim().length === 0) return 0
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) return 0
+  return Math.max(0, Math.min(3650, Math.round(parsed)))
 }
 
 function formatConviction(value: number | null): string {
@@ -40,6 +60,17 @@ function formatPct(value: number | null): string {
   if (value === null) return '—'
   const sign = value >= 0 ? '+' : ''
   return `${sign}${value.toFixed(2)}%`
+}
+
+function formatSignalDate(value: string | null): string {
+  if (!value) return '—'
+  const parsed = Date.parse(value)
+  if (!Number.isFinite(parsed)) return '—'
+  return new Date(parsed).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 function signalBadgeClass(signal: 'bullish' | 'neutral' | 'bearish'): string {
@@ -76,11 +107,17 @@ export default async function ScreenerPage({
   const resolvedSearchParams = await searchParams
   const signal = parseSignalFilter(singleParam(resolvedSearchParams.signal))
   const minConviction = parseMinConviction(singleParam(resolvedSearchParams.minConviction))
+  const textQuery = parseTextQuery(singleParam(resolvedSearchParams.q))
+  const sortBy = parseSort(singleParam(resolvedSearchParams.sort))
+  const maxAgeDays = parseMaxAgeDays(singleParam(resolvedSearchParams.maxAgeDays))
 
   const [{ rows, source }, isSignedIn] = await Promise.all([
     getScreenerSignals({
       signal: signal === 'all' ? undefined : signal,
       minConvictionPct: minConviction,
+      textQuery: textQuery || undefined,
+      maxSignalAgeDays: maxAgeDays > 0 ? maxAgeDays : undefined,
+      sortBy,
       limit: 200,
     }),
     resolveSignedInState(),
@@ -89,6 +126,7 @@ export default async function ScreenerPage({
   const previewLimit = 3
   const visibleRows = isSignedIn ? rows : rows.slice(0, previewLimit)
   const hiddenCount = Math.max(0, rows.length - visibleRows.length)
+  const isSpyOnlySource = source === 'spy_signals_live'
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -102,6 +140,12 @@ export default async function ScreenerPage({
               Signal Screener
             </h1>
             <p className="text-muted-foreground mt-2">Filter and discover proprietary signals across tracked assets.</p>
+            {isSpyOnlySource && (
+              <p className="text-xs text-amber-700 mt-2">
+                Data source is currently SPY-only. Load a multi-ticker view (for example
+                <code className="mx-1">latest_signals_view</code>) for full market screener coverage.
+              </p>
+            )}
           </div>
           
           <button className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md shadow-md text-sm transition-colors flex items-center gap-2">
@@ -117,6 +161,17 @@ export default async function ScreenerPage({
             <h2 className="text-sm font-semibold uppercase tracking-wider mb-6 text-muted-foreground">Filters</h2>
             
             <form method="GET" className="space-y-6">
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">Ticker or Name</label>
+                <input
+                  type="text"
+                  name="q"
+                  defaultValue={textQuery}
+                  placeholder="AAPL, QQQ, semiconductors..."
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+
               <div>
                 <label className="text-sm font-medium mb-2 block text-foreground">Current Signal</label>
                 <select
@@ -142,8 +197,38 @@ export default async function ScreenerPage({
                   className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
                 />
                 <div className="text-xs text-muted-foreground mt-1">
-                  Filters rows below this conviction threshold (%)
+                  Filters rows below this conviction threshold (%). Default is 0 to avoid empty initial results.
                 </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">Max Signal Age (days)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={3650}
+                  name="maxAgeDays"
+                  defaultValue={maxAgeDays > 0 ? maxAgeDays : ''}
+                  placeholder="Any"
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
+                />
+                <div className="text-xs text-muted-foreground mt-1">
+                  Keep only rows updated within this many days
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-foreground">Sort By</label>
+                <select
+                  name="sort"
+                  defaultValue={sortBy}
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="conviction">Conviction (High → Low)</option>
+                  <option value="latest">Most Recent Signal</option>
+                  <option value="movers">Biggest Daily Movers</option>
+                  <option value="ticker">Ticker (A → Z)</option>
+                </select>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -175,14 +260,21 @@ export default async function ScreenerPage({
                 Showing {visibleRows.length} of {rows.length} matching tickers
               </span>
               {source && (
-                <span className="text-xs text-muted-foreground hidden md:inline">Source: {source}</span>
+                <span className="text-xs text-muted-foreground hidden md:inline">
+                  Source: {source} · Sort: {sortBy}
+                </span>
               )}
             </div>
             
             {rows.length === 0 ? (
               <div className="border border-border rounded-lg p-6 text-sm text-muted-foreground">
                 No screener rows available with current filters. Confirm your Supabase source view
-                (for example `latest_signals_view`) has cross-ticker signal rows.
+                (for example <code>latest_signals_view</code>) has cross-ticker signal rows.
+                {minConviction > 0 ? (
+                  <div className="mt-2">
+                    Tip: your current <code>minConviction</code> is {minConviction}%. Try lowering it.
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="overflow-auto">
@@ -192,6 +284,8 @@ export default async function ScreenerPage({
                       <th className="px-4 py-3 font-medium rounded-tl-md">Ticker</th>
                       <th className="px-4 py-3 font-medium">Signal</th>
                       <th className="px-4 py-3 font-medium">Conviction</th>
+                      <th className="px-4 py-3 font-medium">Signal Date</th>
+                      <th className="px-4 py-3 font-medium">Horizon</th>
                       <th className="px-4 py-3 font-medium">Price</th>
                       <th className="px-4 py-3 font-medium rounded-tr-md">% Chg</th>
                     </tr>
@@ -215,6 +309,10 @@ export default async function ScreenerPage({
                           </span>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{formatConviction(row.conviction)}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{formatSignalDate(row.signalDate)}</td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {row.predictionHorizon === null ? '—' : `${row.predictionHorizon}d`}
+                        </td>
                         <td className="px-4 py-3 font-medium">{formatPrice(row.price)}</td>
                         <td
                           className={`px-4 py-3 font-medium ${

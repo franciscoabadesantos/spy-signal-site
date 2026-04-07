@@ -221,7 +221,7 @@ export default function Nav({ active }: NavProps) {
               >
                 Dashboard
               </Link>
-              <UserButton afterSignOutUrl="/" />
+              <UserButton />
               </>
             )}
           </div>

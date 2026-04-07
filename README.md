@@ -39,6 +39,31 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Deployment TODO (Vercel)
+
+Use this checklist when you're ready to move from local/dev to production:
+
+1. Add production env vars in Vercel:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+   - `NEXT_PUBLIC_APP_URL`
+   - `SIGNAL_ALERT_CRON_TOKEN`
+   - `RESEND_API_KEY`
+   - `SIGNAL_ALERT_FROM_EMAIL`
+2. Run SQL migrations in production Supabase:
+   - `supabase/sql/market_cache.sql`
+   - `supabase/sql/user_watchlists.sql`
+   - `supabase/sql/signal_alert_dispatches.sql`
+3. Deploy to Vercel (`vercel --prod` or your main-branch auto-deploy flow).
+4. Verify cron config from `vercel.json` is active in production.
+5. Run a cron smoke test:
+   - `GET /api/cron/check-signals?dryRun=1` with `Authorization: Bearer <SIGNAL_ALERT_CRON_TOKEN>`
+6. Run one real delivery test on a known flip date:
+   - `GET /api/cron/check-signals?date=YYYY-MM-DD`
+
 ## Market Data Cache (Supabase)
 
 The app now uses a Supabase-backed cache for quotes, historical prices, and ETF fundamentals:
@@ -114,7 +139,8 @@ This writes to `market_quotes` and `market_price_daily` using `SUPABASE_SERVICE_
 
 ## Product Backlog
 
-- Add a `News` area on stock pages with tabs:
-  - `All`
-  - `Videos`
-- Future integration idea: Perplexity-powered news feed for ticker-specific updates.
+- Populate a multi-ticker screener source (for example `latest_signals_view`) so `/screener` is not SPY-only.
+- Add a Perplexity-powered news integration for ticker pages (headline aggregation + source links).
+- Add a Perplexity chat/analysis panel for ticker intelligence (Q&A, context summary, risk notes).
+- Extend Perplexity analysis with social/news momentum inputs (for example X/Reddit trend context), since many users track those signals first.
+- Add ads/sponsored placements in the ticker News section (clear labeling, frequency caps, non-intrusive placement).
