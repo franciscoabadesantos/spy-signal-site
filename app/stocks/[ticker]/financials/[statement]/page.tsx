@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import Nav from '@/components/Nav'
 import StockSubnav from '@/components/StockSubnav'
-import { getTickerFundamentals, type TickerFinancialRow } from '@/lib/finance'
+import type { Metadata } from 'next'
+import { getStockQuote, getTickerFundamentals, type TickerFinancialRow } from '@/lib/finance'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,24 @@ const LEGACY_SLUG_MAP: Record<string, StatementSlug> = {
   'balance-sheet': 'portfolio',
   'cash-flow': 'distributions',
   ratios: 'risk-metrics',
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ ticker: string; statement: string }>
+}): Promise<Metadata> {
+  const resolvedParams = await params
+  const ticker = resolvedParams.ticker.toUpperCase()
+  const statementSlug = (LEGACY_SLUG_MAP[resolvedParams.statement] ?? resolvedParams.statement) as StatementSlug
+  const sectionName = STATEMENT_META[statementSlug]?.title ?? 'Financial Data'
+  const quote = await getStockQuote(ticker)
+  const name = quote?.name || ticker
+
+  return {
+    title: `${ticker} ${sectionName} - SpySignal`,
+    description: `${sectionName} for ${name} (${ticker}), including ETF profile, portfolio metrics, distributions, and risk data.`,
+  }
 }
 
 export default async function FinancialStatementPage({
@@ -62,22 +81,24 @@ export default async function FinancialStatementPage({
                 No {statementMeta.title.toLowerCase()} data is available for this ticker.
               </div>
             ) : (
-              <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="bg-gray-50 text-gray-500 font-medium">
-                  <tr>
-                    <th className="px-6 py-3.5 border-b border-gray-200">Metric</th>
-                    <th className="px-6 py-3.5 border-b border-gray-200">Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {rows.map((row) => (
-                    <tr key={row.label}>
-                      <td className="px-6 py-4 text-gray-700">{row.label}</td>
-                      <td className="px-6 py-4 font-semibold text-gray-900">{row.value}</td>
+              <div className="overflow-auto max-h-[640px]">
+                <table className="w-full text-left text-[13px] whitespace-nowrap">
+                  <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-medium">
+                    <tr>
+                      <th className="px-6 py-3 border-b border-gray-200">Metric</th>
+                      <th className="px-6 py-3 border-b border-gray-200">Value</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr key={row.label} className="border-b border-gray-100 even:bg-gray-50/70">
+                        <td className="px-6 py-3 text-gray-700">{row.label}</td>
+                        <td className="px-6 py-3 font-semibold text-gray-900">{row.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 

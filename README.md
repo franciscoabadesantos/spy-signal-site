@@ -60,6 +60,44 @@ The app now uses a Supabase-backed cache for quotes, historical prices, and ETF 
 
 If you already created the old schema, re-run `supabase/sql/market_cache.sql` so `market_fundamentals` is created.
 
+## Watchlist Tables (Dashboard)
+
+To enable the Pro dashboard watchlist feature, also run:
+
+1. `supabase/sql/user_watchlists.sql`
+
+This table is keyed by Clerk `user_id` and is intended for server-side access via `SUPABASE_SERVICE_ROLE_KEY`.
+
+## Signal Flip Alerts (Cron + Email)
+
+The alert pipeline sends emails when watched tickers flip signal direction on a given date.
+
+### Setup
+
+1. Run SQL: `supabase/sql/signal_alert_dispatches.sql`
+2. Add env vars:
+   - `SIGNAL_ALERT_CRON_TOKEN` (recommended, secures cron endpoint)
+   - `RESEND_API_KEY`
+   - `SIGNAL_ALERT_FROM_EMAIL` (must be a verified sender in Resend)
+   - `NEXT_PUBLIC_APP_URL` (used in email links)
+
+### Cron endpoint
+
+- Route: `GET /api/cron/check-signals`
+- Optional query params:
+  - `date=YYYY-MM-DD` (defaults to current US/Eastern date)
+  - `dryRun=1` (no email sends, useful for testing)
+- Auth header (if token configured):
+  - `Authorization: Bearer <SIGNAL_ALERT_CRON_TOKEN>`
+
+The endpoint is idempotent per user/ticker/date/direction when `signal_alert_dispatches` table exists.
+
+### Vercel Cron
+
+`vercel.json` includes:
+
+- `GET /api/cron/check-signals` on weekdays (`10 21 * * 1-5`, UTC)
+
 ### Cron Strategy
 
 Call `/api/market/refresh` every 1-5 minutes for quotes and periodically (for example hourly) for historicals. This decouples user requests from provider throttling.

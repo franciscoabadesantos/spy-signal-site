@@ -1,12 +1,29 @@
 import Nav from '@/components/Nav'
 import StockSubnav from '@/components/StockSubnav'
-import { getTickerFundamentals } from '@/lib/finance'
+import type { Metadata } from 'next'
+import { getStockQuote, getTickerFundamentals } from '@/lib/finance'
 
 export const dynamic = 'force-dynamic'
 
 function formatWeight(value: number | null): string {
   if (value === null) return '—'
   return `${value.toFixed(2)}%`
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ ticker: string }>
+}): Promise<Metadata> {
+  const resolvedParams = await params
+  const ticker = resolvedParams.ticker.toUpperCase()
+  const quote = await getStockQuote(ticker)
+  const name = quote?.name || ticker
+
+  return {
+    title: `${ticker} Holdings, Dividends & Sector Weights - SpySignal`,
+    description: `Explore top holdings, sector exposure, and dividend metrics for ${name} (${ticker}) on SpySignal.`,
+  }
 }
 
 export default async function HoldingsAndDividendsPage({
@@ -47,8 +64,8 @@ export default async function HoldingsAndDividendsPage({
               <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
                 {snapshotRows.map((row) => (
                   <div key={row.label} className="flex items-center justify-between py-1 border-b border-gray-100 last:border-b-0">
-                    <span className="text-sm text-gray-500">{row.label}</span>
-                    <span className="text-sm font-semibold text-gray-900">{row.value}</span>
+                    <span className="text-[13px] text-gray-500">{row.label}</span>
+                    <span className="text-[13px] font-semibold text-gray-900">{row.value}</span>
                   </div>
                 ))}
               </div>
@@ -63,24 +80,26 @@ export default async function HoldingsAndDividendsPage({
                   No holdings data is currently available for this ticker.
                 </div>
               ) : (
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-gray-50 text-gray-500 font-medium">
-                    <tr>
-                      <th className="px-6 py-3.5 border-b border-gray-200">Symbol</th>
-                      <th className="px-6 py-3.5 border-b border-gray-200">Name</th>
-                      <th className="px-6 py-3.5 border-b border-gray-200">Weight</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {holdingsRows.map((holding) => (
-                      <tr key={`${holding.symbol}-${holding.name}`}>
-                        <td className="px-6 py-4 font-semibold text-gray-900">{holding.symbol}</td>
-                        <td className="px-6 py-4 text-gray-700">{holding.name}</td>
-                        <td className="px-6 py-4 text-gray-700">{formatWeight(holding.weightPercent)}</td>
+                <div className="overflow-auto max-h-[560px]">
+                  <table className="w-full text-left text-[13px] whitespace-nowrap">
+                    <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-medium">
+                      <tr>
+                        <th className="px-6 py-3 border-b border-gray-200">Symbol</th>
+                        <th className="px-6 py-3 border-b border-gray-200">Name</th>
+                        <th className="px-6 py-3 border-b border-gray-200">Weight</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {holdingsRows.map((holding) => (
+                        <tr key={`${holding.symbol}-${holding.name}`} className="border-b border-gray-100 even:bg-gray-50/70">
+                          <td className="px-6 py-3 font-semibold text-gray-900">{holding.symbol}</td>
+                          <td className="px-6 py-3 text-gray-700">{holding.name}</td>
+                          <td className="px-6 py-3 text-gray-700">{formatWeight(holding.weightPercent)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 
@@ -93,22 +112,24 @@ export default async function HoldingsAndDividendsPage({
                   No sector allocation data is currently available for this ticker.
                 </div>
               ) : (
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-gray-50 text-gray-500 font-medium">
-                    <tr>
-                      <th className="px-6 py-3.5 border-b border-gray-200">Sector</th>
-                      <th className="px-6 py-3.5 border-b border-gray-200">Weight</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {sectorRows.map((sector) => (
-                      <tr key={sector.sector}>
-                        <td className="px-6 py-4 text-gray-700">{sector.sector}</td>
-                        <td className="px-6 py-4 text-gray-700">{formatWeight(sector.weightPercent)}</td>
+                <div className="overflow-auto max-h-[520px]">
+                  <table className="w-full text-left text-[13px] whitespace-nowrap">
+                    <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-medium">
+                      <tr>
+                        <th className="px-6 py-3 border-b border-gray-200">Sector</th>
+                        <th className="px-6 py-3 border-b border-gray-200">Weight</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {sectorRows.map((sector) => (
+                        <tr key={sector.sector} className="border-b border-gray-100 even:bg-gray-50/70">
+                          <td className="px-6 py-3 text-gray-700">{sector.sector}</td>
+                          <td className="px-6 py-3 text-gray-700">{formatWeight(sector.weightPercent)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>

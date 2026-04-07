@@ -1,11 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-// These routes will eventually require an active subscription/login
-// const isProtectedRoute = createRouteMatcher(['/premium(.*)', '/screener(.*)'])
+const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/api/watchlist(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
-  // Uncomment when Clerk is fully configured:
-  // if (isProtectedRoute(req)) await auth.protect()
+  if (!process.env.CLERK_SECRET_KEY) return
+  if (isProtectedRoute(req)) await auth.protect()
 })
 
 export const config = {

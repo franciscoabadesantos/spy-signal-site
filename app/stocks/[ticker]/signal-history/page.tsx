@@ -1,6 +1,8 @@
 import Nav from '@/components/Nav'
 import { getRecentSignals } from '@/lib/signals'
+import type { Metadata } from 'next'
 import StockSubnav from '@/components/StockSubnav'
+import { getStockQuote } from '@/lib/finance'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +33,22 @@ function signalBadge(direction: 'bullish' | 'bearish' | 'neutral') {
     return { text: 'Bearish', className: 'bg-red-50 text-red-700 border border-red-200' }
   }
   return { text: 'Neutral', className: 'bg-gray-100 text-gray-700 border border-gray-200' }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ ticker: string }>
+}): Promise<Metadata> {
+  const resolvedParams = await params
+  const ticker = resolvedParams.ticker.toUpperCase()
+  const quote = await getStockQuote(ticker)
+  const name = quote?.name || ticker
+
+  return {
+    title: `${ticker} Signal History - SpySignal`,
+    description: `Daily model stance and conviction history for ${name} (${ticker}) from the SpySignal predictive system.`,
+  }
 }
 
 export default async function SignalHistoryPage({
@@ -70,52 +88,54 @@ export default async function SignalHistoryPage({
               No live signals available yet.
             </div>
           ) : (
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-gray-50 text-gray-500 font-medium">
-                <tr>
-                  <th className="px-6 py-3.5 border-b border-gray-200">Date</th>
-                  <th className="px-6 py-3.5 border-b border-gray-200">Direction</th>
-                  <th className="px-6 py-3.5 border-b border-gray-200">Conviction</th>
-                  <th className="px-6 py-3.5 border-b border-gray-200">Horizon</th>
-                  <th className="px-6 py-3.5 border-b border-gray-200">Episode Return</th>
-                  <th className="px-6 py-3.5 border-b border-gray-200">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {signals.map((signal) => {
-                  const badge = signalBadge(signal.direction)
-                  const episodeReturn =
-                    signal.live_episode_return_to_date ?? signal.live_flat_episode_spy_move_to_date
-                  const status =
-                    signal.live_episode_status ?? signal.live_flat_episode_status ?? 'pending'
+            <div className="overflow-auto max-h-[680px]">
+              <table className="w-full text-left text-[13px] whitespace-nowrap">
+                <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-medium">
+                  <tr>
+                    <th className="px-6 py-3 border-b border-gray-200">Date</th>
+                    <th className="px-6 py-3 border-b border-gray-200">Direction</th>
+                    <th className="px-6 py-3 border-b border-gray-200">Conviction</th>
+                    <th className="px-6 py-3 border-b border-gray-200">Horizon</th>
+                    <th className="px-6 py-3 border-b border-gray-200">Episode Return</th>
+                    <th className="px-6 py-3 border-b border-gray-200">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {signals.map((signal) => {
+                    const badge = signalBadge(signal.direction)
+                    const episodeReturn =
+                      signal.live_episode_return_to_date ?? signal.live_flat_episode_spy_move_to_date
+                    const status =
+                      signal.live_episode_status ?? signal.live_flat_episode_status ?? 'pending'
 
-                  return (
-                    <tr key={signal.id} className="hover:bg-gray-50/70">
-                      <td className="px-6 py-4">{formatDate(signal.signal_date)}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded text-[12px] font-semibold ${badge.className}`}>
-                          {badge.text}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-medium">{formatConviction(signal.prob_side)}</td>
-                      <td className="px-6 py-4 text-gray-600">{signal.prediction_horizon}d</td>
-                      <td
-                        className={`px-6 py-4 font-medium ${
-                          episodeReturn === null
-                            ? 'text-gray-500'
-                            : episodeReturn >= 0
-                              ? 'text-green-700'
-                              : 'text-red-700'
-                        }`}
-                      >
-                        {formatEpisodeReturn(episodeReturn)}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">{status}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                    return (
+                      <tr key={signal.id} className="border-b border-gray-100 even:bg-gray-50/70 hover:bg-gray-50/90">
+                        <td className="px-6 py-3">{formatDate(signal.signal_date)}</td>
+                        <td className="px-6 py-3">
+                          <span className={`px-2.5 py-1 rounded text-[12px] font-semibold ${badge.className}`}>
+                            {badge.text}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 font-medium">{formatConviction(signal.prob_side)}</td>
+                        <td className="px-6 py-3 text-gray-600">{signal.prediction_horizon}d</td>
+                        <td
+                          className={`px-6 py-3 font-medium ${
+                            episodeReturn === null
+                              ? 'text-gray-500'
+                              : episodeReturn >= 0
+                                ? 'text-green-700'
+                                : 'text-red-700'
+                          }`}
+                        >
+                          {formatEpisodeReturn(episodeReturn)}
+                        </td>
+                        <td className="px-6 py-3 text-gray-600">{status}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </main>
