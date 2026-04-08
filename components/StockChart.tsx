@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import type { PricePoint } from '@/lib/finance'
 
 type Size = { width: number; height: number }
@@ -21,6 +21,12 @@ type RenderedSignalMarker = StockChartSignalMarker & {
   index: number
   x: number
   y: number
+}
+
+type SignalBand = {
+  x: number
+  width: number
+  direction: SignalDirection
 }
 
 function formatDateShort(date: string): string {
@@ -52,6 +58,12 @@ function signalColor(direction: SignalDirection): { solid: string; soft: string 
   return { solid: '#475569', soft: 'rgba(71,85,105,0.22)' }
 }
 
+function signalBandFill(direction: SignalDirection): string {
+  if (direction === 'bullish') return 'rgba(16,185,129,0.11)'
+  if (direction === 'bearish') return 'rgba(244,63,94,0.11)'
+  return 'rgba(100,116,139,0.08)'
+}
+
 function signalDirectionLabel(direction: SignalDirection): string {
   if (direction === 'bullish') return 'Bullish'
   if (direction === 'bearish') return 'Bearish'
@@ -66,11 +78,18 @@ function signalKindLabel(kind: SignalMarkerKind): string {
 export default function StockChart({
   data,
   signalMarkers = [],
+  showRegimes = true,
+  showSignalMarkers = true,
 }: {
   data: PricePoint[]
   signalMarkers?: StockChartSignalMarker[]
+  showRegimes?: boolean
+  showSignalMarkers?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const gradientToken = useId().replace(/:/g, '')
+  const areaGradientId = `stock-area-gradient-${gradientToken}`
+  const lineGradientId = `stock-line-gradient-${gradientToken}`
   const [size, setSize] = useState<Size>({ width: 0, height: 0 })
   const [hover, setHover] = useState<HoverState | null>(null)
   const [isHovering, setIsHovering] = useState(false)
@@ -169,7 +188,35 @@ export default function StockChart({
       y: point.y,
     })
   }
-  const renderedSignalMarkers = [...signalMarkerMap.values()].sort((a, b) => a.index - b.index)
+  const resolvedSignalMarkers = [...signalMarkerMap.values()].sort((a, b) => a.index - b.index)
+  const renderedSignalMarkers = showSignalMarkers ? resolvedSignalMarkers : []
+  const stateMarkersByIndex = new Map<number, RenderedSignalMarker>()
+  for (const marker of resolvedSignalMarkers) {
+    const existing = stateMarkersByIndex.get(marker.index)
+    if (!existing) {
+      stateMarkersByIndex.set(marker.index, marker)
+      continue
+    }
+
+    if (existing.kind === 'latest' && marker.kind === 'flip') {
+      stateMarkersByIndex.set(marker.index, marker)
+    }
+  }
+  const stateMarkers = [...stateMarkersByIndex.values()].sort((a, b) => a.index - b.index)
+  const signalBands: SignalBand[] = showRegimes
+    ? stateMarkers
+        .map((marker, idx) => {
+          const next = stateMarkers[idx + 1]
+          const startX = marker.x
+          const endX = next ? next.x : padding.left + innerW
+          return {
+            x: startX,
+            width: Math.max(0, endX - startX),
+            direction: marker.direction,
+          }
+        })
+        .filter((band) => band.width >= 4)
+    : []
 
   const hoverPoint = hover ? points[hover.index] : null
   const hoverVisible = Boolean(hoverPoint && isHovering)
@@ -228,7 +275,30 @@ export default function StockChart({
     <div ref={containerRef} className="relative w-full h-full min-h-[220px] min-w-0">
       {hasSize ? (
         <svg width={width} height={height} className="block overflow-visible">
+          <defs>
+            <linearGradient id={areaGradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#4f6e92" stopOpacity="0.34" />
+              <stop offset="65%" stopColor="#4f6e92" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#4f6e92" stopOpacity="0.02" />
+            </linearGradient>
+            <linearGradient id={lineGradientId} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#6e8eb6" />
+              <stop offset="100%" stopColor="#36597f" />
+            </linearGradient>
+          </defs>
+
           <rect x={0} y={0} width={width} height={height} fill="transparent" />
+
+          {signalBands.map((band, idx) => (
+            <rect
+              key={`band-${idx}`}
+              x={band.x}
+              y={padding.top}
+              width={band.width}
+              height={innerH}
+              fill={signalBandFill(band.direction)}
+            />
+          ))}
 
           {yTickValues.map((value) => {
             const y = padding.top + (1 - (value - yTickValues[0]) / (yTickValues[yTickValues.length - 1] - yTickValues[0])) * innerH
@@ -266,8 +336,9 @@ export default function StockChart({
             )
           })}
 
-          <path d={areaPath} fill="rgba(79, 110, 146, 0.18)" stroke="none" />
-          <path d={path} fill="none" stroke="#4f6e92" strokeWidth={3} />
+          <path d={areaPath} fill={`url(#${areaGradientId})`} stroke="none" />
+          <path d={path} fill="none" stroke="rgba(79, 110, 146, 0.23)" strokeWidth={7} />
+          <path d={path} fill="none" stroke={`url(#${lineGradientId})`} strokeWidth={3} />
           {renderedSignalMarkers.map((marker) => {
             const colors = signalColor(marker.direction)
             const isActive = hoverPoint?.date === marker.date

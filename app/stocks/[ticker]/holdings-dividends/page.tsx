@@ -11,6 +11,11 @@ function formatWeight(value: number | null): string {
   return `${value.toFixed(2)}%`
 }
 
+function calcWeightBarWidth(value: number | null, maxValue: number): number {
+  if (value === null || !Number.isFinite(value) || maxValue <= 0) return 0
+  return Math.max(0, Math.min(100, (value / maxValue) * 100))
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -38,6 +43,14 @@ export default async function HoldingsAndDividendsPage({
   const snapshotRows = fundamentals.snapshot ?? []
   const holdingsRows = fundamentals.holdings ?? []
   const sectorRows = fundamentals.sectorWeights ?? []
+  const maxHoldingWeight = holdingsRows.reduce((max, row) => {
+    if (row.weightPercent === null || !Number.isFinite(row.weightPercent)) return max
+    return Math.max(max, row.weightPercent)
+  }, 0)
+  const maxSectorWeight = sectorRows.reduce((max, row) => {
+    if (row.weightPercent === null || !Number.isFinite(row.weightPercent)) return max
+    return Math.max(max, row.weightPercent)
+  }, 0)
 
   return (
     <div className="min-h-screen bg-[#f9fafb] text-[#111827]">
@@ -90,25 +103,32 @@ export default async function HoldingsAndDividendsPage({
                   No holdings data is currently available for this ticker.
                 </div>
               ) : (
-                <div className="overflow-auto max-h-[560px]">
-                  <table className="w-full text-left text-[13px] whitespace-nowrap">
-                    <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-medium">
-                      <tr>
-                        <th className="px-6 py-3 border-b border-gray-200">Symbol</th>
-                        <th className="px-6 py-3 border-b border-gray-200">Name</th>
-                        <th className="px-6 py-3 border-b border-gray-200">Weight</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {holdingsRows.map((holding) => (
-                        <tr key={`${holding.symbol}-${holding.name}`} className="border-b border-gray-100 even:bg-gray-50/70">
-                          <td className="px-6 py-3 font-semibold text-gray-900">{holding.symbol}</td>
-                          <td className="px-6 py-3 text-gray-700">{holding.name}</td>
-                          <td className="px-6 py-3 text-gray-700">{formatWeight(holding.weightPercent)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="max-h-[560px] space-y-1 overflow-auto px-4 py-3">
+                  {holdingsRows.map((holding) => {
+                    const barWidth = calcWeightBarWidth(holding.weightPercent, maxHoldingWeight)
+                    return (
+                      <div
+                        key={`${holding.symbol}-${holding.name}`}
+                        className="group rounded-lg border border-transparent px-2 py-2 hover:border-gray-200 hover:bg-gray-50"
+                      >
+                        <div className="mb-1.5 flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <span className="text-[13px] font-semibold text-gray-900">{holding.symbol}</span>
+                            <span className="ml-2 text-[12px] text-gray-500">{holding.name}</span>
+                          </div>
+                          <span className="shrink-0 text-[13px] font-medium text-gray-700">
+                            {formatWeight(holding.weightPercent)}
+                          </span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500"
+                            style={{ width: `${barWidth}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -122,23 +142,27 @@ export default async function HoldingsAndDividendsPage({
                   No sector allocation data is currently available for this ticker.
                 </div>
               ) : (
-                <div className="overflow-auto max-h-[520px]">
-                  <table className="w-full text-left text-[13px] whitespace-nowrap">
-                    <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-medium">
-                      <tr>
-                        <th className="px-6 py-3 border-b border-gray-200">Sector</th>
-                        <th className="px-6 py-3 border-b border-gray-200">Weight</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sectorRows.map((sector) => (
-                        <tr key={sector.sector} className="border-b border-gray-100 even:bg-gray-50/70">
-                          <td className="px-6 py-3 text-gray-700">{sector.sector}</td>
-                          <td className="px-6 py-3 text-gray-700">{formatWeight(sector.weightPercent)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="max-h-[520px] space-y-1 overflow-auto px-4 py-3">
+                  {sectorRows.map((sector) => {
+                    const barWidth = calcWeightBarWidth(sector.weightPercent, maxSectorWeight)
+                    return (
+                      <div
+                        key={sector.sector}
+                        className="group rounded-lg border border-transparent px-2 py-2 hover:border-gray-200 hover:bg-gray-50"
+                      >
+                        <div className="mb-1.5 flex items-center justify-between gap-4 text-[13px]">
+                          <span className="text-gray-700">{sector.sector}</span>
+                          <span className="font-medium text-gray-700">{formatWeight(sector.weightPercent)}</span>
+                        </div>
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 transition-all duration-500"
+                            style={{ width: `${barWidth}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

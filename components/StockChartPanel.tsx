@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import StockChart, { type StockChartSignalMarker } from '@/components/StockChart'
 import type { PricePoint } from '@/lib/finance'
+import { SlidersHorizontal } from 'lucide-react'
 
 type Timeframe = '1M' | '3M' | '6M' | 'YTD' | '1Y' | '5Y' | 'MAX'
 
@@ -51,6 +52,8 @@ export default function StockChartPanel({
   signalMarkers?: StockChartSignalMarker[]
 }) {
   const [timeframe, setTimeframe] = useState<Timeframe>('6M')
+  const [showRegimes, setShowRegimes] = useState(true)
+  const [showSignalMarkers, setShowSignalMarkers] = useState(true)
 
   const filteredData = useMemo(() => {
     if (data.length === 0) return []
@@ -89,7 +92,50 @@ export default function StockChartPanel({
       </div>
 
       <div className="flex-1 min-h-0">
-        <StockChart data={filteredData} signalMarkers={filteredMarkers} />
+        <StockChart
+          data={filteredData}
+          signalMarkers={filteredMarkers}
+          showRegimes={showRegimes}
+          showSignalMarkers={showSignalMarkers}
+        />
+      </div>
+
+      <div className="mt-1 border-t border-border/70 pt-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-4 text-[12px] font-medium text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded-sm border border-emerald-500/55 bg-emerald-500/20" />
+              Bullish Regime
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded-sm border border-rose-500/55 bg-rose-500/20" />
+              Bearish Regime
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-slate-700" />
+              Signal Marker
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowRegimes((value) => !value)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 transition-colors hover:bg-slate-100"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              {showRegimes ? 'Hide Regimes' : 'Show Regimes'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSignalMarkers((value) => !value)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 transition-colors hover:bg-slate-100"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              {showSignalMarkers ? 'Hide Markers' : 'Show Markers'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

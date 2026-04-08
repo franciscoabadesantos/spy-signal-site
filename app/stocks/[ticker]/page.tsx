@@ -11,7 +11,7 @@ import {
 import { getViewerUserId } from '@/lib/auth'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 import Nav from '@/components/Nav'
-import { ShieldCheck, Activity, Target, Clock, Newspaper } from 'lucide-react'
+import { ShieldCheck, Newspaper } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import StockChartPanel from '@/components/StockChartPanel'
@@ -19,6 +19,8 @@ import StockSubnav from '@/components/StockSubnav'
 import WatchlistButton from '@/components/WatchlistButton'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
 import Breadcrumbs from '@/components/Breadcrumbs'
+import PremiumSignalWidget from '@/components/PremiumSignalWidget'
+import StickySectionNav from '@/components/StickySectionNav'
 import type { Signal } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -40,14 +42,6 @@ export async function generateMetadata({
 }
 
 // --- HELPER FUNCTIONS ---
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function formatProb(prob: number | null) {
-  if (prob === null) return '—'
-  return `${(prob * 100).toFixed(0)}%`
-}
 
 function normalizeDate(date: string): string {
   return date.slice(0, 10)
@@ -132,6 +126,11 @@ function getSourceIconUrl(articleUrl: string): string | null {
 
 function getNewsIconUrl(item: { sourceUrl: string | null; url: string }): string | null {
   return getSourceIconUrl(item.sourceUrl || item.url)
+}
+
+function calcWeightBarWidth(value: number | null, maxValue: number): number {
+  if (value === null || !Number.isFinite(value) || maxValue <= 0) return 0
+  return Math.max(0, Math.min(100, (value / maxValue) * 100))
 }
 
 function computeMaxDrawdown(returns: number[]): number | null {
@@ -236,6 +235,19 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   // Extract Snapshot stats for the Key Stats grid
   const keyStats = fundamentals.snapshot.slice(0, 16) // Limit to 16 for a clean grid
   const modelProof = hasSignals ? computeModelProofMetrics(recentSignals, historicalData) : null
+  const holdingsPreview = (fundamentals.holdings ?? []).slice(0, 10)
+  const maxHoldingPreviewWeight = holdingsPreview.reduce((max, holding) => {
+    const weight = holding.weightPercent
+    if (weight === null || !Number.isFinite(weight)) return max
+    return Math.max(max, weight)
+  }, 0)
+  const sectionNavItems = [
+    { id: 'chart-section', label: 'Price & Signal' },
+    { id: 'key-stats', label: 'Key Statistics' },
+    { id: 'profile', label: 'Company Profile' },
+    { id: 'top-holdings', label: 'Top Holdings' },
+    { id: 'latest-news', label: 'Latest News' },
+  ]
   const relatedAssets = relatedTickerSymbols
     .map((symbol, index) => {
       const peerQuote = relatedQuotes[index] as StockQuote | null | undefined
@@ -290,19 +302,20 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
         {/* SUBNAV */}
         <StockSubnav ticker={ticker} active="overview" />
 
-        {/* 2-COLUMN LAYOUT */}
+        {/* CONTENT LAYOUT */}
         <div className="mt-6 flex flex-col lg:flex-row gap-8">
+          <StickySectionNav sections={sectionNavItems} />
           
           {/* LEFT COLUMN: Chart & Data */}
           <div className="flex-1 min-w-0 space-y-8">
             
             {/* Chart Area */}
-            <div className="bg-card border border-border rounded-xl shadow-sm h-[400px] p-4 relative overflow-hidden">
+            <div id="chart-section" className="bg-card border border-border rounded-xl shadow-sm h-[400px] p-4 relative overflow-hidden">
                <StockChartPanel data={historicalData} signalMarkers={signalMarkers} />
             </div>
 
             {/* KEY STATISTICS GRID (StockAnalysis Style) */}
-            <div>
+            <div id="key-stats">
                <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-border pb-2">Key Statistics</h2>
                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3">
                  {keyStats.map((stat, i) => (
@@ -315,36 +328,54 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             </div>
 
             {/* ABOUT SECTION */}
-            <div>
+            <div id="profile">
                <h2 className="text-xl font-bold text-gray-900 mb-3 border-b border-border pb-2">Profile</h2>
                <p className="text-[15px] text-gray-700 leading-relaxed max-w-4xl">
                  {fundamentals.about || `The ${quote?.name || ticker} provides investment exposure to highly liquid segments of the market. Our system runs daily quantitative analysis on this asset to determine optimal capital deployment and mitigate large drawdown risks.`}
                </p>
 
                {/* TOP HOLDINGS PREVIEW */}
-               {fundamentals.holdings && fundamentals.holdings.length > 0 && (
-                 <div className="mt-8">
-                   <div className="flex justify-between items-end border-b border-border pb-2 mb-3">
-                     <h2 className="text-xl font-bold text-gray-900">Top Holdings</h2>
-                     <Link href={`/stocks/${ticker}/holdings-dividends`} className="text-sm font-medium text-primary hover:underline">
-                       View All
-                     </Link>
+               <div id="top-holdings" className="mt-8">
+                 <div className="flex justify-between items-end border-b border-border pb-2 mb-3">
+                   <h2 className="text-xl font-bold text-gray-900">Top Holdings</h2>
+                   <Link href={`/stocks/${ticker}/holdings-dividends`} className="text-sm font-medium text-primary hover:underline">
+                     View All
+                   </Link>
+                 </div>
+                 {holdingsPreview.length === 0 ? (
+                   <div className="text-sm text-muted-foreground">
+                     Holdings data is not currently available for this ticker.
                    </div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
-                     {fundamentals.holdings.slice(0, 10).map((holding, i) => (
-                       <div key={`${holding.symbol}-${i}`} className="flex justify-between items-center py-1.5 border-b border-muted/50 text-[14px]">
-                         <span className="font-medium text-gray-900">{holding.symbol}</span>
-                         <span className="text-muted-foreground">
-                           {holding.weightPercent === null ? '—' : `${holding.weightPercent.toFixed(2)}%`}
-                         </span>
-                       </div>
-                     ))}
+                 ) : (
+                   <div className="space-y-1.5">
+                     {holdingsPreview.map((holding, i) => {
+                       const weightLabel = holding.weightPercent === null ? '—' : `${holding.weightPercent.toFixed(2)}%`
+                       const barWidth = calcWeightBarWidth(holding.weightPercent, maxHoldingPreviewWeight)
+
+                       return (
+                         <div
+                           key={`${holding.symbol}-${i}`}
+                           className="group flex items-center gap-3 rounded-md border border-transparent px-2 py-2 text-[14px] transition-colors hover:border-border hover:bg-muted/20"
+                         >
+                           <div className="w-14 shrink-0 font-semibold text-gray-900">{holding.symbol}</div>
+                           <div className="min-w-0 flex-1">
+                             <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                               <div
+                                 className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500"
+                                 style={{ width: `${barWidth}%` }}
+                               />
+                             </div>
+                           </div>
+                           <div className="w-16 shrink-0 text-right font-medium text-gray-600">{weightLabel}</div>
+                         </div>
+                       )
+                     })}
                   </div>
-                </div>
-              )}
+                 )}
+               </div>
 
               {/* NEWS FEED */}
-              <div className="mt-8">
+              <div id="latest-news" className="mt-8">
                 <div className="flex justify-between items-end border-b border-border pb-2 mb-3">
                   <h2 className="text-xl font-bold text-gray-900">Latest News</h2>
                 </div>
@@ -402,52 +433,13 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
              {/* THE USP: Prominent Signal Widget */}
              {latest ? (
                <div className="space-y-4">
-                 <div className="bg-slate-900 rounded-xl overflow-hidden shadow-xl border border-slate-800">
-                   <div className="bg-slate-800/50 px-5 py-3 border-b border-slate-700/50 flex justify-between items-center">
-                      <div className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-                        <Activity className="w-4 h-4 text-emerald-400" /> Proprietary Signal
-                      </div>
-                      <span className="text-xs text-slate-400">{formatDate(latest.signal_date)}</span>
-                   </div>
-                   
-                   <div className="p-5">
-                      <div className="text-sm text-slate-400 mb-1">Current Model Stance</div>
-                      <div
-                        className={`text-4xl font-extrabold tracking-tight ${
-                          latest.direction === 'bullish'
-                            ? 'text-emerald-400'
-                            : latest.direction === 'bearish'
-                              ? 'text-red-400'
-                              : 'text-slate-200'
-                        }`}
-                      >
-                        {latest.direction === 'bullish'
-                          ? 'BULLISH'
-                          : latest.direction === 'bearish'
-                            ? 'BEARISH'
-                            : 'NEUTRAL'}
-                      </div>
-                      
-                      <div className="mt-6 space-y-3">
-                         <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg">
-                            <div className="flex items-center gap-2 text-sm text-slate-300">
-                               <Target className="w-4 h-4 text-blue-400" /> Conviction
-                            </div>
-                            <div className="font-bold text-white">{formatProb(latest.prob_side)}</div>
-                         </div>
-                         <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg">
-                            <div className="flex items-center gap-2 text-sm text-slate-300">
-                               <Clock className="w-4 h-4 text-blue-400" /> Horizon
-                            </div>
-                            <div className="font-bold text-white">{latest.prediction_horizon} Days</div>
-                         </div>
-                      </div>
-
-                      <button className="w-full mt-5 bg-primary hover:bg-primary/90 text-white font-medium py-2.5 rounded-lg transition-colors text-sm">
-                        View Historical Performance
-                      </button>
-                   </div>
-                 </div>
+                 <PremiumSignalWidget
+                   ticker={ticker}
+                   direction={latest.direction}
+                   conviction={latest.prob_side}
+                   horizon={latest.prediction_horizon}
+                   signalDate={latest.signal_date}
+                 />
 
                  <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                    <div className="bg-muted/30 px-5 py-3 border-b border-border">
