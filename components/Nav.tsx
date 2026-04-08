@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Activity } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useAuth, UserButton } from '@clerk/nextjs'
+import dynamic from 'next/dynamic'
 
 type NavSection = 'stocks' | 'dashboard' | 'screener' | 'performance' | 'methodology'
 
@@ -24,9 +24,28 @@ function navLinkClass(isActive: boolean): string {
     : 'hover:text-primary transition-colors'
 }
 
+const NavAuthControls = dynamic(() => import('./NavAuthControls'), {
+  ssr: false,
+  loading: () => (
+    <>
+      <Link
+        href="/sign-in"
+        className="text-[14px] font-medium text-foreground hover:text-primary transition-colors px-3 py-1.5 hidden sm:block"
+      >
+        Log In
+      </Link>
+      <Link
+        href="/sign-up"
+        className="text-[14px] font-medium bg-[#1e293b] hover:bg-black text-white px-4 py-1.5 rounded transition-colors shadow-sm"
+      >
+        Sign Up
+      </Link>
+    </>
+  ),
+})
+
 export default function Nav({ active }: NavProps) {
   const router = useRouter()
-  const { isSignedIn } = useAuth()
   const [search, setSearch] = useState('')
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
   const [isOpen, setIsOpen] = useState(false)
@@ -198,32 +217,7 @@ export default function Nav({ active }: NavProps) {
           </nav>
           
           <div className="flex items-center gap-2">
-            {!isSignedIn ? (
-              <>
-              <Link
-                href="/sign-in"
-                className="text-[14px] font-medium text-foreground hover:text-primary transition-colors px-3 py-1.5 hidden sm:block"
-              >
-                Log In
-              </Link>
-              <Link
-                href="/sign-up"
-                className="text-[14px] font-medium bg-[#1e293b] hover:bg-black text-white px-4 py-1.5 rounded transition-colors shadow-sm"
-              >
-                Sign Up
-              </Link>
-              </>
-            ) : (
-              <>
-              <Link
-                href="/dashboard"
-                className="text-[14px] font-medium text-foreground hover:text-primary transition-colors px-3 py-1.5 hidden sm:block"
-              >
-                Dashboard
-              </Link>
-              <UserButton />
-              </>
-            )}
+            <NavAuthControls />
           </div>
         </div>
       </div>

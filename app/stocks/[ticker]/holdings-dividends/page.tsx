@@ -1,5 +1,6 @@
 import Nav from '@/components/Nav'
 import StockSubnav from '@/components/StockSubnav'
+import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Metadata } from 'next'
 import { getStockQuote, getTickerFundamentals } from '@/lib/finance'
 
@@ -43,6 +44,15 @@ export default async function HoldingsAndDividendsPage({
       <Nav active="stocks" />
 
       <main className="max-w-[1240px] mx-auto px-4 md:px-6 py-6 pb-20">
+        <Breadcrumbs
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Stocks', href: '/screener' },
+            { label: ticker, href: `/stocks/${ticker}` },
+            { label: 'Holdings & Dividends' },
+          ]}
+        />
+
         <div className="mb-4">
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-4xl font-bold tracking-tight text-gray-900">{ticker}</h1>

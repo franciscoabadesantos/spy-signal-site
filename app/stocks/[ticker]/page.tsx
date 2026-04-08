@@ -1,4 +1,4 @@
-import { getRecentSignals } from '@/lib/signals'
+import { getSignalHistoryForTicker } from '@/lib/signals'
 import {
   getStockQuote,
   getHistoricalData,
@@ -11,12 +11,14 @@ import {
 import { getViewerUserId } from '@/lib/auth'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 import Nav from '@/components/Nav'
-import { ShieldCheck, Activity, Target, Clock, Lock, Newspaper } from 'lucide-react'
+import { ShieldCheck, Activity, Target, Clock, Newspaper } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import StockChartPanel from '@/components/StockChartPanel'
 import StockSubnav from '@/components/StockSubnav'
 import WatchlistButton from '@/components/WatchlistButton'
+import AiAnalystPanel from '@/components/AiAnalystPanel'
+import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Signal } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -213,20 +215,21 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
   const viewerUserId = await getViewerUserId()
+  const aiAnalystEnabled = Boolean(process.env.PERPLEXITY_API_KEY?.trim())
   const relatedTickerSymbols = getRelatedTickers(ticker)
 
-  const hasSignals = ticker === 'SPY'
   const [quote, historicalData, recentSignals, fundamentals, newsItems, relatedQuotes] = await Promise.all([
     getStockQuote(ticker),
     getHistoricalData(ticker, 1825),
-    hasSignals ? getRecentSignals(180) : Promise.resolve([]),
+    getSignalHistoryForTicker(ticker, 180),
     getTickerFundamentals(ticker),
     getTickerNews(ticker, 5),
     Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
   ])
   const isInWatchlist = viewerUserId ? await isTickerInWatchlist(viewerUserId, ticker) : false
   
-  const latest = hasSignals ? recentSignals[0] ?? null : null
+  const hasSignals = recentSignals.length > 0
+  const latest = recentSignals[0] ?? null
   const signalMarkers = hasSignals ? buildChartSignalMarkers(recentSignals) : []
   const isGreen = quote && quote.change >= 0
   
@@ -246,6 +249,13 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
       {/* Main Container */}
       <main className="max-w-[1240px] mx-auto px-4 md:px-6 py-6 pb-20">
+        <Breadcrumbs
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Stocks', href: '/screener' },
+            { label: ticker },
+          ]}
+        />
         
         {/* TOP HEADER: StockAnalysis Style */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
@@ -289,15 +299,6 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
             {/* Chart Area */}
             <div className="bg-card border border-border rounded-xl shadow-sm h-[400px] p-4 relative overflow-hidden">
                <StockChartPanel data={historicalData} signalMarkers={signalMarkers} />
-               {!hasSignals && (
-                  <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
-                     <div className="bg-card border border-border p-4 rounded-lg shadow-lg text-center max-w-sm">
-                        <Lock className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
-                        <h3 className="font-semibold text-foreground">Premium Feature</h3>
-                        <p className="text-sm text-muted-foreground mt-1">Algorithmic chart overlays are currently restricted to SPY or premium accounts.</p>
-                     </div>
-                  </div>
-               )}
             </div>
 
             {/* KEY STATISTICS GRID (StockAnalysis Style) */}
@@ -399,7 +400,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
           <div className="w-full lg:w-[340px] space-y-6 flex-shrink-0">
              
              {/* THE USP: Prominent Signal Widget */}
-             {hasSignals && latest ? (
+             {latest ? (
                <div className="space-y-4">
                  <div className="bg-slate-900 rounded-xl overflow-hidden shadow-xl border border-slate-800">
                    <div className="bg-slate-800/50 px-5 py-3 border-b border-slate-700/50 flex justify-between items-center">
@@ -411,8 +412,20 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                    
                    <div className="p-5">
                       <div className="text-sm text-slate-400 mb-1">Current Model Stance</div>
-                      <div className={`text-4xl font-extrabold tracking-tight ${latest.direction === 'bullish' ? 'text-emerald-400' : 'text-slate-200'}`}>
-                        {latest.direction === 'bullish' ? 'BULLISH' : 'NEUTRAL'}
+                      <div
+                        className={`text-4xl font-extrabold tracking-tight ${
+                          latest.direction === 'bullish'
+                            ? 'text-emerald-400'
+                            : latest.direction === 'bearish'
+                              ? 'text-red-400'
+                              : 'text-slate-200'
+                        }`}
+                      >
+                        {latest.direction === 'bullish'
+                          ? 'BULLISH'
+                          : latest.direction === 'bearish'
+                            ? 'BEARISH'
+                            : 'NEUTRAL'}
                       </div>
                       
                       <div className="mt-6 space-y-3">
@@ -438,7 +451,7 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
 
                  <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
                    <div className="bg-muted/30 px-5 py-3 border-b border-border">
-                     <h3 className="text-[15px] font-bold text-gray-900">Model Performance (SPY)</h3>
+                     <h3 className="text-[15px] font-bold text-gray-900">Model Performance ({ticker})</h3>
                    </div>
                    <div className="px-5 py-2">
                      <div className="flex items-center justify-between py-3 border-b border-border text-[13px]">
@@ -455,13 +468,31 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                      </div>
                    </div>
                  </div>
+
+                 {aiAnalystEnabled && (
+                   <AiAnalystPanel
+                     ticker={ticker}
+                     signal={{
+                       direction: latest.direction,
+                       conviction: latest.prob_side,
+                       predictionHorizon: latest.prediction_horizon,
+                       signalDate: latest.signal_date,
+                     }}
+                     news={newsItems.map((item) => ({
+                       title: item.title,
+                       publisher: item.publisher,
+                       publishedAt: item.publishedAt,
+                       url: item.url,
+                     }))}
+                   />
+                 )}
                </div>
              ) : (
                 <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
                   <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
                      <ShieldCheck className="w-5 h-5 text-muted-foreground" /> Signal Unavailable
                   </h3>
-                  <p className="text-sm text-muted-foreground">Predictive signals are currently only generated for SPY. Upgrade or check back later for expanded coverage.</p>
+                  <p className="text-sm text-muted-foreground">No recent model output is available for this ticker yet.</p>
                 </div>
              )}
 

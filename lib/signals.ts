@@ -21,8 +21,63 @@ export async function getSignalHistoryForTicker(
   limit = 250
 ): Promise<Signal[]> {
   const ticker = tickerRaw.trim().toUpperCase()
-  if (ticker !== 'SPY') return []
-  return getRecentSignals(limit)
+  if (!ticker) return []
+
+  if (ticker === 'SPY') {
+    try {
+      const liveSignals = await getRecentSignals(limit)
+      if (liveSignals.length > 0) return liveSignals
+    } catch {
+      // Fall through to heterogeneous source loader.
+    }
+  }
+
+  const rowsByKey = new Map<string, ScreenerSignal>()
+
+  for (const source of SIGNAL_HISTORY_SOURCES) {
+    let sourceRows: ScreenerSignal[] = []
+    try {
+      sourceRows = await readSourceRows(source, Math.max(limit * 8, 1000), [ticker])
+    } catch {
+      continue
+    }
+
+    for (const row of sourceRows) {
+      if (row.ticker !== ticker || !row.signalDate) continue
+      const key = `${row.ticker}:${row.signalDate.slice(0, 10)}`
+      const existing = rowsByKey.get(key)
+      if (!existing || (row.conviction ?? -1) > (existing.conviction ?? -1)) {
+        rowsByKey.set(key, row)
+      }
+    }
+  }
+
+  const sorted = [...rowsByKey.values()]
+    .filter((row) => Boolean(row.signalDate))
+    .sort((a, b) => parseSignalDateMs(b.signalDate) - parseSignalDateMs(a.signalDate))
+    .slice(0, limit)
+
+  return sorted.map((row, index) => ({
+    id: index + 1,
+    signal_date: row.signalDate ?? new Date(0).toISOString(),
+    direction: row.direction,
+    position: null,
+    signal_strength: row.conviction,
+    prob_side: row.conviction,
+    prediction_horizon: row.predictionHorizon ?? 20,
+    realized_return: null,
+    correct: null,
+    model_version_id: null,
+    retrain_id: null,
+    created_at: row.signalDate ?? new Date().toISOString(),
+    updated_at: row.signalDate ?? new Date().toISOString(),
+    live_episode_status: null,
+    live_flat_episode_status: null,
+    live_episode_return_to_date: null,
+    live_flat_episode_spy_move_to_date: null,
+    live_episode_days_in_trade: null,
+    live_episode_entry_date: null,
+  }))
 }
 
 export async function getLatestSignal(): Promise<Signal | null> {
@@ -88,6 +143,7 @@ const SCREENER_SOURCES = [
   'latest_signals',
   'signals_latest',
   'signals_live',
+  'market_signals',
   'spy_signals_live',
 ]
 
@@ -96,6 +152,8 @@ const SIGNAL_HISTORY_SOURCES = [
   'signal_history',
   'signals',
 ]
+
+const SOURCE_ORDER_COLUMNS = ['signal_date', 'as_of_date', 'date', 'updated_at']
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object') return null
@@ -211,12 +269,38 @@ async function readSourceRows(
 ): Promise<ScreenerSignal[]> {
   let data: unknown[] = []
 
+  async function selectRows({
+    tickerColumn,
+  }: {
+    tickerColumn?: string
+  }): Promise<{ data: unknown[] | null; error: { message: string } | null }> {
+    for (const orderColumn of SOURCE_ORDER_COLUMNS) {
+      let query = supabase.from(source).select('*')
+      if (tickerColumn && tickers && tickers.length > 0) {
+        query = query.in(tickerColumn, tickers)
+      }
+
+      const ordered = await query.order(orderColumn, { ascending: false }).limit(limit)
+      if (!ordered.error) {
+        return { data: ordered.data, error: null }
+      }
+    }
+
+    let fallbackQuery = supabase.from(source).select('*')
+    if (tickerColumn && tickers && tickers.length > 0) {
+      fallbackQuery = fallbackQuery.in(tickerColumn, tickers)
+    }
+    const fallback = await fallbackQuery.limit(limit)
+    if (fallback.error) return { data: null, error: { message: fallback.error.message } }
+    return { data: fallback.data, error: null }
+  }
+
   if (tickers && tickers.length > 0) {
     const tickerColumns = ['ticker', 'symbol', 'asset_ticker']
     let success = false
 
     for (const column of tickerColumns) {
-      const query = await supabase.from(source).select('*').in(column, tickers).limit(limit)
+      const query = await selectRows({ tickerColumn: column })
       if (query.error) continue
       data = query.data ?? []
       success = true
@@ -224,12 +308,12 @@ async function readSourceRows(
     }
 
     if (!success) {
-      const fallbackQuery = await supabase.from(source).select('*').limit(limit)
+      const fallbackQuery = await selectRows({})
       if (fallbackQuery.error) return []
       data = fallbackQuery.data ?? []
     }
   } else {
-    const query = await supabase.from(source).select('*').limit(limit)
+    const query = await selectRows({})
     if (query.error) throw query.error
     data = query.data ?? []
   }

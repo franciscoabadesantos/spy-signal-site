@@ -2,6 +2,7 @@ import Nav from '@/components/Nav'
 import { Filter, Lock } from 'lucide-react'
 import Link from 'next/link'
 import { getScreenerSignals, type ScreenerSort } from '@/lib/signals'
+import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,16 +90,6 @@ function signalLabel(signal: 'bullish' | 'neutral' | 'bearish'): string {
   return 'HOLD'
 }
 
-async function resolveSignedInState(): Promise<boolean> {
-  try {
-    const { auth } = await import('@clerk/nextjs/server')
-    const state = await auth()
-    return Boolean(state.userId)
-  } catch {
-    return false
-  }
-}
-
 export default async function ScreenerPage({
   searchParams,
 }: {
@@ -111,7 +102,7 @@ export default async function ScreenerPage({
   const sortBy = parseSort(singleParam(resolvedSearchParams.sort))
   const maxAgeDays = parseMaxAgeDays(singleParam(resolvedSearchParams.maxAgeDays))
 
-  const [{ rows, source }, isSignedIn] = await Promise.all([
+  const [{ rows, source }, viewer] = await Promise.all([
     getScreenerSignals({
       signal: signal === 'all' ? undefined : signal,
       minConvictionPct: minConviction,
@@ -120,13 +111,18 @@ export default async function ScreenerPage({
       sortBy,
       limit: 200,
     }),
-    resolveSignedInState(),
+    getViewerAccess(),
   ])
 
   const previewLimit = 3
-  const visibleRows = isSignedIn ? rows : rows.slice(0, previewLimit)
+  const visibleRows = viewer.isPro ? rows : rows.slice(0, previewLimit)
   const hiddenCount = Math.max(0, rows.length - visibleRows.length)
   const isSpyOnlySource = source === 'spy_signals_live'
+  const upgradeUrl = getStripeUpgradeUrl(viewer.userId)
+  const upgradeHref = viewer.isSignedIn
+    ? upgradeUrl ?? '/dashboard'
+    : '/sign-up?redirect_url=/screener'
+  const openUpgradeInNewTab = upgradeHref.startsWith('http')
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -148,10 +144,21 @@ export default async function ScreenerPage({
             )}
           </div>
           
-          <button className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md shadow-md text-sm transition-colors flex items-center gap-2">
-            <Lock className="w-4 h-4" />
-            Unlock Pro Screener
-          </button>
+          {viewer.isPro ? (
+            <div className="bg-emerald-600 text-white font-medium px-4 py-2 rounded-md shadow-md text-sm">
+              Pro Active
+            </div>
+          ) : (
+            <a
+              href={upgradeHref}
+              target={openUpgradeInNewTab ? '_blank' : undefined}
+              rel={openUpgradeInNewTab ? 'noopener noreferrer' : undefined}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md shadow-md text-sm transition-colors flex items-center gap-2"
+            >
+              <Lock className="w-4 h-4" />
+              {viewer.isSignedIn ? 'Upgrade to Pro' : 'Create Free Account'}
+            </a>
+          )}
         </div>
 
         <div className="bg-card border border-border rounded-xl shadow-lg flex flex-col md:flex-row min-h-[500px]">
@@ -247,10 +254,12 @@ export default async function ScreenerPage({
               </div>
             </form>
             
-            <div className="mt-8 bg-primary/10 border border-primary/20 rounded-lg p-4 text-center">
-              <Lock className="w-5 h-5 text-primary mx-auto mb-2" />
-              <div className="text-xs font-medium text-primary">Full Results Require Premium</div>
-            </div>
+            {!viewer.isPro && (
+              <div className="mt-8 bg-primary/10 border border-primary/20 rounded-lg p-4 text-center">
+                <Lock className="w-5 h-5 text-primary mx-auto mb-2" />
+                <div className="text-xs font-medium text-primary">Full Results Require Premium</div>
+              </div>
+            )}
           </div>
 
           {/* Table Results */}
@@ -332,7 +341,7 @@ export default async function ScreenerPage({
               </div>
             )}
             
-            {!isSignedIn && hiddenCount > 0 && (
+            {!viewer.isPro && hiddenCount > 0 && (
               <div className="absolute inset-0 top-52 bg-gradient-to-t from-background via-background/92 to-transparent flex items-end justify-center pb-12">
                <div className="bg-card border border-border p-5 rounded-xl shadow-2xl text-center max-w-sm">
                  <Lock className="w-8 h-8 text-primary mx-auto mb-3" />
@@ -340,7 +349,14 @@ export default async function ScreenerPage({
                  <p className="text-xs text-muted-foreground mb-4">
                    You are viewing {visibleRows.length} preview rows. Upgrade to unlock {hiddenCount} additional results.
                  </p>
-                 <button className="w-full text-sm font-medium bg-primary text-primary-foreground py-2 rounded">Upgrade Now</button>
+                 <a
+                   href={upgradeHref}
+                   target={openUpgradeInNewTab ? '_blank' : undefined}
+                   rel={openUpgradeInNewTab ? 'noopener noreferrer' : undefined}
+                   className="inline-flex w-full items-center justify-center text-sm font-medium bg-primary text-primary-foreground py-2 rounded"
+                 >
+                   {viewer.isSignedIn ? 'Upgrade Now' : 'Create Free Account'}
+                 </a>
                </div>
               </div>
             )}

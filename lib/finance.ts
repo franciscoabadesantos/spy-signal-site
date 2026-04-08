@@ -12,6 +12,8 @@ const YAHOO_HEADERS = {
 
 const RETRY_DELAYS_MS = [250, 600, 1200]
 const YAHOO_COOLDOWN_MS = 5 * 60 * 1000
+const STOOQ_TIMEOUT_MS = 1200
+const STOOQ_COOLDOWN_MS = 10 * 60 * 1000
 const QUOTE_FRESH_MS = 60 * 1000
 const HISTORICAL_FRESH_MS = 60 * 60 * 1000
 const FUNDAMENTALS_FRESH_MS = 6 * 60 * 60 * 1000
@@ -21,11 +23,13 @@ const YAHOO_SUMMARY_AUTH_COOLDOWN_MS = 30 * 60 * 1000
 let yahooQuoteCooldownUntil = 0
 let yahooHistoricalCooldownUntil = 0
 let yahooNewsCooldownUntil = 0
+let stooqQuoteCooldownUntil = 0
 let marketCacheAvailable: boolean | null = null
 let missingSchemaLogged = false
 let writeSupportLogged = false
 let yahooSummaryAuthCooldownUntil = 0
 let yahooSummaryAuthBlockedLogged = false
+let stooqCooldownLogged = false
 let yahooSummaryAuth:
   | {
       crumb: string
@@ -1510,9 +1514,28 @@ function buildFundamentalsFromSummary(summary: Record<string, unknown>): TickerF
 }
 
 async function fetchStooqQuote(ticker: string): Promise<StockQuote | null> {
+  if (Date.now() < stooqQuoteCooldownUntil) {
+    if (!stooqCooldownLogged) {
+      console.warn('Stooq quote fallback is temporarily disabled due to prior timeout/network errors.')
+      stooqCooldownLogged = true
+    }
+    return null
+  }
+
   const symbol = `${ticker.toLowerCase()}.us`
   const url = `https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&i=d`
-  const res = await fetch(url, { cache: 'no-store' })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(STOOQ_TIMEOUT_MS),
+    })
+  } catch (error) {
+    stooqQuoteCooldownUntil = Date.now() + STOOQ_COOLDOWN_MS
+    stooqCooldownLogged = false
+    throw new Error(`Stooq quote request failed: ${errorMessage(error)}`)
+  }
+
   if (!res.ok) throw new Error(`Stooq request failed (${res.status} ${res.statusText})`)
 
   const text = (await res.text()).trim()
@@ -1764,7 +1787,9 @@ async function fetchLiveQuoteWithFallback(ticker: string): Promise<QuoteFetchRes
     const fallbackQuote = await fetchStooqQuote(ticker)
     if (fallbackQuote) return { quote: fallbackQuote, source: 'stooq' }
   } catch (error) {
-    console.warn(`Failed to fetch fallback quote for ${ticker}:`, error)
+    stooqQuoteCooldownUntil = Date.now() + STOOQ_COOLDOWN_MS
+    stooqCooldownLogged = false
+    console.warn(`Failed to fetch fallback quote for ${ticker}; temporarily disabling Stooq fallback:`, error)
   }
 
   return null

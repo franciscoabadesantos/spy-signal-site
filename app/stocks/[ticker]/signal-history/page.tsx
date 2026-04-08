@@ -2,8 +2,9 @@ import Nav from '@/components/Nav'
 import { getSignalHistoryForTicker } from '@/lib/signals'
 import type { Metadata } from 'next'
 import StockSubnav from '@/components/StockSubnav'
+import Breadcrumbs from '@/components/Breadcrumbs'
 import { getStockQuote } from '@/lib/finance'
-import { getViewerUserId } from '@/lib/auth'
+import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,16 +60,25 @@ export default async function SignalHistoryPage({
 }) {
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
-  const viewerUserId = await getViewerUserId()
-  const hasLiveSignals = ticker === 'SPY'
+  const viewer = await getViewerAccess()
   const signals = await getSignalHistoryForTicker(ticker, 250)
-  const canExport = Boolean(viewerUserId) && hasLiveSignals && signals.length > 0
+  const canExport = viewer.isPro && signals.length > 0
+  const upgradeUrl = getStripeUpgradeUrl(viewer.userId)
 
   return (
     <div className="min-h-screen bg-[#f9fafb] text-[#111827]">
       <Nav active="stocks" />
 
       <main className="max-w-[1240px] mx-auto px-4 md:px-6 py-6 pb-20">
+        <Breadcrumbs
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Stocks', href: '/screener' },
+            { label: ticker, href: `/stocks/${ticker}` },
+            { label: 'Signal History' },
+          ]}
+        />
+
         <div className="mb-4">
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-4xl font-bold tracking-tight text-gray-900">{ticker}</h1>
@@ -89,23 +99,30 @@ export default async function SignalHistoryPage({
             >
               Download CSV
             </a>
+          ) : viewer.isSignedIn && signals.length > 0 && upgradeUrl ? (
+            <a
+              href={upgradeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-[13px] font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+            >
+              Upgrade to Pro for CSV Export
+            </a>
           ) : (
             <div className="text-[12px] text-gray-500">
-              {viewerUserId
-                ? 'CSV export is available when live signal history exists.'
-                : 'Sign in to download signal history as CSV.'}
+              {!viewer.isSignedIn
+                ? 'Sign in to download signal history as CSV.'
+                : signals.length === 0
+                  ? 'CSV export is available when live signal history exists.'
+                  : 'CSV export is a Pro feature.'}
             </div>
           )}
         </div>
 
         <div className="mt-8 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-          {!hasLiveSignals ? (
+          {signals.length === 0 ? (
             <div className="p-6 text-sm text-gray-600">
-              Signal history is currently available for SPY only.
-            </div>
-          ) : signals.length === 0 ? (
-            <div className="p-6 text-sm text-gray-600">
-              No live signals available yet.
+              No signal history is available for this ticker yet.
             </div>
           ) : (
             <div className="overflow-auto max-h-[680px]">

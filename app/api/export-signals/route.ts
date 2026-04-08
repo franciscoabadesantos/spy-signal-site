@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getViewerUserId } from '@/lib/auth'
+import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import { getSignalHistoryForTicker } from '@/lib/signals'
 import type { Signal } from '@/lib/types'
 
@@ -54,9 +54,18 @@ function toCsv(signals: Signal[]): string {
 }
 
 export async function GET(request: NextRequest) {
-  const userId = await getViewerUserId()
-  if (!userId) {
+  const viewer = await getViewerAccess()
+  if (!viewer.userId) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  }
+  if (!viewer.isPro) {
+    return NextResponse.json(
+      {
+        error: 'Pro plan required for CSV export.',
+        upgradeUrl: getStripeUpgradeUrl(viewer.userId),
+      },
+      { status: 403 }
+    )
   }
 
   const ticker = normalizeTicker(request.nextUrl.searchParams.get('ticker'))

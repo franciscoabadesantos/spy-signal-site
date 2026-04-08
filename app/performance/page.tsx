@@ -1,279 +1,255 @@
-import { getRecentSignals } from '@/lib/signals'
 import Nav from '@/components/Nav'
+import PerformanceTickerAutocomplete from '@/components/PerformanceTickerAutocomplete'
+import { getStockQuote } from '@/lib/finance'
+import { getSignalHistoryForTicker, getScreenerSignals } from '@/lib/signals'
+import type { Signal } from '@/lib/types'
+import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-function formatReturn(val: number | null) {
-  if (val === null) return '—'
-  const pct = (val * 100).toFixed(2)
-  return val >= 0 ? `+${pct}%` : `${pct}%`
+type PerformanceSearchParams = {
+  ticker?: string | string[]
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric'
+function singleParam(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value[0]
+  return value
+}
+
+function normalizeTicker(raw: string | undefined): string {
+  const value = raw?.trim().toUpperCase() ?? ''
+  if (!value) return 'SPY'
+  if (!/^[A-Z0-9.\-]{1,10}$/.test(value)) return 'SPY'
+  return value
+}
+
+function formatDate(dateStr: string): string {
+  const parsed = Date.parse(dateStr)
+  if (!Number.isFinite(parsed)) return '—'
+  return new Date(parsed).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   })
 }
 
-function avg(nums: number[]) {
-  if (nums.length === 0) return null
-  return nums.reduce((a, b) => a + b, 0) / nums.length
+function formatConviction(value: number | null): string {
+  if (value === null) return '—'
+  return `${Math.round(value * 100)}%`
 }
 
-function extractDaysFromStatus(status: string | null): number | null {
-  if (!status) return null
-
-  const patterns = [
-    /(?:^|[_\s-])d(?:ays?)?[_\s-]?(\d+)/i,
-    /(\d+)\s*d(?:ays?)?/i,
-    /day[_\s-]?(\d+)/i,
-    /(\d+)[_\s-]?day/i,
-  ]
-
-  for (const pattern of patterns) {
-    const match = status.match(pattern)
-    if (match?.[1]) {
-      const parsed = Number.parseInt(match[1], 10)
-      if (Number.isFinite(parsed)) return parsed
+function directionTone(direction: Signal['direction']): {
+  label: string
+  className: string
+} {
+  if (direction === 'bullish') {
+    return {
+      label: 'BULLISH',
+      className: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
     }
   }
 
-  return null
+  if (direction === 'bearish') {
+    return {
+      label: 'BEARISH',
+      className: 'bg-red-50 text-red-700 border border-red-200',
+    }
+  }
+
+  return {
+    label: 'NEUTRAL',
+    className: 'bg-slate-100 text-slate-700 border border-slate-300',
+  }
 }
 
-export default async function Performance() {
-  const signals = await getRecentSignals(200)
-  const allocated = signals.filter(
-    s => s.live_episode_return_to_date !== null
-  )
-  const flat = signals.filter(
-    s => s.live_episode_return_to_date === null && s.live_flat_episode_spy_move_to_date !== null
-  )
-  const hasSignals = signals.length > 0
+function parseSignalTime(value: string): number {
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
 
-  const avgAllocatedReturn = avg(allocated.map(s => s.live_episode_return_to_date!))
-  const avgFlatReturn = avg(flat.map(s => s.live_flat_episode_spy_move_to_date!))
+function computeSignalMetrics(signals: Signal[]) {
+  const ordered = [...signals].sort((a, b) => parseSignalTime(b.signal_date) - parseSignalTime(a.signal_date))
+  const chronological = [...ordered].reverse()
 
-  const totalEpisodes = allocated.length + flat.length
-  const pctTimeAllocated = totalEpisodes > 0
-    ? (allocated.length / totalEpisodes * 100).toFixed(1)
-    : null
+  let flips = 0
+  for (let i = 1; i < chronological.length; i++) {
+    if (chronological[i] && chronological[i - 1] && chronological[i].direction !== chronological[i - 1].direction) {
+      flips += 1
+    }
+  }
 
-  const positiveEpisodes = allocated.filter(s => (s.live_episode_return_to_date ?? 0) > 0).length
-  const episodeHitRate = allocated.length > 0
-    ? (positiveEpisodes / allocated.length * 100).toFixed(1)
-    : null
+  const bullishDays = ordered.filter((row) => row.direction === 'bullish').length
+  const neutralDays = ordered.filter((row) => row.direction === 'neutral').length
+  const bearishDays = ordered.filter((row) => row.direction === 'bearish').length
 
-  const allEpisodes = [...signals].sort(
-    (a, b) => new Date(b.signal_date).getTime() - new Date(a.signal_date).getTime()
-  )
+  const convictionRows = ordered
+    .map((row) => row.prob_side)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  const avgConviction =
+    convictionRows.length > 0
+      ? convictionRows.reduce((acc, value) => acc + value, 0) / convictionRows.length
+      : null
+
+  return {
+    totalSignals: ordered.length,
+    flips,
+    bullishDays,
+    neutralDays,
+    bearishDays,
+    avgConviction,
+    latestDate: ordered[0]?.signal_date ?? null,
+    oldestDate: ordered[ordered.length - 1]?.signal_date ?? null,
+    ordered,
+  }
+}
+
+export default async function PerformancePage({
+  searchParams,
+}: {
+  searchParams: Promise<PerformanceSearchParams>
+}) {
+  const resolvedSearchParams = await searchParams
+  const ticker = normalizeTicker(singleParam(resolvedSearchParams.ticker))
+
+  const [signals, quote, screener] = await Promise.all([
+    getSignalHistoryForTicker(ticker, 365),
+    getStockQuote(ticker),
+    getScreenerSignals({ sortBy: 'conviction', limit: 20 }),
+  ])
+
+  const metrics = computeSignalMetrics(signals)
+  const quickTickers = [...new Set(screener.rows.map((row) => row.ticker))].slice(0, 10)
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px' }}>
+    <div className="max-w-[1160px] mx-auto px-4 md:px-6 pb-12">
       <Nav active="performance" />
 
-      {/* Header */}
-      <div style={{ padding: '20px 0 16px', borderBottom: '1px solid #e5e7eb' }}>
-        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
-          S&P 500 ETF (SPY) · Timing & Allocation System
+      <div className="py-6 border-b border-border">
+        <div className="text-[12px] text-muted-foreground mb-1">Signal Quality Dashboard</div>
+        <div className="text-[28px] font-semibold tracking-tight">
+          {ticker}
+          {quote?.name ? <span className="text-[20px] text-muted-foreground ml-2">{quote.name}</span> : null}
         </div>
-        <div style={{ fontSize: '22px', fontWeight: 600 }}>Live performance</div>
-        <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
-          Episode returns only · Based on actual allocation lifecycle
+        <div className="text-[13px] text-muted-foreground mt-1">
+          Direction mix, signal flips, and conviction trend using latest historical model outputs.
         </div>
       </div>
 
-      <div style={{ padding: '20px 0' }}>
-
-        {/* Framing note */}
-        <div style={{
-          background: '#f9fafb', borderRadius: '8px',
-          padding: '12px 16px', marginBottom: '24px',
-          fontSize: '12px', color: '#374151', lineHeight: '1.6'
-        }}>
-          Performance is measured by allocation episode — the return earned while the system
-          was invested, compared to periods when it chose to stay flat. The goal is to be
-          allocated during favourable conditions and out during unfavourable ones. Test data
-          started on January 1st, 2026.
+      <div className="py-6">
+        <div className="mb-5">
+          <PerformanceTickerAutocomplete initialTicker={ticker} />
         </div>
 
-        {/* Primary metrics */}
-        <div style={{ fontSize: '15px', fontWeight: 500, marginBottom: '12px' }}>
-          Allocation metrics
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '28px' }}>
-          {[
-            {
-              label: 'Avg return when allocated',
-              value: avgAllocatedReturn !== null ? formatReturn(avgAllocatedReturn) : '—',
-              color: avgAllocatedReturn !== null
-                ? (avgAllocatedReturn >= 0 ? '#27500A' : '#791F1F')
-                : '#1a1a1a'
-            },
-            {
-              label: 'Avg SPY return when flat',
-              value: avgFlatReturn !== null ? formatReturn(avgFlatReturn) : '—',
-              color: '#1a1a1a'
-            },
-            {
-              label: '% time allocated',
-              value: pctTimeAllocated ? `${pctTimeAllocated}%` : '—',
-              color: '#1a1a1a'
-            },
-            {
-              label: 'Positive allocated episodes',
-              value: episodeHitRate ? `${episodeHitRate}%` : '—',
-              color: '#1a1a1a'
-            },
-          ].map(card => (
-            <div key={card.label} style={{ background: '#f9fafb', borderRadius: '8px', padding: '12px 14px' }}>
-              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>{card.label}</div>
-              <div style={{ fontSize: '20px', fontWeight: 500, color: card.color }}>{card.value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Episode breakdown */}
-        <div style={{ fontSize: '15px', fontWeight: 500, marginBottom: '4px' }}>
-          Episode breakdown
-        </div>
-        <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>
-          Allocated episodes with positive return vs negative return.
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '28px' }}>
-          {[
-            {
-              label: 'Allocated episodes',
-              value: allocated.length > 0 ? String(allocated.length) : '—',
-              sub: 'with episode return data'
-            },
-            {
-              label: 'Positive return episodes',
-              value: positiveEpisodes > 0 ? String(positiveEpisodes) : '—',
-              sub: 'allocated, return > 0'
-            },
-            {
-              label: 'Negative return episodes',
-              value: allocated.filter(s => (s.live_episode_return_to_date ?? 0) <= 0).length > 0
-                ? String(allocated.filter(s => (s.live_episode_return_to_date ?? 0) <= 0).length)
-                : '—',
-              sub: 'allocated, return ≤ 0'
-            },
-          ].map(card => (
-            <div key={card.label} style={{
-              border: '1px solid #e5e7eb', borderRadius: '8px', padding: '14px 16px'
-            }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>{card.label}</div>
-              <div style={{ fontSize: '24px', fontWeight: 500, marginBottom: '2px' }}>{card.value}</div>
-              <div style={{ fontSize: '11px', color: '#9ca3af' }}>{card.sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Episode table */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
-          <span style={{ fontSize: '15px', fontWeight: 500 }}>All episodes</span>
-          <span style={{ fontSize: '12px', color: '#9ca3af' }}>return earned during each allocation period</span>
-        </div>
-        <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>
-          Each row shows the return earned (or avoided) during that episode.
-          Flat rows show what SPY did while the system was uninvested.
-          Signals are shown through today.
-        </div>
-
-        {!hasSignals ? (
-          <div style={{ color: '#9ca3af', padding: '24px 0' }}>
-            No signals yet — check back after market close.
+        {quickTickers.length > 0 && (
+          <div className="mb-6 flex flex-wrap gap-2">
+            {quickTickers.map((symbol) => (
+              <Link
+                key={symbol}
+                href={`/performance?ticker=${symbol}`}
+                className={`px-2.5 py-1 rounded border text-[12px] ${
+                  symbol === ticker
+                    ? 'bg-primary/10 border-primary/40 text-primary font-medium'
+                    : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {symbol}
+              </Link>
+            ))}
           </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr>
-                {['Signal date', 'Stance', 'Days in episode', 'Episode return', 'Result'].map(h => (
-                  <th key={h} style={{
-                    textAlign: 'left', padding: '8px 0',
-                    color: '#6b7280', fontWeight: 400,
-                    borderBottom: '1px solid #e5e7eb', fontSize: '12px'
-                  }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {allEpisodes.map(signal => {
-                const hasAllocatedReturn = signal.live_episode_return_to_date !== null
-                const hasFlatReturn = signal.live_flat_episode_spy_move_to_date !== null
-                const isAllocated = hasAllocatedReturn
-                  ? true
-                  : hasFlatReturn
-                    ? false
-                    : signal.direction === 'bullish'
-                const ret = hasAllocatedReturn
-                  ? signal.live_episode_return_to_date
-                  : hasFlatReturn
-                    ? signal.live_flat_episode_spy_move_to_date
-                    : null
-                const status = hasAllocatedReturn
-                  ? signal.live_episode_status
-                  : hasFlatReturn
-                    ? signal.live_flat_episode_status
-                    : (signal.direction === 'bullish'
-                      ? signal.live_episode_status
-                      : signal.live_flat_episode_status)
-                const daysInEpisode = signal.live_episode_days_in_trade ?? extractDaysFromStatus(status)
-                const hasReturn = ret !== null
-                const isPositive = (ret ?? 0) > 0
-
-                return (
-                  <tr key={signal.id}>
-                    <td style={{ padding: '9px 0', borderBottom: '1px solid #f3f4f6' }}>
-                      {formatDate(signal.signal_date)}
-                    </td>
-                    <td style={{ padding: '9px 0', borderBottom: '1px solid #f3f4f6' }}>
-                      <span style={{
-                        padding: '2px 10px', borderRadius: '4px',
-                        fontSize: '12px', fontWeight: 500,
-                        background: isAllocated ? '#EAF3DE' : '#F1EFE8',
-                        color: isAllocated ? '#27500A' : '#5F5E5A',
-                      }}>
-                        {isAllocated ? 'Allocated' : 'Flat'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '9px 0', borderBottom: '1px solid #f3f4f6', color: '#6b7280' }}>
-                      {daysInEpisode !== null
-                        ? `${daysInEpisode}d`
-                        : '—'}
-                    </td>
-                    <td style={{
-                      padding: '9px 0', borderBottom: '1px solid #f3f4f6',
-                      color: ret === null ? '#9ca3af' : isPositive ? '#27500A' : '#791F1F'
-                    }}>
-                      {formatReturn(ret)}
-                    </td>
-                    <td style={{ padding: '9px 0', borderBottom: '1px solid #f3f4f6' }}>
-                      {!hasReturn ? (
-                        <span style={{ color: '#6b7280' }}>Pending</span>
-                      ) : !isAllocated ? (
-                        <span style={{ color: '#6b7280' }}>Flat / avoided</span>
-                      ) : isPositive ? (
-                        <span style={{ color: '#27500A' }}>✓ Positive</span>
-                      ) : (
-                        <span style={{ color: '#791F1F' }}>✗ Negative</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
         )}
 
-        <div style={{
-          fontSize: '11px', color: '#9ca3af', lineHeight: '1.6',
-          padding: '12px', border: '1px solid #e5e7eb',
-          borderRadius: '8px', marginTop: '28px'
-        }}>
-          Past performance does not guarantee future results. This is a research project.
-          Signals are displayed through today. Nothing here constitutes investment advice.
+        {metrics.totalSignals === 0 ? (
+          <div className="text-sm text-muted-foreground py-10">
+            No signal history found for <span className="font-medium text-foreground">{ticker}</span>.
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+              <div className="rounded-lg border border-border bg-card p-4">
+                <div className="text-[11px] text-muted-foreground">Total Signals</div>
+                <div className="text-[24px] font-semibold mt-1">{metrics.totalSignals}</div>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-4">
+                <div className="text-[11px] text-muted-foreground">Direction Flips</div>
+                <div className="text-[24px] font-semibold mt-1">{metrics.flips}</div>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-4">
+                <div className="text-[11px] text-muted-foreground">Average Conviction</div>
+                <div className="text-[24px] font-semibold mt-1">{formatConviction(metrics.avgConviction)}</div>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-4">
+                <div className="text-[11px] text-muted-foreground">Coverage Window</div>
+                <div className="text-[13px] font-medium mt-2">
+                  {formatDate(metrics.oldestDate ?? '')} to {formatDate(metrics.latestDate ?? '')}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-4 mb-6">
+              <div className="text-[13px] font-medium mb-3">Signal Mix</div>
+              <div className="grid grid-cols-3 gap-2 text-center text-[12px]">
+                <div className="rounded border border-emerald-200 bg-emerald-50 py-2">
+                  <div className="text-emerald-700 font-semibold">{metrics.bullishDays}</div>
+                  <div className="text-emerald-700/80">Bullish</div>
+                </div>
+                <div className="rounded border border-slate-300 bg-slate-100 py-2">
+                  <div className="text-slate-700 font-semibold">{metrics.neutralDays}</div>
+                  <div className="text-slate-700/80">Neutral</div>
+                </div>
+                <div className="rounded border border-red-200 bg-red-50 py-2">
+                  <div className="text-red-700 font-semibold">{metrics.bearishDays}</div>
+                  <div className="text-red-700/80">Bearish</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-border bg-card">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Signal Date</th>
+                    <th className="px-4 py-3 font-medium">Direction</th>
+                    <th className="px-4 py-3 font-medium">Conviction</th>
+                    <th className="px-4 py-3 font-medium">Horizon</th>
+                    <th className="px-4 py-3 font-medium">Flip Event</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {metrics.ordered.slice(0, 200).map((row, index) => {
+                    const previous = metrics.ordered[index + 1]
+                    const isFlip = Boolean(previous && previous.direction !== row.direction)
+                    const previousLabel = previous ? directionTone(previous.direction).label : null
+                    const tone = directionTone(row.direction)
+                    return (
+                      <tr key={`${row.signal_date}-${index}`} className="border-t border-border">
+                        <td className="px-4 py-3">{formatDate(row.signal_date)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded px-2 py-0.5 text-[11px] font-semibold ${tone.className}`}>
+                            {tone.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">{formatConviction(row.prob_side)}</td>
+                        <td className="px-4 py-3">{row.prediction_horizon}d</td>
+                        <td className="px-4 py-3 text-[12px]">
+                          {isFlip ? (
+                            <span className="text-primary font-medium">
+                              {previousLabel} → {tone.label}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">No flip</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        <div className="text-[11px] text-muted-foreground leading-6 mt-6 border border-border rounded-lg p-3">
+          This page reports model output behavior only. It does not include trade execution, slippage, or fees and is not investment advice.
         </div>
       </div>
     </div>

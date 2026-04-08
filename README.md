@@ -50,11 +50,14 @@ Use this checklist when you're ready to move from local/dev to production:
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
    - `CLERK_SECRET_KEY`
    - `NEXT_PUBLIC_APP_URL`
+   - `NEXT_PUBLIC_STRIPE_PAYMENT_LINK`
+   - `STRIPE_WEBHOOK_SECRET`
    - `SIGNAL_ALERT_CRON_TOKEN`
    - `RESEND_API_KEY`
    - `SIGNAL_ALERT_FROM_EMAIL`
 2. Run SQL migrations in production Supabase:
    - `supabase/sql/market_cache.sql`
+   - `supabase/sql/market_signals.sql`
    - `supabase/sql/user_watchlists.sql`
    - `supabase/sql/signal_alert_dispatches.sql`
 3. Deploy to Vercel (`vercel --prod` or your main-branch auto-deploy flow).
@@ -137,10 +140,127 @@ If Yahoo is rate-limited from this runtime, you can bootstrap Supabase from your
 
 This writes to `market_quotes` and `market_price_daily` using `SUPABASE_SERVICE_ROLE_KEY` from `.env.local`.
 
+## Multi-Ticker Signal Source (Screener/Dashboard)
+
+Use this to power `/screener`, `/dashboard`, and signal-history/export with cross-ticker rows.
+
+### Setup
+
+1. Run SQL: `supabase/sql/market_signals.sql`
+2. Batch upsert model outputs into `market_signals` (one row per ticker/day).
+3. `latest_signals_view` will automatically expose the newest row per ticker.
+
+### Batch Upsert Utility
+
+Use `scripts/upsert_market_signals.py` with CSV input:
+
+```bash
+python scripts/upsert_market_signals.py --csv data/signals.csv
+```
+
+Expected CSV columns:
+
+- `ticker`
+- `signal_date` (`YYYY-MM-DD`)
+- `direction` (`bullish|neutral|bearish`)
+- `prob_side` (0-1 or 0-100)
+- `prediction_horizon`
+
+Optional columns:
+
+- `source`
+- `model_version_id`
+- `retrain_id`
+- `metadata` (JSON string)
+
+Dry-run parser check:
+
+```bash
+python scripts/upsert_market_signals.py --csv data/signals.csv --dry-run
+```
+
+## AI Analyst Panel (Perplexity)
+
+Ticker pages now include a streaming AI analyst panel that summarizes likely catalysts behind the latest model signal.
+
+### Setup
+
+1. Add env vars:
+   - `PERPLEXITY_API_KEY` (required)
+   - `PERPLEXITY_MODEL` (optional, defaults to `sonar-pro`)
+2. Open any ticker page and click **Generate Analysis**.
+
+The app sends ticker + latest signal + recent headlines to `POST /api/ai-analyst`, which proxies Perplexity streaming output back to the client.
+
+If `PERPLEXITY_API_KEY` is not set, the AI Analyst UI is hidden automatically.
+
+## Stripe Pro Plan Activation
+
+The app now supports Stripe-driven Pro gating for screener full results and CSV export.
+
+### Setup
+
+1. Add env vars:
+   - `NEXT_PUBLIC_STRIPE_PAYMENT_LINK` (Stripe Payment Link URL for your Pro plan)
+   - `STRIPE_WEBHOOK_SECRET` (endpoint secret from Stripe webhook config)
+   - `STRIPE_WEBHOOK_TOLERANCE_SECONDS` (optional, defaults to `300`)
+2. In Stripe, configure a webhook endpoint:
+   - `POST /api/webhooks/stripe`
+   - Event: `checkout.session.completed`
+3. Ensure checkout includes Clerk user ID:
+   - Preferred: append `?client_reference_id=<clerk_user_id>` to the payment link.
+   - Fallback: include `clerk_user_id` in checkout metadata.
+
+On successful `checkout.session.completed`, the webhook sets Clerk metadata:
+
+- `publicMetadata.plan = 'pro'`
+- `privateMetadata.stripeCustomerId`
+- `privateMetadata.stripeSubscriptionId`
+- `privateMetadata.stripeLastCheckoutSessionId`
+- `privateMetadata.stripeLastCheckoutAt`
+
+### Local test workflow (without deploying)
+
+Use this when you want to test Stripe end-to-end on `localhost` before pushing to Vercel.
+
+1. Install and authenticate Stripe CLI (one-time setup):
+   ```bash
+   curl -s https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg > /dev/null
+   echo "deb [signed-by=/usr/share/keyrings/stripe.gpg] https://packages.stripe.dev/stripe-cli-debian-local stable main" | sudo tee -a /etc/apt/sources.list.d/stripe.list
+   sudo apt update
+   sudo apt install stripe
+   stripe login
+   ```
+2. Start the app:
+   ```bash
+   npm run dev
+   ```
+3. In a second terminal, start webhook forwarding:
+   ```bash
+   stripe listen --events checkout.session.completed --forward-to localhost:3000/api/webhooks/stripe
+   ```
+4. Copy the `whsec_...` shown by `stripe listen` and set it in local env:
+   - `STRIPE_WEBHOOK_SECRET=<whsec_from_stripe_listen>`
+5. Ensure your local payment link env exists:
+   - `NEXT_PUBLIC_STRIPE_PAYMENT_LINK=https://buy.stripe.com/...` (test-mode link)
+6. Restart `npm run dev` after env changes.
+7. While signed in, click Upgrade from the app and complete checkout using a Stripe test card:
+   - `4242 4242 4242 4242` + any future date/CVC.
+8. Verify webhook success in the `stripe listen` terminal:
+   - `checkout.session.completed` forwarded with HTTP `200`.
+9. Refresh the app (or sign out/sign in once) and confirm:
+   - Screener lock removed for Pro user.
+   - CSV export unlocked.
+
+Important notes:
+
+- The webhook secret from `stripe listen` is local-only and different from your Dashboard endpoint secret.
+- Keep modes aligned: test payment link + test events + test account data.
+- If checkout doesn’t return to your app automatically, configure Payment Link "After payment -> Redirect to URL" to your local route (for example `http://localhost:3000/screener`).
+
 ## Product Backlog
 
-- Populate a multi-ticker screener source (for example `latest_signals_view`) so `/screener` is not SPY-only.
-- Add a Perplexity-powered news integration for ticker pages (headline aggregation + source links).
-- Add a Perplexity chat/analysis panel for ticker intelligence (Q&A, context summary, risk notes).
-- Extend Perplexity analysis with social/news momentum inputs (for example X/Reddit trend context), since many users track those signals first.
+- Wire daily model batch jobs to continuously populate `market_signals` for your target universe (for example S&P 100).
+- Extend the AI analyst panel with follow-up Q&A and memory per ticker.
+- Add social/news momentum inputs (for example X/Reddit trend context) into AI analysis.
 - Add ads/sponsored placements in the ticker News section (clear labeling, frequency caps, non-intrusive placement).
