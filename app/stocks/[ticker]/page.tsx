@@ -4,11 +4,12 @@ import { Newspaper } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import ResearchShell from '@/components/shells/ResearchShell'
 import Card from '@/components/ui/Card'
+import Badge from '@/components/ui/Badge'
 import { buttonClass } from '@/components/ui/Button'
 import MetricGrid from '@/components/page/MetricGrid'
 import InsightCard from '@/components/page/InsightCard'
 import PageSection from '@/components/page/PageSection'
-import SystemProfileChart, { type SystemProfileDimension } from '@/components/page/SystemProfileChart'
+import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
 import StockChartPanel from '@/components/StockChartPanel'
 import PremiumSignalWidget from '@/components/PremiumSignalWidget'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
@@ -208,7 +209,7 @@ function buildScoreDimensions({
   historicalData: PricePoint[]
   recentSignals: Signal[]
   fundamentals: TickerFundamentals
-}): SystemProfileDimension[] {
+}): SystemProfileBlobDimension[] {
   const latestPoint = historicalData[historicalData.length - 1]
   const ma200 = movingAverage(historicalData, 200)
   const ma50 = movingAverage(historicalData, 50)
@@ -291,7 +292,7 @@ function phraseForDimension(label: string): string {
   return 'stability'
 }
 
-function buildSystemProfileInterpretation(dimensions: SystemProfileDimension[]): string {
+function buildSystemProfileInterpretation(dimensions: SystemProfileBlobDimension[]): string {
   if (dimensions.length < 3) return 'Profile dimensions are loading.'
   const sorted = [...dimensions].sort((a, b) => b.score - a.score)
   const strongest = sorted[0]
@@ -299,7 +300,57 @@ function buildSystemProfileInterpretation(dimensions: SystemProfileDimension[]):
   const weakest = sorted[sorted.length - 1]
 
   if (!strongest || !second || !weakest) return 'Profile dimensions are loading.'
-  return `Strong ${phraseForDimension(strongest.label)} and ${phraseForDimension(second.label)}, weaker ${phraseForDimension(weakest.label)}.`
+  if (weakest.label === 'Yield') {
+    return `Strong ${phraseForDimension(strongest.label)} and ${phraseForDimension(second.label)}, with minimal income contribution.`
+  }
+  if (weakest.label === 'Risk') {
+    return `Elevated risk is offset by stronger ${phraseForDimension(strongest.label)} and ${phraseForDimension(second.label)}.`
+  }
+  return `Strong ${phraseForDimension(strongest.label)} and ${phraseForDimension(second.label)}, with softer ${phraseForDimension(weakest.label)}.`
+}
+
+function dimensionDescriptor(label: SystemProfileBlobDimension['label'], score: number): string {
+  if (label === 'Trend') {
+    if (score >= 78) return 'Very strong'
+    if (score >= 60) return 'Strong'
+    if (score >= 42) return 'Mixed'
+    return 'Weak'
+  }
+  if (label === 'Momentum') {
+    if (score >= 74) return 'Strong'
+    if (score >= 52) return 'Mixed'
+    return 'Soft'
+  }
+  if (label === 'Risk') {
+    if (score >= 76) return 'Controlled'
+    if (score >= 58) return 'Moderate'
+    if (score >= 40) return 'Elevated'
+    return 'High'
+  }
+  if (label === 'Yield') {
+    if (score >= 74) return 'Strong'
+    if (score >= 56) return 'Moderate'
+    if (score >= 38) return 'Low'
+    return 'Minimal'
+  }
+  if (score >= 72) return 'Strong'
+  if (score >= 52) return 'Mixed'
+  return 'Weak'
+}
+
+function dimensionDotClass(label: SystemProfileBlobDimension['label']): string {
+  if (label === 'Trend') return 'bg-blue-500'
+  if (label === 'Momentum') return 'bg-indigo-500'
+  if (label === 'Risk') return 'bg-amber-500'
+  if (label === 'Yield') return 'bg-violet-500'
+  return 'bg-sky-500'
+}
+
+function profileStateBadge(overallScore: number): { label: string; variant: 'success' | 'neutral' | 'warning' | 'danger' } {
+  if (overallScore >= 72) return { label: 'Constructive', variant: 'success' }
+  if (overallScore >= 56) return { label: 'Mixed', variant: 'neutral' }
+  if (overallScore >= 42) return { label: 'Fragile', variant: 'warning' }
+  return { label: 'Stressed', variant: 'danger' }
 }
 
 export async function generateMetadata({
@@ -374,6 +425,11 @@ export default async function TickerPage({
     fundamentals,
   })
   const profileInterpretation = buildSystemProfileInterpretation(scoreDimensions)
+  const overallSystemScore =
+    scoreDimensions.length > 0
+      ? Math.round(scoreDimensions.reduce((sum, dimension) => sum + dimension.score, 0) / scoreDimensions.length)
+      : 0
+  const profileBadge = profileStateBadge(overallSystemScore)
 
   return (
     <ResearchShell
@@ -433,15 +489,46 @@ export default async function TickerPage({
         </div>
 
         <div className="section-gap">
-          <Card className="section-gap border-primary/20 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_68%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_68%)]">
-            <div>
+          <Card className="border-primary/20 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_68%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_68%)]">
+            <div className="flex items-start justify-between gap-3">
               <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">System Profile</h3>
-              <p className="text-body mt-1">{profileInterpretation}</p>
+              <div className="inline-flex items-center gap-3 rounded-xl border border-neutral-200 bg-white/80 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900/70">
+                <div className="leading-none text-neutral-900 dark:text-neutral-100">
+                  <span className="text-2xl font-semibold">{overallSystemScore}</span>
+                  <span className="ml-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">/ 100</span>
+                </div>
+                <Badge variant={profileBadge.variant}>{profileBadge.label}</Badge>
+              </div>
             </div>
-            <SystemProfileChart
-              dimensions={scoreDimensions}
-              baselineScores={[58, 56, 52, 48, 60]}
-            />
+            <p className="text-body mt-2 line-clamp-2">{profileInterpretation}</p>
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[45%_55%] lg:items-stretch">
+              <div className="mx-auto flex aspect-square w-full max-w-[400px] items-center justify-center rounded-2xl border border-neutral-200 bg-[radial-gradient(circle,rgba(59,130,246,0.12)_0%,rgba(129,140,248,0.05)_42%,transparent_72%)] p-5 dark:border-neutral-800 dark:bg-[radial-gradient(circle,rgba(37,99,235,0.22)_0%,rgba(99,102,241,0.08)_40%,transparent_72%)]">
+                <SystemProfileBlob dimensions={scoreDimensions} />
+              </div>
+              <div className="flex flex-col justify-center gap-2">
+                {scoreDimensions.map((dimension) => (
+                  <div
+                    key={dimension.label}
+                    className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800"
+                  >
+                    <div className="inline-flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${dimensionDotClass(dimension.label)}`} />
+                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                        {dimension.label}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                        {Math.round(dimension.score)}
+                      </div>
+                      <div className="text-[11px] font-normal text-neutral-400 dark:text-neutral-500">
+                        {dimensionDescriptor(dimension.label, dimension.score)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </Card>
 
           {latest ? (

@@ -87,3 +87,21 @@
     @apply text-[12px] font-medium uppercase tracking-wide text-neutral-600 dark:text-neutral-400;
   }
 }
+
+@keyframes system-blob-breathe {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.012);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.system-blob-breathe {
+  animation: system-blob-breathe 6.8s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}

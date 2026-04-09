@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
-import SystemProfileChart, { type SystemProfileDimension } from '@/components/page/SystemProfileChart'
+import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
 import ChartContainer, {
   CHART_MARGINS,
   CHART_PALETTE,
@@ -46,7 +46,7 @@ const BACKTEST_SERIES = [
   { t: 'W10', equity: 108.6 },
 ] as const
 
-const PREVIEW_SCORE_DIMENSIONS: SystemProfileDimension[] = [
+const PREVIEW_SCORE_DIMENSIONS: SystemProfileBlobDimension[] = [
   { label: 'Trend', score: 74 },
   { label: 'Momentum', score: 69 },
   { label: 'Risk', score: 58 },
@@ -128,6 +128,10 @@ export default function HeroProductPreview() {
   const first = PRICE_SERIES[0]
   const move = latest && first ? latest.price - first.price : 0
   const movePct = latest && first ? (move / first.price) * 100 : 0
+  const previewScore = Math.round(
+    PREVIEW_SCORE_DIMENSIONS.reduce((sum, dimension) => sum + dimension.score, 0) /
+      PREVIEW_SCORE_DIMENSIONS.length
+  )
 
   return (
     <div className="grid grid-cols-1 gap-4">
@@ -219,12 +223,21 @@ export default function HeroProductPreview() {
         </div>
 
         <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="mb-1 text-filter-label">System Profile</div>
-          <SystemProfileChart
-            compact
-            dimensions={PREVIEW_SCORE_DIMENSIONS}
-            baselineScores={[58, 56, 52, 48, 60]}
-          />
+          <div className="text-filter-label">System Profile</div>
+          <div className="mt-2 grid grid-cols-[132px_1fr] items-center gap-3">
+            <SystemProfileBlob compact dimensions={PREVIEW_SCORE_DIMENSIONS} />
+            <div>
+              <div className="text-xl font-semibold leading-none text-neutral-900 dark:text-neutral-100">
+                {previewScore} / 100
+              </div>
+              <div className="mt-1 text-[12px] font-medium text-neutral-700 dark:text-neutral-300">
+                Constructive profile
+              </div>
+              <p className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+                Stable model shape for research and validation workflows.
+              </p>
+            </div>
+          </div>
         </div>
       </Card>
 
