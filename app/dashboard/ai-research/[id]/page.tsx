@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import Nav from '@/components/Nav'
 import Breadcrumbs from '@/components/Breadcrumbs'
+import Card from '@/components/ui/Card'
+import { buttonClass } from '@/components/ui/Button'
+import AppShell from '@/components/shells/AppShell'
 import { getViewerUserId } from '@/lib/auth'
 import { getAiResearchRunById } from '@/lib/ai-research'
 
@@ -54,10 +56,7 @@ export default async function AiResearchRunDetailPage({
   if (!run) notFound()
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Nav active="dashboard" />
-
-      <main className="mx-auto max-w-[1100px] px-6 py-10">
+    <AppShell active="dashboard" container="md">
         <Breadcrumbs
           items={[
             { label: 'Home', href: '/' },
@@ -70,7 +69,7 @@ export default async function AiResearchRunDetailPage({
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+              <h1 className="text-page-title tracking-tight text-gray-900">
                 {run.ticker} AI Research Run
               </h1>
               <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${statusTone(run.status)}`}>
@@ -84,7 +83,7 @@ export default async function AiResearchRunDetailPage({
 
           <Link
             href={buildRerunHref(run.ticker, run.question, run.promptLabel)}
-            className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            className={buttonClass({ variant: 'primary' })}
           >
             Re-run This Prompt
           </Link>
@@ -92,8 +91,8 @@ export default async function AiResearchRunDetailPage({
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
           <div className="space-y-6">
-            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <div className="border-b border-border bg-muted/30 px-5 py-3">
+            <Card padding="none" className="overflow-hidden">
+              <div className="border-b border-border bg-muted/30 px-5 py-4">
                 <h2 className="text-[15px] font-bold text-gray-900">Run Metadata</h2>
               </div>
               <div className="px-5 py-4 text-sm">
@@ -136,21 +135,21 @@ export default async function AiResearchRunDetailPage({
                   <span className="font-semibold text-gray-900">{run.model ?? '—'}</span>
                 </div>
               </div>
-            </div>
+            </Card>
 
-            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <div className="border-b border-border bg-muted/30 px-5 py-3">
+            <Card padding="none" className="overflow-hidden">
+              <div className="border-b border-border bg-muted/30 px-5 py-4">
                 <h2 className="text-[15px] font-bold text-gray-900">Question</h2>
               </div>
               <div className="px-5 py-4 text-sm leading-6 text-gray-700">
                 {run.question ?? run.promptLabel ?? 'No question saved for this run.'}
               </div>
-            </div>
+            </Card>
           </div>
 
           <div className="space-y-6">
-            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <div className="border-b border-border bg-muted/30 px-5 py-3">
+            <Card padding="none" className="overflow-hidden">
+              <div className="border-b border-border bg-muted/30 px-5 py-4">
                 <h2 className="text-[15px] font-bold text-gray-900">Saved Response</h2>
               </div>
               <div className="px-5 py-5">
@@ -158,10 +157,10 @@ export default async function AiResearchRunDetailPage({
                   {run.responseExcerpt || run.errorMessage || 'No response excerpt was stored for this run.'}
                 </pre>
               </div>
-            </div>
+            </Card>
 
-            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <div className="border-b border-border bg-muted/30 px-5 py-3">
+            <Card padding="none" className="overflow-hidden">
+              <div className="border-b border-border bg-muted/30 px-5 py-4">
                 <h2 className="text-[15px] font-bold text-gray-900">Sources</h2>
               </div>
               <div className="px-5 py-4">
@@ -183,10 +182,9 @@ export default async function AiResearchRunDetailPage({
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
           </div>
         </div>
-      </main>
-    </div>
+    </AppShell>
   )
 }

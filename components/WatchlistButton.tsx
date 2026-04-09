@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { buttonClass } from '@/components/ui/Button'
 
 type WatchlistButtonProps = {
   ticker: string
@@ -56,7 +57,7 @@ export default function WatchlistButton({
         type="button"
         onClick={onClick}
         disabled={pending}
-        className="inline-flex items-center justify-center rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/50 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+        className={buttonClass({ variant: 'secondary' })}
       >
         {pending
           ? 'Saving...'

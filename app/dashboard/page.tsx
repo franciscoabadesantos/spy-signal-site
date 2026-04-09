@@ -1,5 +1,20 @@
 import Link from 'next/link'
-import Nav from '@/components/Nav'
+import AppShell from '@/components/shells/AppShell'
+import Card from '@/components/ui/Card'
+import Badge from '@/components/ui/Badge'
+import EmptyState from '@/components/ui/EmptyState'
+import PageHeader from '@/components/ui/PageHeader'
+import MetricGrid from '@/components/page/MetricGrid'
+import { buttonClass } from '@/components/ui/Button'
+import {
+  TableBase,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  TableShell,
+} from '@/components/ui/DataTable'
 import { getViewerUserId } from '@/lib/auth'
 import { getUserWatchlistTickers } from '@/lib/watchlist'
 import { getLastFlipDatesByTicker, getScreenerSignals } from '@/lib/signals'
@@ -33,18 +48,24 @@ function formatDate(value: string | null): string {
   })
 }
 
-function signalBadgeClass(signal: 'bullish' | 'neutral' | 'bearish' | null): string {
-  if (signal === 'bullish') return 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/30'
-  if (signal === 'bearish') return 'bg-red-500/10 text-red-700 border border-red-500/30'
-  if (signal === 'neutral') return 'bg-slate-500/10 text-slate-700 border border-slate-400/30'
-  return 'bg-muted text-muted-foreground border border-border'
+function signalBadgeClass(signal: 'bullish' | 'neutral' | 'bearish' | null): 'neutral' | 'success' | 'danger' {
+  if (signal === 'bullish') return 'success'
+  if (signal === 'bearish') return 'danger'
+  return 'neutral'
 }
 
 function signalLabel(signal: 'bullish' | 'neutral' | 'bearish' | null): string {
-  if (signal === 'bullish') return 'BUY'
-  if (signal === 'bearish') return 'SELL'
-  if (signal === 'neutral') return 'HOLD'
-  return 'NO SIGNAL'
+  if (signal === 'bullish') return 'Bullish'
+  if (signal === 'bearish') return 'Bearish'
+  if (signal === 'neutral') return 'Neutral'
+  return 'No Signal'
+}
+
+function isWithinDays(value: string | null, days: number): boolean {
+  if (!value) return false
+  const parsed = Date.parse(value)
+  if (!Number.isFinite(parsed)) return false
+  return Date.now() - parsed <= days * 24 * 60 * 60 * 1000
 }
 
 export default async function DashboardPage() {
@@ -52,23 +73,17 @@ export default async function DashboardPage() {
 
   if (!userId) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Nav active="dashboard" />
-        <main className="max-w-[1000px] mx-auto px-6 py-10">
-          <div className="bg-card border border-border rounded-xl p-8 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard is for signed-in users</h1>
-            <p className="text-sm text-muted-foreground mb-6">
-              Sign in to create a personalized watchlist and track live model signals daily.
-            </p>
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium"
-            >
+      <AppShell active="dashboard" container="md">
+        <EmptyState
+          title="Watchlist is for signed-in users"
+          description="Sign in to create a personalized watchlist and track live model signals daily."
+          action={
+            <Link href="/" className={buttonClass({ variant: 'primary' })}>
               Return Home
             </Link>
-          </div>
-        </main>
-      </div>
+          }
+        />
+      </AppShell>
     )
   }
 
@@ -80,102 +95,133 @@ export default async function DashboardPage() {
   ])
 
   const rowByTicker = new Map(rows.map((row) => [row.ticker, row]))
+  const watchlistRows = tickers.map((ticker) => {
+    const row = rowByTicker.get(ticker)
+    const direction = row?.direction ?? null
+    const lastFlippedDate = lastFlipByTicker[ticker] ?? row?.signalDate ?? null
+
+    return {
+      ticker,
+      row,
+      direction,
+      lastFlippedDate,
+    }
+  })
+
+  const convictionRows = watchlistRows
+    .map((entry) => entry.row?.conviction ?? null)
+    .filter((value): value is number => value !== null && Number.isFinite(value))
+
+  const avgConviction =
+    convictionRows.length > 0
+      ? convictionRows.reduce((sum, value) => sum + value, 0) / convictionRows.length
+      : null
+
+  const bullishCount = watchlistRows.filter((entry) => entry.direction === 'bullish').length
+  const flipsLast30d = watchlistRows.filter((entry) => isWithinDays(entry.lastFlippedDate, 30)).length
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Nav active="dashboard" />
+    <AppShell active="dashboard" container="md">
+      <div className="section-gap">
+        <PageHeader
+          title="Watchlist"
+          subtitle="Track live model stance, conviction, and flip cadence for the assets you follow."
+          action={
+            <Link href="/screener" className={buttonClass({ variant: 'secondary' })}>
+              Add More Assets
+            </Link>
+          }
+        />
 
-      <main className="max-w-[1200px] mx-auto px-6 py-10">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Pro Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            Your custom watchlist with live signal stance, conviction, and last flip context.
-          </p>
-        </div>
+        {tickers.length === 0 ? (
+          <Card>
+            <h2 className="text-section-title mb-2 text-neutral-900 dark:text-neutral-100">Your watchlist is empty</h2>
+            <p className="text-body mb-5">
+              Visit any ticker page and click Add to Watchlist to start building your personalized workspace.
+            </p>
+            <Link href="/stocks/SPY" className={buttonClass({ variant: 'primary' })}>
+              Explore SPY
+            </Link>
+          </Card>
+        ) : (
+          <>
+            <MetricGrid
+              columns={4}
+              items={[
+                { label: 'Tracked Assets', value: tickers.length.toString() },
+                { label: 'Bullish Signals', value: bullishCount.toString() },
+                {
+                  label: 'Avg Conviction',
+                  value: avgConviction === null ? '—' : `${Math.round(avgConviction * 100)}%`,
+                },
+                { label: 'Flips (30d)', value: flipsLast30d.toString() },
+              ]}
+            />
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_360px]">
-          <div>
-            {tickers.length === 0 ? (
-              <div className="bg-card border border-border rounded-xl p-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">Your watchlist is empty</h2>
-                <p className="text-sm text-muted-foreground mb-5">
-                  Visit any ticker page and click Add to Watchlist to start building your personalized dashboard.
-                </p>
-                <Link
-                  href="/stocks/SPY"
-                  className="inline-flex items-center justify-center bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium"
-                >
-                  Explore SPY
-                </Link>
+            <TableShell>
+              <TableBase className="whitespace-nowrap">
+                <TableHead sticky>
+                  <tr>
+                    <TableHeaderCell sortable sortDirection="asc">Ticker</TableHeaderCell>
+                    <TableHeaderCell>Current Price</TableHeaderCell>
+                    <TableHeaderCell>Live Signal</TableHeaderCell>
+                    <TableHeaderCell>Conviction</TableHeaderCell>
+                    <TableHeaderCell>Last Flipped Date</TableHeaderCell>
+                    <TableHeaderCell>% Chg</TableHeaderCell>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  {watchlistRows.map(({ ticker, row, direction, lastFlippedDate }, index) => (
+                    <TableRow key={ticker} index={index}>
+                      <TableCell className="font-semibold">
+                        <Link href={`/stocks/${ticker}`} className="text-primary hover:underline">
+                          {ticker}
+                        </Link>
+                        {row?.name ? (
+                          <div className="max-w-[220px] truncate text-[12px] font-normal text-muted-foreground">
+                            {row.name}
+                          </div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="font-medium">{formatPrice(row?.price ?? null)}</TableCell>
+                      <TableCell>
+                        <Badge variant={signalBadgeClass(direction)}>{signalLabel(direction)}</Badge>
+                      </TableCell>
+                      <TableCell muted>{formatConviction(row?.conviction ?? null)}</TableCell>
+                      <TableCell muted>{formatDate(lastFlippedDate)}</TableCell>
+                      <TableCell
+                        className={
+                          (row?.changePercent ?? null) === null
+                            ? 'text-muted-foreground'
+                            : (row?.changePercent ?? 0) >= 0
+                              ? 'text-emerald-600'
+                              : 'text-rose-600'
+                        }
+                      >
+                        {formatPct(row?.changePercent ?? null)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </TableBase>
+            </TableShell>
+
+            <div className="section-gap">
+              <div>
+                <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">Recent AI Research</h2>
+                <p className="text-body mt-1">Secondary context from your latest AI runs.</p>
               </div>
-            ) : (
-              <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                <div className="overflow-auto">
-                  <table className="w-full text-left text-[13px] whitespace-nowrap">
-                    <thead className="bg-muted text-muted-foreground border-b border-border sticky top-0 z-10">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Ticker</th>
-                        <th className="px-4 py-3 font-medium">Current Price</th>
-                        <th className="px-4 py-3 font-medium">Live Signal</th>
-                        <th className="px-4 py-3 font-medium">Conviction</th>
-                        <th className="px-4 py-3 font-medium">Last Flipped Date</th>
-                        <th className="px-4 py-3 font-medium">% Chg</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tickers.map((ticker) => {
-                        const row = rowByTicker.get(ticker)
-                        const direction = row?.direction ?? null
-                        const lastFlippedDate = lastFlipByTicker[ticker] ?? row?.signalDate ?? null
-
-                        return (
-                          <tr key={ticker} className="border-b border-border even:bg-muted/10">
-                            <td className="px-4 py-3 font-semibold">
-                              <Link href={`/stocks/${ticker}`} className="text-primary hover:underline">
-                                {ticker}
-                              </Link>
-                              {row?.name && (
-                                <div className="text-[12px] text-muted-foreground font-normal truncate max-w-[220px]">
-                                  {row.name}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 font-medium">{formatPrice(row?.price ?? null)}</td>
-                            <td className="px-4 py-3">
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${signalBadgeClass(direction)}`}>
-                                {signalLabel(direction)}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-muted-foreground">{formatConviction(row?.conviction ?? null)}</td>
-                            <td className="px-4 py-3 text-muted-foreground">{formatDate(lastFlippedDate)}</td>
-                            <td
-                              className={`px-4 py-3 font-medium ${
-                                (row?.changePercent ?? null) === null
-                                  ? 'text-muted-foreground'
-                                  : (row?.changePercent ?? 0) >= 0
-                                    ? 'text-emerald-600'
-                                    : 'text-red-600'
-                              }`}
-                            >
-                              {formatPct(row?.changePercent ?? null)}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <RecentAiResearchRuns
-            title="Recent AI Research"
-            runs={recentAiRuns}
-            emptyMessage="No saved AI research runs yet."
-          />
-        </div>
-      </main>
-    </div>
+              <RecentAiResearchRuns
+                title="Saved Runs"
+                runs={recentAiRuns}
+                emptyMessage="No saved AI research runs yet."
+                compact
+                className="border-dashed bg-neutral-50/70 dark:bg-neutral-900/30"
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </AppShell>
   )
 }

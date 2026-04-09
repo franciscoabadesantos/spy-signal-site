@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -10,6 +9,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import ChartContainer, {
+  CHART_MARGINS,
+  CHART_PALETTE,
+  ChartTooltipCard,
+} from '@/components/charts/ChartContainer'
 
 export type AllocationMiniBarDatum = {
   label: string
@@ -19,65 +23,86 @@ export type AllocationMiniBarDatum = {
 type AllocationMiniBarsProps = {
   title: string
   data: AllocationMiniBarDatum[]
-  color?: string
+  tone?: 'primary' | 'secondary'
 }
 
 function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`
 }
 
+function resolveBarColor(tone: AllocationMiniBarsProps['tone']): string {
+  if (tone === 'secondary') return CHART_PALETTE.secondary
+  return CHART_PALETTE.primary
+}
+
+type AllocationTooltipProps = {
+  active?: boolean
+  payload?: Array<{
+    payload?: AllocationMiniBarDatum
+    color?: string
+  }>
+}
+
+function AllocationTooltip({
+  active,
+  payload,
+}: AllocationTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null
+  const point = payload[0]?.payload as AllocationMiniBarDatum | undefined
+  const swatchColor = typeof payload[0]?.color === 'string' ? payload[0].color : CHART_PALETTE.primary
+  if (!point) return null
+
+  return (
+    <ChartTooltipCard
+      title={point.label}
+      rows={[
+        {
+          label: 'Weight',
+          value: formatPercent(point.value),
+          swatchColor,
+        },
+      ]}
+    />
+  )
+}
+
 export default function AllocationMiniBars({
   title,
   data,
-  color = '#0f766e',
+  tone = 'primary',
 }: AllocationMiniBarsProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const [isReady, setIsReady] = useState(false)
-
-  useEffect(() => {
-    const element = containerRef.current
-    if (!element) return
-
-    const updateReady = () => {
-      const rect = element.getBoundingClientRect()
-      setIsReady(rect.width > 0 && rect.height > 0)
-    }
-
-    updateReady()
-    const observer = new ResizeObserver(() => updateReady())
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
+  const barColor = resolveBarColor(tone)
 
   return (
-    <div className="rounded-md border border-gray-200 p-3">
+    <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
       <div className="text-[12px] font-semibold text-gray-700 mb-2">{title}</div>
-      <div ref={containerRef} className="h-[210px] w-full min-w-0">
-        {isReady ? (
+      <ChartContainer className="h-[210px] w-full min-w-0">
+        {() => (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={170}>
-            <BarChart data={data} layout="vertical" margin={{ top: 6, right: 12, left: 2, bottom: 6 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <BarChart data={data} layout="vertical" margin={CHART_MARGINS.standard}>
+              <CartesianGrid strokeDasharray="2 6" stroke={CHART_PALETTE.grid} vertical={false} />
               <XAxis
                 type="number"
-                tick={{ fontSize: 10, fill: '#6b7280' }}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: CHART_PALETTE.textMuted }}
                 tickFormatter={(value) => `${value}%`}
               />
               <YAxis
                 type="category"
                 dataKey="label"
                 width={78}
-                tick={{ fontSize: 10, fill: '#374151' }}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: CHART_PALETTE.text }}
                 interval={0}
               />
-              <Tooltip
-                formatter={(value) => [formatPercent(value as number), 'Weight']}
-                cursor={{ fill: '#f8fafc' }}
-              />
-              <Bar dataKey="value" fill={color} radius={[0, 4, 4, 0]} />
+              <Tooltip content={<AllocationTooltip />} cursor={{ fill: 'rgba(37,99,235,0.08)' }} />
+              <Bar dataKey="value" fill={barColor} radius={[6, 6, 6, 6]} />
             </BarChart>
           </ResponsiveContainer>
-        ) : null}
-      </div>
+        )}
+      </ChartContainer>
     </div>
   )
 }

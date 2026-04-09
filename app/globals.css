@@ -42,3 +42,48 @@
   }
 }
 
+@layer utilities {
+  .container-sm {
+    @apply mx-auto w-full max-w-[720px] px-4 md:px-6;
+  }
+
+  .container-md {
+    @apply mx-auto w-full max-w-[1120px] px-4 md:px-6;
+  }
+
+  .container-lg {
+    @apply mx-auto w-full max-w-[1280px] px-4 md:px-6;
+  }
+
+  .text-page-title {
+    @apply text-3xl font-semibold;
+  }
+
+  .text-section-title {
+    @apply text-xl font-semibold;
+  }
+
+  .text-card-title {
+    @apply text-base font-medium;
+  }
+
+  .text-body {
+    @apply text-sm text-neutral-600 dark:text-neutral-400;
+  }
+
+  .text-metric {
+    @apply text-2xl font-semibold;
+  }
+
+  .section-gap {
+    @apply space-y-10;
+  }
+
+  .card-gap {
+    @apply gap-4;
+  }
+
+  .text-filter-label {
+    @apply text-[12px] font-medium uppercase tracking-wide text-neutral-600 dark:text-neutral-400;
+  }
+}

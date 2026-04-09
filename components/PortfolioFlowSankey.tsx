@@ -1,7 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import { ResponsiveContainer, Sankey, type SankeyLinkProps, type SankeyNodeProps } from 'recharts'
+import Card from '@/components/ui/Card'
+import ChartContainer, {
+  CHART_MARGINS,
+  CHART_PALETTE,
+} from '@/components/charts/ChartContainer'
 
 export type PortfolioFlowNodeTone = 'sector' | 'portfolio' | 'holding' | 'other'
 
@@ -41,30 +45,30 @@ function formatPercent(value: number): string {
 function getNodeFill(tone: PortfolioFlowNodeTone): string {
   switch (tone) {
     case 'sector':
-      return '#6ea7ff'
+      return '#3b78b7'
     case 'portfolio':
-      return '#7de4d3'
+      return '#3b827d'
     case 'holding':
-      return '#f2c66d'
+      return '#b2874d'
     case 'other':
-      return '#4c5f7c'
+      return '#7a8797'
     default:
-      return '#94a3b8'
+      return '#7a8797'
   }
 }
 
 function getLinkFill(tone: PortfolioFlowNodeTone): string {
   switch (tone) {
     case 'sector':
-      return 'rgba(110, 167, 255, 0.22)'
+      return 'rgba(59, 120, 183, 0.16)'
     case 'portfolio':
-      return 'rgba(125, 228, 211, 0.22)'
+      return 'rgba(59, 130, 125, 0.16)'
     case 'holding':
-      return 'rgba(242, 198, 109, 0.18)'
+      return 'rgba(178, 135, 77, 0.14)'
     case 'other':
-      return 'rgba(76, 95, 124, 0.2)'
+      return 'rgba(122, 135, 151, 0.14)'
     default:
-      return 'rgba(148, 163, 184, 0.18)'
+      return 'rgba(122, 135, 151, 0.14)'
   }
 }
 
@@ -74,7 +78,6 @@ function FlowNode(props: SankeyNodeProps) {
   const depth = payload.depth ?? 0
   const anchor = depth === 0 ? 'start' : depth === 1 ? 'middle' : 'end'
   const labelX = depth === 0 ? props.x : depth === 1 ? props.x + props.width / 2 : props.x + props.width
-  const labelWidth = depth === 1 ? 180 : 150
 
   return (
     <g>
@@ -85,15 +88,15 @@ function FlowNode(props: SankeyNodeProps) {
         height={props.height}
         rx={4}
         fill={fill}
-        opacity={0.95}
+        opacity={0.9}
       />
       <text
         x={labelX}
-        y={Math.max(18, props.y - 10)}
+        y={Math.max(18, props.y - 8)}
         textAnchor={anchor}
-        fontSize={depth === 1 ? 13 : 12}
-        fontWeight={700}
-        fill="#e5e7eb"
+        fontSize={12}
+        fontWeight={600}
+        fill={CHART_PALETTE.text}
       >
         {trimLabel(payload.name, depth === 1 ? 20 : 18)}
       </text>
@@ -101,11 +104,11 @@ function FlowNode(props: SankeyNodeProps) {
         x={labelX}
         y={Math.max(34, props.y + 8)}
         textAnchor={anchor}
-        fontSize={11}
-        fontWeight={600}
-        fill="#93a4bd"
+        fontSize={12}
+        fontWeight={500}
+        fill={CHART_PALETTE.textMuted}
       >
-        {trimLabel(payload.valueLabel, labelWidth)}
+        {trimLabel(payload.valueLabel, 18)}
       </text>
     </g>
   )
@@ -139,99 +142,61 @@ export default function PortfolioFlowSankey({
   topHoldingsWeight,
   data,
 }: PortfolioFlowSankeyProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const [isReady, setIsReady] = useState(false)
-
-  useEffect(() => {
-    const element = containerRef.current
-    if (!element) return
-
-    const updateReady = () => {
-      const rect = element.getBoundingClientRect()
-      setIsReady(rect.width > 0 && rect.height > 0)
-    }
-
-    updateReady()
-    const observer = new ResizeObserver(() => updateReady())
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-
   const residualWeight = Math.max(0, totalWeight - topHoldingsWeight)
 
   return (
-    <section className="overflow-hidden rounded-[24px] border border-slate-800 bg-[#0b1220] shadow-[0_24px_80px_-28px_rgba(15,23,42,0.7)]">
-      <div className="border-b border-slate-800 bg-[radial-gradient(circle_at_top_right,_rgba(110,167,255,0.16),_transparent_34%),linear-gradient(180deg,_rgba(255,255,255,0.02),_rgba(255,255,255,0))] px-5 py-5 md:px-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="max-w-2xl">
-            <h2 className="text-[20px] font-bold tracking-tight text-white md:text-[22px]">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{subtitle}</p>
+    <Card className="section-gap" padding="lg">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h2 className="text-section-title text-neutral-900 dark:text-neutral-100">{title}</h2>
+          <p className="text-body mt-1 max-w-3xl">{subtitle}</p>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-sm">
+          <div className="rounded-xl border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+            <div className="text-filter-label">Sector Coverage</div>
+            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">{formatPercent(totalWeight)}</div>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-left md:min-w-[260px]">
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Sector Coverage
-              </div>
-              <div className="mt-1 text-[17px] font-bold text-white">{formatPercent(totalWeight)}</div>
-            </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Top Holdings
-              </div>
-              <div className="mt-1 text-[17px] font-bold text-white">{formatPercent(topHoldingsWeight)}</div>
-            </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Residual Bucket
-              </div>
-              <div className="mt-1 text-[17px] font-bold text-white">{formatPercent(residualWeight)}</div>
-            </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Flow Model
-              </div>
-              <div className="mt-1 text-[17px] font-bold text-white">Live ETF Map</div>
-            </div>
+          <div className="rounded-xl border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+            <div className="text-filter-label">Top Holdings</div>
+            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">{formatPercent(topHoldingsWeight)}</div>
+          </div>
+          <div className="rounded-xl border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+            <div className="text-filter-label">Residual</div>
+            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">{formatPercent(residualWeight)}</div>
           </div>
         </div>
       </div>
 
-      <div className="px-2 pb-4 pt-3 md:px-4 md:pb-5">
-        <div ref={containerRef} className="h-[520px] w-full min-w-0 md:h-[560px]">
-          {isReady ? (
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={400}>
-              <Sankey
-                data={data}
-                node={FlowNode}
-                link={FlowLink}
-                nodePadding={28}
-                nodeWidth={18}
-                margin={{ top: 40, right: 24, bottom: 24, left: 24 }}
-                sort
-              />
-            </ResponsiveContainer>
-          ) : null}
-        </div>
+      <ChartContainer className="h-[520px] w-full min-w-0">
+        {() => (
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={380}>
+            <Sankey
+              data={data}
+              node={FlowNode}
+              link={FlowLink}
+              nodePadding={28}
+              nodeWidth={18}
+              margin={CHART_MARGINS.sankey}
+              sort
+            />
+          </ResponsiveContainer>
+        )}
+      </ChartContainer>
 
-        <div className="mt-2 flex flex-wrap items-center gap-3 px-3 text-[12px] font-medium text-slate-400 md:px-4">
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#6ea7ff]" />
-            Sector exposures
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#7de4d3]" />
-            Total portfolio allocation
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#f2c66d]" />
-            Largest disclosed holdings
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#4c5f7c]" />
-            Residual grouped bucket
-          </span>
-        </div>
+      <div className="flex flex-wrap items-center gap-3 text-[12px] text-neutral-500 dark:text-neutral-400">
+        <span className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getNodeFill('sector') }} />
+          Sector exposure
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getNodeFill('portfolio') }} />
+          Portfolio node
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getNodeFill('holding') }} />
+          Holdings
+        </span>
       </div>
-    </section>
+    </Card>
   )
 }

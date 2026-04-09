@@ -3,6 +3,8 @@
 import { Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import Input from '@/components/ui/Input'
+import { buttonClass } from '@/components/ui/Button'
 
 type SearchSuggestion = {
   symbol: string
@@ -122,10 +124,10 @@ export default function PerformanceTickerAutocomplete({
 
   return (
     <div className="relative max-w-[460px]">
-      <label className="block text-[12px] text-muted-foreground mb-1">Ticker</label>
+      <label className="text-filter-label mb-2 block">Ticker</label>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+        <Input
           type="text"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -137,19 +139,19 @@ export default function PerformanceTickerAutocomplete({
             blurTimeoutRef.current = setTimeout(() => setIsOpen(false), 120)
           }}
           placeholder="Search ticker (AAPL, MSFT, SPY...)"
-          className="h-10 w-full pl-9 pr-20 rounded-md border border-border bg-background text-[14px] uppercase outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+          className="h-11 pr-24 pl-9 uppercase"
         />
         <button
           type="button"
           onClick={() => navigate(search)}
-          className="absolute right-1.5 top-1.5 h-7 px-3 rounded bg-primary text-primary-foreground text-[12px] font-medium hover:bg-primary/90"
+          className={`${buttonClass({ variant: 'primary', size: 'sm' })} absolute right-1.5 top-1.5 h-8`}
         >
           Load
         </button>
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-md shadow-lg overflow-hidden z-20">
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
           <ul className="max-h-80 overflow-auto">
             {suggestions.map((item, index) => (
               <li key={`${item.symbol}-${item.name}`}>
@@ -157,12 +159,14 @@ export default function PerformanceTickerAutocomplete({
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => navigate(item.symbol)}
-                  className={`w-full text-left px-3 py-2.5 border-b border-border/80 last:border-b-0 ${
-                    index === highlightedIndex ? 'bg-muted/70' : 'hover:bg-muted/40'
+                  className={`w-full border-b border-neutral-200 px-3 py-2.5 text-left last:border-b-0 dark:border-neutral-800 ${
+                    index === highlightedIndex
+                      ? 'bg-neutral-100 dark:bg-neutral-800'
+                      : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/70'
                   }`}
                 >
-                  <div className="text-[13px] font-semibold text-foreground">{item.symbol}</div>
-                  <div className="text-[12px] text-muted-foreground truncate">
+                  <div className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">{item.symbol}</div>
+                  <div className="text-[12px] text-neutral-500 dark:text-neutral-400 truncate">
                     {item.name}
                     {item.exchange ? ` · ${item.exchange}` : ''}
                   </div>
@@ -174,7 +178,7 @@ export default function PerformanceTickerAutocomplete({
       )}
 
       {loading && search.trim() && (
-        <div className="absolute right-16 top-[29px] text-[11px] text-muted-foreground">Loading</div>
+        <div className="absolute right-16 top-[34px] text-[11px] text-neutral-500">Loading</div>
       )}
     </div>
   )

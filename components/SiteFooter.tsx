@@ -5,7 +5,7 @@ export default function SiteFooter() {
 
   return (
     <footer className="mt-auto bg-slate-950 text-slate-200 border-t border-slate-800">
-      <div className="max-w-[1240px] mx-auto px-4 md:px-6 py-10">
+      <div className="container-lg py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="text-[16px] font-semibold text-white mb-3">SpySignal</div>

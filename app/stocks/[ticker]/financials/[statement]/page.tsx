@@ -1,15 +1,27 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import Nav from '@/components/Nav'
-import StockSubnav from '@/components/StockSubnav'
+import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/Breadcrumbs'
+import ResearchShell from '@/components/shells/ResearchShell'
+import Card from '@/components/ui/Card'
+import EmptyState from '@/components/ui/EmptyState'
+import FilterChip from '@/components/ui/FilterChip'
+import MetricGrid from '@/components/page/MetricGrid'
 import FinancialStatementBarChart, {
   type FinancialChartDatum,
 } from '@/components/FinancialStatementBarChart'
 import AllocationMiniBars, {
   type AllocationMiniBarDatum,
 } from '@/components/AllocationMiniBars'
-import type { Metadata } from 'next'
+import {
+  TableBase,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  TableShell,
+  TableEmptyRow,
+} from '@/components/ui/DataTable'
 import { getStockQuote, getTickerFundamentals, type TickerFinancialRow } from '@/lib/finance'
 
 export const dynamic = 'force-dynamic'
@@ -47,7 +59,6 @@ function parseFinancialMetric(label: string, valueRaw: string): ParsedMetric | n
   const value = valueRaw.trim()
   if (!value || value === '—') return null
 
-  // Exclude obvious date/range/string-only rows.
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
   if (value.includes(' - ')) return null
   if (/[A-Za-z]/.test(value) && !value.includes('%') && !value.includes('$') && !/[TMBK]$/.test(value)) {
@@ -216,7 +227,11 @@ export default async function FinancialStatementPage({
   const statementMeta = STATEMENT_META[statementSlug]
   if (!statementMeta) notFound()
 
-  const fundamentals = await getTickerFundamentals(ticker)
+  const [fundamentals, quote] = await Promise.all([
+    getTickerFundamentals(ticker),
+    getStockQuote(ticker),
+  ])
+
   const rows = fundamentals[statementMeta.key] as TickerFinancialRow[]
   const chart = buildChartData(rows)
   const allocationCharts = buildAllocationCharts(fundamentals)
@@ -224,10 +239,10 @@ export default async function FinancialStatementPage({
     allocationCharts.holdings.length > 0 || allocationCharts.sectors.length > 0
 
   return (
-    <div className="min-h-screen bg-[#f9fafb] text-[#111827]">
-      <Nav active="stocks" />
-
-      <main className="max-w-[1240px] mx-auto px-4 md:px-6 py-6 pb-20">
+    <ResearchShell
+      ticker={ticker}
+      activeTab="financials"
+      breadcrumbs={
         <Breadcrumbs
           items={[
             { label: 'Home', href: '/' },
@@ -237,104 +252,124 @@ export default async function FinancialStatementPage({
             { label: statementMeta.title },
           ]}
         />
-
-        <div className="mb-4">
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900">{ticker}</h1>
-            <span className="text-xl text-gray-600 font-medium">{statementMeta.title}</span>
+      }
+      header={{
+        ticker,
+        companyName: quote?.name ?? null,
+        price: quote?.price ?? null,
+        dailyMove: {
+          amount: quote?.change ?? null,
+          percent: quote?.changePercent ?? null,
+        },
+        subtitle: 'ETF-focused metrics and exposures refreshed from market data providers.',
+      }}
+    >
+      <div className="section-gap">
+        <Card>
+          <div className="text-filter-label mb-2">Statement</div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(STATEMENT_META).map(([slug, meta]) => (
+              <FilterChip
+                key={slug}
+                label={meta.title}
+                active={slug === statementSlug}
+                href={`/stocks/${ticker}/financials/${slug}`}
+              />
+            ))}
           </div>
-          <div className="text-sm text-gray-500 mt-2">
-            ETF-focused metrics and exposures refreshed from market data providers.
-          </div>
-        </div>
+        </Card>
 
-        <StockSubnav ticker={ticker} />
+        <MetricGrid
+          columns={4}
+          items={[
+            { label: 'Section', value: statementMeta.title },
+            { label: 'Rows', value: rows.length.toString() },
+            { label: 'Holdings', value: (fundamentals.holdings?.length ?? 0).toString() },
+            { label: 'Dividend Yield', value: fundamentals.dividendYield ?? '—' },
+          ]}
+        />
 
-        <div className="mt-8 grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-8">
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-[18px] font-bold text-gray-900">{statementMeta.title}</h2>
-            </div>
-            {chart && (
-              <div className="px-4 md:px-6 py-4 border-b border-gray-200">
-                <div className="text-[13px] font-medium text-gray-700 mb-3">
-                  Visual Highlights
-                </div>
-                <FinancialStatementBarChart
-                  data={chart.data}
-                  valueSuffix={chart.valueSuffix}
-                  decimals={chart.decimals}
-                />
-              </div>
-            )}
-            {hasAllocationCharts && (
-              <div className="px-4 md:px-6 py-4 border-b border-gray-200">
-                <div className="text-[13px] font-medium text-gray-700 mb-3">
-                  Allocation Snapshot
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {allocationCharts.holdings.length > 0 && (
-                    <AllocationMiniBars
-                      title="Top Holdings Weights"
-                      data={allocationCharts.holdings}
-                      color="#2563eb"
-                    />
-                  )}
-                  {allocationCharts.sectors.length > 0 && (
-                    <AllocationMiniBars
-                      title="Top Sector Weights"
-                      data={allocationCharts.sectors}
-                      color="#0f766e"
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-            {rows.length === 0 ? (
-              <div className="px-6 py-6 text-sm text-gray-600">
-                No {statementMeta.title.toLowerCase()} data is available for this ticker.
-              </div>
-            ) : (
-              <div className="overflow-auto max-h-[640px]">
-                <table className="w-full text-left text-[13px] whitespace-nowrap">
-                  <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-medium">
-                    <tr>
-                      <th className="px-6 py-3 border-b border-gray-200">Metric</th>
-                      <th className="px-6 py-3 border-b border-gray-200">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr key={row.label} className="border-b border-gray-100 even:bg-gray-50/70">
-                        <td className="px-6 py-3 text-gray-700">{row.label}</td>
-                        <td className="px-6 py-3 font-semibold text-gray-900">{row.value}</td>
-                      </tr>
+        <Card padding="lg" className="section-gap">
+          <h2 className="text-section-title text-neutral-900 dark:text-neutral-100">Visual Highlights</h2>
+          {chart ? (
+            <FinancialStatementBarChart
+              data={chart.data}
+              valueSuffix={chart.valueSuffix}
+              decimals={chart.decimals}
+            />
+          ) : (
+            <div className="section-gap">
+              <EmptyState
+                title="No chart available for this dataset"
+                description="This section contains structured data only"
+              />
+              {rows.length > 0 ? (
+                <div className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
+                  <div className="text-filter-label mb-2">Preview</div>
+                  <div className="space-y-2">
+                    {rows.slice(0, 3).map((row) => (
+                      <div
+                        key={`preview-${row.label}`}
+                        className="flex items-center justify-between gap-3 text-sm"
+                      >
+                        <span className="text-neutral-500 dark:text-neutral-400">{row.label}</span>
+                        <span className="font-semibold text-neutral-900 dark:text-neutral-100">{row.value}</span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-            <h3 className="text-[15px] font-bold text-gray-900 mb-3">Financial Sections</h3>
-            <div className="divide-y divide-gray-100">
-              {Object.entries(STATEMENT_META).map(([slug, meta]) => {
-                const isActive = slug === statementSlug
-                return (
-                  <Link
-                    key={slug}
-                    href={`/stocks/${ticker}/financials/${slug}`}
-                    className={`block py-3 text-sm ${isActive ? 'font-semibold text-primary' : 'text-[#155e75] hover:underline'}`}
-                  >
-                    {meta.title}
-                  </Link>
-                )
-              })}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-body">Review the detailed table below for field-level values.</p>
+              )}
             </div>
-          </div>
-        </div>
-      </main>
-    </div>
+          )}
+        </Card>
+
+        {hasAllocationCharts ? (
+          <Card padding="lg" className="section-gap">
+            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Allocation Snapshot</h3>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {allocationCharts.holdings.length > 0 ? (
+                <AllocationMiniBars
+                  title="Top Holdings Weights"
+                  data={allocationCharts.holdings}
+                  tone="primary"
+                />
+              ) : null}
+              {allocationCharts.sectors.length > 0 ? (
+                <AllocationMiniBars
+                  title="Top Sector Weights"
+                  data={allocationCharts.sectors}
+                  tone="secondary"
+                />
+              ) : null}
+            </div>
+          </Card>
+        ) : null}
+
+        <TableShell contentClassName="max-h-[640px]">
+          <TableBase className="whitespace-nowrap text-[13px]">
+            <TableHead sticky>
+              <tr>
+                <TableHeaderCell>Metric</TableHeaderCell>
+                <TableHeaderCell>Value</TableHeaderCell>
+              </tr>
+            </TableHead>
+            <TableBody>
+              {rows.length === 0 ? (
+                <TableEmptyRow colSpan={2} title={`No ${statementMeta.title.toLowerCase()} data is available for this ticker.`} />
+              ) : (
+                rows.map((row, index) => (
+                  <TableRow key={row.label} index={index}>
+                    <TableCell muted>{row.label}</TableCell>
+                    <TableCell className="font-semibold text-neutral-900 dark:text-neutral-100">{row.value}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </TableBase>
+        </TableShell>
+      </div>
+    </ResearchShell>
   )
 }

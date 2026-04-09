@@ -1,4 +1,23 @@
+import Link from 'next/link'
+import type { Metadata } from 'next'
+import { Newspaper } from 'lucide-react'
+import Breadcrumbs from '@/components/Breadcrumbs'
+import ResearchShell from '@/components/shells/ResearchShell'
+import Card from '@/components/ui/Card'
+import { buttonClass } from '@/components/ui/Button'
+import MetricGrid from '@/components/page/MetricGrid'
+import InsightCard from '@/components/page/InsightCard'
+import PageSection from '@/components/page/PageSection'
+import SystemProfileChart, { type SystemProfileDimension } from '@/components/page/SystemProfileChart'
+import StockChartPanel from '@/components/StockChartPanel'
+import PremiumSignalWidget from '@/components/PremiumSignalWidget'
+import AiAnalystPanel from '@/components/AiAnalystPanel'
+import WatchlistButton from '@/components/WatchlistButton'
+import { getViewerUserId } from '@/lib/auth'
+import { isTickerInWatchlist } from '@/lib/watchlist'
+import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import { getSignalHistoryForTicker } from '@/lib/signals'
+import type { Signal } from '@/lib/types'
 import {
   getStockQuote,
   getHistoricalData,
@@ -6,25 +25,8 @@ import {
   getTickerNews,
   getRelatedTickers,
   type PricePoint,
-  type StockQuote,
+  type TickerFundamentals,
 } from '@/lib/finance'
-import { getViewerUserId } from '@/lib/auth'
-import { isTickerInWatchlist } from '@/lib/watchlist'
-import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
-import Nav from '@/components/Nav'
-import { ShieldCheck, Newspaper } from 'lucide-react'
-import Link from 'next/link'
-import type { Metadata } from 'next'
-import StockChartPanel from '@/components/StockChartPanel'
-import StockSubnav from '@/components/StockSubnav'
-import WatchlistButton from '@/components/WatchlistButton'
-import AiAnalystPanel from '@/components/AiAnalystPanel'
-import Breadcrumbs from '@/components/Breadcrumbs'
-import PremiumSignalWidget from '@/components/PremiumSignalWidget'
-import StickySectionNav from '@/components/StickySectionNav'
-import RecentAiResearchRuns from '@/components/RecentAiResearchRuns'
-import type { Signal } from '@/lib/types'
-import { getRecentAiResearchRuns } from '@/lib/ai-research'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,24 +40,6 @@ function sanitizeAiQuestion(value: string | null): string | null {
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed.slice(0, 240) : null
 }
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ ticker: string }>
-}): Promise<Metadata> {
-  const resolvedParams = await params
-  const ticker = resolvedParams.ticker.toUpperCase()
-  const quote = await getStockQuote(ticker)
-  const name = quote?.name || ticker
-
-  return {
-    title: `${ticker} Stock Price, Target, Signals & Overview - SpySignal`,
-    description: `Real-time price, algorithmic trading signals, and predictive data for ${name} (${ticker}). View conviction scores, performance, and key statistics.`,
-  }
-}
-
-// --- HELPER FUNCTIONS ---
 
 function normalizeDate(date: string): string {
   return date.slice(0, 10)
@@ -77,36 +61,34 @@ function buildChartSignalMarkers(signals: Signal[]): ChartSignalMarker[] {
   for (let i = 1; i < ascending.length; i++) {
     const previous = ascending[i - 1]
     const current = ascending[i]
-    if (current.direction === previous.direction) continue
-    markers.push({ date: normalizeDate(current.signal_date), direction: current.direction, conviction: current.prob_side, horizon: current.prediction_horizon, kind: 'flip' })
+    if (!previous || !current || current.direction === previous.direction) continue
+    markers.push({
+      date: normalizeDate(current.signal_date),
+      direction: current.direction,
+      conviction: current.prob_side,
+      horizon: current.prediction_horizon,
+      kind: 'flip',
+    })
   }
 
   const latest = ascending[ascending.length - 1]
   if (latest) {
     const latestDate = normalizeDate(latest.signal_date)
-    const hasLatestMarker = markers.some((marker) => marker.date === latestDate && marker.direction === latest.direction)
+    const hasLatestMarker = markers.some(
+      (marker) => marker.date === latestDate && marker.direction === latest.direction
+    )
     if (!hasLatestMarker) {
-      markers.push({ date: latestDate, direction: latest.direction, conviction: latest.prob_side, horizon: latest.prediction_horizon, kind: 'latest' })
+      markers.push({
+        date: latestDate,
+        direction: latest.direction,
+        conviction: latest.prob_side,
+        horizon: latest.prediction_horizon,
+        kind: 'latest',
+      })
     }
   }
+
   return markers
-}
-
-type ModelProofMetrics = {
-  winRate: number | null
-  totalReturn: number | null
-  maxDrawdownAvoided: number | null
-}
-
-function formatSignedPercent(value: number | null, digits = 1): string {
-  if (value === null) return '—'
-  const pct = (value * 100).toFixed(digits)
-  return `${value >= 0 ? '+' : ''}${pct}%`
-}
-
-function formatPercent(value: number | null, digits = 0): string {
-  if (value === null) return '—'
-  return `${(value * 100).toFixed(digits)}%`
 }
 
 function formatTimeAgo(value: string | null): string {
@@ -147,83 +129,195 @@ function calcWeightBarWidth(value: number | null, maxValue: number): number {
   return Math.max(0, Math.min(100, (value / maxValue) * 100))
 }
 
-function computeMaxDrawdown(returns: number[]): number | null {
-  if (returns.length === 0) return null
-
-  let equity = 1
-  let peak = 1
-  let maxDrawdown = 0
-
-  for (const dailyReturn of returns) {
-    equity *= 1 + dailyReturn
-    if (equity > peak) peak = equity
-    const drawdown = equity / peak - 1
-    if (drawdown < maxDrawdown) maxDrawdown = drawdown
-  }
-
-  return maxDrawdown
+function formatConviction(value: number | null): string {
+  if (value === null) return '—'
+  return `${Math.round(value * 100)}%`
 }
 
-function computeModelProofMetrics(signals: Signal[], historical: PricePoint[]): ModelProofMetrics {
-  if (signals.length < 2 || historical.length < 2) {
-    return { winRate: null, totalReturn: null, maxDrawdownAvoided: null }
+function computeInsightStats(signals: Signal[]) {
+  const recent = signals.slice(0, 90)
+  const convictionRows = recent
+    .map((row) => row.prob_side)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  const avgConviction =
+    convictionRows.length > 0
+      ? convictionRows.reduce((sum, value) => sum + value, 0) / convictionRows.length
+      : null
+
+  let flips = 0
+  for (let i = 1; i < recent.length; i++) {
+    const current = recent[i]
+    const previous = recent[i - 1]
+    if (current && previous && current.direction !== previous.direction) flips += 1
   }
 
-  const priceByDate = new Map<string, number>()
-  for (const point of historical) {
-    priceByDate.set(point.date.slice(0, 10), point.close)
-  }
-
-  const ascendingSignals = [...signals].sort((a, b) => a.signal_date.localeCompare(b.signal_date))
-
-  const strategyReturns: number[] = []
-  const benchmarkReturns: number[] = []
-  const hitFlags: boolean[] = []
-
-  for (let i = 0; i < ascendingSignals.length - 1; i++) {
-    const current = ascendingSignals[i]
-    const next = ascendingSignals[i + 1]
-    if (!current || !next) continue
-
-    const currentDate = current.signal_date.slice(0, 10)
-    const nextDate = next.signal_date.slice(0, 10)
-    const currentPrice = priceByDate.get(currentDate)
-    const nextPrice = priceByDate.get(nextDate)
-    if (currentPrice === undefined || nextPrice === undefined || currentPrice <= 0) continue
-
-    const assetReturn = nextPrice / currentPrice - 1
-    const bullish = current.direction === 'bullish'
-    const strategyReturn = bullish ? assetReturn : 0
-    const hit = bullish ? assetReturn > 0 : assetReturn <= 0
-
-    benchmarkReturns.push(assetReturn)
-    strategyReturns.push(strategyReturn)
-    hitFlags.push(hit)
-  }
-
-  if (strategyReturns.length === 0) {
-    return { winRate: null, totalReturn: null, maxDrawdownAvoided: null }
-  }
-
-  const strategyTotal = strategyReturns.reduce((acc, value) => acc * (1 + value), 1) - 1
-  const wins = hitFlags.filter(Boolean).length
-  const winRate = wins / hitFlags.length
-
-  const strategyDrawdown = computeMaxDrawdown(strategyReturns)
-  const benchmarkDrawdown = computeMaxDrawdown(benchmarkReturns)
-  const maxDrawdownAvoided =
-    strategyDrawdown === null || benchmarkDrawdown === null
-      ? null
-      : strategyDrawdown - benchmarkDrawdown
+  const bullishCount = recent.filter((row) => row.direction === 'bullish').length
+  const bullishShare = recent.length > 0 ? bullishCount / recent.length : null
 
   return {
-    winRate,
-    totalReturn: strategyTotal,
-    maxDrawdownAvoided,
+    avgConviction,
+    flips,
+    bullishShare,
   }
 }
 
-// --- MAIN PAGE COMPONENT ---
+function clampScore(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.min(100, value))
+}
+
+function movingAverage(data: PricePoint[], windowSize: number): number | null {
+  if (data.length < windowSize || windowSize <= 0) return null
+  const slice = data.slice(-windowSize)
+  const total = slice.reduce((sum, point) => sum + point.close, 0)
+  return total / slice.length
+}
+
+function computeDailyReturns(data: PricePoint[]): number[] {
+  const returns: number[] = []
+  for (let index = 1; index < data.length; index += 1) {
+    const current = data[index]
+    const previous = data[index - 1]
+    if (!current || !previous || previous.close <= 0) continue
+    returns.push((current.close - previous.close) / previous.close)
+  }
+  return returns
+}
+
+function stdDev(values: number[]): number {
+  if (values.length <= 1) return 0
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length
+  const variance =
+    values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1)
+  return Math.sqrt(variance)
+}
+
+function parsePercentString(value: string | null): number | null {
+  if (!value) return null
+  const match = value.match(/-?\d+(\.\d+)?/)
+  if (!match) return null
+  const parsed = Number(match[0])
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function buildScoreDimensions({
+  historicalData,
+  recentSignals,
+  fundamentals,
+}: {
+  historicalData: PricePoint[]
+  recentSignals: Signal[]
+  fundamentals: TickerFundamentals
+}): SystemProfileDimension[] {
+  const latestPoint = historicalData[historicalData.length - 1]
+  const ma200 = movingAverage(historicalData, 200)
+  const ma50 = movingAverage(historicalData, 50)
+  const trendAnchor = ma200 ?? ma50
+  const trendScore =
+    latestPoint && trendAnchor
+      ? clampScore(50 + ((latestPoint.close - trendAnchor) / trendAnchor) * 260)
+      : 55
+
+  const momentumBase = historicalData[Math.max(0, historicalData.length - 64)]?.close ?? null
+  const momentumScore =
+    latestPoint && momentumBase && momentumBase > 0
+      ? clampScore(50 + ((latestPoint.close - momentumBase) / momentumBase) * 230)
+      : 52
+
+  const recentReturns = computeDailyReturns(historicalData).slice(-90)
+  const annualizedVol =
+    recentReturns.length > 10 ? stdDev(recentReturns) * Math.sqrt(252) : null
+  const riskScore = annualizedVol === null ? 48 : clampScore(100 - annualizedVol * 240)
+
+  const yieldPct = parsePercentString(fundamentals.dividendYield)
+  // TODO(data): replace yield fallback with dedicated fundamentals feed when sparse ticker coverage is resolved.
+  const yieldScore = yieldPct === null ? 42 : clampScore(yieldPct * 14)
+  const yieldHint =
+    yieldPct === null
+      ? 'Placeholder-derived until yield feed is available for this ticker.'
+      : `Forward yield ${yieldPct.toFixed(2)}%.`
+
+  const stabilityWindow = recentSignals.slice(0, 90)
+  let flips = 0
+  for (let index = 1; index < stabilityWindow.length; index += 1) {
+    const current = stabilityWindow[index]
+    const previous = stabilityWindow[index - 1]
+    if (current && previous && current.direction !== previous.direction) flips += 1
+  }
+  const flipRate =
+    stabilityWindow.length > 1 ? flips / (stabilityWindow.length - 1) : 0
+  const convictionValues = stabilityWindow
+    .map((row) => row.prob_side)
+    .filter((value): value is number => value !== null && Number.isFinite(value))
+    .map((value) => value * 100)
+  const convictionDispersion =
+    convictionValues.length > 1 ? stdDev(convictionValues) : 18
+  const stabilityScore = clampScore(100 - flipRate * 85 - convictionDispersion * 0.55)
+
+  return [
+    {
+      label: 'Trend',
+      score: trendScore,
+      hint: 'Price trend versus long-window baseline.',
+    },
+    {
+      label: 'Momentum',
+      score: momentumScore,
+      hint: 'Medium-horizon directional push from recent closes.',
+    },
+    {
+      label: 'Risk',
+      score: riskScore,
+      hint: 'Higher means lower realized volatility.',
+    },
+    {
+      label: 'Yield',
+      score: yieldScore,
+      hint: yieldHint,
+    },
+    {
+      label: 'Stability',
+      score: stabilityScore,
+      hint: 'Signal consistency with lower flip frequency.',
+    },
+  ]
+}
+
+function phraseForDimension(label: string): string {
+  if (label === 'Trend') return 'trend'
+  if (label === 'Momentum') return 'momentum'
+  if (label === 'Risk') return 'risk control'
+  if (label === 'Yield') return 'income profile'
+  return 'stability'
+}
+
+function buildSystemProfileInterpretation(dimensions: SystemProfileDimension[]): string {
+  if (dimensions.length < 3) return 'Profile dimensions are loading.'
+  const sorted = [...dimensions].sort((a, b) => b.score - a.score)
+  const strongest = sorted[0]
+  const second = sorted[1]
+  const weakest = sorted[sorted.length - 1]
+
+  if (!strongest || !second || !weakest) return 'Profile dimensions are loading.'
+  return `Strong ${phraseForDimension(strongest.label)} and ${phraseForDimension(second.label)}, weaker ${phraseForDimension(weakest.label)}.`
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ ticker: string }>
+}): Promise<Metadata> {
+  const resolvedParams = await params
+  const ticker = resolvedParams.ticker.toUpperCase()
+  const quote = await getStockQuote(ticker)
+  const name = quote?.name || ticker
+
+  return {
+    title: `${ticker} Stock Price, Target, Signals & Overview - SpySignal`,
+    description: `Real-time price, algorithmic trading signals, and predictive data for ${name} (${ticker}). View conviction scores, performance, and key statistics.`,
+  }
+}
+
 export default async function TickerPage({
   params,
   searchParams,
@@ -242,8 +336,8 @@ export default async function TickerPage({
   const upgradeHref = viewerAccess.isSignedIn
     ? getStripeUpgradeUrl(viewerAccess.userId)
     : '/sign-up?redirect_url=/stocks/' + ticker
-  const relatedTickerSymbols = getRelatedTickers(ticker)
 
+  const relatedTickerSymbols = getRelatedTickers(ticker)
   const [quote, historicalData, recentSignals, fundamentals, newsItems, relatedQuotes] = await Promise.all([
     getStockQuote(ticker),
     getHistoricalData(ticker, 1825),
@@ -252,47 +346,40 @@ export default async function TickerPage({
     getTickerNews(ticker, 5),
     Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
   ])
-  const recentAiRuns = await getRecentAiResearchRuns({
-    userId: viewerAccess.userId,
-    ticker,
-    limit: 4,
-  })
+
   const isInWatchlist = viewerUserId ? await isTickerInWatchlist(viewerUserId, ticker) : false
-  
-  const hasSignals = recentSignals.length > 0
   const latest = recentSignals[0] ?? null
-  const signalMarkers = hasSignals ? buildChartSignalMarkers(recentSignals) : []
-  const isGreen = quote && quote.change >= 0
-  
-  // Extract Snapshot stats for the Key Stats grid
-  const keyStats = fundamentals.snapshot.slice(0, 16) // Limit to 16 for a clean grid
-  const modelProof = hasSignals ? computeModelProofMetrics(recentSignals, historicalData) : null
-  const holdingsPreview = (fundamentals.holdings ?? []).slice(0, 10)
+  const signalMarkers = recentSignals.length > 0 ? buildChartSignalMarkers(recentSignals) : []
+  const holdingsPreview = (fundamentals.holdings ?? []).slice(0, 8)
   const maxHoldingPreviewWeight = holdingsPreview.reduce((max, holding) => {
     const weight = holding.weightPercent
     if (weight === null || !Number.isFinite(weight)) return max
     return Math.max(max, weight)
   }, 0)
-  const sectionNavItems = [
-    { id: 'chart-section', label: 'Price & Signal' },
-    { id: 'key-stats', label: 'Key Statistics' },
-    { id: 'profile', label: 'Company Profile' },
-    { id: 'top-holdings', label: 'Top Holdings' },
-    { id: 'latest-news', label: 'Latest News' },
-  ]
+  const insightStats = computeInsightStats(recentSignals)
+
   const relatedAssets = relatedTickerSymbols
-    .map((symbol, index) => {
-      const peerQuote = relatedQuotes[index] as StockQuote | null | undefined
-      return { symbol, quote: peerQuote ?? null }
-    })
+    .map((symbol, index) => ({ symbol, quote: relatedQuotes[index] ?? null }))
     .filter((item) => item.quote !== null)
 
-  return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
-      <Nav />
+  const quickStats = [
+    { label: 'Market Cap', value: fundamentals.marketCap ?? '—' },
+    { label: 'Dividend Yield', value: fundamentals.dividendYield ?? '—' },
+    { label: 'Holdings', value: (fundamentals.holdings?.length ?? 0).toString() },
+    { label: 'Last Signal', value: latest?.signal_date?.slice(0, 10) ?? '—' },
+  ]
+  const scoreDimensions = buildScoreDimensions({
+    historicalData,
+    recentSignals,
+    fundamentals,
+  })
+  const profileInterpretation = buildSystemProfileInterpretation(scoreDimensions)
 
-      {/* Main Container */}
-      <main className="max-w-[1240px] mx-auto px-4 md:px-6 py-6 pb-20">
+  return (
+    <ResearchShell
+      ticker={ticker}
+      activeTab="overview"
+      breadcrumbs={
         <Breadcrumbs
           items={[
             { label: 'Home', href: '/' },
@@ -300,299 +387,287 @@ export default async function TickerPage({
             { label: ticker },
           ]}
         />
-        
-        {/* TOP HEADER: StockAnalysis Style */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-4xl font-bold tracking-tight text-gray-900">{quote?.ticker || ticker}</h1>
-              <span className="text-xl text-muted-foreground font-medium">{quote?.name}</span>
-            </div>
-            {quote && (
-              <div className="flex items-end gap-3 mt-2">
-                <span className="text-5xl font-bold leading-none text-gray-900">${quote.price.toFixed(2)}</span>
-                <span className={`text-xl font-semibold mb-1 ${isGreen ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {isGreen ? '+' : ''}{quote.change.toFixed(2)} ({isGreen ? '+' : ''}{quote.changePercent.toFixed(2)}%)
-                </span>
-              </div>
-            )}
-            <div className="text-sm text-muted-foreground mt-1.5 font-medium flex items-center gap-2">
-               <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-               Market Closed · Prices updated daily
-            </div>
-          </div>
+      }
+      header={{
+        ticker: quote?.ticker || ticker,
+        companyName: quote?.name,
+        price: quote?.price ?? null,
+        dailyMove: {
+          amount: quote?.change ?? null,
+          percent: quote?.changePercent ?? null,
+        },
+        signal: latest
+          ? {
+              label: latest.direction.toUpperCase(),
+              tone:
+                latest.direction === 'bullish'
+                  ? 'bullish'
+                  : latest.direction === 'bearish'
+                    ? 'bearish'
+                    : 'neutral',
+            }
+          : undefined,
+        subtitle: 'Research-ready snapshot with model context and supporting market data.',
+        watchlistAction: (
           <WatchlistButton
             ticker={ticker}
             initialInWatchlist={isInWatchlist}
             signedIn={Boolean(viewerUserId)}
           />
+        ),
+      }}
+    >
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+        <div className="section-gap">
+          <Card className="h-[420px]" padding="lg">
+            <StockChartPanel data={historicalData} signalMarkers={signalMarkers} />
+          </Card>
+
+          <MetricGrid
+            columns={4}
+            items={quickStats.map((stat) => ({
+              label: stat.label,
+              value: <span className="text-lg font-semibold">{stat.value}</span>,
+            }))}
+          />
         </div>
 
-        {/* SUBNAV */}
-        <StockSubnav ticker={ticker} active="overview" />
-
-        {/* CONTENT LAYOUT */}
-        <div className="mt-6 flex flex-col lg:flex-row gap-8">
-          <StickySectionNav sections={sectionNavItems} />
-          
-          {/* LEFT COLUMN: Chart & Data */}
-          <div className="flex-1 min-w-0 space-y-8">
-            
-            {/* Chart Area */}
-            <div id="chart-section" className="bg-card border border-border rounded-xl shadow-sm h-[400px] p-4 relative overflow-hidden">
-               <StockChartPanel data={historicalData} signalMarkers={signalMarkers} />
+        <div className="section-gap">
+          <Card className="section-gap border-primary/20 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_68%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_68%)]">
+            <div>
+              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">System Profile</h3>
+              <p className="text-body mt-1">{profileInterpretation}</p>
             </div>
+            <SystemProfileChart
+              dimensions={scoreDimensions}
+              baselineScores={[58, 56, 52, 48, 60]}
+            />
+          </Card>
 
-            {/* KEY STATISTICS GRID (StockAnalysis Style) */}
-            <div id="key-stats">
-               <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-border pb-2">Key Statistics</h2>
-               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3">
-                 {keyStats.map((stat, i) => (
-                   <div key={i} className="flex flex-col justify-between border-b border-muted py-2">
-                     <span className="text-sm text-muted-foreground">{stat.label}</span>
-                     <span className="text-[15px] font-semibold text-gray-900 mt-0.5">{stat.value}</span>
-                   </div>
-                 ))}
-               </div>
-            </div>
-
-            {/* ABOUT SECTION */}
-            <div id="profile">
-               <h2 className="text-xl font-bold text-gray-900 mb-3 border-b border-border pb-2">Profile</h2>
-               <p className="text-[15px] text-gray-700 leading-relaxed max-w-4xl">
-                 {fundamentals.about || `The ${quote?.name || ticker} provides investment exposure to highly liquid segments of the market. Our system runs daily quantitative analysis on this asset to determine optimal capital deployment and mitigate large drawdown risks.`}
-               </p>
-
-               {/* TOP HOLDINGS PREVIEW */}
-               <div id="top-holdings" className="mt-8">
-                 <div className="flex justify-between items-end border-b border-border pb-2 mb-3">
-                   <h2 className="text-xl font-bold text-gray-900">Top Holdings</h2>
-                   <Link href={`/stocks/${ticker}/holdings-dividends`} className="text-sm font-medium text-primary hover:underline">
-                     View All
-                   </Link>
-                 </div>
-                 {holdingsPreview.length === 0 ? (
-                   <div className="text-sm text-muted-foreground">
-                     Holdings data is not currently available for this ticker.
-                   </div>
-                 ) : (
-                   <div className="space-y-1.5">
-                     {holdingsPreview.map((holding, i) => {
-                       const weightLabel = holding.weightPercent === null ? '—' : `${holding.weightPercent.toFixed(2)}%`
-                       const barWidth = calcWeightBarWidth(holding.weightPercent, maxHoldingPreviewWeight)
-
-                       return (
-                         <div
-                           key={`${holding.symbol}-${i}`}
-                           className="group flex items-center gap-3 rounded-md border border-transparent px-2 py-2 text-[14px] transition-colors hover:border-border hover:bg-muted/20"
-                         >
-                           <div className="w-14 shrink-0 font-semibold text-gray-900">{holding.symbol}</div>
-                           <div className="min-w-0 flex-1">
-                             <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                               <div
-                                 className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500"
-                                 style={{ width: `${barWidth}%` }}
-                               />
-                             </div>
-                           </div>
-                           <div className="w-16 shrink-0 text-right font-medium text-gray-600">{weightLabel}</div>
-                         </div>
-                       )
-                     })}
-                  </div>
-                 )}
-               </div>
-
-              {/* NEWS FEED */}
-              <div id="latest-news" className="mt-8">
-                <div className="flex justify-between items-end border-b border-border pb-2 mb-3">
-                  <h2 className="text-xl font-bold text-gray-900">Latest News</h2>
-                </div>
-                {newsItems.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No recent news available for this ticker.</div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {newsItems.map((item) => {
-                      const sourceIconUrl = getNewsIconUrl(item)
-                      return (
-                        <a
-                          key={item.id}
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="grid grid-cols-[112px_1fr] gap-3 rounded-lg border border-border bg-card p-2 hover:bg-muted/20 hover:border-muted-foreground/20 transition-colors"
-                        >
-                          <div className="h-[76px] w-[112px] overflow-hidden rounded-md border border-border bg-muted/40">
-                            {item.imageUrl ? (
-                              <div
-                                className="h-full w-full bg-center bg-cover bg-no-repeat"
-                                style={{ backgroundImage: `url(${item.imageUrl})` }}
-                              />
-                            ) : sourceIconUrl ? (
-                              <div
-                                className="h-full w-full bg-white bg-center bg-no-repeat bg-contain"
-                                style={{ backgroundImage: `url(${sourceIconUrl})` }}
-                              />
-                            ) : (
-                              <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-                                <Newspaper className="h-5 w-5" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-[14px] font-semibold text-gray-900 leading-snug line-clamp-2">
-                              {item.title}
-                            </div>
-                            <div className="text-[12px] text-muted-foreground mt-1.5 line-clamp-1">
-                              {item.publisher} · {formatTimeAgo(item.publishedAt)}
-                            </div>
-                          </div>
-                        </a>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN: The USP (Signals) & Sidebars */}
-          <div className="w-full lg:w-[340px] space-y-6 flex-shrink-0">
-             
-             {/* THE USP: Prominent Signal Widget */}
-             {latest ? (
-               <div className="space-y-4">
-                 <PremiumSignalWidget
-                   ticker={ticker}
-                   direction={latest.direction}
-                   conviction={latest.prob_side}
-                   horizon={latest.prediction_horizon}
-                   signalDate={latest.signal_date}
-                 />
-
-                 <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                   <div className="bg-muted/30 px-5 py-3 border-b border-border">
-                     <h3 className="text-[15px] font-bold text-gray-900">Model Performance ({ticker})</h3>
-                   </div>
-                   <div className="px-5 py-2">
-                     <div className="flex items-center justify-between py-3 border-b border-border text-[13px]">
-                       <span className="text-muted-foreground">Win Rate (180d)</span>
-                       <span className="font-semibold text-gray-900">{formatPercent(modelProof?.winRate ?? null, 0)}</span>
-                     </div>
-                     <div className="flex items-center justify-between py-3 border-b border-border text-[13px]">
-                       <span className="text-muted-foreground">Total Strategy Return</span>
-                       <span className="font-semibold text-gray-900">{formatSignedPercent(modelProof?.totalReturn ?? null, 1)}</span>
-                     </div>
-                     <div className="flex items-center justify-between py-3 text-[13px]">
-                       <span className="text-muted-foreground">Max Drawdown Avoided</span>
-                       <span className="font-semibold text-gray-900">{formatSignedPercent(modelProof?.maxDrawdownAvoided ?? null, 1)}</span>
-                     </div>
-                   </div>
-                 </div>
-
-                 <AiAnalystPanel
-                   ticker={ticker}
-                   signal={{
-                     direction: latest.direction,
-                     conviction: latest.prob_side,
-                     predictionHorizon: latest.prediction_horizon,
-                     signalDate: latest.signal_date,
-                   }}
-                   news={newsItems.map((item) => ({
-                     title: item.title,
-                     publisher: item.publisher,
-                     publishedAt: item.publishedAt,
-                     url: item.url,
-                   }))}
-                   isPro={viewerAccess.isPro}
-                   providerEnabled={aiAnalystEnabled}
-                   upgradeHref={upgradeHref}
-                   initialQuestion={initialAiQuestion}
-                   initialPromptLabel={initialAiPromptLabel}
-                 />
-
-                 {viewerAccess.isSignedIn && (
-                   <RecentAiResearchRuns
-                     title="Recent AI Research"
-                     runs={recentAiRuns}
-                     compact
-                     emptyMessage="No saved AI research runs for this ticker yet."
-                   />
-                 )}
-               </div>
-             ) : (
-                <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-                  <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                     <ShieldCheck className="w-5 h-5 text-muted-foreground" /> Signal Unavailable
-                  </h3>
-                  <p className="text-sm text-muted-foreground">No recent model output is available for this ticker yet.</p>
-                </div>
-             )}
-
-             {/* Financials / Deep Links */}
-             <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                <div className="bg-muted/30 px-5 py-3 border-b border-border">
-                  <h2 className="text-[15px] font-bold text-gray-900">Financial Data</h2>
-                </div>
-                <div className="flex flex-col">
-                  {[
-                    { label: 'Fund Profile', slug: 'fund-profile' },
-                    { label: 'Portfolio Metrics', slug: 'portfolio' },
-                    { label: 'Distributions', slug: 'distributions' },
-                    { label: 'Risk & Return', slug: 'risk-metrics' },
-                  ].map((item, i, arr) => (
-                    <Link
-                      key={item.slug}
-                      href={`/stocks/${ticker}/financials/${item.slug}`}
-                      className={`block px-5 py-3.5 text-sm font-medium text-gray-700 hover:bg-muted/50 hover:text-primary transition-colors ${i !== arr.length - 1 ? 'border-b border-border' : ''}`}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-             </div>
-
-          </div>
-        </div>
-
-        {/* RELATED ASSETS */}
-        <section className="mt-10">
-          <div className="flex justify-between items-end border-b border-border pb-2 mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Similar Assets</h2>
-          </div>
-          {relatedAssets.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No peer assets available right now.</div>
+          {latest ? (
+            <PremiumSignalWidget
+              ticker={ticker}
+              direction={latest.direction}
+              conviction={latest.prob_side}
+              horizon={latest.prediction_horizon}
+              signalDate={latest.signal_date}
+            />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {relatedAssets.map((asset) => {
-                const peerQuote = asset.quote
-                const changePercent = peerQuote?.changePercent ?? null
-                const up = changePercent !== null && changePercent >= 0
+            <Card className="section-gap border-primary/30 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_68%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_68%)]">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Signal Summary</h3>
+              <p className="text-body mt-2">No recent model output is available for this ticker yet.</p>
+            </Card>
+          )}
+
+          <Card className="section-gap">
+            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Use this in your model</h3>
+            <p className="text-body">Save to watchlist, inspect financials, or compare nearby assets for validation.</p>
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/stocks/${ticker}/financials/fund-profile`} className={buttonClass({ variant: 'secondary' })}>
+                View Financials
+              </Link>
+              <Link href={`/stocks/${ticker}/signal-history`} className={buttonClass({ variant: 'ghost' })}>
+                Signal History
+              </Link>
+            </div>
+          </Card>
+
+          <AiAnalystPanel
+            ticker={ticker}
+            signal={{
+              direction: latest?.direction ?? 'neutral',
+              conviction: latest?.prob_side ?? null,
+              predictionHorizon: latest?.prediction_horizon ?? null,
+              signalDate: latest?.signal_date ?? new Date().toISOString(),
+            }}
+            news={newsItems.map((item) => ({
+              title: item.title,
+              publisher: item.publisher,
+              publishedAt: item.publishedAt,
+              url: item.url,
+            }))}
+            isPro={viewerAccess.isPro}
+            providerEnabled={aiAnalystEnabled}
+            upgradeHref={upgradeHref}
+            initialQuestion={initialAiQuestion}
+            initialPromptLabel={initialAiPromptLabel}
+          />
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <InsightCard title="Average Conviction" description="Recent 90-signal average">
+          <div className="text-metric text-neutral-900 dark:text-neutral-100">{formatConviction(insightStats.avgConviction)}</div>
+        </InsightCard>
+        <InsightCard title="Signal Flips" description="Direction changes in recent history">
+          <div className="text-metric text-neutral-900 dark:text-neutral-100">{insightStats.flips}</div>
+        </InsightCard>
+        <InsightCard title="Bullish Share" description="Portion of recent signals that were bullish">
+          <div className="text-metric text-neutral-900 dark:text-neutral-100">
+            {insightStats.bullishShare === null ? '—' : `${Math.round(insightStats.bullishShare * 100)}%`}
+          </div>
+        </InsightCard>
+      </section>
+
+      <PageSection id="profile" title="About" description="Company / fund profile and strategy context.">
+        <Card>
+          <p className="text-body leading-7 text-base">
+            {fundamentals.about ||
+              `The ${quote?.name || ticker} provides exposure to highly liquid market segments. This page combines live model context with supporting fundamentals so you can evaluate stance changes in context.`}
+          </p>
+        </Card>
+      </PageSection>
+
+      <PageSection
+        id="top-holdings"
+        title="Top Holdings Preview"
+        description="Largest disclosed positions by portfolio weight."
+        action={
+          <Link href={`/stocks/${ticker}/holdings-dividends`} className={buttonClass({ variant: 'secondary' })}>
+            View full holdings
+          </Link>
+        }
+      >
+        <Card>
+          {holdingsPreview.length === 0 ? (
+            <p className="text-body">Holdings data is not currently available for this ticker.</p>
+          ) : (
+            <div className="space-y-2">
+              {holdingsPreview.map((holding, i) => {
+                const weightLabel = holding.weightPercent === null ? '—' : `${holding.weightPercent.toFixed(2)}%`
+                const barWidth = calcWeightBarWidth(holding.weightPercent, maxHoldingPreviewWeight)
 
                 return (
-                  <Link
-                    key={asset.symbol}
-                    href={`/stocks/${asset.symbol}`}
-                    className="bg-card border border-border rounded-lg p-3 hover:border-primary/50 hover:bg-muted/10 transition-colors"
-                  >
-                    <div className="text-[16px] font-bold text-gray-900">{asset.symbol}</div>
-                    <div className="text-[12px] text-muted-foreground truncate mt-0.5">{peerQuote?.name ?? asset.symbol}</div>
-                    <div className="text-[20px] font-semibold text-gray-900 mt-2">
-                      {peerQuote ? `$${peerQuote.price.toFixed(2)}` : '—'}
+                  <div key={`${holding.symbol}-${i}`} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
+                    <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                        {holding.symbol}
+                        <span className="ml-2 text-neutral-500">{holding.name}</span>
+                      </div>
+                      <div className="font-semibold text-neutral-700 dark:text-neutral-200">{weightLabel}</div>
                     </div>
-                    <div className={`text-[13px] font-medium mt-1 ${up ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {changePercent === null ? '—' : `${up ? '+' : ''}${changePercent.toFixed(2)}%`}
+                    <div className="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${barWidth}%` }} />
                     </div>
-                  </Link>
+                  </div>
                 )
               })}
             </div>
           )}
-        </section>
-      </main>
-    </div>
+        </Card>
+      </PageSection>
+
+      <PageSection id="latest-news" title="Latest News" description="Recent headlines for this asset.">
+        <div className="grid grid-cols-1 gap-3">
+          {newsItems.length === 0 ? (
+            <Card>
+              <p className="text-body">No recent news available for this ticker.</p>
+            </Card>
+          ) : (
+            newsItems.map((item) => {
+              const sourceIconUrl = getNewsIconUrl(item)
+              return (
+                <a
+                  key={item.id}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Card className="transition-colors hover:border-neutral-400 dark:hover:border-neutral-600" padding="md">
+                    <div className="grid grid-cols-[88px_1fr] gap-3">
+                      <div className="h-[64px] w-[88px] overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
+                        {item.imageUrl ? (
+                          <div
+                            className="h-full w-full bg-cover bg-center bg-no-repeat"
+                            style={{ backgroundImage: `url(${item.imageUrl})` }}
+                          />
+                        ) : sourceIconUrl ? (
+                          <div
+                            className="h-full w-full bg-center bg-no-repeat bg-contain"
+                            style={{ backgroundImage: `url(${sourceIconUrl})` }}
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-neutral-400">
+                            <Newspaper className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2">
+                          {item.title}
+                        </div>
+                        <div className="text-body mt-1">{item.publisher} · {formatTimeAgo(item.publishedAt)}</div>
+                      </div>
+                    </div>
+                  </Card>
+                </a>
+              )
+            })
+          )}
+        </div>
+      </PageSection>
+
+      <PageSection title="Related Research Actions" description="Move from overview into detailed datasets and history.">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          {[
+            {
+              title: 'Financials',
+              body: 'Explore profile, portfolio, distributions, and risk sections.',
+              href: `/stocks/${ticker}/financials/fund-profile`,
+            },
+            {
+              title: 'Signal History',
+              body: 'Inspect daily stance changes, conviction, and episode outcomes.',
+              href: `/stocks/${ticker}/signal-history`,
+            },
+            {
+              title: 'Holdings & Dividends',
+              body: 'Review allocations, sector exposure, and dividend fields.',
+              href: `/stocks/${ticker}/holdings-dividends`,
+            },
+          ].map((item) => (
+            <Card key={item.href} className="section-gap">
+              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">{item.title}</h3>
+              <p className="text-body">{item.body}</p>
+              <Link href={item.href} className={buttonClass({ variant: 'secondary' })}>
+                Open
+              </Link>
+            </Card>
+          ))}
+        </div>
+      </PageSection>
+
+      <PageSection title="Similar Assets" description="Peer tickers for adjacent research.">
+        {relatedAssets.length === 0 ? (
+          <Card>
+            <p className="text-body">No peer assets available right now.</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {relatedAssets.map((asset) => {
+              const peerQuote = asset.quote
+              const changePercent = peerQuote?.changePercent ?? null
+              const up = changePercent !== null && changePercent >= 0
+
+              return (
+                <Link key={asset.symbol} href={`/stocks/${asset.symbol}`} className="block">
+                  <Card className="transition-colors hover:border-neutral-400 dark:hover:border-neutral-600">
+                    <div className="text-base font-semibold text-neutral-900 dark:text-neutral-100">{asset.symbol}</div>
+                    <div className="text-body mt-1 truncate">{peerQuote?.name ?? asset.symbol}</div>
+                    <div className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 mt-3">
+                      {peerQuote ? `$${peerQuote.price.toFixed(2)}` : '—'}
+                    </div>
+                    <div className={`mt-1 text-sm font-medium ${up ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {changePercent === null ? '—' : `${up ? '+' : ''}${changePercent.toFixed(2)}%`}
+                    </div>
+                  </Card>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </PageSection>
+    </ResearchShell>
   )
 }

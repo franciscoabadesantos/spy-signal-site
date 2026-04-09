@@ -1,11 +1,15 @@
 import Link from 'next/link'
 import type { AiResearchRun } from '@/lib/ai-research'
+import Card from '@/components/ui/Card'
+import Badge from '@/components/ui/Badge'
+import { cn } from '@/lib/utils'
 
 type RecentAiResearchRunsProps = {
   title: string
   runs: AiResearchRun[]
   emptyMessage: string
   compact?: boolean
+  className?: string
 }
 
 function formatDateTime(value: string): string {
@@ -19,10 +23,10 @@ function formatDateTime(value: string): string {
   })
 }
 
-function statusTone(status: AiResearchRun['status']): string {
-  if (status === 'completed') return 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-  if (status === 'failed') return 'bg-red-500/10 text-red-700 border border-red-500/20'
-  return 'bg-slate-500/10 text-slate-700 border border-slate-400/20'
+function statusVariant(status: AiResearchRun['status']): 'success' | 'danger' | 'neutral' {
+  if (status === 'completed') return 'success'
+  if (status === 'failed') return 'danger'
+  return 'neutral'
 }
 
 function excerptText(run: AiResearchRun): string {
@@ -49,46 +53,42 @@ export default function RecentAiResearchRuns({
   runs,
   emptyMessage,
   compact = false,
+  className,
 }: RecentAiResearchRunsProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="border-b border-border bg-muted/30 px-5 py-3">
-        <h3 className="text-[15px] font-bold text-gray-900">{title}</h3>
+    <Card padding="none" className={cn('overflow-hidden', className)}>
+      <div className="border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
+        <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">{title}</h3>
       </div>
 
       {runs.length === 0 ? (
-        <div className="px-5 py-5 text-sm text-muted-foreground">{emptyMessage}</div>
+        <div className="px-5 py-5 text-body">{emptyMessage}</div>
       ) : (
-        <div className={compact ? 'divide-y divide-border' : 'divide-y divide-border'}>
+        <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
           {runs.map((run) => (
             <div key={run.id} className="px-5 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <Link
-                      href={`/stocks/${run.ticker}`}
-                      className="text-[13px] font-semibold text-primary hover:underline"
-                    >
+                    <Link href={`/stocks/${run.ticker}`} className="text-sm font-semibold text-primary hover:underline">
                       {run.ticker}
                     </Link>
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusTone(run.status)}`}>
-                      {run.status.toUpperCase()}
-                    </span>
+                    <Badge variant={statusVariant(run.status)}>{run.status.toUpperCase()}</Badge>
                   </div>
-                  <div className="mt-2 text-[14px] font-semibold leading-snug text-gray-900">
+                  <div className="mt-2 text-sm font-semibold leading-snug text-neutral-900 dark:text-neutral-100">
                     {questionText(run)}
                   </div>
                 </div>
-                <div className="shrink-0 text-[11px] font-medium text-muted-foreground">
+                <div className="shrink-0 text-[11px] text-neutral-500 dark:text-neutral-400">
                   {formatDateTime(run.createdAt)}
                 </div>
               </div>
 
-              <div className={`mt-3 text-sm leading-6 text-muted-foreground ${compact ? 'line-clamp-3' : 'line-clamp-4'}`}>
+              <div className={`mt-3 text-body leading-6 ${compact ? 'line-clamp-2' : 'line-clamp-3'}`}>
                 {excerptText(run)}
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-medium text-muted-foreground">
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500 dark:text-neutral-400">
                 {run.signalDate ? <span>Signal date {run.signalDate}</span> : null}
                 {run.predictionHorizon !== null ? <span>{run.predictionHorizon}d horizon</span> : null}
                 {run.citations.length > 0 ? <span>{run.citations.length} sources</span> : null}
@@ -99,7 +99,7 @@ export default function RecentAiResearchRuns({
                 <Link href={`/dashboard/ai-research/${run.id}`} className="text-primary hover:underline">
                   View Run
                 </Link>
-                <Link href={buildRerunHref(run)} className="text-gray-700 hover:text-primary hover:underline">
+                <Link href={buildRerunHref(run)} className="text-neutral-700 hover:text-primary dark:text-neutral-300 dark:hover:text-primary">
                   Re-run Prompt
                 </Link>
               </div>
@@ -107,6 +107,6 @@ export default function RecentAiResearchRuns({
           ))}
         </div>
       )}
-    </div>
+    </Card>
   )
 }

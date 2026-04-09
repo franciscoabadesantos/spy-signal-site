@@ -1,5 +1,9 @@
-import Nav from '@/components/Nav'
 import PerformanceTickerAutocomplete from '@/components/PerformanceTickerAutocomplete'
+import Card from '@/components/ui/Card'
+import PageHeader from '@/components/ui/PageHeader'
+import AppShell from '@/components/shells/AppShell'
+import MetricGrid from '@/components/page/MetricGrid'
+import InsightCard from '@/components/page/InsightCard'
 import { getStockQuote } from '@/lib/finance'
 import { getSignalHistoryForTicker, getScreenerSignals } from '@/lib/signals'
 import type { Signal } from '@/lib/types'
@@ -121,21 +125,19 @@ export default async function PerformancePage({
   const quickTickers = [...new Set(screener.rows.map((row) => row.ticker))].slice(0, 10)
 
   return (
-    <div className="max-w-[1160px] mx-auto px-4 md:px-6 pb-12">
-      <Nav active="performance" />
+    <AppShell active="performance" container="md">
+      <PageHeader
+        title={
+          <>
+            {ticker}
+            {quote?.name ? <span className="text-[20px] text-muted-foreground ml-2">{quote.name}</span> : null}
+          </>
+        }
+        meta="Signal Quality Dashboard"
+        subtitle="Direction mix, signal flips, and conviction trend using latest historical model outputs."
+      />
 
-      <div className="py-6 border-b border-border">
-        <div className="text-[12px] text-muted-foreground mb-1">Signal Quality Dashboard</div>
-        <div className="text-[28px] font-semibold tracking-tight">
-          {ticker}
-          {quote?.name ? <span className="text-[20px] text-muted-foreground ml-2">{quote.name}</span> : null}
-        </div>
-        <div className="text-[13px] text-muted-foreground mt-1">
-          Direction mix, signal flips, and conviction trend using latest historical model outputs.
-        </div>
-      </div>
-
-      <div className="py-6">
+      <div>
         <div className="mb-5">
           <PerformanceTickerAutocomplete initialTicker={ticker} />
         </div>
@@ -164,29 +166,23 @@ export default async function PerformancePage({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-              <div className="rounded-lg border border-border bg-card p-4">
-                <div className="text-[11px] text-muted-foreground">Total Signals</div>
-                <div className="text-[24px] font-semibold mt-1">{metrics.totalSignals}</div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-4">
-                <div className="text-[11px] text-muted-foreground">Direction Flips</div>
-                <div className="text-[24px] font-semibold mt-1">{metrics.flips}</div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-4">
-                <div className="text-[11px] text-muted-foreground">Average Conviction</div>
-                <div className="text-[24px] font-semibold mt-1">{formatConviction(metrics.avgConviction)}</div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-4">
-                <div className="text-[11px] text-muted-foreground">Coverage Window</div>
-                <div className="text-[13px] font-medium mt-2">
-                  {formatDate(metrics.oldestDate ?? '')} to {formatDate(metrics.latestDate ?? '')}
-                </div>
-              </div>
-            </div>
+            <MetricGrid
+              items={[
+                { label: 'Total Signals', value: metrics.totalSignals },
+                { label: 'Direction Flips', value: metrics.flips },
+                { label: 'Average Conviction', value: formatConviction(metrics.avgConviction) },
+                {
+                  label: 'Coverage Window',
+                  value: (
+                    <span className="text-sm font-medium">
+                      {formatDate(metrics.oldestDate ?? '')} to {formatDate(metrics.latestDate ?? '')}
+                    </span>
+                  ),
+                },
+              ]}
+            />
 
-            <div className="rounded-lg border border-border bg-card p-4 mb-6">
-              <div className="text-[13px] font-medium mb-3">Signal Mix</div>
+            <InsightCard title="Signal Mix" className="mb-6">
               <div className="grid grid-cols-3 gap-2 text-center text-[12px]">
                 <div className="rounded border border-emerald-200 bg-emerald-50 py-2">
                   <div className="text-emerald-700 font-semibold">{metrics.bullishDays}</div>
@@ -201,9 +197,9 @@ export default async function PerformancePage({
                   <div className="text-red-700/80">Bearish</div>
                 </div>
               </div>
-            </div>
+            </InsightCard>
 
-            <div className="overflow-x-auto rounded-lg border border-border bg-card">
+            <Card padding="none" className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
@@ -244,14 +240,14 @@ export default async function PerformancePage({
                   })}
                 </tbody>
               </table>
-            </div>
+            </Card>
           </>
         )}
 
-        <div className="text-[11px] text-muted-foreground leading-6 mt-6 border border-border rounded-lg p-3">
+        <Card className="text-[11px] text-muted-foreground leading-6 mt-6 p-3">
           This page reports model output behavior only. It does not include trade execution, slippage, or fees and is not investment advice.
-        </div>
+        </Card>
       </div>
-    </div>
+    </AppShell>
   )
 }

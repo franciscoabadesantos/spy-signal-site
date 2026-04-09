@@ -1,9 +1,56 @@
-import Nav from '@/components/Nav'
+import MarketingShell from '@/components/shells/MarketingShell'
 
 export default function Methodology() {
+  const rightRail = (
+    <div style={{ position: 'sticky', top: '24px', alignSelf: 'start' }}>
+      <div
+        style={{
+          fontSize: '12px',
+          fontWeight: 500,
+          color: '#6b7280',
+          marginBottom: '10px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+        }}
+      >
+        On this page
+      </div>
+
+      {[
+        { label: 'Overview', href: '#overview' },
+        { label: 'Pipeline architecture', href: '#pipeline-architecture' },
+        { label: 'Strategy design', href: '#strategy-design' },
+        { label: 'Validation framework', href: '#validation-framework' },
+        { label: 'Live signal contract', href: '#live-signal-contract' },
+        { label: 'How to read results', href: '#how-to-read-results' },
+        {
+          label: 'What is public vs. proprietary',
+          href: '#what-is-public-vs-proprietary',
+        },
+        { label: 'Limitations and known risks', href: '#limitations-and-known-risks' },
+      ].map((section) => (
+        <a
+          key={section.label}
+          href={section.href}
+          style={{
+            display: 'block',
+            fontSize: '13px',
+            color: '#6b7280',
+            padding: '4px 0',
+            borderLeft: '2px solid #e5e7eb',
+            paddingLeft: '12px',
+            marginBottom: '2px',
+            textDecoration: 'none',
+          }}
+        >
+          {section.label}
+        </a>
+      ))}
+    </div>
+  )
+
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px' }}>
-      <Nav active="methodology" />
+    <MarketingShell active="methodology" rightRail={rightRail}>
 
       <div style={{ padding: '20px 0 16px', borderBottom: '1px solid #e5e7eb' }}>
         <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
@@ -18,8 +65,8 @@ export default function Methodology() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 220px',
-          gap: '48px',
+          gridTemplateColumns: '1fr',
+          gap: '0px',
           padding: '32px 0',
         }}
       >
@@ -371,53 +418,7 @@ export default function Methodology() {
             may differ materially from modeled or displayed outcomes.
           </div>
         </article>
-
-        <div style={{ position: 'sticky', top: '24px', alignSelf: 'start' }}>
-          <div
-            style={{
-              fontSize: '12px',
-              fontWeight: 500,
-              color: '#6b7280',
-              marginBottom: '10px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            On this page
-          </div>
-
-          {[
-            { label: 'Overview', href: '#overview' },
-            { label: 'Pipeline architecture', href: '#pipeline-architecture' },
-            { label: 'Strategy design', href: '#strategy-design' },
-            { label: 'Validation framework', href: '#validation-framework' },
-            { label: 'Live signal contract', href: '#live-signal-contract' },
-            { label: 'How to read results', href: '#how-to-read-results' },
-            {
-              label: 'What is public vs. proprietary',
-              href: '#what-is-public-vs-proprietary',
-            },
-            { label: 'Limitations and known risks', href: '#limitations-and-known-risks' },
-          ].map((section) => (
-            <a
-              key={section.label}
-              href={section.href}
-              style={{
-                display: 'block',
-                fontSize: '13px',
-                color: '#6b7280',
-                padding: '4px 0',
-                borderLeft: '2px solid #e5e7eb',
-                paddingLeft: '12px',
-                marginBottom: '2px',
-                textDecoration: 'none',
-              }}
-            >
-              {section.label}
-            </a>
-          ))}
-        </div>
       </div>
-    </div>
+    </MarketingShell>
   )
 }
