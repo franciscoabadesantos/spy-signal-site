@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react'
 import StockChart, { type StockChartSignalMarker } from '@/components/StockChart'
 import type { PricePoint } from '@/lib/finance'
 import FilterChip from '@/components/ui/FilterChip'
+import Badge from '@/components/ui/Badge'
+import { CHART_PALETTE } from '@/components/charts/ChartContainer'
 
 type Timeframe = '1M' | '3M' | '6M' | 'YTD' | '1Y' | '5Y' | 'MAX'
 
@@ -37,6 +39,132 @@ function getStartDate(timeframe: Timeframe, latestDate: Date): Date | null {
   }
 }
 
+function normalizedConvictionPct(value: number | null): number | null {
+  if (value === null) return null
+  const scaled = value > 1 ? value : value * 100
+  if (!Number.isFinite(scaled)) return null
+  return Math.max(0, Math.min(100, scaled))
+}
+
+function convictionDescriptor(value: number | null): 'low' | 'moderate' | 'high' {
+  const pct = normalizedConvictionPct(value)
+  if (pct === null) return 'moderate'
+  if (pct < 20) return 'low'
+  if (pct < 70) return 'moderate'
+  return 'high'
+}
+
+function directionLabel(direction: StockChartSignalMarker['direction']): string {
+  if (direction === 'bullish') return 'Bullish'
+  if (direction === 'bearish') return 'Bearish'
+  return 'Neutral'
+}
+
+function badgeVariantForDirection(
+  direction: StockChartSignalMarker['direction']
+): 'success' | 'danger' | 'neutral' {
+  if (direction === 'bullish') return 'success'
+  if (direction === 'bearish') return 'danger'
+  return 'neutral'
+}
+
+type ChartInterpretation = {
+  sentence: string
+  stateLabel: string
+  stateVariant: 'success' | 'danger' | 'neutral' | 'warning'
+}
+
+function buildChartInterpretation(data: PricePoint[], markers: StockChartSignalMarker[]): ChartInterpretation {
+  if (data.length < 2 || markers.length === 0) {
+    return {
+      sentence: 'Price action is visible, but signal history is limited in this window.',
+      stateLabel: 'Limited Signal Context',
+      stateVariant: 'neutral',
+    }
+  }
+
+  const dateToIndex = new Map(data.map((point, idx) => [point.date.slice(0, 10), idx]))
+  const markersWithIndex = markers
+    .map((marker) => ({ marker, index: dateToIndex.get(marker.date.slice(0, 10)) }))
+    .filter((value): value is { marker: StockChartSignalMarker; index: number } => value.index !== undefined)
+    .sort((a, b) => a.index - b.index)
+
+  const latestState = markersWithIndex[markersWithIndex.length - 1]
+  if (!latestState) {
+    return {
+      sentence: 'Price action is visible, but signal history is limited in this window.',
+      stateLabel: 'Limited Signal Context',
+      stateVariant: 'neutral',
+    }
+  }
+
+  const latestDirection = latestState.marker.direction
+  const latestIndex = latestState.index
+  const flips = markersWithIndex.filter((item) => item.marker.kind === 'flip')
+
+  const regimeStart =
+    [...flips].reverse().find((item) => item.marker.direction === latestDirection && item.index <= latestIndex) ??
+    latestState
+
+  const sessionsHeld = Math.max(1, latestIndex - regimeStart.index + 1)
+  const regimeStartPoint = data[regimeStart.index]
+  const latestPoint = data[latestIndex]
+  const priceChange =
+    regimeStartPoint && latestPoint && regimeStartPoint.close > 0
+      ? (latestPoint.close - regimeStartPoint.close) / regimeStartPoint.close
+      : 0
+
+  const recentWindowStart = Math.max(0, data.length - 30)
+  const recentFlipCount = flips.filter((item) => item.index >= recentWindowStart).length
+  const unstable = recentFlipCount >= 3 || (recentFlipCount >= 2 && sessionsHeld <= 6)
+  const convictionLevel = convictionDescriptor(latestState.marker.conviction)
+  const isRangeBound = Math.abs(priceChange) <= 0.015
+  const priceConfirms =
+    latestDirection === 'bullish'
+      ? priceChange >= 0.01
+      : latestDirection === 'bearish'
+        ? priceChange <= -0.01
+        : isRangeBound
+
+  if (unstable) {
+    return {
+      sentence: 'Recent flips suggest unstable direction.',
+      stateLabel: 'Unstable',
+      stateVariant: 'warning',
+    }
+  }
+
+  if (latestDirection === 'neutral' && isRangeBound) {
+    return {
+      sentence: `Price remains range-bound despite ${convictionLevel} conviction.`,
+      stateLabel: 'Range Regime',
+      stateVariant: 'neutral',
+    }
+  }
+
+  if (priceConfirms && sessionsHeld >= 6) {
+    return {
+      sentence: `${directionLabel(latestDirection)} regime has held for ${sessionsHeld} sessions.`,
+      stateLabel: directionLabel(latestDirection),
+      stateVariant: badgeVariantForDirection(latestDirection),
+    }
+  }
+
+  if (!priceConfirms) {
+    return {
+      sentence: `Price is not yet confirming the ${latestDirection} signal regime.`,
+      stateLabel: directionLabel(latestDirection),
+      stateVariant: badgeVariantForDirection(latestDirection),
+    }
+  }
+
+  return {
+    sentence: `${directionLabel(latestDirection)} direction is stable with ${convictionLevel} conviction.`,
+    stateLabel: directionLabel(latestDirection),
+    stateVariant: badgeVariantForDirection(latestDirection),
+  }
+}
+
 export default function StockChartPanel({
   data,
   signalMarkers,
@@ -67,11 +195,58 @@ export default function StockChartPanel({
     if (!signalMarkers || signalMarkers.length === 0) return []
     return signalMarkers.filter((marker) => visibleDates.has(marker.date.slice(0, 10)))
   }, [signalMarkers, visibleDates])
+  const interpretation = useMemo(
+    () => buildChartInterpretation(filteredData, filteredMarkers),
+    [filteredData, filteredMarkers]
+  )
 
   return (
-    <div className="h-full section-gap">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="h-full space-y-5">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="mb-1 inline-flex items-center gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                Chart Interpretation
+              </span>
+              <Badge variant={interpretation.stateVariant}>{interpretation.stateLabel}</Badge>
+            </div>
+            <p className="text-sm font-medium leading-snug text-neutral-900 dark:text-neutral-100">
+              {interpretation.sentence}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterChip
+              label={showRegimes ? 'Regimes On' : 'Regimes Off'}
+              active={showRegimes}
+              onClick={() => setShowRegimes((value) => !value)}
+            />
+            <FilterChip
+              label={showSignalMarkers ? 'Markers On' : 'Markers Off'}
+              active={showSignalMarkers}
+              onClick={() => setShowSignalMarkers((value) => !value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200/80 pt-3 dark:border-neutral-800/80">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-600 dark:text-neutral-400">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: CHART_PALETTE.primary }} />
+              Price
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-[3px] bg-emerald-400/40" />
+              Regime
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-900" />
+              Markers
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
           {TIMEFRAME_OPTIONS.map((option) => (
             <FilterChip
               key={option}
@@ -81,18 +256,6 @@ export default function StockChartPanel({
             />
           ))}
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterChip
-            label={showRegimes ? 'Regimes On' : 'Regimes Off'}
-            active={showRegimes}
-            onClick={() => setShowRegimes((value) => !value)}
-          />
-          <FilterChip
-            label={showSignalMarkers ? 'Markers On' : 'Markers Off'}
-            active={showSignalMarkers}
-            onClick={() => setShowSignalMarkers((value) => !value)}
-          />
         </div>
       </div>
 

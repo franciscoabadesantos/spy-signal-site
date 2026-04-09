@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic'
 import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
 
-export type NavSection = 'stocks' | 'dashboard' | 'screener' | 'performance' | 'methodology'
+export type NavSection = 'stocks' | 'dashboard' | 'screener' | 'models' | 'performance' | 'methodology'
 
 interface NavProps {
   active?: NavSection
@@ -204,6 +204,7 @@ export default function Nav({ active }: NavProps) {
             <Link href="/" className={navLinkClass(active === 'stocks')}>Stocks</Link>
             <Link href="/dashboard" className={navLinkClass(active === 'dashboard')}>Dashboard</Link>
             <Link href="/screener" className={navLinkClass(active === 'screener')}>Screener</Link>
+            <Link href="/models" className={navLinkClass(active === 'models')}>Models</Link>
             <Link href="/performance" className={navLinkClass(active === 'performance')}>Performance</Link>
             <Link href="/methodology" className={navLinkClass(active === 'methodology')}>Methodology</Link>
           </nav>

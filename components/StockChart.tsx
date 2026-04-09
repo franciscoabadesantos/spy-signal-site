@@ -66,25 +66,25 @@ function signalColor(direction: SignalDirection): { solid: string; soft: string 
   if (direction === 'bullish') {
     return {
       solid: CHART_PALETTE.bullish,
-      soft: withAlpha(CHART_PALETTE.bullish, 0.22),
+      soft: withAlpha(CHART_PALETTE.bullish, 0.18),
     }
   }
   if (direction === 'bearish') {
     return {
       solid: CHART_PALETTE.bearish,
-      soft: withAlpha(CHART_PALETTE.bearish, 0.22),
+      soft: withAlpha(CHART_PALETTE.bearish, 0.18),
     }
   }
   return {
     solid: CHART_PALETTE.signalNeutral,
-    soft: withAlpha(CHART_PALETTE.signalNeutral, 0.22),
+    soft: withAlpha(CHART_PALETTE.signalNeutral, 0.18),
   }
 }
 
 function signalBandFill(direction: SignalDirection): string {
-  if (direction === 'bullish') return CHART_PALETTE.regimeBullish
-  if (direction === 'bearish') return CHART_PALETTE.regimeBearish
-  return CHART_PALETTE.regimeNeutral
+  if (direction === 'bullish') return withAlpha(CHART_PALETTE.bullish, 0.055)
+  if (direction === 'bearish') return withAlpha(CHART_PALETTE.bearish, 0.055)
+  return withAlpha(CHART_PALETTE.signalNeutral, 0.05)
 }
 
 function signalDirectionLabel(direction: SignalDirection): string {
@@ -96,6 +96,33 @@ function signalDirectionLabel(direction: SignalDirection): string {
 function signalKindLabel(kind: SignalMarkerKind): string {
   if (kind === 'flip') return 'Model Flip'
   return 'Latest Signal'
+}
+
+function compactSignalMarkers(markers: RenderedSignalMarker[]): RenderedSignalMarker[] {
+  if (markers.length <= 1) return markers
+
+  const flipMarkers = markers.filter((marker) => marker.kind === 'flip').sort((a, b) => a.index - b.index)
+  const spacedFlips: RenderedSignalMarker[] = []
+
+  for (const marker of flipMarkers) {
+    const previous = spacedFlips[spacedFlips.length - 1]
+    if (!previous) {
+      spacedFlips.push(marker)
+      continue
+    }
+
+    if (marker.x - previous.x < 26) {
+      // Keep the most recent transition when flip markers cluster tightly.
+      spacedFlips[spacedFlips.length - 1] = marker
+      continue
+    }
+    spacedFlips.push(marker)
+  }
+
+  const latestMarker = markers[markers.length - 1] ?? null
+  const markerByIndex = new Map<number, RenderedSignalMarker>(spacedFlips.map((marker) => [marker.index, marker]))
+  if (latestMarker) markerByIndex.set(latestMarker.index, latestMarker)
+  return [...markerByIndex.values()].sort((a, b) => a.index - b.index)
 }
 
 function buildSmoothLinePath(points: Point[]): string {
@@ -142,6 +169,7 @@ export default function StockChart({
   const gradientToken = useId().replace(/:/g, '')
   const areaGradientId = `stock-area-gradient-${gradientToken}`
   const lineGradientId = `stock-line-gradient-${gradientToken}`
+  const currentRegimeGradientId = `stock-current-regime-gradient-${gradientToken}`
   const [hover, setHover] = useState<HoverState | null>(null)
   const [isHovering, setIsHovering] = useState(false)
 
@@ -208,7 +236,6 @@ export default function StockChart({
           })
         }
         const resolvedSignalMarkers = [...signalMarkerMap.values()].sort((a, b) => a.index - b.index)
-        const renderedSignalMarkers = showSignalMarkers ? resolvedSignalMarkers : []
 
         const stateMarkersByIndex = new Map<number, RenderedSignalMarker>()
         for (const marker of resolvedSignalMarkers) {
@@ -223,11 +250,13 @@ export default function StockChart({
         }
 
         const stateMarkers = [...stateMarkersByIndex.values()].sort((a, b) => a.index - b.index)
+        const latestStateMarker = stateMarkers[stateMarkers.length - 1] ?? null
+        const renderedSignalMarkers = showSignalMarkers ? compactSignalMarkers(stateMarkers) : []
         const signalBands: SignalBand[] = showRegimes
           ? stateMarkers
               .map((marker, idx) => {
                 const next = stateMarkers[idx + 1]
-                const startX = marker.x
+                const startX = idx === 0 ? padding.left : marker.x
                 const endX = next ? next.x : padding.left + innerW
                 return {
                   x: startX,
@@ -237,12 +266,16 @@ export default function StockChart({
               })
               .filter((band) => band.width >= 4)
           : []
+        const currentBand = signalBands[signalBands.length - 1] ?? null
+        const currentRegimeColor = latestStateMarker
+          ? signalColor(latestStateMarker.direction).solid
+          : CHART_PALETTE.primary
 
         const hoverPoint = hover ? points[hover.index] : null
         const hoverVisible = Boolean(hoverPoint && isHovering)
         const hoverSignalMarker =
-          hoverPoint
-            ? renderedSignalMarkers.find((marker) => marker.date === hoverPoint.date) ?? null
+          hoverPoint && hover
+            ? [...stateMarkers].reverse().find((marker) => marker.index <= hover.index) ?? null
             : null
 
         const handleHoverMove = (event: React.MouseEvent<SVGRectElement>) => {
@@ -279,7 +312,7 @@ export default function StockChart({
         }
 
         const tooltipWidth = 220
-        const tooltipHeight = hoverSignalMarker ? 132 : 90
+        const tooltipHeight = hoverSignalMarker ? 148 : 90
         const tooltipTop = hover
           ? Math.min(Math.max(8, hover.yOnCurve - tooltipHeight / 2), height - tooltipHeight - 8)
           : 0
@@ -305,6 +338,10 @@ export default function StockChart({
                   <stop offset="0%" stopColor={CHART_PALETTE.primary} />
                   <stop offset="100%" stopColor="#1d4ed8" />
                 </linearGradient>
+                <linearGradient id={currentRegimeGradientId} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={withAlpha(currentRegimeColor, 0)} />
+                  <stop offset="100%" stopColor={withAlpha(currentRegimeColor, 0.12)} />
+                </linearGradient>
               </defs>
 
               <rect x={0} y={0} width={width} height={height} fill="transparent" />
@@ -319,6 +356,26 @@ export default function StockChart({
                   fill={signalBandFill(band.direction)}
                 />
               ))}
+              {signalBands.slice(1).map((band, idx) => (
+                <line
+                  key={`band-boundary-${idx}`}
+                  x1={band.x}
+                  y1={padding.top}
+                  x2={band.x}
+                  y2={padding.top + innerH}
+                  stroke="rgba(148,163,184,0.28)"
+                  strokeWidth={1}
+                />
+              ))}
+              {currentBand ? (
+                <rect
+                  x={Math.max(currentBand.x, padding.left + innerW * 0.76)}
+                  y={padding.top}
+                  width={Math.max(0, padding.left + innerW - Math.max(currentBand.x, padding.left + innerW * 0.76))}
+                  height={innerH}
+                  fill={`url(#${currentRegimeGradientId})`}
+                />
+              ) : null}
 
               {yTickValues.map((value) => {
                 const y =
@@ -368,32 +425,51 @@ export default function StockChart({
               {areaPath ? <path d={areaPath} fill={`url(#${areaGradientId})`} stroke="none" /> : null}
               {path ? <path d={path} fill="none" stroke={withAlpha(CHART_PALETTE.primary, 0.22)} strokeWidth={6} /> : null}
               {path ? <path d={path} fill="none" stroke={`url(#${lineGradientId})`} strokeWidth={2.5} /> : null}
+              {lastPoint ? (
+                <g style={{ pointerEvents: 'none' }}>
+                  <circle cx={lastPoint.x} cy={lastPoint.y} r={13} fill={withAlpha(currentRegimeColor, 0.18)} />
+                  <circle cx={lastPoint.x} cy={lastPoint.y} r={6.5} fill={currentRegimeColor} stroke="#ffffff" strokeWidth={2.5} />
+                  <circle cx={lastPoint.x} cy={lastPoint.y} r={2} fill="#ffffff" />
+                </g>
+              ) : null}
 
               {renderedSignalMarkers.map((marker) => {
                 const colors = signalColor(marker.direction)
                 const isActive = hoverPoint?.date === marker.date
+                const isLatest = latestStateMarker?.index === marker.index
                 return (
                   <g key={`${marker.date}:${marker.kind}`} style={{ pointerEvents: 'none' }}>
-                    <circle cx={marker.x} cy={marker.y} r={isActive ? 13 : 10} fill={colors.soft} />
+                    {marker.kind === 'flip' ? (
+                      <line
+                        x1={marker.x}
+                        y1={padding.top}
+                        x2={marker.x}
+                        y2={padding.top + innerH}
+                        stroke={withAlpha(colors.solid, 0.2)}
+                        strokeWidth={1}
+                        strokeDasharray="3 4"
+                      />
+                    ) : null}
+                    <circle cx={marker.x} cy={marker.y} r={isActive ? 12 : isLatest ? 10.5 : 9} fill={colors.soft} />
                     <circle
                       cx={marker.x}
                       cy={marker.y}
-                      r={isActive ? 6 : 5}
+                      r={isActive ? 6 : isLatest ? 5.25 : 4.5}
                       fill={colors.solid}
                       stroke="#ffffff"
                       strokeWidth={2}
                     />
-                    <circle cx={marker.x} cy={marker.y} r={1.75} fill="#ffffff" />
+                    <circle cx={marker.x} cy={marker.y} r={1.6} fill="#ffffff" />
                     {marker.kind === 'flip' ? (
                       <rect
-                        x={marker.x - 3}
-                        y={marker.y - 14}
-                        width={6}
-                        height={6}
+                        x={marker.x - 2.5}
+                        y={marker.y - 13}
+                        width={5}
+                        height={5}
                         rx={1}
-                        transform={`rotate(45 ${marker.x} ${marker.y - 11})`}
+                        transform={`rotate(45 ${marker.x} ${marker.y - 10.5})`}
                         fill={colors.solid}
-                        opacity={0.9}
+                        opacity={0.95}
                       />
                     ) : null}
                   </g>
@@ -455,6 +531,10 @@ export default function StockChart({
                             label: signalKindLabel(hoverSignalMarker.kind),
                             value: signalDirectionLabel(hoverSignalMarker.direction),
                             swatchColor: signalColor(hoverSignalMarker.direction).solid,
+                          },
+                          {
+                            label: 'Signal Date',
+                            value: formatDateLong(hoverSignalMarker.date),
                           },
                           {
                             label: 'Conviction',

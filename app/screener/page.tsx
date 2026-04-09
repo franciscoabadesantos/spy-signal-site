@@ -11,6 +11,7 @@ import Select from '@/components/ui/Select'
 import FilterChip from '@/components/ui/FilterChip'
 import PageHeader from '@/components/ui/PageHeader'
 import { buttonClass } from '@/components/ui/Button'
+import { cn } from '@/lib/utils'
 import {
   TableBase,
   TableBody,
@@ -22,6 +23,12 @@ import {
 } from '@/components/ui/DataTable'
 import { getScreenerSignals, type ScreenerSort } from '@/lib/signals'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
+import {
+  convictionPercent,
+  rowSignalQualityLabel,
+  shortSignalHeadline,
+  signalHeadlineFromInputs,
+} from '@/lib/signalSummary'
 
 export const dynamic = 'force-dynamic'
 
@@ -118,6 +125,12 @@ function formatPct(value: number | null): string {
   return `${sign}${value.toFixed(2)}%`
 }
 
+function convictionToneClass(direction: Exclude<SignalDirection, 'all'>): string {
+  if (direction === 'bullish') return 'bg-emerald-500'
+  if (direction === 'bearish') return 'bg-rose-500'
+  return 'bg-amber-500'
+}
+
 function signalBadge(direction: Exclude<SignalDirection, 'all'>): {
   label: string
   variant: 'success' | 'danger' | 'neutral'
@@ -136,6 +149,38 @@ function sortDirectionFor(
   if (sortBy === 'latest' && column === 'signal-date') return 'desc'
   if (sortBy === 'movers' && column === 'change') return 'desc'
   return undefined
+}
+
+function buildStockHref(ticker: string, screenerSignal: string): string {
+  const params = new URLSearchParams({
+    from: 'screener',
+    screenerSignal,
+  })
+  return `/stocks/${ticker}?${params.toString()}`
+}
+
+function miniProfileBars({
+  direction,
+  conviction,
+  predictionHorizon,
+  changePercent,
+}: {
+  direction: Exclude<SignalDirection, 'all'>
+  conviction: number | null
+  predictionHorizon: number | null
+  changePercent: number | null
+}): number[] {
+  const convictionScore = convictionPercent(conviction) ?? 38
+  const moveMag = Math.min(8, Math.abs(changePercent ?? 0))
+  const horizonTarget = predictionHorizon ?? 20
+  const horizonScore = Math.max(28, 100 - Math.abs(horizonTarget - 20) * 2.1)
+  const trendBase = direction === 'bullish' ? 58 : direction === 'bearish' ? 44 : 50
+  const trend = Math.max(22, Math.min(96, trendBase + convictionScore * 0.32))
+  const momentum = Math.max(22, Math.min(96, convictionScore * 0.88 + moveMag * 4.4))
+  const risk = Math.max(22, Math.min(96, 68 - moveMag * 4.6))
+  const yieldScore = Math.max(22, Math.min(96, 34 + convictionScore * 0.26))
+  const stability = Math.max(22, Math.min(96, convictionScore * 0.8 - moveMag * 3.7 + horizonScore * 0.08))
+  return [trend, momentum, risk, yieldScore, stability].map((value) => Math.round(value))
 }
 
 export default async function ScreenerPage({
@@ -310,6 +355,7 @@ export default async function ScreenerPage({
                       <TableHeaderCell sortable sortDirection={sortDirectionFor(sortBy, 'conviction')}>
                         Conviction
                       </TableHeaderCell>
+                      <TableHeaderCell>Profile</TableHeaderCell>
                       <TableHeaderCell>Horizon</TableHeaderCell>
                       <TableHeaderCell sortable sortDirection={sortDirectionFor(sortBy, 'signal-date')}>
                         Last Signal
@@ -324,27 +370,83 @@ export default async function ScreenerPage({
                     {rows.map((row, index) => {
                       const badge = signalBadge(row.direction)
                       const isBlurredRow = !viewer.isPro && index >= previewLimit
+                      const shortHeadline = shortSignalHeadline(row.direction, row.conviction)
+                      const fullHeadline = signalHeadlineFromInputs(row.direction, row.conviction)
+                      const screenerHref = buildStockHref(row.ticker, shortHeadline)
+                      const convictionWidth = convictionPercent(row.conviction) ?? 0
+                      const profileBars = miniProfileBars({
+                        direction: row.direction,
+                        conviction: row.conviction,
+                        predictionHorizon: row.predictionHorizon,
+                        changePercent: row.changePercent,
+                      })
                       return (
                         <TableRow
                           key={`${row.ticker}-${row.signalDate ?? ''}`}
                           index={index}
-                          className={isBlurredRow ? '[filter:blur(2.2px)] opacity-70 pointer-events-none select-none' : undefined}
+                          className={isBlurredRow ? 'pointer-events-none select-none' : undefined}
                         >
-                          <TableCell className="font-semibold">
-                            <Link href={`/stocks/${row.ticker}`} className="text-primary hover:underline">
+                          <TableCell className="min-w-[170px] font-semibold">
+                            <Link href={screenerHref} className="text-primary hover:underline">
                               {row.ticker}
                             </Link>
                             {row.name ? <div className="text-[12px] text-neutral-500">{row.name}</div> : null}
                           </TableCell>
-                          <TableCell>
-                            <Badge variant={badge.variant}>{badge.label}</Badge>
+                          <TableCell className="min-w-[220px]">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={badge.variant}>{badge.label}</Badge>
+                                <Link href={screenerHref} className="text-[13px] font-semibold text-neutral-900 hover:text-primary dark:text-neutral-100">
+                                  {shortHeadline}
+                                </Link>
+                              </div>
+                              <div className={cn('text-[12px] text-neutral-500 dark:text-neutral-400', isBlurredRow ? 'blur-[2px] opacity-65' : undefined)}>
+                                {fullHeadline} · {rowSignalQualityLabel(row.direction, row.conviction)}
+                              </div>
+                            </div>
                           </TableCell>
-                          <TableCell>{formatConviction(row.conviction)}</TableCell>
+                          <TableCell className="min-w-[140px]">
+                            <div className={cn('space-y-1', isBlurredRow ? 'blur-[2px] opacity-65' : undefined)}>
+                              <div className="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                                <div
+                                  className={`h-full rounded-full ${convictionToneClass(row.direction)}`}
+                                  style={{ width: `${Math.max(6, convictionWidth)}%` }}
+                                />
+                              </div>
+                              <div className="text-[12px] font-semibold text-neutral-900 dark:text-neutral-100">
+                                {formatConviction(row.conviction)}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-[126px]">
+                            <div className={cn('space-y-1', isBlurredRow ? 'blur-[2px] opacity-65' : undefined)}>
+                              <div className="flex h-8 items-end gap-1">
+                                {profileBars.map((score, profileIndex) => (
+                                  <span
+                                    key={`${row.ticker}-profile-${profileIndex}`}
+                                    className="w-1.5 rounded-t-sm bg-primary/75"
+                                    style={{ height: `${Math.max(4, Math.round(score * 0.3))}px` }}
+                                  />
+                                ))}
+                              </div>
+                              <div className="text-[11px] text-neutral-500 dark:text-neutral-400">System profile</div>
+                            </div>
+                          </TableCell>
                           <TableCell muted>
-                            {row.predictionHorizon === null ? '—' : `${row.predictionHorizon}d`}
+                            <span className={cn(isBlurredRow ? 'inline-block blur-[2px] opacity-65' : undefined)}>
+                              {row.predictionHorizon === null ? '—' : `${row.predictionHorizon}d`}
+                            </span>
                           </TableCell>
-                          <TableCell muted>{formatSignalDate(row.signalDate)}</TableCell>
-                          <TableCell>{formatPrice(row.price)}</TableCell>
+                          <TableCell muted>
+                            <span className={cn(isBlurredRow ? 'inline-block blur-[2px] opacity-65' : undefined)}>
+                              {formatSignalDate(row.signalDate)}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className={cn(isBlurredRow ? 'inline-block blur-[2px] opacity-65' : undefined)}>
+                              {formatPrice(row.price)}
+                            </span>
+                          </TableCell>
                           <TableCell
                             className={
                               row.changePercent === null
@@ -354,7 +456,9 @@ export default async function ScreenerPage({
                                   : 'text-rose-600'
                             }
                           >
-                            {formatPct(row.changePercent)}
+                            <span className={cn(isBlurredRow ? 'inline-block blur-[2px] opacity-65' : undefined)}>
+                              {formatPct(row.changePercent)}
+                            </span>
                           </TableCell>
                         </TableRow>
                       )
@@ -370,9 +474,12 @@ export default async function ScreenerPage({
                       <Lock className="h-3.5 w-3.5" />
                       Premium Preview
                     </div>
-                    <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Unlock full results</h3>
+                    <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Unlock full signal details</h3>
                     <p className="text-body">
-                      You can scan the full table now. Upgrade to interact with all {rows.length} rows.
+                      See full system profiles, validate these signals, and interact with all {rows.length} rows.
+                    </p>
+                    <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                      See full system profile · Validate these signals · Export deeper research
                     </p>
                     <div>
                       <a
@@ -403,9 +510,12 @@ export default async function ScreenerPage({
               <Lock className="h-3.5 w-3.5" />
               Premium Preview
             </div>
-            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Unlock full screener results</h3>
+            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Unlock full signal details</h3>
             <p className="text-body">
-              You are viewing {previewRows.length} preview rows. Upgrade to unlock {hiddenCount} additional tickers.
+              You are viewing {previewRows.length} preview rows. Upgrade to unlock {hiddenCount} additional tickers and full system profiles.
+            </p>
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+              See full system profile · Validate these signals
             </p>
             <div>
               <a

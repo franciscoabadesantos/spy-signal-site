@@ -42,6 +42,20 @@ function sanitizeAiQuestion(value: string | null): string | null {
   return trimmed.length > 0 ? trimmed.slice(0, 240) : null
 }
 
+function sanitizeScreenerSignal(value: string | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim().replace(/\s+/g, ' ')
+  if (!trimmed) return null
+  return trimmed.slice(0, 48)
+}
+
+function sanitizeModelName(value: string | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim().replace(/\s+/g, ' ')
+  if (!trimmed) return null
+  return trimmed.slice(0, 72)
+}
+
 function normalizeDate(date: string): string {
   return date.slice(0, 10)
 }
@@ -159,6 +173,33 @@ function computeInsightStats(signals: Signal[]) {
     avgConviction,
     flips,
     bullishShare,
+  }
+}
+
+function computeSignalSummaryContext(signals: Signal[]) {
+  const recent = signals.slice(0, 30)
+  const latest = recent[0] ?? null
+  if (!latest) {
+    return {
+      recentDirectionShare: null,
+      recentFlipRate: null,
+    }
+  }
+
+  const sameDirectionCount = recent.filter((row) => row.direction === latest.direction).length
+  const recentDirectionShare = recent.length > 0 ? sameDirectionCount / recent.length : null
+
+  let flips = 0
+  for (let index = 1; index < recent.length; index += 1) {
+    const current = recent[index]
+    const previous = recent[index - 1]
+    if (current && previous && current.direction !== previous.direction) flips += 1
+  }
+
+  const recentFlipRate = recent.length > 1 ? flips / (recent.length - 1) : null
+  return {
+    recentDirectionShare,
+    recentFlipRate,
   }
 }
 
@@ -374,13 +415,25 @@ export default async function TickerPage({
   searchParams,
 }: {
   params: Promise<{ ticker: string }>
-  searchParams: Promise<{ aiQuestion?: string | string[]; aiPromptLabel?: string | string[] }>
+  searchParams: Promise<{
+    aiQuestion?: string | string[]
+    aiPromptLabel?: string | string[]
+    from?: string | string[]
+    screenerSignal?: string | string[]
+    modelName?: string | string[]
+  }>
 }) {
   const resolvedParams = await params
   const resolvedSearchParams = await searchParams
   const ticker = resolvedParams.ticker.toUpperCase()
   const initialAiQuestion = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiQuestion))
   const initialAiPromptLabel = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiPromptLabel))
+  const sourceContext = singleSearchParam(resolvedSearchParams.from)
+  const screenerSignal = sanitizeScreenerSignal(singleSearchParam(resolvedSearchParams.screenerSignal))
+  const modelName = sanitizeModelName(singleSearchParam(resolvedSearchParams.modelName))
+  const modelTag = sourceContext === 'model' && modelName ? `From Model: ${modelName}` : null
+  const screenerTag =
+    sourceContext === 'screener' && screenerSignal ? `From Screener: ${screenerSignal}` : null
   const viewerAccess = await getViewerAccess()
   const viewerUserId = viewerAccess.userId ?? (await getViewerUserId())
   const aiAnalystEnabled = Boolean(process.env.PERPLEXITY_API_KEY?.trim())
@@ -408,6 +461,7 @@ export default async function TickerPage({
     return Math.max(max, weight)
   }, 0)
   const insightStats = computeInsightStats(recentSignals)
+  const signalSummaryContext = computeSignalSummaryContext(recentSignals)
 
   const relatedAssets = relatedTickerSymbols
     .map((symbol, index) => ({ symbol, quote: relatedQuotes[index] ?? null }))
@@ -463,7 +517,13 @@ export default async function TickerPage({
                     : 'neutral',
             }
           : undefined,
-        subtitle: 'Research-ready snapshot with model context and supporting market data.',
+        subtitle: (
+          <div className="flex flex-wrap items-center gap-2">
+            {modelTag ? <Badge variant="neutral">{modelTag}</Badge> : null}
+            {screenerTag ? <Badge variant="neutral">{screenerTag}</Badge> : null}
+            <span>Research-ready snapshot with model context and supporting market data.</span>
+          </div>
+        ),
         watchlistAction: (
           <WatchlistButton
             ticker={ticker}
@@ -538,6 +598,8 @@ export default async function TickerPage({
               conviction={latest.prob_side}
               horizon={latest.prediction_horizon}
               signalDate={latest.signal_date}
+              recentDirectionShare={signalSummaryContext.recentDirectionShare}
+              recentFlipRate={signalSummaryContext.recentFlipRate}
             />
           ) : (
             <Card className="section-gap border-primary/30 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_68%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_68%)]">
@@ -550,6 +612,9 @@ export default async function TickerPage({
             <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Use this in your model</h3>
             <p className="text-body">Save to watchlist, inspect financials, or compare nearby assets for validation.</p>
             <div className="flex flex-wrap gap-2">
+              <Link href={`/models/new?ticker=${encodeURIComponent(ticker)}`} className={buttonClass({ variant: 'primary' })}>
+                Build model from this stock
+              </Link>
               <Link href={`/stocks/${ticker}/financials/fund-profile`} className={buttonClass({ variant: 'secondary' })}>
                 View Financials
               </Link>

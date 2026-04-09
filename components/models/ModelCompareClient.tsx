@@ -1,0 +1,776 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import Link from 'next/link'
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import AppShell from '@/components/shells/AppShell'
+import Card from '@/components/ui/Card'
+import EmptyState from '@/components/ui/EmptyState'
+import PageHeader from '@/components/ui/PageHeader'
+import Select from '@/components/ui/Select'
+import Badge from '@/components/ui/Badge'
+import { buttonClass } from '@/components/ui/Button'
+import ChartContainer, {
+  CHART_MARGINS,
+  CHART_PALETTE,
+  ChartTooltipCard,
+} from '@/components/charts/ChartContainer'
+import { loadModelsFromStorage } from '@/lib/model-store-client'
+import { type ModelRecord } from '@/lib/model-builder'
+
+type ConfidenceLabel = 'Low' | 'Moderate' | 'High'
+type CompareOutcome = 'left' | 'right' | 'same' | 'na'
+
+type ComparisonMetric = {
+  key: string
+  label: string
+  leftDisplay: string
+  rightDisplay: string
+  outcome: CompareOutcome
+}
+
+type CompareChartPoint = {
+  t: string
+  left: number | null
+  right: number | null
+  benchmark: number | null
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+function average(values: number[]): number {
+  if (values.length === 0) return 0
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+function stdDev(values: number[]): number {
+  if (values.length <= 1) return 0
+  const mean = average(values)
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1)
+  return Math.sqrt(variance)
+}
+
+function formatPct(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
+}
+
+function hasCondition(
+  model: ModelRecord,
+  metric: string,
+  operator: 'above' | 'below',
+  thresholdTest: (value: number) => boolean
+): boolean {
+  return model.conditions.some(
+    (condition) =>
+      condition.metric === metric &&
+      condition.operator === operator &&
+      thresholdTest(condition.value)
+  )
+}
+
+function modelFlipRate(model: ModelRecord): number {
+  if (model.signals.length <= 1) return 0
+  const flips = model.signals.reduce((count, row, index) => {
+    if (index === 0) return count
+    const prev = model.signals[index - 1]
+    return prev && prev.signal !== row.signal ? count + 1 : count
+  }, 0)
+  return flips / (model.signals.length - 1)
+}
+
+function formatCondition(condition: ModelRecord['conditions'][number]): string {
+  return `${condition.metric} ${condition.operator === 'above' ? '>' : '<'} ${condition.value}`
+}
+
+function compareValues(
+  left: number | null,
+  right: number | null,
+  mode: 'higher' | 'lower' | 'lowerAbs',
+  epsilon: number
+): CompareOutcome {
+  if (left === null || right === null || !Number.isFinite(left) || !Number.isFinite(right)) return 'na'
+
+  if (mode === 'higher') {
+    if (Math.abs(left - right) <= epsilon) return 'same'
+    return left > right ? 'left' : 'right'
+  }
+
+  if (mode === 'lowerAbs') {
+    const leftAbs = Math.abs(left)
+    const rightAbs = Math.abs(right)
+    if (Math.abs(leftAbs - rightAbs) <= epsilon) return 'same'
+    return leftAbs < rightAbs ? 'left' : 'right'
+  }
+
+  if (Math.abs(left - right) <= epsilon) return 'same'
+  return left < right ? 'left' : 'right'
+}
+
+function sideVariant(outcome: CompareOutcome, side: 'left' | 'right'): 'success' | 'danger' | 'neutral' {
+  if (outcome === 'na' || outcome === 'same') return 'neutral'
+  return outcome === side ? 'success' : 'danger'
+}
+
+function sideLabel(outcome: CompareOutcome, side: 'left' | 'right'): string {
+  if (outcome === 'na') return 'n/a'
+  if (outcome === 'same') return 'unchanged'
+  return outcome === side ? 'better' : 'worse'
+}
+
+function modelInsights(model: ModelRecord): {
+  personality: string
+  confidence: ConfidenceLabel
+  confidencePct: number
+  topInsightHeadline: string
+  topInsightSummary: string
+  signalCount: number
+  flipRate: number
+} {
+  const scoreByLabel = new Map(model.profileDimensions.map((dimension) => [dimension.label, dimension.score]))
+  const trendScore = scoreByLabel.get('Trend') ?? 50
+  const momentumScore = scoreByLabel.get('Momentum') ?? 50
+  const riskScore = scoreByLabel.get('Risk') ?? 50
+  const stabilityScore = scoreByLabel.get('Stability') ?? 50
+  const summary = model.summary
+  const flipRate = modelFlipRate(model)
+
+  const trendMomentumEmphasis =
+    hasCondition(model, 'Trend', 'above', (value) => value >= 55) ||
+    hasCondition(model, 'Momentum', 'above', (value) => value >= 55) ||
+    (trendScore >= 58 && momentumScore >= 56)
+  const volatilityFilter =
+    hasCondition(model, 'Risk', 'below', (value) => value <= 50) ||
+    riskScore >= 56
+  const stabilityFilter =
+    hasCondition(model, 'Stability', 'above', (value) => value >= 55) ||
+    hasCondition(model, 'Flip rate', 'below', (value) => value <= 50) ||
+    (stabilityScore >= 56 && flipRate <= 0.3)
+
+  const personality =
+    volatilityFilter && stabilityFilter && !trendMomentumEmphasis
+      ? 'Defensive system'
+      : trendMomentumEmphasis && momentumScore > trendScore + 3
+        ? 'Momentum-driven model'
+        : trendMomentumEmphasis && volatilityFilter
+          ? 'Trend follower'
+          : 'Balanced signal filter'
+
+  const returnDispersion = stdDev(model.signals.map((row) => row.returnPct))
+  const consistencyScore = summary
+    ? clamp((summary.winRate - 45) / 20, 0, 1) * 0.55 +
+      clamp((summary.relativePerformance + 2) / 8, 0, 1) * 0.45
+    : 0.45
+  const stabilityScoreNorm = clamp(1 - flipRate / 0.42, 0, 1)
+  const dispersionScoreNorm = clamp(1 - returnDispersion / 2.2, 0, 1)
+  const sampleScoreNorm = clamp(model.signals.length / 20, 0, 1)
+  const confidenceScore =
+    stabilityScoreNorm * 0.4 +
+    consistencyScore * 0.32 +
+    dispersionScoreNorm * 0.18 +
+    sampleScoreNorm * 0.1
+  const confidencePct = Math.round(confidenceScore * 100)
+  const confidence: ConfidenceLabel =
+    confidenceScore >= 0.68 ? 'High' : confidenceScore >= 0.45 ? 'Moderate' : 'Low'
+
+  const topInsightHeadline = `${personality} · ${confidence} confidence`
+  const topInsightSummary =
+    trendMomentumEmphasis && volatilityFilter
+      ? 'Performs best in directional markets, weaker during volatility spikes.'
+      : stabilityFilter
+        ? 'Best in cleaner regimes, but less reliable through rapid reversals.'
+        : 'Edge appears selective and can fade in unstable market structure.'
+
+  return {
+    personality,
+    confidence,
+    confidencePct,
+    topInsightHeadline,
+    topInsightSummary,
+    signalCount: model.signals.length,
+    flipRate,
+  }
+}
+
+type CompareTooltipPayload = {
+  t: string
+  left: number | null
+  right: number | null
+  benchmark: number | null
+}
+
+function CompareTooltip({
+  active,
+  payload,
+  leftLabel,
+  rightLabel,
+  benchmarkLabel,
+}: {
+  active?: boolean
+  payload?: Array<{ payload?: CompareTooltipPayload }>
+  leftLabel: string
+  rightLabel: string
+  benchmarkLabel: string | null
+}) {
+  if (!active || !payload || payload.length === 0) return null
+  const point = payload[0]?.payload
+  if (!point) return null
+
+  const rows = [
+    {
+      label: leftLabel,
+      value: point.left === null ? '—' : point.left.toFixed(2),
+      swatchColor: CHART_PALETTE.secondary,
+    },
+    {
+      label: rightLabel,
+      value: point.right === null ? '—' : point.right.toFixed(2),
+      swatchColor: CHART_PALETTE.primary,
+    },
+  ]
+
+  if (benchmarkLabel) {
+    rows.push({
+      label: benchmarkLabel,
+      value: point.benchmark === null ? '—' : point.benchmark.toFixed(2),
+      swatchColor: CHART_PALETTE.neutral,
+    })
+  }
+
+  return <ChartTooltipCard title={point.t} rows={rows} />
+}
+
+export default function ModelCompareClient({
+  initialLeftId,
+  initialRightId,
+}: {
+  initialLeftId?: string | null
+  initialRightId?: string | null
+}) {
+  const models = useMemo(() => loadModelsFromStorage(), [])
+  const [selectedLeftId, setSelectedLeftId] = useState(initialLeftId ?? '')
+  const [selectedRightId, setSelectedRightId] = useState(initialRightId ?? '')
+
+  const leftId = useMemo(() => {
+    if (selectedLeftId && models.some((model) => model.id === selectedLeftId)) return selectedLeftId
+    return models[0]?.id ?? ''
+  }, [selectedLeftId, models])
+
+  const rightId = useMemo(() => {
+    if (models.length === 0) return ''
+    const hasSelectedRight =
+      selectedRightId && models.some((model) => model.id === selectedRightId)
+    const candidate = hasSelectedRight
+      ? selectedRightId
+      : models.find((model) => model.id !== leftId)?.id ?? models[0]?.id ?? ''
+    if (candidate !== leftId) return candidate
+    return models.find((model) => model.id !== leftId)?.id ?? candidate
+  }, [selectedRightId, models, leftId])
+
+  const leftModel = useMemo(() => models.find((model) => model.id === leftId) ?? null, [models, leftId])
+  const rightModel = useMemo(() => models.find((model) => model.id === rightId) ?? null, [models, rightId])
+
+  const leftInsights = leftModel ? modelInsights(leftModel) : null
+  const rightInsights = rightModel ? modelInsights(rightModel) : null
+  const compareReady = Boolean(leftModel && rightModel && leftModel.id !== rightModel.id)
+
+  const comparisonMetrics = useMemo<ComparisonMetric[]>(() => {
+    if (!leftModel || !rightModel || !leftInsights || !rightInsights) return []
+
+    const leftSummary = leftModel.summary
+    const rightSummary = rightModel.summary
+
+    const leftValidation = leftSummary?.validationScore ?? null
+    const rightValidation = rightSummary?.validationScore ?? null
+    const leftWinRate = leftSummary?.winRate ?? null
+    const rightWinRate = rightSummary?.winRate ?? null
+    const leftDrawdown = leftSummary?.maxDrawdown ?? null
+    const rightDrawdown = rightSummary?.maxDrawdown ?? null
+    const leftRelative = leftSummary?.relativePerformance ?? null
+    const rightRelative = rightSummary?.relativePerformance ?? null
+
+    return [
+      {
+        key: 'validation',
+        label: 'Validation score',
+        leftDisplay: leftValidation === null ? '—' : `${leftValidation}/100`,
+        rightDisplay: rightValidation === null ? '—' : `${rightValidation}/100`,
+        outcome: compareValues(leftValidation, rightValidation, 'higher', 0.2),
+      },
+      {
+        key: 'win-rate',
+        label: 'Win rate',
+        leftDisplay: formatPct(leftWinRate),
+        rightDisplay: formatPct(rightWinRate),
+        outcome: compareValues(leftWinRate, rightWinRate, 'higher', 0.25),
+      },
+      {
+        key: 'drawdown',
+        label: 'Max drawdown',
+        leftDisplay: formatPct(leftDrawdown),
+        rightDisplay: formatPct(rightDrawdown),
+        outcome: compareValues(leftDrawdown, rightDrawdown, 'lowerAbs', 0.2),
+      },
+      {
+        key: 'relative',
+        label: 'Relative performance',
+        leftDisplay: formatPct(leftRelative),
+        rightDisplay: formatPct(rightRelative),
+        outcome: compareValues(leftRelative, rightRelative, 'higher', 0.25),
+      },
+      {
+        key: 'signal-count',
+        label: 'Signal count',
+        leftDisplay: String(leftInsights.signalCount),
+        rightDisplay: String(rightInsights.signalCount),
+        outcome: compareValues(leftInsights.signalCount, rightInsights.signalCount, 'higher', 0.1),
+      },
+      {
+        key: 'flip-rate',
+        label: 'Flip rate',
+        leftDisplay: `${(leftInsights.flipRate * 100).toFixed(1)}%`,
+        rightDisplay: `${(rightInsights.flipRate * 100).toFixed(1)}%`,
+        outcome: compareValues(leftInsights.flipRate, rightInsights.flipRate, 'lower', 0.01),
+      },
+    ]
+  }, [leftModel, rightModel, leftInsights, rightInsights])
+
+  const showBenchmark =
+    compareReady &&
+    leftModel?.validation.compareAgainstBenchmark &&
+    rightModel?.validation.compareAgainstBenchmark &&
+    leftModel.benchmark === rightModel.benchmark
+  const benchmarkLabel = showBenchmark && leftModel ? leftModel.benchmark : null
+
+  const chartData = useMemo<CompareChartPoint[]>(() => {
+    if (!compareReady || !leftModel || !rightModel) return []
+    const leftCurve = leftModel.equityCurve
+    const rightCurve = rightModel.equityCurve
+    const length = Math.max(leftCurve.length, rightCurve.length)
+    const rows: CompareChartPoint[] = []
+
+    for (let index = 0; index < length; index += 1) {
+      const leftPoint = leftCurve[index]
+      const rightPoint = rightCurve[index]
+      const t = leftPoint?.t ?? rightPoint?.t ?? `P${index + 1}`
+      rows.push({
+        t,
+        left: leftPoint?.strategy ?? null,
+        right: rightPoint?.strategy ?? null,
+        benchmark: benchmarkLabel ? leftPoint?.benchmark ?? rightPoint?.benchmark ?? null : null,
+      })
+    }
+
+    return rows
+  }, [compareReady, leftModel, rightModel, benchmarkLabel])
+
+  const leftConditionLabels = leftModel ? leftModel.conditions.map(formatCondition) : []
+  const rightConditionLabels = rightModel ? rightModel.conditions.map(formatCondition) : []
+  const conditionDiff = leftConditionLabels.join(' | ') !== rightConditionLabels.join(' | ')
+
+  const tradeoffInsights = useMemo(() => {
+    if (!leftModel || !rightModel || !leftInsights || !rightInsights) {
+      return {
+        left: ['Select two models to generate tradeoff insights.'],
+        right: ['Select two models to generate tradeoff insights.'],
+        bestUseCase: 'Choose two validated models to view an actionable recommendation.',
+      }
+    }
+
+    const leftSummary = leftModel.summary
+    const rightSummary = rightModel.summary
+    const leftDrawdown = leftSummary ? Math.abs(leftSummary.maxDrawdown) : null
+    const rightDrawdown = rightSummary ? Math.abs(rightSummary.maxDrawdown) : null
+
+    const leftStrengths: string[] = []
+    const rightStrengths: string[] = []
+
+    if (leftInsights.flipRate + 0.03 < rightInsights.flipRate) {
+      leftStrengths.push('More stable with fewer regime flips.')
+      rightStrengths.push('More reactive, but flip behavior is less stable.')
+    } else if (rightInsights.flipRate + 0.03 < leftInsights.flipRate) {
+      rightStrengths.push('More stable with fewer regime flips.')
+      leftStrengths.push('More reactive, but flip behavior is less stable.')
+    }
+
+    if (leftSummary && rightSummary) {
+      if (leftSummary.relativePerformance > rightSummary.relativePerformance + 0.8) {
+        leftStrengths.push('Stronger baseline outperformance in validation period.')
+      } else if (rightSummary.relativePerformance > leftSummary.relativePerformance + 0.8) {
+        rightStrengths.push('Stronger baseline outperformance in validation period.')
+      }
+
+      if (leftSummary.winRate > rightSummary.winRate + 1.5) {
+        leftStrengths.push('Higher hit rate across completed signal windows.')
+      } else if (rightSummary.winRate > leftSummary.winRate + 1.5) {
+        rightStrengths.push('Higher hit rate across completed signal windows.')
+      }
+    }
+
+    if (leftDrawdown !== null && rightDrawdown !== null) {
+      if (leftDrawdown + 0.8 < rightDrawdown) {
+        leftStrengths.push('Lower drawdown profile under stress periods.')
+      } else if (rightDrawdown + 0.8 < leftDrawdown) {
+        rightStrengths.push('Lower drawdown profile under stress periods.')
+      }
+    }
+
+    if (leftInsights.signalCount > rightInsights.signalCount + 2) {
+      leftStrengths.push('Generates more opportunities from the same market history.')
+    } else if (rightInsights.signalCount > leftInsights.signalCount + 2) {
+      rightStrengths.push('Generates more opportunities from the same market history.')
+    }
+
+    if (leftStrengths.length === 0) {
+      leftStrengths.push('Differences are marginal; profile is close to Model B.')
+    }
+    if (rightStrengths.length === 0) {
+      rightStrengths.push('Differences are marginal; profile is close to Model A.')
+    }
+
+    let bestUseCase = 'Use the higher-stability model for deployment and the other for exploratory variants.'
+
+    if (
+      leftInsights.flipRate + 0.03 < rightInsights.flipRate &&
+      leftDrawdown !== null &&
+      rightDrawdown !== null &&
+      leftDrawdown + 0.8 < rightDrawdown
+    ) {
+      bestUseCase = 'Choose Model A for cleaner trend following; choose Model B for faster responsiveness.'
+    } else if (
+      rightInsights.flipRate + 0.03 < leftInsights.flipRate &&
+      leftDrawdown !== null &&
+      rightDrawdown !== null &&
+      rightDrawdown + 0.8 < leftDrawdown
+    ) {
+      bestUseCase = 'Choose Model B for cleaner trend following; choose Model A for faster responsiveness.'
+    } else if (leftSummary && rightSummary) {
+      if (leftSummary.relativePerformance > rightSummary.relativePerformance + 1) {
+        bestUseCase = 'Model A fits primary deployment; keep Model B for alternative regime checks.'
+      } else if (rightSummary.relativePerformance > leftSummary.relativePerformance + 1) {
+        bestUseCase = 'Model B fits primary deployment; keep Model A for alternative regime checks.'
+      }
+    }
+
+    return {
+      left: leftStrengths.slice(0, 3),
+      right: rightStrengths.slice(0, 3),
+      bestUseCase,
+    }
+  }, [leftModel, rightModel, leftInsights, rightInsights])
+
+  const compareHref =
+    leftId && rightId
+      ? `/models/compare?left=${encodeURIComponent(leftId)}&right=${encodeURIComponent(rightId)}`
+      : '/models/compare'
+
+  return (
+    <AppShell active="models" container="lg">
+      <div className="section-gap">
+        <PageHeader
+          title="Compare models"
+          subtitle="Review two model versions side by side and inspect the tradeoffs."
+          action={
+            <Link href="/models" className={buttonClass({ variant: 'ghost' })}>
+              Back to models
+            </Link>
+          }
+        />
+
+        {models.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="No models to compare"
+              description="Create and validate at least two models to unlock side-by-side comparison."
+              action={
+                <Link href="/models/new" className={buttonClass({ variant: 'primary' })}>
+                  New model
+                </Link>
+              }
+            />
+          </Card>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Card className="section-gap">
+                <div className="text-filter-label">Model A</div>
+                <Select value={leftId} onChange={(event) => setSelectedLeftId(event.target.value)}>
+                  {models.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
+                </Select>
+                {leftModel && leftInsights ? (
+                  <>
+                    <div>
+                      <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">{leftModel.name}</h2>
+                      <div className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+                        {leftModel.ticker ? leftModel.ticker : leftModel.universe}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="neutral">{leftInsights.personality}</Badge>
+                      <Badge variant="neutral">{leftInsights.confidence} confidence</Badge>
+                    </div>
+                    <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900">
+                      <div className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">
+                        {leftInsights.topInsightHeadline}
+                      </div>
+                      <div className="text-[12px] text-neutral-600 dark:text-neutral-400">
+                        {leftInsights.topInsightSummary}
+                      </div>
+                    </div>
+                    <div className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                      Confidence score: {leftInsights.confidencePct}
+                    </div>
+                  </>
+                ) : null}
+              </Card>
+
+              <Card className="section-gap">
+                <div className="text-filter-label">Model B</div>
+                <Select value={rightId} onChange={(event) => setSelectedRightId(event.target.value)}>
+                  {models.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
+                </Select>
+                {rightModel && rightInsights ? (
+                  <>
+                    <div>
+                      <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">{rightModel.name}</h2>
+                      <div className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+                        {rightModel.ticker ? rightModel.ticker : rightModel.universe}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="neutral">{rightInsights.personality}</Badge>
+                      <Badge variant="neutral">{rightInsights.confidence} confidence</Badge>
+                    </div>
+                    <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900">
+                      <div className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">
+                        {rightInsights.topInsightHeadline}
+                      </div>
+                      <div className="text-[12px] text-neutral-600 dark:text-neutral-400">
+                        {rightInsights.topInsightSummary}
+                      </div>
+                    </div>
+                    <div className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                      Confidence score: {rightInsights.confidencePct}
+                    </div>
+                  </>
+                ) : null}
+              </Card>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={compareHref}
+                className={buttonClass({ variant: 'secondary' })}
+                aria-disabled={!compareReady}
+              >
+                Refresh compare
+              </Link>
+              {compareReady ? null : (
+                <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                  Select two different models to compare.
+                </span>
+              )}
+            </div>
+
+            <Card className="section-gap">
+              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Summary comparison</h3>
+              <div className="grid grid-cols-[160px_1fr_1fr] gap-2 text-sm">
+                <div className="text-filter-label">Metric</div>
+                <div className="text-filter-label">Model A</div>
+                <div className="text-filter-label">Model B</div>
+                {comparisonMetrics.map((metric) => (
+                  <div key={metric.key} className="contents">
+                    <div className="rounded-lg border border-neutral-200 px-3 py-2 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
+                      {metric.label}
+                    </div>
+                    <div className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{metric.leftDisplay}</div>
+                      <Badge variant={sideVariant(metric.outcome, 'left')} className="mt-1">
+                        {sideLabel(metric.outcome, 'left')}
+                      </Badge>
+                    </div>
+                    <div className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{metric.rightDisplay}</div>
+                      <Badge variant={sideVariant(metric.outcome, 'right')} className="mt-1">
+                        {sideLabel(metric.outcome, 'right')}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="section-gap">
+              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Equity curve comparison</h3>
+              <p className="text-body">Model A and B strategy curves on the same axis.</p>
+              <ChartContainer className="h-[300px]">
+                {() => (
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
+                    <LineChart data={chartData} margin={CHART_MARGINS.stock}>
+                      <CartesianGrid strokeDasharray="2 6" stroke="rgba(100,116,139,0.14)" vertical={false} />
+                      <XAxis dataKey="t" tick={{ fontSize: 11, fill: CHART_PALETTE.textMuted }} axisLine={false} tickLine={false} />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: CHART_PALETTE.textMuted }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={42}
+                        tickFormatter={(value) => Number(value).toFixed(0)}
+                      />
+                      <Tooltip
+                        content={
+                          <CompareTooltip
+                            leftLabel={leftModel?.name ?? 'Model A'}
+                            rightLabel={rightModel?.name ?? 'Model B'}
+                            benchmarkLabel={benchmarkLabel}
+                          />
+                        }
+                        cursor={{ stroke: CHART_PALETTE.neutral, strokeOpacity: 0.24 }}
+                      />
+                      <Line type="monotone" dataKey="left" stroke={CHART_PALETTE.secondary} strokeWidth={2.4} dot={false} />
+                      <Line type="monotone" dataKey="right" stroke={CHART_PALETTE.primary} strokeWidth={2.4} dot={false} />
+                      {benchmarkLabel ? (
+                        <Line
+                          type="monotone"
+                          dataKey="benchmark"
+                          stroke={CHART_PALETTE.neutral}
+                          strokeWidth={1.8}
+                          strokeDasharray="4 4"
+                          dot={false}
+                        />
+                      ) : null}
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </ChartContainer>
+              <div className="flex flex-wrap items-center gap-2 text-[12px] text-neutral-500 dark:text-neutral-400">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CHART_PALETTE.secondary }} />
+                  Model A
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CHART_PALETTE.primary }} />
+                  Model B
+                </span>
+                {benchmarkLabel ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CHART_PALETTE.neutral }} />
+                    {benchmarkLabel}
+                  </span>
+                ) : null}
+              </div>
+            </Card>
+
+            <Card className="section-gap">
+              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Rule and configuration diff</h3>
+              {leftModel && rightModel ? (
+                <div className="space-y-2 text-sm">
+                  {[
+                    {
+                      label: 'Lookback',
+                      left: `${leftModel.lookbackDays}d`,
+                      right: `${rightModel.lookbackDays}d`,
+                    },
+                    {
+                      label: 'Logic mode',
+                      left: leftModel.logicMode === 'all' ? 'Match all' : 'Match any',
+                      right: rightModel.logicMode === 'all' ? 'Match all' : 'Match any',
+                    },
+                    {
+                      label: 'Holding horizon',
+                      left: `${leftModel.validation.holdingHorizonDays}d`,
+                      right: `${rightModel.validation.holdingHorizonDays}d`,
+                    },
+                    {
+                      label: 'Risk mode',
+                      left: leftModel.validation.riskMode,
+                      right: rightModel.validation.riskMode,
+                    },
+                  ].map((row) => {
+                    const changed = row.left !== row.right
+                    return (
+                      <div
+                        key={row.label}
+                        className={`grid grid-cols-[150px_1fr_1fr] gap-2 rounded-lg border px-3 py-2 ${
+                          changed
+                            ? 'border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20'
+                            : 'border-neutral-200 dark:border-neutral-800'
+                        }`}
+                      >
+                        <div className="font-medium text-neutral-700 dark:text-neutral-300">{row.label}</div>
+                        <div className="text-neutral-900 dark:text-neutral-100">{row.left}</div>
+                        <div className="text-neutral-900 dark:text-neutral-100">{row.right}</div>
+                      </div>
+                    )
+                  })}
+
+                  <div
+                    className={`rounded-lg border px-3 py-2 ${
+                      conditionDiff
+                        ? 'border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20'
+                        : 'border-neutral-200 dark:border-neutral-800'
+                    }`}
+                  >
+                    <div className="font-medium text-neutral-700 dark:text-neutral-300">Conditions</div>
+                    <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <ul className="space-y-1 text-neutral-900 dark:text-neutral-100">
+                        {leftConditionLabels.map((condition, index) => (
+                          <li key={`left-condition-${index}`}>{condition}</li>
+                        ))}
+                      </ul>
+                      <ul className="space-y-1 text-neutral-900 dark:text-neutral-100">
+                        {rightConditionLabels.map((condition, index) => (
+                          <li key={`right-condition-${index}`}>{condition}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </Card>
+
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <Card className="section-gap">
+                <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Where Model A is stronger</h3>
+                <ul className="list-disc space-y-1 pl-5 text-body">
+                  {tradeoffInsights.left.map((item, index) => (
+                    <li key={`left-stronger-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              </Card>
+              <Card className="section-gap">
+                <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Where Model B is stronger</h3>
+                <ul className="list-disc space-y-1 pl-5 text-body">
+                  {tradeoffInsights.right.map((item, index) => (
+                    <li key={`right-stronger-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              </Card>
+              <Card className="section-gap">
+                <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Best use case</h3>
+                <p className="text-body">{tradeoffInsights.bestUseCase}</p>
+              </Card>
+            </section>
+          </>
+        )}
+      </div>
+    </AppShell>
+  )
+}

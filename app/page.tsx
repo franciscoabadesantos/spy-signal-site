@@ -47,6 +47,21 @@ function signalMeta(direction: 'bullish' | 'neutral' | 'bearish'): { label: stri
   return { label: 'Neutral', variant: 'neutral' }
 }
 
+const HERO_COPY = {
+  headline: 'Validate systems with live conviction signals',
+  body: 'Inspect a stock, understand regime behavior, and verify price confirmation before allocating capital.',
+}
+
+/*
+  Hero copy options explored:
+  1) "Validate systems with live conviction signals"
+     "Inspect a stock, understand regime behavior, and verify price confirmation before allocating capital."
+  2) "Inspect market systems, not stock stories"
+     "Read stance shifts, stability, and validation evidence in one workflow built for model decisions."
+  3) "SpySignal for system builders"
+     "Track conviction, test behavior, and pressure-test signal quality before committing risk."
+*/
+
 export default async function Home() {
   const { rows } = await getScreenerSignals({ sortBy: 'latest', limit: 60 })
   const visibleRows = rows.slice(0, 12)
@@ -57,10 +72,10 @@ export default async function Home() {
         <div className="section-gap">
           <div>
             <h1 className="text-page-title text-neutral-900 dark:text-neutral-100 sm:text-4xl">
-              Build and test your own investing systems
+              {HERO_COPY.headline}
             </h1>
             <p className="text-body mt-3 max-w-[58ch] text-base">
-              Research stocks, explore signals, and validate your ideas with visual backtesting tools.
+              {HERO_COPY.body}
             </p>
           </div>
 
@@ -69,7 +84,7 @@ export default async function Home() {
               Create free account
             </Link>
             <Link href="/screener" className={buttonClass({ variant: 'secondary' })}>
-              Explore stocks
+              Inspect live systems
             </Link>
           </div>
         </div>
@@ -77,24 +92,28 @@ export default async function Home() {
         <HeroProductPreview />
       </section>
 
-      <section className="section-gap py-4">
+      <section className="section-gap rounded-2xl border border-neutral-200/70 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.08),transparent_70%)] p-5 py-6 dark:border-neutral-800/80 dark:bg-[radial-gradient(circle_at_top_right,rgba(14,116,144,0.16),transparent_70%)] md:p-6">
         <SectionHeader
           title="How It Works"
-          description="A simple workflow from idea generation to repeatable model validation."
+          description="From ticker inspection to signal validation and model iteration."
         />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[
             {
-              title: 'Research a stock',
-              body: 'Inspect price action, signal stance, key metrics, and market context in one place.',
+              title: 'Inspect a stock',
+              body: 'Read live price structure, latest stance, and conviction without changing views.',
+            },
+            {
+              title: 'Understand behavior',
+              body: 'See flip cadence, regime stability, and system profile dimensions in context.',
+            },
+            {
+              title: 'Validate the signal',
+              body: 'Use backtest evidence and confirmation checks before increasing exposure.',
             },
             {
               title: 'Build your model',
-              body: 'Define your prompt or signal logic and iterate on what matters for your thesis.',
-            },
-            {
-              title: 'Test and improve it',
-              body: 'Validate behavior with backtests and refine assumptions before committing capital.',
+              body: 'Custom model workflows are expanding; validate ideas with today’s tooling first.',
             },
           ].map((item) => (
             <Card key={item.title}>
@@ -105,28 +124,28 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="section-gap py-4">
+      <section className="section-gap py-5">
         <SectionHeader
           title="Product Pillars"
-          description="Core surfaces for idea discovery, model building, and evidence-based iteration."
+          description="Core surfaces for system inspection, validation, and model-building direction."
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
-              title: 'Visual stock research',
-              body: 'Unified view of chart context, stance shifts, and key company/fund details.',
+              title: 'Signal inspection',
+              body: 'Unified view of chart context, stance shifts, and conviction state.',
             },
             {
-              title: 'Screener and signals',
-              body: 'Filter assets by conviction, signal type, recency, and market move behavior.',
+              title: 'System behavior',
+              body: 'Track flip cadence, regime persistence, and stability signals over time.',
             },
             {
-              title: 'Custom models',
-              body: 'Run and compare your own model ideas with repeatable testing workflows.',
+              title: 'Validation surfaces',
+              body: 'Use backtests, performance snapshots, and exports to challenge assumptions.',
             },
             {
-              title: 'AI analysis (Pro)',
-              body: 'Generate structured catalyst/risk analysis and source-backed research follow-ups.',
+              title: 'Model builder direction',
+              body: 'Builder tooling is being expanded for custom systems and richer test workflows.',
             },
           ].map((item) => (
             <Card key={item.title}>
@@ -140,7 +159,7 @@ export default async function Home() {
       <section className="section-gap py-4">
         <SectionHeader
           title="Live Tracked Assets"
-          description="Latest model outputs across currently tracked instruments."
+          description="Latest stance and conviction across actively tracked instruments."
           action={
             <Link href="/screener" className={buttonClass({ variant: 'secondary' })}>
               Explore More
@@ -199,25 +218,28 @@ export default async function Home() {
         </TableShell>
       </section>
 
-      <section className="section-gap py-4">
-        <SectionHeader title="Free vs Pro" description="Choose the right level for your current workflow." />
+      <section className="section-gap rounded-2xl border border-neutral-200/70 bg-[radial-gradient(circle_at_bottom_left,rgba(20,184,166,0.08),transparent_68%)] p-5 py-6 dark:border-neutral-800/80 dark:bg-[radial-gradient(circle_at_bottom_left,rgba(13,148,136,0.16),transparent_68%)] md:p-6">
+        <SectionHeader title="Free vs Pro" description="Free gives full discovery and core validation; Pro scales the workflow." />
+        <p className="text-body">
+          Discovery is not paywalled: Free users can inspect assets, read signals, and run meaningful early validation.
+        </p>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card>
             <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Free</h3>
             <ul className="text-body mt-3 space-y-2">
-              <li>Browse all stocks</li>
+              <li>Browse tracked assets and inspect live stance/conviction</li>
               <li>Create up to 2 models/day</li>
-              <li>Basic watchlist</li>
-              <li>Limited backtests</li>
+              <li>Watchlist and core system context</li>
+              <li>Starter backtest and validation views</li>
             </ul>
           </Card>
           <Card>
             <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Pro</h3>
             <ul className="text-body mt-3 space-y-2">
-              <li>Unlimited models</li>
-              <li>AI analysis</li>
-              <li>Advanced backtests</li>
-              <li>Exports and alerts</li>
+              <li>Higher model and workflow scale</li>
+              <li>AI analyst and deeper thesis review</li>
+              <li>Advanced validation depth and history access</li>
+              <li>Alerts, exports, and operational tooling</li>
             </ul>
           </Card>
         </div>
@@ -227,14 +249,14 @@ export default async function Home() {
         <Card className="section-gap text-center">
           <h2 className="text-section-title text-neutral-900 dark:text-neutral-100">Start Building Your System</h2>
           <p className="text-body mx-auto max-w-[62ch]">
-            Create an account, pick your first ticker, and begin testing how your ideas behave under real market conditions.
+            Create an account, inspect your first ticker, and validate system behavior with live evidence.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link href="/sign-up" className={buttonClass({ variant: 'primary' })}>
               Create free account
             </Link>
             <Link href="/screener" className={buttonClass({ variant: 'ghost' })}>
-              Explore stocks
+              Inspect live systems
             </Link>
           </div>
         </Card>
