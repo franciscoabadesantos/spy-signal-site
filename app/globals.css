@@ -3,32 +3,124 @@
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-page-bg: var(--page-bg);
+  --color-surface-card: var(--surface-card);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-hover: var(--surface-hover);
+  --color-content-primary: var(--content-primary);
+  --color-content-secondary: var(--content-secondary);
+  --color-content-muted: var(--content-muted);
   
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
 
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-divider-strong: var(--divider-strong);
   
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-bullish-tint: var(--bullish-tint);
+  --color-neutral-tint: var(--neutral-tint);
+  --color-bearish-tint: var(--bearish-tint);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
+  --color-chart-tooltip: var(--chart-tooltip-bg);
+  --color-chart-tooltip-border: var(--chart-tooltip-border);
+  --color-accent-glow: var(--accent-glow);
 }
 
 @layer base {
   :root {
-    --background: #ffffff;
-    --foreground: #111827;
-    --muted: #f3f4f6;
-    --muted-foreground: #6b7280;
-    --border: #e5e7eb;
-    --input: #e5e7eb;
+    color-scheme: light;
+    --page-bg: #f6f9fc;
+    --background: var(--page-bg);
+    --foreground: #0f172a;
+    --content-primary: #0f172a;
+    --content-secondary: #334155;
+    --content-muted: #64748b;
+    --muted: #eef2f7;
+    --muted-foreground: #5f6f84;
+    --border: #dbe3ef;
+    --divider-strong: #cbd5e1;
+    --input: #dbe3ef;
     --primary: #0284c7; /* Stockanalysis Blue */
     --primary-foreground: #ffffff;
-    --card: #ffffff;
-    --card-foreground: #111827;
+    --surface-card: #ffffff;
+    --surface-elevated: #f8fbff;
+    --surface-hover: #edf3fa;
+    --card: var(--surface-card);
+    --card-foreground: var(--content-primary);
+    --bullish-tint: rgba(16, 185, 129, 0.15);
+    --neutral-tint: rgba(148, 163, 184, 0.14);
+    --bearish-tint: rgba(244, 63, 94, 0.14);
+    --chart-grid: rgba(100, 116, 139, 0.24);
+    --chart-axis: #5f6f84;
+    --chart-tooltip-bg: rgba(255, 255, 255, 0.96);
+    --chart-tooltip-border: #cbd5e1;
+    --accent-glow: rgba(37, 99, 235, 0.2);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page-bg: #070c16;
+      --background: var(--page-bg);
+      --foreground: #e5edf8;
+      --content-primary: #e5edf8;
+      --content-secondary: #bfd0e8;
+      --content-muted: #8ea2bf;
+      --muted: #121a2a;
+      --muted-foreground: #8ea2bf;
+      --border: #223149;
+      --divider-strong: #2c3f5e;
+      --input: #223149;
+      --surface-card: #0f192b;
+      --surface-elevated: #142238;
+      --surface-hover: #1a2b44;
+      --card: var(--surface-card);
+      --card-foreground: var(--content-primary);
+      --bullish-tint: rgba(16, 185, 129, 0.24);
+      --neutral-tint: rgba(148, 163, 184, 0.2);
+      --bearish-tint: rgba(244, 63, 94, 0.24);
+      --chart-grid: rgba(142, 162, 191, 0.24);
+      --chart-axis: #a7b8cf;
+      --chart-tooltip-bg: rgba(9, 15, 27, 0.96);
+      --chart-tooltip-border: #2c3f5e;
+      --accent-glow: rgba(59, 130, 246, 0.3);
+    }
+  }
+
+  :root.dark,
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page-bg: #070c16;
+    --background: var(--page-bg);
+    --foreground: #e5edf8;
+    --content-primary: #e5edf8;
+    --content-secondary: #bfd0e8;
+    --content-muted: #8ea2bf;
+    --muted: #121a2a;
+    --muted-foreground: #8ea2bf;
+    --border: #223149;
+    --divider-strong: #2c3f5e;
+    --input: #223149;
+    --surface-card: #0f192b;
+    --surface-elevated: #142238;
+    --surface-hover: #1a2b44;
+    --card: var(--surface-card);
+    --card-foreground: var(--content-primary);
+    --bullish-tint: rgba(16, 185, 129, 0.24);
+    --neutral-tint: rgba(148, 163, 184, 0.2);
+    --bearish-tint: rgba(244, 63, 94, 0.24);
+    --chart-grid: rgba(142, 162, 191, 0.24);
+    --chart-axis: #a7b8cf;
+    --chart-tooltip-bg: rgba(9, 15, 27, 0.96);
+    --chart-tooltip-border: #2c3f5e;
+    --accent-glow: rgba(59, 130, 246, 0.3);
   }
 }
 
@@ -37,12 +129,24 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-page-bg text-content-primary antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
 @layer utilities {
+  .surface-card {
+    @apply bg-surface-card border border-border;
+  }
+
+  .surface-elevated {
+    @apply bg-surface-elevated border border-border;
+  }
+
+  .surface-hover {
+    @apply hover:bg-surface-hover;
+  }
+
   .container-sm {
     @apply mx-auto w-full max-w-[720px] px-4 md:px-6;
   }
@@ -68,7 +172,7 @@
   }
 
   .text-body {
-    @apply text-sm text-neutral-600 dark:text-neutral-400;
+    @apply text-sm text-content-secondary;
   }
 
   .text-metric {
@@ -84,7 +188,7 @@
   }
 
   .text-filter-label {
-    @apply text-[12px] font-medium uppercase tracking-wide text-neutral-600 dark:text-neutral-400;
+    @apply text-[12px] font-medium uppercase tracking-wide text-content-muted;
   }
 }
 

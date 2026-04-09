@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   CartesianGrid,
@@ -20,11 +20,13 @@ import Badge from '@/components/ui/Badge'
 import { buttonClass } from '@/components/ui/Button'
 import ChartContainer, {
   CHART_MARGINS,
-  CHART_PALETTE,
+  type ChartPalette,
   ChartTooltipCard,
+  useChartPalette,
 } from '@/components/charts/ChartContainer'
 import { loadModelsFromStorage } from '@/lib/model-store-client'
 import { type ModelRecord } from '@/lib/model-builder'
+import { trackEvent } from '@/lib/analytics'
 
 type ConfidenceLabel = 'Low' | 'Moderate' | 'High'
 type CompareOutcome = 'left' | 'right' | 'same' | 'na'
@@ -215,12 +217,14 @@ function CompareTooltip({
   leftLabel,
   rightLabel,
   benchmarkLabel,
+  palette,
 }: {
   active?: boolean
   payload?: Array<{ payload?: CompareTooltipPayload }>
   leftLabel: string
   rightLabel: string
   benchmarkLabel: string | null
+  palette: ChartPalette
 }) {
   if (!active || !payload || payload.length === 0) return null
   const point = payload[0]?.payload
@@ -230,12 +234,12 @@ function CompareTooltip({
     {
       label: leftLabel,
       value: point.left === null ? '—' : point.left.toFixed(2),
-      swatchColor: CHART_PALETTE.secondary,
+      swatchColor: palette.secondary,
     },
     {
       label: rightLabel,
       value: point.right === null ? '—' : point.right.toFixed(2),
-      swatchColor: CHART_PALETTE.primary,
+      swatchColor: palette.primary,
     },
   ]
 
@@ -243,7 +247,7 @@ function CompareTooltip({
     rows.push({
       label: benchmarkLabel,
       value: point.benchmark === null ? '—' : point.benchmark.toFixed(2),
-      swatchColor: CHART_PALETTE.neutral,
+      swatchColor: palette.neutral,
     })
   }
 
@@ -257,6 +261,7 @@ export default function ModelCompareClient({
   initialLeftId?: string | null
   initialRightId?: string | null
 }) {
+  const chartPalette = useChartPalette()
   const models = useMemo(() => loadModelsFromStorage(), [])
   const [selectedLeftId, setSelectedLeftId] = useState(initialLeftId ?? '')
   const [selectedRightId, setSelectedRightId] = useState(initialRightId ?? '')
@@ -473,6 +478,20 @@ export default function ModelCompareClient({
     leftId && rightId
       ? `/models/compare?left=${encodeURIComponent(leftId)}&right=${encodeURIComponent(rightId)}`
       : '/models/compare'
+  const trackedComparePairsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!compareReady || !leftModel || !rightModel) return
+    const pairKey = `${leftModel.id}::${rightModel.id}`
+    if (trackedComparePairsRef.current.has(pairKey)) return
+    trackedComparePairsRef.current.add(pairKey)
+    trackEvent('complete_compare', {
+      left_model_id: leftModel.id,
+      right_model_id: rightModel.id,
+      left_signal_count: leftInsights?.signalCount ?? null,
+      right_signal_count: rightInsights?.signalCount ?? null,
+    })
+  }, [compareReady, leftModel, rightModel, leftInsights?.signalCount, rightInsights?.signalCount])
 
   return (
     <AppShell active="models" container="lg">
@@ -514,8 +533,8 @@ export default function ModelCompareClient({
                 {leftModel && leftInsights ? (
                   <>
                     <div>
-                      <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">{leftModel.name}</h2>
-                      <div className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+                      <h2 className="text-card-title text-content-primary">{leftModel.name}</h2>
+                      <div className="mt-1 text-[12px] text-content-muted">
                         {leftModel.ticker ? leftModel.ticker : leftModel.universe}
                       </div>
                     </div>
@@ -523,15 +542,15 @@ export default function ModelCompareClient({
                       <Badge variant="neutral">{leftInsights.personality}</Badge>
                       <Badge variant="neutral">{leftInsights.confidence} confidence</Badge>
                     </div>
-                    <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900">
-                      <div className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">
+                    <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2">
+                      <div className="text-[13px] font-semibold text-content-primary">
                         {leftInsights.topInsightHeadline}
                       </div>
-                      <div className="text-[12px] text-neutral-600 dark:text-neutral-400">
+                      <div className="text-[12px] text-content-secondary">
                         {leftInsights.topInsightSummary}
                       </div>
                     </div>
-                    <div className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                    <div className="text-[12px] text-content-muted">
                       Confidence score: {leftInsights.confidencePct}
                     </div>
                   </>
@@ -550,8 +569,8 @@ export default function ModelCompareClient({
                 {rightModel && rightInsights ? (
                   <>
                     <div>
-                      <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">{rightModel.name}</h2>
-                      <div className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+                      <h2 className="text-card-title text-content-primary">{rightModel.name}</h2>
+                      <div className="mt-1 text-[12px] text-content-muted">
                         {rightModel.ticker ? rightModel.ticker : rightModel.universe}
                       </div>
                     </div>
@@ -559,15 +578,15 @@ export default function ModelCompareClient({
                       <Badge variant="neutral">{rightInsights.personality}</Badge>
                       <Badge variant="neutral">{rightInsights.confidence} confidence</Badge>
                     </div>
-                    <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900">
-                      <div className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">
+                    <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2">
+                      <div className="text-[13px] font-semibold text-content-primary">
                         {rightInsights.topInsightHeadline}
                       </div>
-                      <div className="text-[12px] text-neutral-600 dark:text-neutral-400">
+                      <div className="text-[12px] text-content-secondary">
                         {rightInsights.topInsightSummary}
                       </div>
                     </div>
-                    <div className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                    <div className="text-[12px] text-content-muted">
                       Confidence score: {rightInsights.confidencePct}
                     </div>
                   </>
@@ -584,31 +603,31 @@ export default function ModelCompareClient({
                 Refresh compare
               </Link>
               {compareReady ? null : (
-                <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                <span className="text-[12px] text-content-muted">
                   Select two different models to compare.
                 </span>
               )}
             </div>
 
             <Card className="section-gap">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Summary comparison</h3>
+              <h3 className="text-card-title text-content-primary">Summary comparison</h3>
               <div className="grid grid-cols-[160px_1fr_1fr] gap-2 text-sm">
                 <div className="text-filter-label">Metric</div>
                 <div className="text-filter-label">Model A</div>
                 <div className="text-filter-label">Model B</div>
                 {comparisonMetrics.map((metric) => (
                   <div key={metric.key} className="contents">
-                    <div className="rounded-lg border border-neutral-200 px-3 py-2 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
+                    <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 text-content-secondary">
                       {metric.label}
                     </div>
-                    <div className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{metric.leftDisplay}</div>
+                    <div className="rounded-lg border border-border px-3 py-2">
+                      <div className="font-medium text-content-primary">{metric.leftDisplay}</div>
                       <Badge variant={sideVariant(metric.outcome, 'left')} className="mt-1">
                         {sideLabel(metric.outcome, 'left')}
                       </Badge>
                     </div>
-                    <div className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{metric.rightDisplay}</div>
+                    <div className="rounded-lg border border-border px-3 py-2">
+                      <div className="font-medium text-content-primary">{metric.rightDisplay}</div>
                       <Badge variant={sideVariant(metric.outcome, 'right')} className="mt-1">
                         {sideLabel(metric.outcome, 'right')}
                       </Badge>
@@ -619,16 +638,16 @@ export default function ModelCompareClient({
             </Card>
 
             <Card className="section-gap">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Equity curve comparison</h3>
+              <h3 className="text-card-title text-content-primary">Equity curve comparison</h3>
               <p className="text-body">Model A and B strategy curves on the same axis.</p>
               <ChartContainer className="h-[300px]">
-                {() => (
+                {({ palette }) => (
                   <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
                     <LineChart data={chartData} margin={CHART_MARGINS.stock}>
-                      <CartesianGrid strokeDasharray="2 6" stroke="rgba(100,116,139,0.14)" vertical={false} />
-                      <XAxis dataKey="t" tick={{ fontSize: 11, fill: CHART_PALETTE.textMuted }} axisLine={false} tickLine={false} />
+                      <CartesianGrid strokeDasharray="2 6" stroke={palette.grid} vertical={false} />
+                      <XAxis dataKey="t" tick={{ fontSize: 11, fill: palette.textMuted }} axisLine={false} tickLine={false} />
                       <YAxis
-                        tick={{ fontSize: 11, fill: CHART_PALETTE.textMuted }}
+                        tick={{ fontSize: 11, fill: palette.textMuted }}
                         axisLine={false}
                         tickLine={false}
                         width={42}
@@ -640,17 +659,18 @@ export default function ModelCompareClient({
                             leftLabel={leftModel?.name ?? 'Model A'}
                             rightLabel={rightModel?.name ?? 'Model B'}
                             benchmarkLabel={benchmarkLabel}
+                            palette={palette}
                           />
                         }
-                        cursor={{ stroke: CHART_PALETTE.neutral, strokeOpacity: 0.24 }}
+                        cursor={{ stroke: palette.neutral, strokeOpacity: 0.24 }}
                       />
-                      <Line type="monotone" dataKey="left" stroke={CHART_PALETTE.secondary} strokeWidth={2.4} dot={false} />
-                      <Line type="monotone" dataKey="right" stroke={CHART_PALETTE.primary} strokeWidth={2.4} dot={false} />
+                      <Line type="monotone" dataKey="left" stroke={palette.secondary} strokeWidth={2.4} dot={false} />
+                      <Line type="monotone" dataKey="right" stroke={palette.primary} strokeWidth={2.4} dot={false} />
                       {benchmarkLabel ? (
                         <Line
                           type="monotone"
                           dataKey="benchmark"
-                          stroke={CHART_PALETTE.neutral}
+                          stroke={palette.neutral}
                           strokeWidth={1.8}
                           strokeDasharray="4 4"
                           dot={false}
@@ -660,18 +680,18 @@ export default function ModelCompareClient({
                   </ResponsiveContainer>
                 )}
               </ChartContainer>
-              <div className="flex flex-wrap items-center gap-2 text-[12px] text-neutral-500 dark:text-neutral-400">
+              <div className="flex flex-wrap items-center gap-2 text-[12px] text-content-muted">
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CHART_PALETTE.secondary }} />
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: chartPalette.secondary }} />
                   Model A
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CHART_PALETTE.primary }} />
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: chartPalette.primary }} />
                   Model B
                 </span>
                 {benchmarkLabel ? (
                   <span className="inline-flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CHART_PALETTE.neutral }} />
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: chartPalette.neutral }} />
                     {benchmarkLabel}
                   </span>
                 ) : null}
@@ -679,7 +699,7 @@ export default function ModelCompareClient({
             </Card>
 
             <Card className="section-gap">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Rule and configuration diff</h3>
+              <h3 className="text-card-title text-content-primary">Rule and configuration diff</h3>
               {leftModel && rightModel ? (
                 <div className="space-y-2 text-sm">
                   {[
@@ -711,12 +731,12 @@ export default function ModelCompareClient({
                         className={`grid grid-cols-[150px_1fr_1fr] gap-2 rounded-lg border px-3 py-2 ${
                           changed
                             ? 'border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20'
-                            : 'border-neutral-200 dark:border-neutral-800'
+                            : 'border-border'
                         }`}
                       >
                         <div className="font-medium text-neutral-700 dark:text-neutral-300">{row.label}</div>
-                        <div className="text-neutral-900 dark:text-neutral-100">{row.left}</div>
-                        <div className="text-neutral-900 dark:text-neutral-100">{row.right}</div>
+                        <div className="text-content-primary">{row.left}</div>
+                        <div className="text-content-primary">{row.right}</div>
                       </div>
                     )
                   })}
@@ -725,17 +745,17 @@ export default function ModelCompareClient({
                     className={`rounded-lg border px-3 py-2 ${
                       conditionDiff
                         ? 'border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20'
-                        : 'border-neutral-200 dark:border-neutral-800'
+                        : 'border-border'
                     }`}
                   >
                     <div className="font-medium text-neutral-700 dark:text-neutral-300">Conditions</div>
                     <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-                      <ul className="space-y-1 text-neutral-900 dark:text-neutral-100">
+                      <ul className="space-y-1 text-content-primary">
                         {leftConditionLabels.map((condition, index) => (
                           <li key={`left-condition-${index}`}>{condition}</li>
                         ))}
                       </ul>
-                      <ul className="space-y-1 text-neutral-900 dark:text-neutral-100">
+                      <ul className="space-y-1 text-content-primary">
                         {rightConditionLabels.map((condition, index) => (
                           <li key={`right-condition-${index}`}>{condition}</li>
                         ))}
@@ -748,7 +768,7 @@ export default function ModelCompareClient({
 
             <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <Card className="section-gap">
-                <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Where Model A is stronger</h3>
+                <h3 className="text-card-title text-content-primary">Where Model A is stronger</h3>
                 <ul className="list-disc space-y-1 pl-5 text-body">
                   {tradeoffInsights.left.map((item, index) => (
                     <li key={`left-stronger-${index}`}>{item}</li>
@@ -756,7 +776,7 @@ export default function ModelCompareClient({
                 </ul>
               </Card>
               <Card className="section-gap">
-                <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Where Model B is stronger</h3>
+                <h3 className="text-card-title text-content-primary">Where Model B is stronger</h3>
                 <ul className="list-disc space-y-1 pl-5 text-body">
                   {tradeoffInsights.right.map((item, index) => (
                     <li key={`right-stronger-${index}`}>{item}</li>
@@ -764,7 +784,7 @@ export default function ModelCompareClient({
                 </ul>
               </Card>
               <Card className="section-gap">
-                <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Best use case</h3>
+                <h3 className="text-card-title text-content-primary">Best use case</h3>
                 <p className="text-body">{tradeoffInsights.bestUseCase}</p>
               </Card>
             </section>

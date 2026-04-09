@@ -1,8 +1,11 @@
 import { Filter, Lock } from 'lucide-react'
 import Link from 'next/link'
 import AppShell from '@/components/shells/AppShell'
+import TrackedLink from '@/components/analytics/TrackedLink'
 import ScreenerSignalCard from '@/components/ScreenerSignalCard'
 import ActionBar from '@/components/page/ActionBar'
+import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
+import DismissibleLocalHint from '@/components/onboarding/DismissibleLocalHint'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import Badge from '@/components/ui/Badge'
@@ -21,7 +24,12 @@ import {
   TableRow,
   TableShell,
 } from '@/components/ui/DataTable'
-import { getScreenerSignals, type ScreenerSort } from '@/lib/signals'
+import {
+  getScreenerSignals,
+  getSignalCompositionByTicker,
+  type ScreenerSignalComposition,
+  type ScreenerSort,
+} from '@/lib/signals'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import {
   convictionPercent,
@@ -34,6 +42,7 @@ export const dynamic = 'force-dynamic'
 
 type ScreenerSearchParams = {
   signal?: string | string[]
+  bias?: string | string[]
   minConviction?: string | string[]
   q?: string | string[]
   sort?: string | string[]
@@ -41,6 +50,23 @@ type ScreenerSearchParams = {
 }
 
 type SignalDirection = 'all' | 'bullish' | 'neutral' | 'bearish'
+type RowSignalDirection = Exclude<SignalDirection, 'all'>
+type BubbleRank = 'dominant' | 'secondary' | 'minor'
+type BiasFilter = 'all' | 'bullish-biased' | 'balanced' | 'neutral-heavy' | 'bearish-biased'
+type RowBiasCategory = Exclude<BiasFilter, 'all'>
+
+type RowBiasSnapshot = {
+  bullishPct: number
+  neutralPct: number
+  bearishPct: number
+  dominant: RowSignalDirection
+  secondary: RowSignalDirection
+  minor: RowSignalDirection
+  biasCategory: RowBiasCategory
+  biasLabel: string
+  description: string
+  activePct: number
+}
 
 function singleParam(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0]
@@ -49,6 +75,18 @@ function singleParam(value: string | string[] | undefined): string | undefined {
 
 function parseSignalFilter(raw: string | undefined): SignalDirection {
   if (raw === 'bullish' || raw === 'neutral' || raw === 'bearish') return raw
+  return 'all'
+}
+
+function parseBiasFilter(raw: string | undefined): BiasFilter {
+  if (
+    raw === 'bullish-biased' ||
+    raw === 'balanced' ||
+    raw === 'neutral-heavy' ||
+    raw === 'bearish-biased'
+  ) {
+    return raw
+  }
   return 'all'
 }
 
@@ -77,12 +115,14 @@ function parseMaxAgeDays(raw: string | undefined): number {
 
 function buildScreenerHref({
   signal,
+  bias,
   minConviction,
   textQuery,
   sortBy,
   maxAgeDays,
 }: {
   signal: SignalDirection
+  bias: BiasFilter
   minConviction: number
   textQuery: string
   sortBy: ScreenerSort
@@ -90,6 +130,7 @@ function buildScreenerHref({
 }): string {
   const params = new URLSearchParams()
   if (signal !== 'all') params.set('signal', signal)
+  if (bias !== 'all') params.set('bias', bias)
   if (minConviction > 0) params.set('minConviction', String(minConviction))
   if (textQuery) params.set('q', textQuery)
   if (sortBy !== 'conviction') params.set('sort', sortBy)
@@ -183,6 +224,202 @@ function miniProfileBars({
   return [trend, momentum, risk, yieldScore, stability].map((value) => Math.round(value))
 }
 
+function normalizePct(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.min(1, value))
+}
+
+function fallbackCompositionFromRow({
+  direction,
+  conviction,
+}: {
+  direction: RowSignalDirection
+  conviction: number | null
+}): ScreenerSignalComposition {
+  const convictionPct = convictionPercent(conviction) ?? 48
+  const highConviction = convictionPct >= 70
+  const mediumConviction = convictionPct >= 50 && convictionPct < 70
+
+  let bullishPct = 0.33
+  let neutralPct = 0.34
+  let bearishPct = 0.33
+
+  if (direction === 'bullish') {
+    bullishPct = highConviction ? 0.66 : mediumConviction ? 0.56 : 0.48
+    neutralPct = highConviction ? 0.22 : 0.28
+    bearishPct = 1 - bullishPct - neutralPct
+  } else if (direction === 'bearish') {
+    bearishPct = highConviction ? 0.66 : mediumConviction ? 0.56 : 0.48
+    neutralPct = highConviction ? 0.22 : 0.28
+    bullishPct = 1 - bearishPct - neutralPct
+  } else {
+    neutralPct = highConviction ? 0.62 : mediumConviction ? 0.56 : 0.5
+    bullishPct = mediumConviction ? 0.24 : 0.25
+    bearishPct = 1 - neutralPct - bullishPct
+  }
+
+  bullishPct = normalizePct(bullishPct)
+  neutralPct = normalizePct(neutralPct)
+  bearishPct = normalizePct(bearishPct)
+  const totalPct = bullishPct + neutralPct + bearishPct || 1
+  bullishPct /= totalPct
+  neutralPct /= totalPct
+  bearishPct /= totalPct
+
+  const scale = 100
+  const bullishCount = Math.round(bullishPct * scale)
+  const neutralCount = Math.round(neutralPct * scale)
+  const bearishCount = Math.max(0, scale - bullishCount - neutralCount)
+
+  return {
+    bullishCount,
+    neutralCount,
+    bearishCount,
+    total: bullishCount + neutralCount + bearishCount,
+    bullishPct,
+    neutralPct,
+    bearishPct,
+    activePct: Math.round((bullishPct + bearishPct) * 100),
+  }
+}
+
+function buildRowBiasSnapshot({
+  direction,
+  conviction,
+  composition,
+}: {
+  direction: RowSignalDirection
+  conviction: number | null
+  composition?: ScreenerSignalComposition
+}): RowBiasSnapshot {
+  const source =
+    composition && composition.total > 0
+      ? composition
+      : fallbackCompositionFromRow({ direction, conviction })
+  const bullishPct = normalizePct(source.bullishPct)
+  const neutralPct = normalizePct(source.neutralPct)
+  const bearishPct = normalizePct(source.bearishPct)
+
+  const ranked = (
+    [
+      { direction: 'bullish' as const, value: bullishPct },
+      { direction: 'neutral' as const, value: neutralPct },
+      { direction: 'bearish' as const, value: bearishPct },
+    ] satisfies Array<{ direction: RowSignalDirection; value: number }>
+  ).sort((a, b) => {
+    if (b.value !== a.value) return b.value - a.value
+    const tieBreakOrder: RowSignalDirection[] = ['bullish', 'neutral', 'bearish']
+    return tieBreakOrder.indexOf(a.direction) - tieBreakOrder.indexOf(b.direction)
+  })
+  const bullishLead = bullishPct - Math.max(neutralPct, bearishPct)
+  const bearishLead = bearishPct - Math.max(neutralPct, bullishPct)
+
+  let biasCategory: RowBiasCategory = 'balanced'
+  let biasLabel = 'Balanced system'
+  let description = 'Distribution is mixed with no dominant directional pressure.'
+
+  if (neutralPct >= 0.46) {
+    biasCategory = 'neutral-heavy'
+    biasLabel = 'Neutral-heavy system'
+    description = 'Neutral regimes dominate and limit directional edge.'
+  } else if (bullishPct >= 0.42 && bullishLead >= 0.1) {
+    biasCategory = 'bullish-biased'
+    biasLabel = 'Bullish-biased system'
+    description = 'Bullish regimes dominate, with limited downside pressure.'
+  } else if (bearishPct >= 0.42 && bearishLead >= 0.1) {
+    biasCategory = 'bearish-biased'
+    biasLabel = 'Bearish-biased system'
+    description = 'Bearish regimes dominate, with limited upside relief.'
+  } else if (Math.abs(bullishPct - bearishPct) <= 0.12) {
+    biasCategory = 'balanced'
+    biasLabel = 'Balanced system'
+    description = 'Bullish and bearish pressure are balanced across observations.'
+  }
+
+  return {
+    bullishPct,
+    neutralPct,
+    bearishPct,
+    dominant: ranked[0]?.direction ?? 'neutral',
+    secondary: ranked[1]?.direction ?? 'bullish',
+    minor: ranked[2]?.direction ?? 'bearish',
+    biasCategory,
+    biasLabel,
+    description,
+    activePct: Math.round((bullishPct + bearishPct) * 100),
+  }
+}
+
+function bubbleFill(direction: RowSignalDirection): string {
+  if (direction === 'bullish') return 'rgba(16, 185, 129, 0.75)'
+  if (direction === 'bearish') return 'rgba(244, 63, 94, 0.75)'
+  return 'rgba(148, 163, 184, 0.72)'
+}
+
+function bubbleRadius(rank: BubbleRank): number {
+  if (rank === 'dominant') return 6.6
+  if (rank === 'secondary') return 4.4
+  return 2.9
+}
+
+function bubblePosition(rank: BubbleRank): { cx: number; cy: number } {
+  if (rank === 'dominant') return { cx: 17, cy: 11 }
+  if (rank === 'secondary') return { cx: 9, cy: 8 }
+  return { cx: 25, cy: 15 }
+}
+
+function biasFilterLabel(bias: BiasFilter): string {
+  if (bias === 'bullish-biased') return 'Bullish-biased'
+  if (bias === 'balanced') return 'Balanced'
+  if (bias === 'neutral-heavy') return 'Neutral-heavy'
+  if (bias === 'bearish-biased') return 'Bearish-biased'
+  return 'All'
+}
+
+function biasChipActiveClass(bias: BiasFilter): string | undefined {
+  if (bias === 'bullish-biased') {
+    return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+  }
+  if (bias === 'balanced') {
+    return 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200'
+  }
+  if (bias === 'neutral-heavy') {
+    return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+  }
+  if (bias === 'bearish-biased') {
+    return 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200'
+  }
+  return undefined
+}
+
+function MicroBiasBubble({ snapshot }: { snapshot: RowBiasSnapshot }) {
+  const byRank: Array<{ direction: RowSignalDirection; rank: BubbleRank }> = [
+    { direction: snapshot.minor, rank: 'minor' },
+    { direction: snapshot.secondary, rank: 'secondary' },
+    { direction: snapshot.dominant, rank: 'dominant' },
+  ]
+  const tooltip = `${snapshot.biasLabel} · Active ${snapshot.activePct}% · ${snapshot.description}`
+
+  return (
+    <div className="inline-flex items-center" title={tooltip} aria-label={tooltip}>
+      <svg width="34" height="22" viewBox="0 0 34 22" role="img" aria-hidden="true">
+        {byRank.map(({ direction, rank }) => {
+          const position = bubblePosition(rank)
+          return (
+            <circle
+              key={`${direction}-${rank}`}
+              cx={position.cx}
+              cy={position.cy}
+              r={bubbleRadius(rank)}
+              fill={bubbleFill(direction)}
+            />
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
 export default async function ScreenerPage({
   searchParams,
 }: {
@@ -190,6 +427,7 @@ export default async function ScreenerPage({
 }) {
   const resolvedSearchParams = await searchParams
   const signal = parseSignalFilter(singleParam(resolvedSearchParams.signal))
+  const bias = parseBiasFilter(singleParam(resolvedSearchParams.bias))
   const minConviction = parseMinConviction(singleParam(resolvedSearchParams.minConviction))
   const textQuery = parseTextQuery(singleParam(resolvedSearchParams.q))
   const sortBy = parseSort(singleParam(resolvedSearchParams.sort))
@@ -206,10 +444,31 @@ export default async function ScreenerPage({
     }),
     getViewerAccess(),
   ])
+  const signalCompositionByTicker =
+    rows.length > 0 ? await getSignalCompositionByTicker(rows.map((row) => row.ticker), 90) : {}
+  const biasByTicker = new Map(
+    rows.map((row) => [
+      row.ticker,
+      buildRowBiasSnapshot({
+        direction: row.direction,
+        conviction: row.conviction,
+        composition: signalCompositionByTicker[row.ticker],
+      }),
+    ])
+  )
+  const filteredRows =
+    bias === 'all'
+      ? rows
+      : rows.filter((row) => {
+          const snapshot =
+            biasByTicker.get(row.ticker) ??
+            buildRowBiasSnapshot({ direction: row.direction, conviction: row.conviction })
+          return snapshot.biasCategory === bias
+        })
 
   const previewLimit = 3
-  const previewRows = viewer.isPro ? rows : rows.slice(0, previewLimit)
-  const hiddenCount = viewer.isPro ? 0 : Math.max(0, rows.length - previewLimit)
+  const previewRows = viewer.isPro ? filteredRows : filteredRows.slice(0, previewLimit)
+  const hiddenCount = viewer.isPro ? 0 : Math.max(0, filteredRows.length - previewLimit)
   const isSpyOnlySource = source === 'spy_signals_live'
   const upgradeUrl = getStripeUpgradeUrl(viewer.userId)
   const upgradeHref = viewer.isSignedIn
@@ -255,6 +514,28 @@ export default async function ScreenerPage({
             </p>
           </Card>
         ) : null}
+        <TrackEventOnMount
+          eventName="use_screener"
+          payload={{
+            result_count: filteredRows.length,
+            signal_filter: signal,
+            bias_filter: bias,
+          }}
+        />
+        {bias !== 'all' ? (
+          <TrackEventOnMount
+            eventName="apply_bias_filter"
+            payload={{ bias_type: bias, result_count: filteredRows.length }}
+          />
+        ) : null}
+        <DismissibleLocalHint
+          storageKey="spy_signal_onboarding_loop_hint_dismissed_v1"
+          text="Start here: Explore a model → tweak it → compare results"
+        />
+        <DismissibleLocalHint
+          storageKey="spy_signal_screener_bias_hint_dismissed_v1"
+          text="Use Bias to find systems that match your style"
+        />
 
         <Card className="section-gap" padding="lg">
           <ActionBar align="between">
@@ -266,6 +547,7 @@ export default async function ScreenerPage({
                   active={signal === chipSignal}
                   href={buildScreenerHref({
                     signal: chipSignal,
+                    bias,
                     minConviction,
                     textQuery,
                     sortBy,
@@ -274,14 +556,36 @@ export default async function ScreenerPage({
                 />
               ))}
             </div>
+            <div className="flex flex-wrap gap-2">
+              {(['all', 'bullish-biased', 'balanced', 'neutral-heavy', 'bearish-biased'] as const).map(
+                (chipBias) => (
+                  <FilterChip
+                    key={chipBias}
+                    label={biasFilterLabel(chipBias)}
+                    active={bias === chipBias}
+                    className={bias === chipBias ? biasChipActiveClass(chipBias) : undefined}
+                    href={buildScreenerHref({
+                      signal,
+                      bias: chipBias,
+                      minConviction,
+                      textQuery,
+                      sortBy,
+                      maxAgeDays,
+                    })}
+                  />
+                )
+              )}
+            </div>
             <span className="text-body">
               {viewer.isPro
-                ? `Showing ${rows.length} of ${rows.length} rows`
-                : `Showing ${previewLimit} preview rows, ${hiddenCount} blurred`}
+                ? `Showing ${filteredRows.length} of ${filteredRows.length} rows`
+                : `Showing ${previewRows.length} preview rows, ${hiddenCount} blurred`}
             </span>
           </ActionBar>
 
           <form method="GET" className="grid grid-cols-1 card-gap xl:grid-cols-[2fr_1fr_1fr_1fr_auto]">
+            <input type="hidden" name="signal" value={signal} />
+            <input type="hidden" name="bias" value={bias} />
             <div>
               <label className="text-filter-label mb-2 block">Ticker or Name</label>
               <Input
@@ -336,10 +640,35 @@ export default async function ScreenerPage({
           </form>
         </Card>
 
-        {rows.length === 0 ? (
+        {filteredRows.length === 0 ? (
           <EmptyState
-            title="No screener rows found"
-            description="Adjust filters or lower the conviction threshold to see matching assets."
+            title={
+              bias !== 'all'
+                ? `No ${biasFilterLabel(bias).toLowerCase()} systems match your filters.`
+                : 'No screener rows found'
+            }
+            description={
+              bias !== 'all'
+                ? 'Try clearing the bias filter or broadening your conviction and age filters.'
+                : 'Adjust filters or lower the conviction threshold to see matching assets.'
+            }
+            action={
+              bias !== 'all' ? (
+                <Link
+                  href={buildScreenerHref({
+                    signal,
+                    bias: 'all',
+                    minConviction,
+                    textQuery,
+                    sortBy,
+                    maxAgeDays,
+                  })}
+                  className={buttonClass({ variant: 'ghost' })}
+                >
+                  Clear Bias Filter
+                </Link>
+              ) : null
+            }
           />
         ) : (
           <>
@@ -355,6 +684,7 @@ export default async function ScreenerPage({
                       <TableHeaderCell sortable sortDirection={sortDirectionFor(sortBy, 'conviction')}>
                         Conviction
                       </TableHeaderCell>
+                      <TableHeaderCell>Bias</TableHeaderCell>
                       <TableHeaderCell>Profile</TableHeaderCell>
                       <TableHeaderCell>Horizon</TableHeaderCell>
                       <TableHeaderCell sortable sortDirection={sortDirectionFor(sortBy, 'signal-date')}>
@@ -367,7 +697,7 @@ export default async function ScreenerPage({
                     </tr>
                   </TableHead>
                   <TableBody>
-                    {rows.map((row, index) => {
+                    {filteredRows.map((row, index) => {
                       const badge = signalBadge(row.direction)
                       const isBlurredRow = !viewer.isPro && index >= previewLimit
                       const shortHeadline = shortSignalHeadline(row.direction, row.conviction)
@@ -380,6 +710,12 @@ export default async function ScreenerPage({
                         predictionHorizon: row.predictionHorizon,
                         changePercent: row.changePercent,
                       })
+                      const biasSnapshot =
+                        biasByTicker.get(row.ticker) ??
+                        buildRowBiasSnapshot({
+                          direction: row.direction,
+                          conviction: row.conviction,
+                        })
                       return (
                         <TableRow
                           key={`${row.ticker}-${row.signalDate ?? ''}`}
@@ -387,18 +723,40 @@ export default async function ScreenerPage({
                           className={isBlurredRow ? 'pointer-events-none select-none' : undefined}
                         >
                           <TableCell className="min-w-[170px] font-semibold">
-                            <Link href={screenerHref} className="text-primary hover:underline">
+                            <TrackedLink
+                              href={screenerHref}
+                              className="text-primary hover:underline"
+                              eventName="click_stock_from_screener"
+                              eventPayload={{
+                                ticker: row.ticker,
+                                direction: row.direction,
+                                bias_type: bias,
+                                entry_source: 'screener',
+                                source: 'screener_table_ticker',
+                              }}
+                            >
                               {row.ticker}
-                            </Link>
-                            {row.name ? <div className="text-[12px] text-neutral-500">{row.name}</div> : null}
+                            </TrackedLink>
+                            {row.name ? <div className="text-[12px] text-content-muted">{row.name}</div> : null}
                           </TableCell>
                           <TableCell className="min-w-[220px]">
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <Badge variant={badge.variant}>{badge.label}</Badge>
-                                <Link href={screenerHref} className="text-[13px] font-semibold text-neutral-900 hover:text-primary dark:text-neutral-100">
+                                <TrackedLink
+                                  href={screenerHref}
+                                  className="text-[13px] font-semibold text-neutral-900 hover:text-primary dark:text-neutral-100"
+                                  eventName="click_stock_from_screener"
+                                  eventPayload={{
+                                    ticker: row.ticker,
+                                    direction: row.direction,
+                                    bias_type: bias,
+                                    entry_source: 'screener',
+                                    source: 'screener_table_signal',
+                                  }}
+                                >
                                   {shortHeadline}
-                                </Link>
+                                </TrackedLink>
                               </div>
                               <div className={cn('text-[12px] text-neutral-500 dark:text-neutral-400', isBlurredRow ? 'blur-[2px] opacity-65' : undefined)}>
                                 {fullHeadline} · {rowSignalQualityLabel(row.direction, row.conviction)}
@@ -416,6 +774,11 @@ export default async function ScreenerPage({
                               <div className="text-[12px] font-semibold text-neutral-900 dark:text-neutral-100">
                                 {formatConviction(row.conviction)}
                               </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="min-w-[88px]">
+                            <div className={cn('inline-flex', isBlurredRow ? 'blur-[2px] opacity-65' : undefined)}>
+                              <MicroBiasBubble snapshot={biasSnapshot} />
                             </div>
                           </TableCell>
                           <TableCell className="min-w-[126px]">
@@ -450,7 +813,7 @@ export default async function ScreenerPage({
                           <TableCell
                             className={
                               row.changePercent === null
-                                ? 'text-neutral-500'
+                                ? 'text-content-muted'
                                 : row.changePercent >= 0
                                   ? 'text-emerald-600'
                                   : 'text-rose-600'
@@ -476,7 +839,7 @@ export default async function ScreenerPage({
                     </div>
                     <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Unlock full signal details</h3>
                     <p className="text-body">
-                      See full system profiles, validate these signals, and interact with all {rows.length} rows.
+                      See full system profiles, validate these signals, and interact with all {filteredRows.length} rows.
                     </p>
                     <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
                       See full system profile · Validate these signals · Export deeper research

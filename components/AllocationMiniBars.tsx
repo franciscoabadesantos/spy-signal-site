@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 import ChartContainer, {
   CHART_MARGINS,
-  CHART_PALETTE,
+  type ChartPalette,
   ChartTooltipCard,
 } from '@/components/charts/ChartContainer'
 
@@ -30,9 +30,9 @@ function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`
 }
 
-function resolveBarColor(tone: AllocationMiniBarsProps['tone']): string {
-  if (tone === 'secondary') return CHART_PALETTE.secondary
-  return CHART_PALETTE.primary
+function resolveBarColor(tone: AllocationMiniBarsProps['tone'], palette: ChartPalette): string {
+  if (tone === 'secondary') return palette.secondary
+  return palette.primary
 }
 
 type AllocationTooltipProps = {
@@ -41,15 +41,17 @@ type AllocationTooltipProps = {
     payload?: AllocationMiniBarDatum
     color?: string
   }>
+  palette: ChartPalette
 }
 
 function AllocationTooltip({
   active,
   payload,
+  palette,
 }: AllocationTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
   const point = payload[0]?.payload as AllocationMiniBarDatum | undefined
-  const swatchColor = typeof payload[0]?.color === 'string' ? payload[0].color : CHART_PALETTE.primary
+  const swatchColor = typeof payload[0]?.color === 'string' ? payload[0].color : palette.primary
   if (!point) return null
 
   return (
@@ -71,21 +73,21 @@ export default function AllocationMiniBars({
   data,
   tone = 'primary',
 }: AllocationMiniBarsProps) {
-  const barColor = resolveBarColor(tone)
-
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <div className="text-[12px] font-semibold text-gray-700 mb-2">{title}</div>
+    <div className="rounded-2xl border border-border bg-surface-card p-3 shadow-sm">
+      <div className="mb-2 text-[12px] font-semibold text-content-secondary">{title}</div>
       <ChartContainer className="h-[210px] w-full min-w-0">
-        {() => (
+        {({ palette }) => {
+          const barColor = resolveBarColor(tone, palette)
+          return (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={170}>
             <BarChart data={data} layout="vertical" margin={CHART_MARGINS.standard}>
-              <CartesianGrid strokeDasharray="2 6" stroke={CHART_PALETTE.grid} vertical={false} />
+              <CartesianGrid strokeDasharray="2 6" stroke={palette.grid} vertical={false} />
               <XAxis
                 type="number"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: CHART_PALETTE.textMuted }}
+                tick={{ fontSize: 12, fill: palette.textMuted }}
                 tickFormatter={(value) => `${value}%`}
               />
               <YAxis
@@ -94,14 +96,14 @@ export default function AllocationMiniBars({
                 width={78}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: CHART_PALETTE.text }}
+                tick={{ fontSize: 12, fill: palette.text }}
                 interval={0}
               />
-              <Tooltip content={<AllocationTooltip />} cursor={{ fill: 'rgba(37,99,235,0.08)' }} />
+              <Tooltip content={<AllocationTooltip palette={palette} />} cursor={{ fill: 'rgba(37,99,235,0.08)' }} />
               <Bar dataKey="value" fill={barColor} radius={[6, 6, 6, 6]} />
             </BarChart>
           </ResponsiveContainer>
-        )}
+        )}}
       </ChartContainer>
     </div>
   )

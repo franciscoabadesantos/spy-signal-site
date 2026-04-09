@@ -1,6 +1,7 @@
 'use client'
 
 import { buildModelRecord, type ModelDraftInput, type ModelRecord } from '@/lib/model-builder'
+import { buildSampleModelInput, SAMPLE_MODEL_ID } from '@/lib/model-samples'
 
 const STORAGE_KEY = 'spy_signal_models_v1'
 
@@ -15,15 +16,37 @@ function parseModels(raw: string | null): ModelRecord[] {
   }
 }
 
+function buildSeedSampleModel(): ModelRecord {
+  return buildModelRecord(buildSampleModelInput(), {
+    id: SAMPLE_MODEL_ID,
+    createdAt: '2026-01-05T00:00:00.000Z',
+    status: 'validated',
+  })
+}
+
 export function loadModelsFromStorage(): ModelRecord[] {
   if (typeof window === 'undefined') return []
-  const rows = parseModels(window.localStorage.getItem(STORAGE_KEY))
+  let rows: ModelRecord[] = []
+  try {
+    rows = parseModels(window.localStorage.getItem(STORAGE_KEY))
+  } catch {
+    rows = []
+  }
+  if (rows.length === 0) {
+    const sample = buildSeedSampleModel()
+    saveModelsToStorage([sample])
+    return [sample]
+  }
   return [...rows].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
 }
 
 export function saveModelsToStorage(models: ModelRecord[]): void {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(models))
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(models))
+  } catch {
+    // Ignore storage persistence failures and keep in-memory flow functional.
+  }
 }
 
 export function upsertModel(model: ModelRecord): ModelRecord[] {
@@ -37,7 +60,12 @@ export function upsertModel(model: ModelRecord): ModelRecord[] {
 
 export function getModelById(id: string): ModelRecord | null {
   const models = loadModelsFromStorage()
-  return models.find((row) => row.id === id) ?? null
+  const existing = models.find((row) => row.id === id)
+  if (existing) return existing
+  if (id !== SAMPLE_MODEL_ID) return null
+  const sample = buildSeedSampleModel()
+  upsertModel(sample)
+  return sample
 }
 
 export function saveDraftModel(input: ModelDraftInput): ModelRecord {

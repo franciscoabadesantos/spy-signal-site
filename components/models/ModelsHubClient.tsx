@@ -6,9 +6,12 @@ import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
 import Badge from '@/components/ui/Badge'
+import DismissibleLocalHint from '@/components/onboarding/DismissibleLocalHint'
 import { buttonClass } from '@/components/ui/Button'
 import { loadModelsFromStorage } from '@/lib/model-store-client'
 import { modelSummaryResult, universeLabel } from '@/lib/model-builder'
+import { buildSampleModelDraftSeed, SAMPLE_MODEL_ID } from '@/lib/model-samples'
+import { trackEvent } from '@/lib/analytics'
 
 function formatDate(value: string | null): string {
   if (!value) return 'Not run yet'
@@ -23,6 +26,10 @@ function formatDate(value: string | null): string {
 
 export default function ModelsHubClient() {
   const models = loadModelsFromStorage()
+  const sampleDraftHref = `/models/new?draft=${encodeURIComponent(
+    JSON.stringify(buildSampleModelDraftSeed())
+  )}`
+  const sampleModelHref = `/models/${SAMPLE_MODEL_ID}?from=models_hub`
 
   return (
     <AppShell active="models" container="md">
@@ -36,16 +43,35 @@ export default function ModelsHubClient() {
             </Link>
           }
         />
+        <DismissibleLocalHint
+          storageKey="spy_signal_onboarding_loop_hint_dismissed_v1"
+          text="Start here: Explore a model → tweak it → compare results"
+        />
 
         {models.length === 0 ? (
           <Card>
             <EmptyState
               title="No models yet"
-              description="Create your first model to start validating a simple system."
+              description="Start with a template or explore a sample model."
               action={
-                <Link href="/models/new" className={buttonClass({ variant: 'primary' })}>
-                  New model
-                </Link>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Link href={sampleDraftHref} className={buttonClass({ variant: 'primary' })}>
+                    Start with template
+                  </Link>
+                  <Link
+                    href={sampleModelHref}
+                    className={buttonClass({ variant: 'secondary' })}
+                    onClick={() =>
+                      trackEvent('click_sample_model', {
+                        model_id: SAMPLE_MODEL_ID,
+                        source: 'models_empty_state',
+                        entry_source: 'models_hub',
+                      })
+                    }
+                  >
+                    Explore sample model
+                  </Link>
+                </div>
               }
             />
           </Card>
@@ -74,7 +100,7 @@ export default function ModelsHubClient() {
                     <div className="font-medium text-neutral-900 dark:text-neutral-100">{modelSummaryResult(model)}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Link href={`/models/${model.id}`} className={buttonClass({ variant: 'secondary' })}>
+                    <Link href={`/models/${model.id}?from=models_hub`} className={buttonClass({ variant: 'secondary' })}>
                       Open
                     </Link>
                   </div>

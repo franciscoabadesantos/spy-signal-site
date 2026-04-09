@@ -4,7 +4,6 @@ import { ResponsiveContainer, Sankey, type SankeyLinkProps, type SankeyNodeProps
 import Card from '@/components/ui/Card'
 import ChartContainer, {
   CHART_MARGINS,
-  CHART_PALETTE,
 } from '@/components/charts/ChartContainer'
 
 export type PortfolioFlowNodeTone = 'sector' | 'portfolio' | 'holding' | 'other'
@@ -96,7 +95,7 @@ function FlowNode(props: SankeyNodeProps) {
         textAnchor={anchor}
         fontSize={12}
         fontWeight={600}
-        fill={CHART_PALETTE.text}
+        fill="var(--content-primary)"
       >
         {trimLabel(payload.name, depth === 1 ? 20 : 18)}
       </text>
@@ -106,7 +105,7 @@ function FlowNode(props: SankeyNodeProps) {
         textAnchor={anchor}
         fontSize={12}
         fontWeight={500}
-        fill={CHART_PALETTE.textMuted}
+        fill="var(--content-muted)"
       >
         {trimLabel(payload.valueLabel, 18)}
       </text>
@@ -148,21 +147,21 @@ export default function PortfolioFlowSankey({
     <Card className="section-gap" padding="lg">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-section-title text-neutral-900 dark:text-neutral-100">{title}</h2>
+          <h2 className="text-section-title text-content-primary">{title}</h2>
           <p className="text-body mt-1 max-w-3xl">{subtitle}</p>
         </div>
         <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="rounded-xl border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+          <div className="rounded-xl border border-border bg-surface-elevated px-3 py-2">
             <div className="text-filter-label">Sector Coverage</div>
-            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">{formatPercent(totalWeight)}</div>
+            <div className="mt-1 font-semibold text-content-primary">{formatPercent(totalWeight)}</div>
           </div>
-          <div className="rounded-xl border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+          <div className="rounded-xl border border-border bg-surface-elevated px-3 py-2">
             <div className="text-filter-label">Top Holdings</div>
-            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">{formatPercent(topHoldingsWeight)}</div>
+            <div className="mt-1 font-semibold text-content-primary">{formatPercent(topHoldingsWeight)}</div>
           </div>
-          <div className="rounded-xl border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+          <div className="rounded-xl border border-border bg-surface-elevated px-3 py-2">
             <div className="text-filter-label">Residual</div>
-            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">{formatPercent(residualWeight)}</div>
+            <div className="mt-1 font-semibold text-content-primary">{formatPercent(residualWeight)}</div>
           </div>
         </div>
       </div>
@@ -183,7 +182,7 @@ export default function PortfolioFlowSankey({
         )}
       </ChartContainer>
 
-      <div className="flex flex-wrap items-center gap-3 text-[12px] text-neutral-500 dark:text-neutral-400">
+      <div className="flex flex-wrap items-center gap-3 text-[12px] text-content-muted">
         <span className="inline-flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getNodeFill('sector') }} />
           Sector exposure

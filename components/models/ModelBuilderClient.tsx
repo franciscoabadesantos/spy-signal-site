@@ -36,6 +36,8 @@ import {
   universeLabel,
 } from '@/lib/model-builder'
 import { createValidatedModel, saveDraftModel } from '@/lib/model-store-client'
+import { trackEvent } from '@/lib/analytics'
+import { SAMPLE_MODEL_ID } from '@/lib/model-samples'
 
 type BuilderStep = 1 | 2 | 3
 type BuilderDraftSeed = {
@@ -55,6 +57,8 @@ type BuilderDraftSeed = {
   variationOfModelId?: string | null
   variationLabel?: string | null
 }
+
+type ModelEntrySource = 'homepage_sample' | 'models_hub' | 'stock_page' | 'screener' | 'compare' | 'direct'
 
 function sanitizeTicker(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9.\-]/g, '').slice(0, 10)
@@ -182,12 +186,53 @@ function wait(ms: number): Promise<void> {
   })
 }
 
+function coerceModelEntrySource(value: string | null | undefined): ModelEntrySource | null {
+  if (
+    value === 'homepage_sample' ||
+    value === 'models_hub' ||
+    value === 'stock_page' ||
+    value === 'screener' ||
+    value === 'compare' ||
+    value === 'direct'
+  ) {
+    return value
+  }
+  return null
+}
+
+function draftFingerprint(input: ModelDraftInput): string {
+  return JSON.stringify({
+    name: input.name,
+    universe: input.universe,
+    ticker: input.ticker,
+    lookbackDays: input.lookbackDays,
+    benchmark: input.benchmark,
+    logicMode: input.logicMode,
+    conditions: input.conditions.map((condition) => ({
+      metric: condition.metric,
+      operator: condition.operator,
+      value: condition.value,
+    })),
+    validation: input.validation,
+  })
+}
+
+function isSampleDraft(input: ModelDraftInput): boolean {
+  return (
+    input.templateKey === 'sample-trend-follower' ||
+    input.variationOfModelId === SAMPLE_MODEL_ID ||
+    input.name.toLowerCase().includes('sample')
+  )
+}
+
 export default function ModelBuilderClient({
   initialTicker = null,
   initialDraft = null,
+  initialSource = null,
 }: {
   initialTicker?: string | null
   initialDraft?: BuilderDraftSeed | null
+  initialSource?: string | null
 }) {
   const router = useRouter()
   const seedDraft = initialDraft ?? null
@@ -197,17 +242,23 @@ export default function ModelBuilderClient({
       : ''
   const seedTickerFromQuery = initialTicker ? sanitizeTicker(initialTicker) : ''
   const seedTicker = seedTickerFromDraft || seedTickerFromQuery
+  const modelResultEntrySource =
+    coerceModelEntrySource(initialSource) ??
+    (initialTicker ? 'stock_page' : seedDraft ? 'models_hub' : 'direct')
   const seedUniverse: ModelUniverse =
     seedDraft?.universe ?? (seedTicker ? 'single-stock' : 'watchlist')
-  const seedConditions =
-    seedDraft?.conditions && seedDraft.conditions.length > 0
-      ? seedDraft.conditions.map((condition, index) => ({
-          id: condition.id || `seed_condition_${index + 1}`,
-          metric: condition.metric,
-          operator: condition.operator,
-          value: Math.max(0, Math.min(100, Math.round(condition.value))),
-        }))
-      : [defaultCondition()]
+  const seedConditions = useMemo(
+    () =>
+      seedDraft?.conditions && seedDraft.conditions.length > 0
+        ? seedDraft.conditions.map((condition, index) => ({
+            id: condition.id || `seed_condition_${index + 1}`,
+            metric: condition.metric,
+            operator: condition.operator,
+            value: Math.max(0, Math.min(100, Math.round(condition.value))),
+          }))
+        : [defaultCondition()],
+    [seedDraft]
+  )
   const [step, setStep] = useState<BuilderStep>(1)
   const [modelName, setModelName] = useState(
     seedDraft?.name?.trim() || (seedTicker ? `${seedTicker} system` : 'My model')
@@ -291,6 +342,41 @@ export default function ModelBuilderClient({
   )
 
   const previewModel = useMemo(() => buildModelRecord(draftInput, { status: 'draft' }), [draftInput])
+  const initialDraftInput = useMemo<ModelDraftInput>(
+    () => ({
+      name: seedDraft?.name?.trim() || (seedTicker ? `${seedTicker} system` : 'My model'),
+      universe: seedUniverse,
+      ticker: seedUniverse === 'single-stock' ? sanitizeTicker(seedTicker || 'SPY') : null,
+      lookbackDays:
+        seedDraft?.lookbackDays && Number.isFinite(seedDraft.lookbackDays)
+          ? seedDraft.lookbackDays
+          : 252,
+      benchmark: seedDraft?.benchmark || 'SPY',
+      logicMode: seedDraft?.logicMode || 'all',
+      conditions: seedConditions.map((condition) => ({
+        ...condition,
+        value: Math.max(0, Math.min(100, Math.round(condition.value))),
+      })),
+      validation: {
+        holdingHorizonDays:
+          seedDraft?.holdingHorizonDays && Number.isFinite(seedDraft.holdingHorizonDays)
+            ? seedDraft.holdingHorizonDays
+            : 20,
+        signalUpdateFrequency: seedDraft?.signalUpdateFrequency || 'daily',
+        compareAgainstBenchmark: seedDraft?.compareAgainstBenchmark ?? true,
+        riskMode: seedDraft?.riskMode || 'balanced',
+      },
+      sourceKind: seedDraft?.sourceKind || 'manual',
+      templateKey: seedDraft?.templateKey ?? null,
+      variationOfModelId: seedDraft?.variationOfModelId ?? null,
+      variationLabel: seedDraft?.variationLabel ?? null,
+    }),
+    [seedDraft, seedTicker, seedUniverse, seedConditions]
+  )
+  const hasChanges = useMemo(() => {
+    if (!initialDraft) return true
+    return draftFingerprint(draftInput) !== draftFingerprint(initialDraftInput)
+  }, [initialDraft, draftInput, initialDraftInput])
   const previewState = useMemo(
     () => deriveModelQualitativeState(previewModel.profileDimensions),
     [previewModel.profileDimensions]
@@ -318,6 +404,11 @@ export default function ModelBuilderClient({
   }
 
   const applyTemplate = (template: StarterTemplate) => {
+    trackEvent('apply_template', {
+      template_key: template.key,
+      template_label: template.label,
+      condition_count: template.conditions.length,
+    })
     setModelName(template.name)
     setUniverse(template.universe)
     if (template.universe === 'single-stock' && !ticker.trim()) {
@@ -349,7 +440,14 @@ export default function ModelBuilderClient({
     setIsSaving(true)
     setRunStageIndex(null)
     const model = saveDraftModel(draftInput)
-    router.push(`/models/${model.id}`)
+    trackEvent('create_model', {
+      model_id: model.id,
+      is_sample: isSampleDraft(draftInput),
+      status: 'draft',
+      condition_count: draftInput.conditions.length,
+      entry_source: modelResultEntrySource,
+    })
+    router.push(`/models/${model.id}?from=${encodeURIComponent(modelResultEntrySource)}`)
   }
 
   const handleRunValidation = async () => {
@@ -360,7 +458,22 @@ export default function ModelBuilderClient({
       await wait(360)
     }
     const model = await createValidatedModel(draftInput)
-    router.push(`/models/${model.id}`)
+    const isSample = isSampleDraft(draftInput) || model.id === SAMPLE_MODEL_ID
+    trackEvent('run_validation', {
+      model_id: model.id,
+      is_sample: isSample,
+      condition_count: draftInput.conditions.length,
+      has_changes: hasChanges,
+      entry_source: modelResultEntrySource,
+    })
+    trackEvent('create_model', {
+      model_id: model.id,
+      is_sample: isSample,
+      status: 'validated',
+      condition_count: draftInput.conditions.length,
+      entry_source: modelResultEntrySource,
+    })
+    router.push(`/models/${model.id}?from=${encodeURIComponent(modelResultEntrySource)}`)
   }
 
   return (

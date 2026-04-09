@@ -89,6 +89,12 @@ export type ModelRecord = {
   } | null
   equityCurve: ValidationPoint[]
   signals: TradeSignalRow[]
+  regimeComposition?: {
+    bullishCount: number
+    neutralCount: number
+    bearishCount: number
+    total: number
+  }
   diagnostics: ModelDiagnostics
   sourceKind?: ModelSourceKind
   templateKey?: string | null
@@ -398,6 +404,23 @@ function round2(value: number): number {
 
 function roundedPercent(value: number): number {
   return Number(value.toFixed(1))
+}
+
+function deriveRegimeCompositionFromSignalRows(signalRows: TradeSignalRow[]): {
+  bullishCount: number
+  neutralCount: number
+  bearishCount: number
+  total: number
+} {
+  const bullishCount = signalRows.filter((row) => row.signal === 'bullish').length
+  const neutralCount = signalRows.filter((row) => row.signal === 'neutral').length
+  const bearishCount = signalRows.filter((row) => row.signal === 'bearish').length
+  return {
+    bullishCount,
+    neutralCount,
+    bearishCount,
+    total: bullishCount + neutralCount + bearishCount,
+  }
 }
 
 function downsampleValidationCurve(
@@ -848,6 +871,12 @@ export function buildModelRecordFromHistoricalData(
   const signalRows = [...signalRowsChronological]
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 50)
+  const regimeComposition = {
+    bullishCount: evaluationSnapshots.filter((snapshot) => snapshot.signal === 'bullish').length,
+    neutralCount: evaluationSnapshots.filter((snapshot) => snapshot.signal === 'neutral').length,
+    bearishCount: evaluationSnapshots.filter((snapshot) => snapshot.signal === 'bearish').length,
+    total: evaluationSnapshots.length,
+  }
 
   return {
     id,
@@ -880,6 +909,7 @@ export function buildModelRecordFromHistoricalData(
         },
     equityCurve: curve,
     signals: signalRows,
+    regimeComposition,
     diagnostics,
     sourceKind: input.sourceKind ?? 'manual',
     templateKey: input.templateKey ?? null,
@@ -931,6 +961,7 @@ export function buildModelRecord(
   const summary = status === 'validated' ? buildValidationSummary(input, profileDimensions, rng) : null
   const validationCurve = summary ? buildValidationCurve(summary, input, rng) : []
   const signalRows = summary ? buildSignalRows(input, summary, direction, rng) : []
+  const regimeComposition = deriveRegimeCompositionFromSignalRows(signalRows)
   const conviction =
     summary === null
       ? clamp(profileDimensions.reduce((sum, dim) => sum + dim.score, 0) / (profileDimensions.length * 120), 0.12, 0.78)
@@ -960,6 +991,7 @@ export function buildModelRecord(
     },
     equityCurve: validationCurve,
     signals: signalRows,
+    regimeComposition,
     diagnostics:
       summary !== null
         ? buildDiagnostics(profileDimensions, summary)

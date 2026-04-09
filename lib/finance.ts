@@ -104,6 +104,22 @@ export interface TickerNewsItem {
   sourceUrl: string | null
 }
 
+export interface CorrelationNetworkPeer {
+  ticker: string
+  name: string | null
+  correlation: number
+  absCorrelation: number
+  sector: string | null
+}
+
+export interface CorrelationNetworkResult {
+  ticker: string
+  name: string | null
+  asOf: string | null
+  sampleSize: number
+  peers: CorrelationNetworkPeer[]
+}
+
 interface QuoteApiResult {
   symbol?: string
   shortName?: string
@@ -235,16 +251,80 @@ function normalizeTicker(ticker: string): string {
 }
 
 const RELATED_TICKER_MAP: Record<string, string[]> = {
-  SPY: ['QQQ', 'DIA', 'IWM', 'VOO'],
-  QQQ: ['SPY', 'VGT', 'XLK', 'DIA'],
-  DIA: ['SPY', 'QQQ', 'IWM', 'VOO'],
-  IWM: ['SPY', 'DIA', 'QQQ', 'VTWO'],
-  VOO: ['SPY', 'IVV', 'SCHX', 'QQQ'],
-  IVV: ['SPY', 'VOO', 'SCHX', 'VTI'],
-  VTI: ['SPY', 'VOO', 'IVV', 'SCHB'],
-  XLK: ['QQQ', 'VGT', 'SPY', 'SOXX'],
-  XLF: ['SPY', 'VFH', 'IYF', 'DIA'],
-  XLE: ['SPY', 'VDE', 'IYE', 'OIH'],
+  SPY: ['QQQ', 'DIA', 'IWM', 'VOO', 'IVV', 'VTI', 'XLF', 'XLK'],
+  QQQ: ['SPY', 'XLK', 'VGT', 'SOXX', 'DIA', 'IWM', 'AAPL', 'MSFT'],
+  DIA: ['SPY', 'QQQ', 'IWM', 'VOO', 'XLF', 'VTI', 'JPM', 'UNH'],
+  IWM: ['SPY', 'DIA', 'QQQ', 'VTWO', 'VTI', 'XLF', 'XLI', 'XLY'],
+  VOO: ['SPY', 'IVV', 'SCHX', 'QQQ', 'VTI', 'DIA', 'IWM', 'XLK'],
+  IVV: ['SPY', 'VOO', 'SCHX', 'VTI', 'QQQ', 'DIA', 'IWM', 'XLF'],
+  VTI: ['SPY', 'VOO', 'IVV', 'SCHB', 'QQQ', 'DIA', 'IWM', 'XLF'],
+  XLK: ['QQQ', 'VGT', 'SPY', 'SOXX', 'AAPL', 'MSFT', 'NVDA', 'GOOGL'],
+  XLF: ['SPY', 'VFH', 'IYF', 'DIA', 'JPM', 'BAC', 'GS', 'MS'],
+  XLE: ['SPY', 'VDE', 'IYE', 'OIH', 'XOM', 'CVX', 'SLB', 'COP'],
+  AAPL: ['MSFT', 'NVDA', 'GOOGL', 'META', 'AMZN', 'QQQ', 'XLK', 'SPY'],
+  MSFT: ['AAPL', 'NVDA', 'GOOGL', 'META', 'AMZN', 'QQQ', 'XLK', 'SPY'],
+  NVDA: ['AAPL', 'MSFT', 'AMD', 'AVGO', 'SOXX', 'QQQ', 'XLK', 'SPY'],
+  AMZN: ['GOOGL', 'META', 'AAPL', 'MSFT', 'QQQ', 'XLY', 'SPY', 'IWM'],
+  GOOGL: ['META', 'AMZN', 'AAPL', 'MSFT', 'QQQ', 'XLC', 'SPY', 'XLK'],
+  META: ['GOOGL', 'AMZN', 'AAPL', 'MSFT', 'QQQ', 'XLC', 'SPY', 'XLK'],
+  TSLA: ['NIO', 'RIVN', 'GM', 'F', 'QQQ', 'XLY', 'SPY', 'IWM'],
+  JPM: ['BAC', 'WFC', 'GS', 'MS', 'XLF', 'DIA', 'SPY', 'VFH'],
+  XOM: ['CVX', 'COP', 'OXY', 'SLB', 'XLE', 'VDE', 'SPY', 'IYE'],
+}
+
+const CORRELATION_FALLBACK_POOL = [
+  'SPY',
+  'QQQ',
+  'DIA',
+  'IWM',
+  'VOO',
+  'IVV',
+  'VTI',
+  'XLK',
+  'XLF',
+  'XLE',
+  'AAPL',
+  'MSFT',
+  'NVDA',
+  'GOOGL',
+  'META',
+  'AMZN',
+  'TSLA',
+  'JPM',
+  'XOM',
+  'UNH',
+]
+
+const TICKER_SECTOR_HINTS: Record<string, string> = {
+  SPY: 'Broad Market ETF',
+  QQQ: 'Growth ETF',
+  DIA: 'Dow ETF',
+  IWM: 'Small Cap ETF',
+  VOO: 'Broad Market ETF',
+  IVV: 'Broad Market ETF',
+  VTI: 'Total Market ETF',
+  XLK: 'Technology ETF',
+  XLF: 'Financials ETF',
+  XLE: 'Energy ETF',
+  AAPL: 'Technology',
+  MSFT: 'Technology',
+  NVDA: 'Semiconductors',
+  AVGO: 'Semiconductors',
+  AMD: 'Semiconductors',
+  AMZN: 'Consumer Discretionary',
+  GOOGL: 'Communication Services',
+  META: 'Communication Services',
+  TSLA: 'Consumer Discretionary',
+  JPM: 'Financials',
+  BAC: 'Financials',
+  GS: 'Financials',
+  MS: 'Financials',
+  XOM: 'Energy',
+  CVX: 'Energy',
+  COP: 'Energy',
+  OXY: 'Energy',
+  SLB: 'Energy',
+  UNH: 'Health Care',
 }
 
 function sleep(ms: number) {
@@ -1964,10 +2044,134 @@ export async function getTickerNews(
   return fetchYahooNews(normalizeTicker(ticker), limit)
 }
 
+function getSectorHintForTicker(tickerRaw: string): string | null {
+  const ticker = normalizeTicker(tickerRaw)
+  return TICKER_SECTOR_HINTS[ticker] ?? null
+}
+
+function buildDailyReturnsByDate(points: PricePoint[]): Map<string, number> {
+  const sorted = points
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .filter((point) => Number.isFinite(point.close) && point.close > 0)
+
+  const returnsByDate = new Map<string, number>()
+  for (let index = 1; index < sorted.length; index += 1) {
+    const current = sorted[index]
+    const previous = sorted[index - 1]
+    if (!current || !previous || previous.close <= 0) continue
+    const ret = (current.close - previous.close) / previous.close
+    if (!Number.isFinite(ret)) continue
+    returnsByDate.set(current.date, ret)
+  }
+  return returnsByDate
+}
+
+function pearsonCorrelation(x: number[], y: number[]): number | null {
+  if (x.length !== y.length || x.length < 2) return null
+  const n = x.length
+  const meanX = x.reduce((sum, value) => sum + value, 0) / n
+  const meanY = y.reduce((sum, value) => sum + value, 0) / n
+
+  let covariance = 0
+  let varianceX = 0
+  let varianceY = 0
+  for (let index = 0; index < n; index += 1) {
+    const dx = x[index] - meanX
+    const dy = y[index] - meanY
+    covariance += dx * dy
+    varianceX += dx * dx
+    varianceY += dy * dy
+  }
+
+  if (varianceX <= 0 || varianceY <= 0) return null
+  const corr = covariance / Math.sqrt(varianceX * varianceY)
+  if (!Number.isFinite(corr)) return null
+  return Math.max(-1, Math.min(1, corr))
+}
+
 export function getRelatedTickers(tickerRaw: string): string[] {
   const ticker = normalizeTicker(tickerRaw)
   const mapped = RELATED_TICKER_MAP[ticker]
   if (mapped && mapped.length > 0) return mapped
 
-  return ['SPY', 'QQQ', 'DIA', 'IWM', 'VOO'].filter((candidate) => candidate !== ticker).slice(0, 4)
+  return CORRELATION_FALLBACK_POOL.filter((candidate) => candidate !== ticker).slice(0, 8)
+}
+
+export async function getTickerCorrelationNetwork(
+  tickerRaw: string,
+  options: {
+    maxPeers?: number
+    lookbackDays?: number
+    minOverlapDays?: number
+  } = {}
+): Promise<CorrelationNetworkResult> {
+  const ticker = normalizeTicker(tickerRaw)
+  const maxPeers = Math.max(6, Math.min(12, options.maxPeers ?? 10))
+  const lookbackDays = Math.max(180, Math.min(1825, options.lookbackDays ?? 365))
+  const minOverlapDays = Math.max(30, Math.min(250, options.minOverlapDays ?? 90))
+
+  const candidateTickers = [...new Set([...getRelatedTickers(ticker), ...CORRELATION_FALLBACK_POOL])]
+    .filter((candidate) => candidate !== ticker)
+    .slice(0, 18)
+
+  const [centerQuote, centerHistory] = await Promise.all([
+    getStockQuote(ticker),
+    getHistoricalData(ticker, lookbackDays),
+  ])
+  const centerReturns = buildDailyReturnsByDate(centerHistory)
+  const centerDates = new Set(centerReturns.keys())
+
+  if (centerReturns.size < minOverlapDays) {
+    return {
+      ticker,
+      name: centerQuote?.name ?? null,
+      asOf: centerHistory[centerHistory.length - 1]?.date ?? null,
+      sampleSize: centerReturns.size,
+      peers: [],
+    }
+  }
+
+  const peerRows = await Promise.all(
+    candidateTickers.map(async (peerTicker): Promise<CorrelationNetworkPeer | null> => {
+      const peerHistory = await getHistoricalData(peerTicker, lookbackDays)
+      const peerReturns = buildDailyReturnsByDate(peerHistory)
+      if (peerReturns.size < minOverlapDays) return null
+
+      const alignedCenter: number[] = []
+      const alignedPeer: number[] = []
+      for (const date of centerDates) {
+        const centerValue = centerReturns.get(date)
+        const peerValue = peerReturns.get(date)
+        if (centerValue === undefined || peerValue === undefined) continue
+        alignedCenter.push(centerValue)
+        alignedPeer.push(peerValue)
+      }
+
+      if (alignedCenter.length < minOverlapDays) return null
+      const correlation = pearsonCorrelation(alignedCenter, alignedPeer)
+      if (correlation === null) return null
+
+      return {
+        ticker: peerTicker,
+        name: null,
+        correlation: Number(correlation.toFixed(3)),
+        absCorrelation: Number(Math.abs(correlation).toFixed(3)),
+        sector: getSectorHintForTicker(peerTicker),
+      } satisfies CorrelationNetworkPeer
+    })
+  )
+
+  const peers = peerRows
+    .filter((row): row is CorrelationNetworkPeer => row !== null)
+    .sort((a, b) => b.absCorrelation - a.absCorrelation || a.ticker.localeCompare(b.ticker))
+    .slice(0, maxPeers)
+
+  return {
+    ticker,
+    name: centerQuote?.name ?? null,
+    asOf: centerHistory[centerHistory.length - 1]?.date ?? null,
+    sampleSize: centerReturns.size,
+    peers,
+  }
 }

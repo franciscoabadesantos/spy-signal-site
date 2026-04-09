@@ -17,7 +17,7 @@ import Badge from '@/components/ui/Badge'
 import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
 import ChartContainer, {
   CHART_MARGINS,
-  CHART_PALETTE,
+  type ChartPalette,
   ChartTooltipCard,
 } from '@/components/charts/ChartContainer'
 
@@ -96,21 +96,19 @@ type PreviewTooltipProps = {
   }>
 }
 
-const SOFT_GRID = 'rgba(100, 116, 139, 0.10)'
-
 function regimeBandColor(direction: 'bullish' | 'neutral' | 'bearish'): string {
   if (direction === 'bullish') return 'rgba(22,163,74,0.07)'
   if (direction === 'bearish') return 'rgba(239,68,68,0.07)'
   return 'rgba(100,116,139,0.06)'
 }
 
-function regimeAccent(direction: 'bullish' | 'neutral' | 'bearish'): string {
-  if (direction === 'bullish') return CHART_PALETTE.bullish
-  if (direction === 'bearish') return CHART_PALETTE.bearish
-  return CHART_PALETTE.signalNeutral
+function regimeAccent(direction: 'bullish' | 'neutral' | 'bearish', palette: ChartPalette): string {
+  if (direction === 'bullish') return palette.bullish
+  if (direction === 'bearish') return palette.bearish
+  return palette.signalNeutral
 }
 
-function renderLastPointDot(color: string, lastIndex: number) {
+function renderLastPointDot(color: string, lastIndex: number, centerFill: string) {
   return function LastPointDot(props: { cx?: number; cy?: number; index?: number; payload?: TooltipPoint }) {
     const { cx, cy, index } = props
     if (typeof cx !== 'number' || typeof cy !== 'number') return null
@@ -120,13 +118,13 @@ function renderLastPointDot(color: string, lastIndex: number) {
     return (
       <g>
         <circle cx={cx} cy={cy} r={6.5} fill={color} opacity={0.14} />
-        <circle cx={cx} cy={cy} r={3.8} fill="#ffffff" stroke={color} strokeWidth={2} />
+        <circle cx={cx} cy={cy} r={3.8} fill={centerFill} stroke={color} strokeWidth={2} />
       </g>
     )
   }
 }
 
-function PriceTooltip({ active, payload }: PreviewTooltipProps) {
+function PriceTooltip({ active, payload, palette }: PreviewTooltipProps & { palette: ChartPalette }) {
   if (!active || !payload || payload.length === 0) return null
   const point = payload[0]?.payload
   if (!point || typeof point.price !== 'number') return null
@@ -138,14 +136,14 @@ function PriceTooltip({ active, payload }: PreviewTooltipProps) {
         {
           label: 'Price',
           value: `$${point.price.toFixed(2)}`,
-          swatchColor: CHART_PALETTE.primary,
+          swatchColor: palette.primary,
         },
       ]}
     />
   )
 }
 
-function BacktestTooltip({ active, payload }: PreviewTooltipProps) {
+function BacktestTooltip({ active, payload, palette }: PreviewTooltipProps & { palette: ChartPalette }) {
   if (!active || !payload || payload.length === 0) return null
   const point = payload[0]?.payload
   if (!point || typeof point.equity !== 'number') return null
@@ -160,14 +158,14 @@ function BacktestTooltip({ active, payload }: PreviewTooltipProps) {
         {
           label: 'Strategy',
           value: point.equity.toFixed(1),
-          swatchColor: CHART_PALETTE.secondary,
+          swatchColor: palette.secondary,
         },
         ...(typeof point.benchmark === 'number'
           ? [
               {
                 label: 'Baseline',
                 value: point.benchmark.toFixed(1),
-                swatchColor: CHART_PALETTE.neutral,
+                swatchColor: palette.neutral,
               },
             ]
           : []),
@@ -214,7 +212,7 @@ export default function HeroProductPreview() {
 
   return (
     <div className="grid grid-cols-1 gap-4">
-      <Card className="space-y-5 border-primary/25 bg-[radial-gradient(circle_at_top_right,#eff6ff,transparent_64%)] dark:bg-[radial-gradient(circle_at_top_right,#0b1220,transparent_64%)]">
+      <Card className="space-y-5 border-primary/25 bg-[radial-gradient(circle_at_top_right,var(--accent-glow),transparent_64%)]">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-filter-label">System Workspace</div>
@@ -229,21 +227,21 @@ export default function HeroProductPreview() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="rounded-xl border border-border bg-surface-elevated p-3">
           <div className="mb-2 flex items-end justify-between gap-3">
-            <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">${latest?.price.toFixed(2)}</div>
+            <div className="text-sm font-semibold text-content-primary">${latest?.price.toFixed(2)}</div>
             <div className={move >= 0 ? 'text-xs font-semibold text-emerald-600' : 'text-xs font-semibold text-rose-600'}>
               {move >= 0 ? '+' : ''}{move.toFixed(2)} ({movePct >= 0 ? '+' : ''}{movePct.toFixed(2)}%)
             </div>
           </div>
           <ChartContainer className="h-[140px]">
-            {() => (
+            {({ palette: chartPalette }) => (
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={120}>
                 <AreaChart data={PRICE_SERIES} margin={CHART_MARGINS.standard}>
                   <defs>
                     <linearGradient id="heroPriceFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_PALETTE.primary} stopOpacity={0.26} />
-                      <stop offset="100%" stopColor={CHART_PALETTE.primary} stopOpacity={0.02} />
+                      <stop offset="0%" stopColor={chartPalette.primary} stopOpacity={0.26} />
+                      <stop offset="100%" stopColor={chartPalette.primary} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   {PRICE_REGIME_ZONES.map((zone) => (
@@ -259,31 +257,31 @@ export default function HeroProductPreview() {
                   <ReferenceArea
                     x1={PRICE_SERIES[Math.max(0, PRICE_SERIES.length - 2)]?.t}
                     x2={latest?.t}
-                    fill="rgba(37,99,235,0.07)"
+                    fill={chartPalette.regimeNeutral}
                     ifOverflow="extendDomain"
                     strokeOpacity={0}
                   />
-                  <CartesianGrid strokeDasharray="2 6" stroke={SOFT_GRID} vertical={false} />
+                  <CartesianGrid strokeDasharray="2 6" stroke={chartPalette.grid} vertical={false} />
                   <XAxis
                     dataKey="t"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 11, fill: CHART_PALETTE.textMuted }}
+                    tick={{ fontSize: 11, fill: chartPalette.textMuted }}
                     minTickGap={18}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 11, fill: CHART_PALETTE.textMuted }}
+                    tick={{ fontSize: 11, fill: chartPalette.textMuted }}
                     width={36}
                     domain={['dataMin - 2', 'dataMax + 2']}
                     tickFormatter={(value) => `$${Number(value).toFixed(0)}`}
                   />
-                  <Tooltip content={<PriceTooltip />} cursor={{ stroke: CHART_PALETTE.primary, strokeOpacity: 0.25 }} />
+                  <Tooltip content={<PriceTooltip palette={chartPalette} />} cursor={{ stroke: chartPalette.primary, strokeOpacity: 0.25 }} />
                   <Line
                     type="monotone"
                     dataKey="price"
-                    stroke={CHART_PALETTE.primary}
+                    stroke={chartPalette.primary}
                     strokeOpacity={0.2}
                     strokeWidth={7}
                     dot={false}
@@ -292,14 +290,14 @@ export default function HeroProductPreview() {
                   <Area
                     type="monotone"
                     dataKey="price"
-                    stroke={CHART_PALETTE.primary}
+                    stroke={chartPalette.primary}
                     strokeWidth={2.6}
                     fill="url(#heroPriceFill)"
-                    dot={renderLastPointDot(CHART_PALETTE.primary, PRICE_SERIES.length - 1)}
+                    dot={renderLastPointDot(chartPalette.primary, PRICE_SERIES.length - 1, chartPalette.tooltipBg)}
                     activeDot={{
                       r: 5,
-                      fill: '#ffffff',
-                      stroke: CHART_PALETTE.primary,
+                      fill: chartPalette.tooltipBg,
+                      stroke: chartPalette.primary,
                       strokeWidth: 2.2,
                     }}
                   />
@@ -309,8 +307,8 @@ export default function HeroProductPreview() {
                       x={marker.t}
                       y={marker.price}
                       r={4.2}
-                      fill={regimeAccent(marker.direction)}
-                      stroke="#ffffff"
+                      fill={regimeAccent(marker.direction, chartPalette)}
+                      stroke={chartPalette.tooltipBg}
                       strokeWidth={1.8}
                     />
                   ))}
@@ -321,19 +319,19 @@ export default function HeroProductPreview() {
         </div>
 
         <div className="grid grid-cols-4 gap-2 text-sm">
-          <div className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+          <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2">
             <div className="text-filter-label">Conviction</div>
-            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">78%</div>
+            <div className="mt-1 font-semibold text-content-primary">78%</div>
           </div>
-          <div className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+          <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2">
             <div className="text-filter-label">Horizon</div>
-            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">20d</div>
+            <div className="mt-1 font-semibold text-content-primary">20d</div>
           </div>
-          <div className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+          <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2">
             <div className="text-filter-label">Flips</div>
-            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">3 / month</div>
+            <div className="mt-1 font-semibold text-content-primary">3 / month</div>
           </div>
-          <div className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+          <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2">
             <div className="text-filter-label">Confirmation</div>
             <div className={`mt-1 font-semibold ${regimeMovePct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               {regimeMovePct >= 0 ? '+' : ''}{regimeMovePct.toFixed(2)}%
@@ -341,18 +339,18 @@ export default function HeroProductPreview() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="rounded-xl border border-border bg-surface-elevated p-3">
           <div className="text-filter-label">System Profile</div>
           <div className="mt-2 grid grid-cols-[132px_1fr] items-center gap-3">
             <SystemProfileBlob compact dimensions={PREVIEW_SCORE_DIMENSIONS} />
             <div>
-              <div className="text-xl font-semibold leading-none text-neutral-900 dark:text-neutral-100">
+              <div className="text-xl font-semibold leading-none text-content-primary">
                 {previewScore} / 100
               </div>
-              <div className="mt-1 text-[12px] font-medium text-neutral-700 dark:text-neutral-300">
+              <div className="mt-1 text-[12px] font-medium text-content-secondary">
                 Constructive profile
               </div>
-              <p className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+              <p className="mt-1 text-[12px] text-content-muted">
                 Trend and stability support the current stance while risk remains moderate.
               </p>
             </div>
@@ -360,11 +358,11 @@ export default function HeroProductPreview() {
         </div>
       </Card>
 
-      <Card className="space-y-4 border-neutral-200/80 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_70%)] dark:border-neutral-800/80 dark:bg-[radial-gradient(circle_at_top_left,rgba(5,150,105,0.16),transparent_70%)]" padding="lg">
+      <Card className="space-y-4 border-neutral-200/80 bg-[radial-gradient(circle_at_top_left,var(--bullish-tint),transparent_70%)]" padding="lg">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-filter-label">Validation Snapshot</div>
-            <div className="text-card-title text-neutral-900 dark:text-neutral-100">Strategy vs baseline</div>
+            <div className="text-card-title text-content-primary">Strategy vs baseline</div>
           </div>
           <span className="text-xs font-semibold text-emerald-600">
             {returnSpread >= 0 ? '+' : ''}{returnSpread.toFixed(2)}% edge
@@ -372,23 +370,23 @@ export default function HeroProductPreview() {
         </div>
 
         <ChartContainer className="h-[96px]">
-          {() => (
+          {({ palette: chartPalette }) => (
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={84}>
               <AreaChart data={comparisonSeries} margin={CHART_MARGINS.standard}>
                 <defs>
                   <linearGradient id="heroBacktestFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={CHART_PALETTE.secondary} stopOpacity={0.2} />
-                    <stop offset="100%" stopColor={CHART_PALETTE.secondary} stopOpacity={0.02} />
+                    <stop offset="0%" stopColor={chartPalette.secondary} stopOpacity={0.2} />
+                    <stop offset="100%" stopColor={chartPalette.secondary} stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="2 6" stroke={SOFT_GRID} vertical={false} />
+                <CartesianGrid strokeDasharray="2 6" stroke={chartPalette.grid} vertical={false} />
                 <XAxis dataKey="t" hide />
                 <YAxis hide domain={['dataMin - 0.8', 'dataMax + 0.8']} />
-                <Tooltip content={<BacktestTooltip />} cursor={{ stroke: CHART_PALETTE.secondary, strokeOpacity: 0.25 }} />
+                <Tooltip content={<BacktestTooltip palette={chartPalette} />} cursor={{ stroke: chartPalette.secondary, strokeOpacity: 0.25 }} />
                 <Line
                   type="monotone"
                   dataKey="benchmark"
-                  stroke={CHART_PALETTE.neutral}
+                  stroke={chartPalette.neutral}
                   strokeOpacity={0.7}
                   strokeDasharray="4 4"
                   strokeWidth={1.8}
@@ -405,7 +403,7 @@ export default function HeroProductPreview() {
                 <Line
                   type="monotone"
                   dataKey="equity"
-                  stroke={CHART_PALETTE.secondary}
+                  stroke={chartPalette.secondary}
                   strokeOpacity={0.2}
                   strokeWidth={6}
                   dot={false}
@@ -414,13 +412,13 @@ export default function HeroProductPreview() {
                 <Line
                   type="monotone"
                   dataKey="equity"
-                  stroke={CHART_PALETTE.secondary}
+                  stroke={chartPalette.secondary}
                   strokeWidth={2.5}
-                  dot={renderLastPointDot(CHART_PALETTE.secondary, comparisonSeries.length - 1)}
+                  dot={renderLastPointDot(chartPalette.secondary, comparisonSeries.length - 1, chartPalette.tooltipBg)}
                   activeDot={{
                     r: 4.5,
-                    fill: '#ffffff',
-                    stroke: CHART_PALETTE.secondary,
+                    fill: chartPalette.tooltipBg,
+                    stroke: chartPalette.secondary,
                     strokeWidth: 2,
                   }}
                 />
@@ -432,11 +430,11 @@ export default function HeroProductPreview() {
         <div className="grid grid-cols-3 gap-2 text-sm">
           <div>
             <div className="text-filter-label">Sharpe</div>
-            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">1.24</div>
+            <div className="mt-1 font-semibold text-content-primary">1.24</div>
           </div>
           <div>
             <div className="text-filter-label">Validation Win</div>
-            <div className="mt-1 font-semibold text-neutral-900 dark:text-neutral-100">62%</div>
+            <div className="mt-1 font-semibold text-content-primary">62%</div>
           </div>
           <div>
             <div className="text-filter-label">Max DD</div>

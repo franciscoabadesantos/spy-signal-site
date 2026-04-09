@@ -153,7 +153,7 @@ export default function SystemProfileChart({
             key={`ring-${index}`}
             d={polygonPath(ring)}
             fill="none"
-            stroke="rgba(100, 116, 139, 0.16)"
+            stroke="var(--chart-grid)"
             strokeWidth={1}
           />
         ))}
@@ -165,7 +165,7 @@ export default function SystemProfileChart({
             y1={center}
             x2={point.x}
             y2={point.y}
-            stroke="rgba(100, 116, 139, 0.14)"
+            stroke="var(--chart-grid)"
             strokeWidth={1}
           />
         ))}
@@ -174,7 +174,7 @@ export default function SystemProfileChart({
           <path
             d={baselinePath}
             fill="none"
-            stroke="rgba(71, 85, 105, 0.38)"
+            stroke="var(--chart-axis)"
             strokeWidth={1.4}
             strokeDasharray="4 4"
           />
@@ -190,7 +190,7 @@ export default function SystemProfileChart({
             style={{ cursor: 'default' }}
           >
             <circle cx={point.x} cy={point.y} r={5.5} fill="rgba(37, 99, 235, 0.16)" />
-            <circle cx={point.x} cy={point.y} r={3.4} fill="#ffffff" stroke="#2563eb" strokeWidth={2} />
+            <circle cx={point.x} cy={point.y} r={3.4} fill="var(--chart-tooltip-bg)" stroke="#2563eb" strokeWidth={2} />
           </g>
         ))}
 
@@ -214,7 +214,7 @@ export default function SystemProfileChart({
                 y={labelPoint.y}
                 textAnchor={anchor}
                 dominantBaseline="middle"
-                fill="#1f2937"
+                fill="var(--content-primary)"
                 fontSize={compact ? 11 : 12}
                 fontWeight={600}
               >
@@ -225,7 +225,7 @@ export default function SystemProfileChart({
                 y={labelPoint.y + (compact ? 12 : 14)}
                 textAnchor={anchor}
                 dominantBaseline="middle"
-                fill="#64748b"
+                fill="var(--content-muted)"
                 fontSize={compact ? 10 : 11}
                 fontWeight={500}
               >

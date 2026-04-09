@@ -1,10 +1,13 @@
 import Link from 'next/link'
 import MarketingShell from '@/components/shells/MarketingShell'
+import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
+import TrackedLink from '@/components/analytics/TrackedLink'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import { buttonClass } from '@/components/ui/Button'
 import SectionHeader from '@/components/ui/SectionHeader'
 import HeroProductPreview from '@/components/page/HeroProductPreview'
+import { SAMPLE_MODEL_ID } from '@/lib/model-samples'
 import {
   TableBase,
   TableBody,
@@ -69,6 +72,7 @@ export default async function Home() {
   return (
     <MarketingShell active="stocks">
       <section className="grid grid-cols-1 gap-8 py-8 lg:grid-cols-[1.1fr_1fr] lg:items-center">
+        <TrackEventOnMount eventName="view_homepage" />
         <div className="section-gap">
           <div>
             <h1 className="text-page-title text-neutral-900 dark:text-neutral-100 sm:text-4xl">
@@ -83,7 +87,15 @@ export default async function Home() {
             <Link href="/sign-up" className={buttonClass({ variant: 'primary' })}>
               Create free account
             </Link>
-            <Link href="/screener" className={buttonClass({ variant: 'secondary' })}>
+            <TrackedLink
+              href={`/models/${SAMPLE_MODEL_ID}?from=homepage_sample`}
+              className={buttonClass({ variant: 'secondary' })}
+              eventName="click_sample_model"
+              eventPayload={{ model_id: SAMPLE_MODEL_ID, source: 'homepage', entry_source: 'homepage_sample' }}
+            >
+              Try a sample model
+            </TrackedLink>
+            <Link href="/screener" className={buttonClass({ variant: 'ghost' })}>
               Inspect live systems
             </Link>
           </div>

@@ -22,8 +22,8 @@ type SearchSuggestion = {
 
 function navLinkClass(isActive: boolean): string {
   return isActive
-    ? 'text-neutral-900 dark:text-neutral-100'
-    : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'
+    ? 'text-content-primary'
+    : 'text-content-secondary hover:text-content-primary'
 }
 
 const NavAuthControls = dynamic(() => import('./NavAuthControls'), {
@@ -140,18 +140,18 @@ export default function Nav({ active }: NavProps) {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/95 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
+    <header className="sticky top-0 z-50 border-b border-border bg-surface-card backdrop-blur">
       <div className="container-lg flex h-[64px] items-center justify-between gap-5">
         <Link
           href="/"
-          className="flex items-center gap-2 text-[22px] font-bold tracking-tight text-neutral-900 transition-opacity hover:opacity-80 dark:text-neutral-100"
+          className="flex items-center gap-2 text-[22px] font-bold tracking-tight text-content-primary transition-opacity hover:opacity-80"
         >
           <Activity className="h-6 w-6 text-primary" />
           <span>SpySignal</span>
         </Link>
 
         <div className="relative hidden max-w-[420px] flex-1 sm:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-content-muted" />
           <Input
             type="text"
             value={search}
@@ -168,7 +168,7 @@ export default function Nav({ active }: NavProps) {
           />
 
           {isOpen && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-border bg-surface-card shadow-sm">
               <ul className="max-h-80 overflow-auto">
                 {suggestions.map((item, index) => (
                   <li key={`${item.symbol}-${item.name}`}>
@@ -176,14 +176,14 @@ export default function Nav({ active }: NavProps) {
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => navigateToTicker(item.symbol)}
-                      className={`w-full border-b border-neutral-200 px-3 py-2.5 text-left last:border-b-0 dark:border-neutral-800 ${
+                      className={`w-full border-b border-border px-3 py-2.5 text-left last:border-b-0 ${
                         index === highlightedIndex
-                          ? 'bg-neutral-100 dark:bg-neutral-800'
-                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/70'
+                          ? 'bg-surface-hover'
+                          : 'hover:bg-surface-elevated'
                       }`}
                     >
-                      <div className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">{item.symbol}</div>
-                      <div className="truncate text-[12px] text-neutral-500 dark:text-neutral-400">
+                      <div className="text-[13px] font-semibold text-content-primary">{item.symbol}</div>
+                      <div className="truncate text-[12px] text-content-muted">
                         {item.name}
                         {item.exchange ? ` · ${item.exchange}` : ''}
                       </div>
@@ -195,7 +195,7 @@ export default function Nav({ active }: NavProps) {
           )}
 
           {loading && search.trim() && (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-neutral-400">Loading</div>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-content-muted">Loading</div>
           )}
         </div>
 

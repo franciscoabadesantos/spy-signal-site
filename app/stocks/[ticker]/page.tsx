@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { Newspaper } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
+import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
 import ResearchShell from '@/components/shells/ResearchShell'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
@@ -14,6 +15,9 @@ import StockChartPanel from '@/components/StockChartPanel'
 import PremiumSignalWidget from '@/components/PremiumSignalWidget'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
 import WatchlistButton from '@/components/WatchlistButton'
+import CorrelationNetwork from '@/components/CorrelationNetwork'
+import SignalFlowStream from '@/components/SignalFlowStream'
+import SignalDistributionBubbleCluster from '@/components/SignalDistributionBubbleCluster'
 import { getViewerUserId } from '@/lib/auth'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
@@ -25,6 +29,7 @@ import {
   getTickerFundamentals,
   getTickerNews,
   getRelatedTickers,
+  getTickerCorrelationNetwork,
   type PricePoint,
   type TickerFundamentals,
 } from '@/lib/finance'
@@ -54,6 +59,18 @@ function sanitizeModelName(value: string | null): string | null {
   const trimmed = value.trim().replace(/\s+/g, ' ')
   if (!trimmed) return null
   return trimmed.slice(0, 72)
+}
+
+function stockEntrySourceFromContext(
+  value: string | null
+): 'homepage_sample' | 'models_hub' | 'stock_page' | 'screener' | 'compare' | 'direct' {
+  if (value === 'screener') return 'screener'
+  if (value === 'model' || value === 'stock_page') return 'stock_page'
+  if (value === 'homepage_sample') return 'homepage_sample'
+  if (value === 'models_hub') return 'models_hub'
+  if (value === 'compare') return 'compare'
+  if (value === 'direct') return 'direct'
+  return 'direct'
 }
 
 function normalizeDate(date: string): string {
@@ -394,6 +411,129 @@ function profileStateBadge(overallScore: number): { label: string; variant: 'suc
   return { label: 'Stressed', variant: 'danger' }
 }
 
+function correlationSummaryLine(
+  ticker: string,
+  peers: Array<{ ticker: string; absCorrelation: number; sector: string | null }>
+): string {
+  if (peers.length === 0) {
+    return `Correlation relationships for ${ticker} are still building from available history.`
+  }
+
+  const topPeers = peers.slice(0, 3)
+  const topSector = topPeers
+    .map((peer) => peer.sector)
+    .find((sector): sector is string => Boolean(sector))
+  const highCount = peers.filter((peer) => peer.absCorrelation >= 0.75).length
+  const moderateCount = peers.filter((peer) => peer.absCorrelation >= 0.5).length
+
+  if (highCount >= 3) {
+    if (topSector) return `${ticker} clusters tightly with ${topSector.toLowerCase()} peers.`
+    return `${ticker} clusters tightly with ${topPeers.map((peer) => peer.ticker).join(', ')}.`
+  }
+
+  if (highCount >= 1) {
+    const primary = topPeers[0]?.ticker ?? 'peers'
+    const secondary = topPeers[1]?.ticker ?? 'related names'
+    return `${ticker} tracks ${primary} most closely, with moderate links to ${secondary}.`
+  }
+
+  if (moderateCount >= 2) {
+    return `${ticker} shows moderate alignment across ${topPeers.map((peer) => peer.ticker).join(', ')}.`
+  }
+
+  return `${ticker} shows looser correlations, with no single dominant peer relationship.`
+}
+
+function recentFlipRate(signals: Signal[], window: number = 30): number {
+  const slice = signals.slice(0, Math.max(2, window))
+  if (slice.length <= 1) return 0
+  let flips = 0
+  for (let index = 1; index < slice.length; index += 1) {
+    const current = slice[index]
+    const previous = slice[index - 1]
+    if (current && previous && current.direction !== previous.direction) flips += 1
+  }
+  return flips / Math.max(1, slice.length - 1)
+}
+
+function regimePhrase(direction: Signal['direction'] | null, flipRate: number): string {
+  if (!direction) return 'Signal regime still forming'
+  const directionLabel =
+    direction === 'bullish' ? 'bullish regime' : direction === 'bearish' ? 'bearish regime' : 'neutral regime'
+  if (flipRate <= 0.1) return `Stable ${directionLabel}`
+  if (flipRate <= 0.2) return `Moderately stable ${directionLabel}`
+  return `Unstable ${directionLabel}`
+}
+
+function compositionPhrase(biasLabel: string): string {
+  if (biasLabel.includes('Bullish')) return 'bullish pressure dominates'
+  if (biasLabel.includes('Bearish')) return 'downside pressure is elevated'
+  if (biasLabel.includes('Neutral')) return 'neutral regimes absorb most observations'
+  return 'signal pressure remains balanced'
+}
+
+function correlationPhrase(
+  peers: Array<{ ticker: string; absCorrelation: number; sector: string | null }>
+): string {
+  if (peers.length === 0) return 'correlation clustering is still building'
+  const high = peers.filter((peer) => peer.absCorrelation >= 0.75).length
+  const topSector = peers
+    .slice(0, 3)
+    .map((peer) => peer.sector)
+    .find((sector): sector is string => Boolean(sector))
+  if (high >= 2 && topSector) {
+    return `strong ${topSector.toLowerCase()} correlation`
+  }
+  if (high >= 1) {
+    return `tightest link to ${peers[0]?.ticker ?? 'related peers'}`
+  }
+  return 'moderate cross-asset correlation'
+}
+
+function behaviorOverviewSummary({
+  direction,
+  flipRate,
+  biasLabel,
+  peers,
+}: {
+  direction: Signal['direction'] | null
+  flipRate: number
+  biasLabel: string
+  peers: Array<{ ticker: string; absCorrelation: number; sector: string | null }>
+}): string {
+  return `${regimePhrase(direction, flipRate)} with ${correlationPhrase(peers)} and ${compositionPhrase(biasLabel)}.`
+}
+
+function deriveBehaviorCompositionInsights(values: {
+  bullishCount: number
+  neutralCount: number
+  bearishCount: number
+}): {
+  biasLabel: string
+  activePct: number
+} {
+  const total = values.bullishCount + values.neutralCount + values.bearishCount
+  const bullishShare = total > 0 ? values.bullishCount / total : 0
+  const neutralShare = total > 0 ? values.neutralCount / total : 0
+  const bearishShare = total > 0 ? values.bearishCount / total : 0
+  const activePct = Math.round((bullishShare + bearishShare) * 100)
+
+  let biasLabel = 'Balanced system'
+  if (neutralShare >= 0.5) {
+    biasLabel = 'Neutral-heavy system'
+  } else if (bullishShare >= 0.5 && bullishShare - bearishShare >= 0.14) {
+    biasLabel = 'Bullish-biased system'
+  } else if (bearishShare >= 0.5 && bearishShare - bullishShare >= 0.14) {
+    biasLabel = 'Bearish-biased system'
+  } else if (bullishShare > bearishShare + 0.08) {
+    biasLabel = 'Bullish-leaning system'
+  } else if (bearishShare > bullishShare + 0.08) {
+    biasLabel = 'Bearish-leaning system'
+  }
+
+  return { biasLabel, activePct }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -431,6 +571,7 @@ export default async function TickerPage({
   const sourceContext = singleSearchParam(resolvedSearchParams.from)
   const screenerSignal = sanitizeScreenerSignal(singleSearchParam(resolvedSearchParams.screenerSignal))
   const modelName = sanitizeModelName(singleSearchParam(resolvedSearchParams.modelName))
+  const stockEntrySource = stockEntrySourceFromContext(sourceContext)
   const modelTag = sourceContext === 'model' && modelName ? `From Model: ${modelName}` : null
   const screenerTag =
     sourceContext === 'screener' && screenerSignal ? `From Screener: ${screenerSignal}` : null
@@ -442,13 +583,14 @@ export default async function TickerPage({
     : '/sign-up?redirect_url=/stocks/' + ticker
 
   const relatedTickerSymbols = getRelatedTickers(ticker)
-  const [quote, historicalData, recentSignals, fundamentals, newsItems, relatedQuotes] = await Promise.all([
+  const [quote, historicalData, recentSignals, fundamentals, newsItems, relatedQuotes, correlationNetwork] = await Promise.all([
     getStockQuote(ticker),
     getHistoricalData(ticker, 1825),
     getSignalHistoryForTicker(ticker, 180),
     getTickerFundamentals(ticker),
     getTickerNews(ticker, 5),
     Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
+    getTickerCorrelationNetwork(ticker, { maxPeers: 10, lookbackDays: 504, minOverlapDays: 90 }),
   ])
 
   const isInWatchlist = viewerUserId ? await isTickerInWatchlist(viewerUserId, ticker) : false
@@ -466,6 +608,27 @@ export default async function TickerPage({
   const relatedAssets = relatedTickerSymbols
     .map((symbol, index) => ({ symbol, quote: relatedQuotes[index] ?? null }))
     .filter((item) => item.quote !== null)
+  const correlationSummary = correlationSummaryLine(ticker, correlationNetwork.peers)
+  const compositionCounts = recentSignals.reduce(
+    (acc, signal) => {
+      if (signal.direction === 'bullish') acc.bullish += 1
+      else if (signal.direction === 'bearish') acc.bearish += 1
+      else acc.neutral += 1
+      return acc
+    },
+    { bullish: 0, neutral: 0, bearish: 0 }
+  )
+  const compositionInsights = deriveBehaviorCompositionInsights({
+    bullishCount: compositionCounts.bullish,
+    neutralCount: compositionCounts.neutral,
+    bearishCount: compositionCounts.bearish,
+  })
+  const overviewSummary = behaviorOverviewSummary({
+    direction: latest?.direction ?? null,
+    flipRate: recentFlipRate(recentSignals, 30),
+    biasLabel: compositionInsights.biasLabel,
+    peers: correlationNetwork.peers,
+  })
 
   const quickStats = [
     { label: 'Market Cap', value: fundamentals.marketCap ?? '—' },
@@ -533,6 +696,15 @@ export default async function TickerPage({
         ),
       }}
     >
+      <TrackEventOnMount
+        eventName="view_stock"
+        payload={{
+          ticker,
+          entry_source: stockEntrySource,
+          has_screener_context: Boolean(screenerTag),
+          has_model_context: Boolean(modelTag),
+        }}
+      />
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.25fr_0.75fr]">
         <div className="section-gap">
           <Card className="h-[420px]" padding="lg">
@@ -612,7 +784,10 @@ export default async function TickerPage({
             <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Use this in your model</h3>
             <p className="text-body">Save to watchlist, inspect financials, or compare nearby assets for validation.</p>
             <div className="flex flex-wrap gap-2">
-              <Link href={`/models/new?ticker=${encodeURIComponent(ticker)}`} className={buttonClass({ variant: 'primary' })}>
+              <Link
+                href={`/models/new?ticker=${encodeURIComponent(ticker)}&from=stock_page`}
+                className={buttonClass({ variant: 'primary' })}
+              >
                 Build model from this stock
               </Link>
               <Link href={`/stocks/${ticker}/financials/fund-profile`} className={buttonClass({ variant: 'secondary' })}>
@@ -646,6 +821,63 @@ export default async function TickerPage({
           />
         </div>
       </section>
+
+      <PageSection
+        title="Behavior Overview"
+        description="How regime state, signal composition, and peer correlation interact."
+      >
+        <p className="text-body">{overviewSummary}</p>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+          <Card className="section-gap lg:min-h-[520px]" padding="lg">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Regime behavior</h3>
+              <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                Last {recentSignals.length || 0} signals
+              </span>
+            </div>
+            <SignalFlowStream
+              signals={recentSignals.map((signal) => ({
+                signal_date: signal.signal_date,
+                direction: signal.direction,
+                prob_side: signal.prob_side,
+              }))}
+            />
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4">
+            <Card className="section-gap" padding="lg">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Signal composition</h3>
+                <div className="flex items-center gap-2">
+                  <Badge variant="neutral">{compositionInsights.biasLabel}</Badge>
+                  <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                    Active {compositionInsights.activePct}%
+                  </span>
+                </div>
+              </div>
+              <SignalDistributionBubbleCluster
+                bullishCount={compositionCounts.bullish}
+                neutralCount={compositionCounts.neutral}
+                bearishCount={compositionCounts.bearish}
+                mode="compact"
+                showSummaryLine={false}
+                showCount={false}
+                showRoleInside
+              />
+            </Card>
+
+            <Card className="section-gap" padding="lg">
+              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Correlation network</h3>
+              <p className="text-body">{correlationSummary}</p>
+              <CorrelationNetwork
+                centerTicker={ticker}
+                centerName={quote?.name ?? null}
+                peers={correlationNetwork.peers}
+              />
+            </Card>
+          </div>
+        </div>
+      </PageSection>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <InsightCard title="Average Conviction" description="Recent 90-signal average">

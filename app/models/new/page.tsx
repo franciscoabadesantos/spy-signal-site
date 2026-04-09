@@ -131,11 +131,18 @@ function parseDraftSeed(value: string | null): BuilderDraftSeed | null {
 export default async function NewModelPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ticker?: string | string[]; draft?: string | string[] }>
+  searchParams: Promise<{ ticker?: string | string[]; draft?: string | string[]; from?: string | string[] }>
 }) {
   const resolvedSearchParams = await searchParams
   const initialTicker = singleParam(resolvedSearchParams.ticker)
   const initialDraft = parseDraftSeed(singleParam(resolvedSearchParams.draft))
+  const initialSource = singleParam(resolvedSearchParams.from)
 
-  return <ModelBuilderClient initialTicker={initialTicker} initialDraft={initialDraft} />
+  return (
+    <ModelBuilderClient
+      initialTicker={initialTicker}
+      initialDraft={initialDraft}
+      initialSource={initialSource}
+    />
+  )
 }

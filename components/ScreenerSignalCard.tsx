@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import TrackedLink from '@/components/analytics/TrackedLink'
 import Badge from '@/components/ui/Badge'
 import Card from '@/components/ui/Card'
 import { convictionPercent, shortSignalHeadline } from '@/lib/signalSummary'
@@ -86,7 +86,17 @@ export default function ScreenerSignalCard({ row }: ScreenerSignalCardProps) {
   const convictionWidth = convictionPercent(row.conviction) ?? 0
 
   return (
-    <Link href={stockHref(row.ticker, shortHeadline)} className="block">
+    <TrackedLink
+      href={stockHref(row.ticker, shortHeadline)}
+      className="block"
+      eventName="click_stock_from_screener"
+      eventPayload={{
+        ticker: row.ticker,
+        direction: row.direction,
+        entry_source: 'screener',
+        source: 'screener_mobile_card',
+      }}
+    >
       <Card className="h-full transition-colors hover:border-neutral-400 dark:hover:border-neutral-600">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -153,6 +163,6 @@ export default function ScreenerSignalCard({ row }: ScreenerSignalCardProps) {
           Last signal: {formatSignalDate(row.signalDate)}
         </div>
       </Card>
-    </Link>
+    </TrackedLink>
   )
 }

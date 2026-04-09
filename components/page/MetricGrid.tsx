@@ -28,7 +28,7 @@ export default function MetricGrid({ items, columns = 4 }: MetricGridProps) {
           hint={item.hint}
           className={
             index % 2 === 0
-              ? 'bg-[linear-gradient(180deg,rgba(2,132,199,0.05),rgba(255,255,255,1))] dark:bg-[linear-gradient(180deg,rgba(2,132,199,0.10),rgba(23,23,23,1))]'
+              ? 'bg-[linear-gradient(180deg,rgba(2,132,199,0.08),transparent_68%)]'
               : 'sm:translate-y-[2px]'
           }
         />

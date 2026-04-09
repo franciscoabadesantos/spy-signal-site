@@ -17,14 +17,14 @@ type TabsProps = {
 
 function tabClass(active: boolean, disabled: boolean): string {
   if (disabled) {
-    return 'cursor-not-allowed text-neutral-400 dark:text-neutral-600'
+    return 'cursor-not-allowed text-content-muted opacity-70'
   }
 
   if (active) {
-    return 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100'
+    return 'border-content-primary text-content-primary'
   }
 
-  return 'border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'
+  return 'border-transparent text-content-muted hover:text-content-primary'
 }
 
 export default function Tabs({
@@ -34,7 +34,7 @@ export default function Tabs({
   onChange,
 }: TabsProps) {
   return (
-    <div className={cn('border-b border-neutral-200 dark:border-neutral-800', className)}>
+    <div className={cn('border-b border-border', className)}>
       <nav className="flex items-center gap-6 overflow-x-auto whitespace-nowrap">
         {items.map((item) => {
           const active = item.key === activeKey

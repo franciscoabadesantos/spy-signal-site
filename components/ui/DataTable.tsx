@@ -37,7 +37,7 @@ export function TableHead({
   return (
     <thead
       className={cn(
-        'bg-neutral-50 text-neutral-500 dark:bg-neutral-900/70 dark:text-neutral-400',
+        'bg-surface-elevated text-content-muted',
         sticky ? 'sticky top-0 z-10' : undefined
       )}
     >
@@ -62,7 +62,7 @@ export function TableHeaderCell({
     <th className={cn('px-4 py-3 text-[12px] font-medium uppercase tracking-wide', className)}>
       <span className="inline-flex items-center gap-1.5">
         <span>{children}</span>
-        {indicator ? <span className="text-[10px] text-neutral-400">{indicator}</span> : null}
+        {indicator ? <span className="text-[10px] text-content-muted">{indicator}</span> : null}
       </span>
     </th>
   )
@@ -88,9 +88,9 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        'border-t border-neutral-200 dark:border-neutral-800',
-        striped && index % 2 === 1 ? 'bg-neutral-50/70 dark:bg-neutral-900/40' : undefined,
-        hover ? 'hover:bg-neutral-100/70 dark:hover:bg-neutral-800/50' : undefined,
+        'border-t border-border',
+        striped && index % 2 === 1 ? 'bg-surface-elevated' : undefined,
+        hover ? 'hover:bg-surface-hover' : undefined,
         className
       )}
     >
@@ -109,7 +109,7 @@ export function TableCell({
   muted?: boolean
 }) {
   return (
-    <td className={cn('px-4 py-3', muted ? 'text-neutral-500 dark:text-neutral-400' : undefined, className)}>
+    <td className={cn('px-4 py-3', muted ? 'text-content-muted' : undefined, className)}>
       {children}
     </td>
   )
@@ -125,9 +125,9 @@ export function TableEmptyRow({
   description?: string
 }) {
   return (
-    <tr className="border-t border-neutral-200 dark:border-neutral-800">
+    <tr className="border-t border-border">
       <td className="px-4 py-10 text-center" colSpan={colSpan}>
-        <div className="text-card-title text-neutral-900 dark:text-neutral-100">{title}</div>
+        <div className="text-card-title text-content-primary">{title}</div>
         {description ? <div className="text-body mt-1">{description}</div> : null}
       </td>
     </tr>

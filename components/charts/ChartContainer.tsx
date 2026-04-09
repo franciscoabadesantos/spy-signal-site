@@ -21,22 +21,79 @@ export type ChartPalette = {
   regimeNeutral: string
 }
 
-export const CHART_PALETTE: ChartPalette = {
+export const LIGHT_CHART_PALETTE: ChartPalette = {
   primary: '#2563eb',
   secondary: '#0f766e',
   accent: '#d97706',
   neutral: '#64748b',
-  grid: 'rgba(100, 116, 139, 0.18)',
+  grid: 'rgba(100, 116, 139, 0.24)',
   text: '#1f2937',
   textMuted: '#6b7280',
   tooltipBg: '#ffffff',
-  tooltipBorder: '#d4d4d8',
+  tooltipBorder: '#cbd5e1',
   bullish: '#16a34a',
   bearish: '#ef4444',
   signalNeutral: '#64748b',
-  regimeBullish: 'rgba(22, 163, 74, 0.10)',
-  regimeBearish: 'rgba(239, 68, 68, 0.10)',
-  regimeNeutral: 'rgba(100, 116, 139, 0.08)',
+  regimeBullish: 'rgba(22, 163, 74, 0.14)',
+  regimeBearish: 'rgba(239, 68, 68, 0.14)',
+  regimeNeutral: 'rgba(100, 116, 139, 0.12)',
+}
+
+export const DARK_CHART_PALETTE: ChartPalette = {
+  primary: '#60a5fa',
+  secondary: '#34d399',
+  accent: '#f59e0b',
+  neutral: '#94a3b8',
+  grid: 'rgba(142, 162, 191, 0.24)',
+  text: '#dbe7f7',
+  textMuted: '#9ab0ca',
+  tooltipBg: '#0a1222',
+  tooltipBorder: '#33445f',
+  bullish: '#22c55e',
+  bearish: '#f87171',
+  signalNeutral: '#94a3b8',
+  regimeBullish: 'rgba(34, 197, 94, 0.22)',
+  regimeBearish: 'rgba(248, 113, 113, 0.24)',
+  regimeNeutral: 'rgba(148, 163, 184, 0.19)',
+}
+
+export const CHART_PALETTE: ChartPalette = LIGHT_CHART_PALETTE
+
+function detectDarkMode(): boolean {
+  if (typeof window === 'undefined') return false
+  const root = document.documentElement
+  const theme = root.dataset.theme
+  if (theme === 'dark') return true
+  if (theme === 'light') return false
+  if (root.classList.contains('dark')) return true
+  if (root.classList.contains('light')) return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+export function useChartPalette(): ChartPalette {
+  const [isDark, setIsDark] = useState(() => detectDarkMode())
+
+  useEffect(() => {
+    const update = () => setIsDark(detectDarkMode())
+    update()
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const onMediaChange = () => update()
+    media.addEventListener('change', onMediaChange)
+
+    const observer = new MutationObserver(update)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    })
+
+    return () => {
+      media.removeEventListener('change', onMediaChange)
+      observer.disconnect()
+    }
+  }, [])
+
+  return isDark ? DARK_CHART_PALETTE : LIGHT_CHART_PALETTE
 }
 
 export const CHART_MARGINS = {
@@ -62,15 +119,9 @@ export function ChartTooltipCard({
   if (rows.length === 0) return null
 
   return (
-    <div
-      className="rounded-xl border px-3 py-2.5 shadow-sm"
-      style={{
-        backgroundColor: CHART_PALETTE.tooltipBg,
-        borderColor: CHART_PALETTE.tooltipBorder,
-      }}
-    >
+    <div className="rounded-xl border border-chart-tooltip-border bg-chart-tooltip px-3 py-2.5 shadow-sm">
       {title ? (
-        <div className="mb-2 text-[12px] font-semibold" style={{ color: CHART_PALETTE.text }}>
+        <div className="mb-2 text-[12px] font-semibold text-content-primary">
           {title}
         </div>
       ) : null}
@@ -78,13 +129,13 @@ export function ChartTooltipCard({
       <div className="space-y-1.5">
         {rows.map((row, index) => (
           <div key={`${row.label}-${index}`} className="flex items-center justify-between gap-4 text-[12px]">
-            <div className="inline-flex items-center gap-2" style={{ color: CHART_PALETTE.textMuted }}>
+            <div className="inline-flex items-center gap-2 text-content-secondary">
               {row.swatchColor ? (
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: row.swatchColor }} />
               ) : null}
               <span>{row.label}</span>
             </div>
-            <span className="font-semibold" style={{ color: CHART_PALETTE.text }}>
+            <span className="font-semibold text-content-primary">
               {row.value}
             </span>
           </div>
@@ -124,6 +175,7 @@ export default function ChartContainer({
 }: ChartContainerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
+  const palette = useChartPalette()
 
   useEffect(() => {
     const element = containerRef.current
@@ -152,10 +204,10 @@ export default function ChartContainer({
           width: size.width,
           height: size.height,
           isReady,
-          palette: CHART_PALETTE,
+          palette,
         })
       ) : (
-        <div className="flex h-full min-h-[180px] items-center justify-center text-xs text-neutral-500">
+        <div className="flex h-full min-h-[180px] items-center justify-center text-xs text-content-muted">
           {loadingText}
         </div>
       )}

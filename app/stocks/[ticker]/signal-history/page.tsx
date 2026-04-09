@@ -8,6 +8,8 @@ import PageHeader from '@/components/ui/PageHeader'
 import { buttonClass } from '@/components/ui/Button'
 import ActionBar from '@/components/page/ActionBar'
 import MetricGrid from '@/components/page/MetricGrid'
+import SignalFlowStream from '@/components/SignalFlowStream'
+import SignalDistributionBubbleCluster from '@/components/SignalDistributionBubbleCluster'
 import {
   TableBase,
   TableBody,
@@ -51,12 +53,6 @@ function signalBadge(direction: 'bullish' | 'bearish' | 'neutral') {
     return { text: 'Bearish', variant: 'danger' as const }
   }
   return { text: 'Neutral', variant: 'neutral' as const }
-}
-
-function directionSwatchClass(direction: 'bullish' | 'bearish' | 'neutral'): string {
-  if (direction === 'bullish') return 'bg-emerald-500/85'
-  if (direction === 'bearish') return 'bg-rose-500/80'
-  return 'bg-slate-400/75'
 }
 
 function directionTextClass(direction: 'bullish' | 'bearish' | 'neutral'): string {
@@ -185,7 +181,7 @@ export default async function SignalHistoryPage({
         />
 
         <ActionBar
-          className="rounded-2xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+          className="rounded-2xl border border-border bg-surface-card p-3"
           align="between"
         >
           <p className="text-body">Showing up to the most recent 250 daily model outputs.</p>
@@ -204,7 +200,7 @@ export default async function SignalHistoryPage({
                 Upgrade to Pro for CSV Export
               </a>
             ) : (
-              <span className="text-[12px] text-neutral-500">
+              <span className="text-[12px] text-content-muted">
                 {!viewer.isSignedIn
                   ? 'Sign in to export CSV.'
                   : signals.length === 0
@@ -246,24 +242,31 @@ export default async function SignalHistoryPage({
         {signals.length > 0 ? (
           <Card className="section-gap" padding="lg">
             <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">Signal Flow</h2>
+              <span className="text-body">State evolution over time</span>
+            </div>
+            <SignalFlowStream
+              signals={signals.map((signal) => ({
+                signal_date: signal.signal_date,
+                direction: signal.direction,
+                prob_side: signal.prob_side,
+              }))}
+            />
+          </Card>
+        ) : null}
+
+        {signals.length > 0 ? (
+          <Card className="section-gap" padding="lg">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">Signal Distribution</h2>
               <span className="text-body">Last {signals.length} observations</span>
             </div>
 
-            <div className="overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800 h-3 flex">
-              <div
-                className="h-full bg-emerald-500/85"
-                style={{ width: `${percent(summary.bullishCount, signals.length)}%` }}
-              />
-              <div
-                className="h-full bg-slate-400/75"
-                style={{ width: `${percent(summary.neutralCount, signals.length)}%` }}
-              />
-              <div
-                className="h-full bg-rose-500/80"
-                style={{ width: `${percent(summary.bearishCount, signals.length)}%` }}
-              />
-            </div>
+            <SignalDistributionBubbleCluster
+              bullishCount={summary.bullishCount}
+              neutralCount={summary.neutralCount}
+              bearishCount={summary.bearishCount}
+            />
 
             <div className="grid grid-cols-3 gap-3 text-sm">
               {([
@@ -271,27 +274,13 @@ export default async function SignalHistoryPage({
                 { label: 'Neutral', count: summary.neutralCount, direction: 'neutral' as const },
                 { label: 'Bearish', count: summary.bearishCount, direction: 'bearish' as const },
               ]).map((item) => (
-                <div key={item.label} className="rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+                <div key={item.label} className="rounded-lg border border-border bg-surface-elevated px-3 py-2">
                   <div className="text-filter-label">{item.label}</div>
                   <div className={`mt-1 font-semibold ${directionTextClass(item.direction)}`}>
                     {item.count} ({Math.round(percent(item.count, signals.length))}%)
                   </div>
                 </div>
               ))}
-            </div>
-
-            <div>
-              <div className="text-filter-label mb-2">Recent Signal Sequence</div>
-              <div className="flex items-center gap-1.5">
-                {summary.recentDirectionSequence.map((direction, index) => (
-                  <span
-                    key={`${direction}-${index}`}
-                    className={`h-2 flex-1 rounded-full ${directionSwatchClass(direction)}`}
-                    title={direction}
-                  />
-                ))}
-              </div>
-              <p className="mt-2 text-[12px] text-neutral-500 dark:text-neutral-400">Oldest to latest (30 signals)</p>
             </div>
           </Card>
         ) : null}
@@ -330,7 +319,7 @@ export default async function SignalHistoryPage({
                       <TableCell
                         className={
                           episodeReturn === null
-                            ? 'text-neutral-500'
+                            ? 'text-content-muted'
                             : episodeReturn >= 0
                               ? 'text-emerald-600'
                               : 'text-rose-600'

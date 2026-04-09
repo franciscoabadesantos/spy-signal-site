@@ -2,11 +2,7 @@
 
 import React, { useId, useState } from 'react'
 import type { PricePoint } from '@/lib/finance'
-import ChartContainer, {
-  CHART_MARGINS,
-  CHART_PALETTE,
-  ChartTooltipCard,
-} from '@/components/charts/ChartContainer'
+import ChartContainer, { CHART_MARGINS, type ChartPalette, ChartTooltipCard } from '@/components/charts/ChartContainer'
 
 type Point = { x: number; y: number; value: number; date: string }
 type HoverState = { index: number; mouseX: number; mouseY: number; yOnCurve: number }
@@ -62,29 +58,29 @@ function formatConviction(prob: number | null): string {
   return `${(prob * 100).toFixed(0)}%`
 }
 
-function signalColor(direction: SignalDirection): { solid: string; soft: string } {
+function signalColor(direction: SignalDirection, palette: ChartPalette): { solid: string; soft: string } {
   if (direction === 'bullish') {
     return {
-      solid: CHART_PALETTE.bullish,
-      soft: withAlpha(CHART_PALETTE.bullish, 0.18),
+      solid: palette.bullish,
+      soft: withAlpha(palette.bullish, 0.22),
     }
   }
   if (direction === 'bearish') {
     return {
-      solid: CHART_PALETTE.bearish,
-      soft: withAlpha(CHART_PALETTE.bearish, 0.18),
+      solid: palette.bearish,
+      soft: withAlpha(palette.bearish, 0.22),
     }
   }
   return {
-    solid: CHART_PALETTE.signalNeutral,
-    soft: withAlpha(CHART_PALETTE.signalNeutral, 0.18),
+    solid: palette.signalNeutral,
+    soft: withAlpha(palette.signalNeutral, 0.2),
   }
 }
 
-function signalBandFill(direction: SignalDirection): string {
-  if (direction === 'bullish') return withAlpha(CHART_PALETTE.bullish, 0.055)
-  if (direction === 'bearish') return withAlpha(CHART_PALETTE.bearish, 0.055)
-  return withAlpha(CHART_PALETTE.signalNeutral, 0.05)
+function signalBandFill(direction: SignalDirection, palette: ChartPalette): string {
+  if (direction === 'bullish') return palette.regimeBullish
+  if (direction === 'bearish') return palette.regimeBearish
+  return palette.regimeNeutral
 }
 
 function signalDirectionLabel(direction: SignalDirection): string {
@@ -175,7 +171,7 @@ export default function StockChart({
 
   if (!data || data.length === 0) {
     return (
-      <div className="w-full h-full min-h-[220px] min-w-0 flex flex-col items-center justify-center text-gray-500">
+      <div className="w-full h-full min-h-[220px] min-w-0 flex flex-col items-center justify-center text-content-muted">
         <span>No historical data available.</span>
       </div>
     )
@@ -183,7 +179,7 @@ export default function StockChart({
 
   return (
     <ChartContainer className="relative w-full h-full min-h-[220px] min-w-0">
-      {({ width, height }) => {
+      {({ width, height, palette }) => {
         const padding = CHART_MARGINS.stock
         const innerW = Math.max(1, width - padding.left - padding.right)
         const innerH = Math.max(1, height - padding.top - padding.bottom)
@@ -268,8 +264,8 @@ export default function StockChart({
           : []
         const currentBand = signalBands[signalBands.length - 1] ?? null
         const currentRegimeColor = latestStateMarker
-          ? signalColor(latestStateMarker.direction).solid
-          : CHART_PALETTE.primary
+          ? signalColor(latestStateMarker.direction, palette).solid
+          : palette.primary
 
         const hoverPoint = hover ? points[hover.index] : null
         const hoverVisible = Boolean(hoverPoint && isHovering)
@@ -330,13 +326,13 @@ export default function StockChart({
             <svg width={width} height={height} className="block overflow-visible">
               <defs>
                 <linearGradient id={areaGradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={CHART_PALETTE.primary} stopOpacity="0.24" />
-                  <stop offset="70%" stopColor={CHART_PALETTE.primary} stopOpacity="0.09" />
-                  <stop offset="100%" stopColor={CHART_PALETTE.primary} stopOpacity="0.02" />
+                  <stop offset="0%" stopColor={palette.primary} stopOpacity="0.24" />
+                  <stop offset="70%" stopColor={palette.primary} stopOpacity="0.09" />
+                  <stop offset="100%" stopColor={palette.primary} stopOpacity="0.02" />
                 </linearGradient>
                 <linearGradient id={lineGradientId} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor={CHART_PALETTE.primary} />
-                  <stop offset="100%" stopColor="#1d4ed8" />
+                  <stop offset="0%" stopColor={palette.primary} />
+                  <stop offset="100%" stopColor={palette.primary} />
                 </linearGradient>
                 <linearGradient id={currentRegimeGradientId} x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor={withAlpha(currentRegimeColor, 0)} />
@@ -353,7 +349,7 @@ export default function StockChart({
                   y={padding.top}
                   width={band.width}
                   height={innerH}
-                  fill={signalBandFill(band.direction)}
+                  fill={signalBandFill(band.direction, palette)}
                 />
               ))}
               {signalBands.slice(1).map((band, idx) => (
@@ -363,7 +359,7 @@ export default function StockChart({
                   y1={padding.top}
                   x2={band.x}
                   y2={padding.top + innerH}
-                  stroke="rgba(148,163,184,0.28)"
+                  stroke={palette.grid}
                   strokeWidth={1}
                 />
               ))}
@@ -389,7 +385,7 @@ export default function StockChart({
                       y1={y}
                       x2={padding.left + innerW}
                       y2={y}
-                      stroke={CHART_PALETTE.grid}
+                      stroke={palette.grid}
                       strokeWidth={1}
                     />
                     <text
@@ -397,7 +393,7 @@ export default function StockChart({
                       y={y + 4}
                       textAnchor="end"
                       fontSize={12}
-                      fill={CHART_PALETTE.textMuted}
+                      fill={palette.textMuted}
                     >
                       {formatPrice(value)}
                     </text>
@@ -415,7 +411,7 @@ export default function StockChart({
                     y={height - 8}
                     textAnchor="middle"
                     fontSize={12}
-                    fill={CHART_PALETTE.textMuted}
+                    fill={palette.textMuted}
                   >
                     {formatDateShort(point.date)}
                   </text>
@@ -423,18 +419,18 @@ export default function StockChart({
               })}
 
               {areaPath ? <path d={areaPath} fill={`url(#${areaGradientId})`} stroke="none" /> : null}
-              {path ? <path d={path} fill="none" stroke={withAlpha(CHART_PALETTE.primary, 0.22)} strokeWidth={6} /> : null}
+              {path ? <path d={path} fill="none" stroke={withAlpha(palette.primary, 0.22)} strokeWidth={6} /> : null}
               {path ? <path d={path} fill="none" stroke={`url(#${lineGradientId})`} strokeWidth={2.5} /> : null}
               {lastPoint ? (
                 <g style={{ pointerEvents: 'none' }}>
                   <circle cx={lastPoint.x} cy={lastPoint.y} r={13} fill={withAlpha(currentRegimeColor, 0.18)} />
-                  <circle cx={lastPoint.x} cy={lastPoint.y} r={6.5} fill={currentRegimeColor} stroke="#ffffff" strokeWidth={2.5} />
-                  <circle cx={lastPoint.x} cy={lastPoint.y} r={2} fill="#ffffff" />
+                  <circle cx={lastPoint.x} cy={lastPoint.y} r={6.5} fill={currentRegimeColor} stroke={palette.tooltipBg} strokeWidth={2.5} />
+                  <circle cx={lastPoint.x} cy={lastPoint.y} r={2} fill={palette.tooltipBg} />
                 </g>
               ) : null}
 
               {renderedSignalMarkers.map((marker) => {
-                const colors = signalColor(marker.direction)
+                const colors = signalColor(marker.direction, palette)
                 const isActive = hoverPoint?.date === marker.date
                 const isLatest = latestStateMarker?.index === marker.index
                 return (
@@ -456,10 +452,10 @@ export default function StockChart({
                       cy={marker.y}
                       r={isActive ? 6 : isLatest ? 5.25 : 4.5}
                       fill={colors.solid}
-                      stroke="#ffffff"
+                      stroke={palette.tooltipBg}
                       strokeWidth={2}
                     />
-                    <circle cx={marker.x} cy={marker.y} r={1.6} fill="#ffffff" />
+                    <circle cx={marker.x} cy={marker.y} r={1.6} fill={palette.tooltipBg} />
                     {marker.kind === 'flip' ? (
                       <rect
                         x={marker.x - 2.5}
@@ -496,11 +492,11 @@ export default function StockChart({
                     y1={padding.top}
                     x2={hoverX}
                     y2={padding.top + innerH}
-                    stroke={CHART_PALETTE.grid}
+                    stroke={palette.grid}
                     strokeWidth={1}
                   />
-                  <circle cx={hoverX} cy={hoverYOnCurve} r={12} fill={withAlpha(CHART_PALETTE.primary, 0.20)} />
-                  <circle cx={hoverX} cy={hoverYOnCurve} r={5} fill={CHART_PALETTE.primary} stroke="#ffffff" strokeWidth={2} />
+                  <circle cx={hoverX} cy={hoverYOnCurve} r={12} fill={withAlpha(palette.primary, 0.20)} />
+                  <circle cx={hoverX} cy={hoverYOnCurve} r={5} fill={palette.primary} stroke={palette.tooltipBg} strokeWidth={2} />
                 </g>
               ) : null}
             </svg>
@@ -523,14 +519,14 @@ export default function StockChart({
                     {
                       label: 'Close',
                       value: `$${hoverPoint.value.toFixed(2)}`,
-                      swatchColor: CHART_PALETTE.primary,
+                      swatchColor: palette.primary,
                     },
                     ...(hoverSignalMarker
                       ? [
                           {
                             label: signalKindLabel(hoverSignalMarker.kind),
                             value: signalDirectionLabel(hoverSignalMarker.direction),
-                            swatchColor: signalColor(hoverSignalMarker.direction).solid,
+                            swatchColor: signalColor(hoverSignalMarker.direction, palette).solid,
                           },
                           {
                             label: 'Signal Date',

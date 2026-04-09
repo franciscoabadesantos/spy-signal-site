@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -20,14 +20,25 @@ import Badge from '@/components/ui/Badge'
 import PageHeader from '@/components/ui/PageHeader'
 import MetricGrid from '@/components/page/MetricGrid'
 import SystemProfileBlob from '@/components/page/SystemProfileBlob'
+import DismissibleLocalHint from '@/components/onboarding/DismissibleLocalHint'
+import SignalDistributionBubbleCluster, {
+  deriveSignalCompositionInsights,
+} from '@/components/SignalDistributionBubbleCluster'
 import { buttonClass } from '@/components/ui/Button'
-import ChartContainer, { CHART_MARGINS, CHART_PALETTE, ChartTooltipCard } from '@/components/charts/ChartContainer'
+import ChartContainer, {
+  CHART_MARGINS,
+  type ChartPalette,
+  ChartTooltipCard,
+  useChartPalette,
+} from '@/components/charts/ChartContainer'
 import {
+  upsertModel,
   duplicateModelRecord,
   getModelById,
   rerunModelValidation,
 } from '@/lib/model-store-client'
 import {
+  buildModelRecord,
   buildModelSystemDescription,
   deriveModelQualitativeState,
   modelSummaryResult,
@@ -36,6 +47,8 @@ import {
   type ModelRecord,
 } from '@/lib/model-builder'
 import { signalHeadlineFromInputs } from '@/lib/signalSummary'
+import { buildSampleModelInput, SAMPLE_MODEL_ID } from '@/lib/model-samples'
+import { trackEvent } from '@/lib/analytics'
 
 function formatDate(value: string | null): string {
   if (!value) return '—'
@@ -92,11 +105,13 @@ type CurveTooltipPayload = {
 function ValidationTooltip({
   active,
   payload,
+  palette,
 }: {
   active?: boolean
   payload?: Array<{
     payload?: CurveTooltipPayload
   }>
+  palette: ChartPalette
 }) {
   if (!active || !payload || payload.length === 0) return null
   const point = payload[0]?.payload
@@ -109,12 +124,12 @@ function ValidationTooltip({
         {
           label: 'Strategy',
           value: point.strategy.toFixed(2),
-          swatchColor: CHART_PALETTE.secondary,
+          swatchColor: palette.secondary,
         },
         {
           label: 'Benchmark',
           value: point.benchmark.toFixed(2),
-          swatchColor: CHART_PALETTE.neutral,
+          swatchColor: palette.neutral,
         },
         {
           label: 'Spread',
@@ -238,15 +253,93 @@ function buildBenchmarkInterpretation({
   return `Performance versus ${benchmark} is mixed, improving mainly when trend structure strengthens.`
 }
 
-export default function ModelDetailClient({ modelId }: { modelId: string }) {
+type AnalyticsEntrySource =
+  | 'homepage_sample'
+  | 'models_hub'
+  | 'stock_page'
+  | 'screener'
+  | 'compare'
+  | 'direct'
+
+function coerceEntrySource(value: string | null | undefined): AnalyticsEntrySource | null {
+  if (
+    value === 'homepage_sample' ||
+    value === 'models_hub' ||
+    value === 'stock_page' ||
+    value === 'screener' ||
+    value === 'compare' ||
+    value === 'direct'
+  ) {
+    return value
+  }
+  return null
+}
+
+function inferModelEntrySource(entrySourceHint: string | null | undefined): AnalyticsEntrySource {
+  const fromHint = coerceEntrySource(entrySourceHint)
+  if (fromHint) return fromHint
+  if (typeof document !== 'undefined' && document.referrer) {
+    try {
+      const referrerPath = new URL(document.referrer).pathname
+      if (referrerPath === '/') return 'homepage_sample'
+      if (referrerPath.startsWith('/models/compare')) return 'compare'
+      if (referrerPath === '/models') return 'models_hub'
+      if (referrerPath.startsWith('/stocks/')) return 'stock_page'
+      if (referrerPath.startsWith('/screener')) return 'screener'
+    } catch {
+      // Ignore referrer parse failures.
+    }
+  }
+  return 'direct'
+}
+
+export default function ModelDetailClient({
+  modelId,
+  entrySourceHint = null,
+}: {
+  modelId: string
+  entrySourceHint?: string | null
+}) {
   const router = useRouter()
+  const chartPalette = useChartPalette()
   const [model, setModel] = useState<ModelRecord | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isRerunning, setIsRerunning] = useState(false)
+  const viewedModelRef = useRef<string | null>(null)
 
   useEffect(() => {
-    setModel(getModelById(modelId))
+    const frame = window.requestAnimationFrame(() => {
+      const existing = getModelById(modelId)
+      if (existing) {
+        setModel(existing)
+        return
+      }
+      if (modelId === SAMPLE_MODEL_ID) {
+        const sample = buildModelRecord(buildSampleModelInput(), {
+          id: SAMPLE_MODEL_ID,
+          createdAt: '2026-01-05T00:00:00.000Z',
+          status: 'validated',
+        })
+        upsertModel(sample)
+        setModel(sample)
+        return
+      }
+      setModel(null)
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [modelId])
+
+  useEffect(() => {
+    if (!model) return
+    if (viewedModelRef.current === model.id) return
+    viewedModelRef.current = model.id
+    const entrySource = inferModelEntrySource(entrySourceHint)
+    trackEvent('view_model', {
+      model_id: model.id,
+      is_sample: model.id === SAMPLE_MODEL_ID,
+      entry_source: entrySource,
+    })
+  }, [model, entrySourceHint])
 
   const summary = model?.summary ?? null
   const signalHeadline =
@@ -590,6 +683,61 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
       : stabilityFilter
         ? 'Best in cleaner regimes, but less reliable through rapid reversals.'
         : 'Edge appears selective and can fade in unstable market structure.'
+  const inferredComposition = signalRows.reduce(
+    (acc, row) => {
+      if (row.signal === 'bullish') acc.bullishCount += 1
+      else if (row.signal === 'neutral') acc.neutralCount += 1
+      else acc.bearishCount += 1
+      return acc
+    },
+    { bullishCount: 0, neutralCount: 0, bearishCount: 0 }
+  )
+  if (
+    inferredComposition.bullishCount + inferredComposition.neutralCount + inferredComposition.bearishCount === 0 &&
+    model.currentSignal
+  ) {
+    if (model.currentSignal.direction === 'bullish') inferredComposition.bullishCount = 1
+    else if (model.currentSignal.direction === 'neutral') inferredComposition.neutralCount = 1
+    else inferredComposition.bearishCount = 1
+  }
+  const regimeComposition =
+    model.regimeComposition && model.regimeComposition.total > 0
+      ? model.regimeComposition
+      : {
+          ...inferredComposition,
+          total:
+            inferredComposition.bullishCount +
+            inferredComposition.neutralCount +
+            inferredComposition.bearishCount,
+        }
+  const compositionInsights = deriveSignalCompositionInsights({
+    bullishCount: regimeComposition.bullishCount,
+    neutralCount: regimeComposition.neutralCount,
+    bearishCount: regimeComposition.bearishCount,
+  })
+  const showActiveExposure = regimeComposition.total > 0 && regimeComposition.neutralCount > 0
+  const modifyDraftPayload = {
+    name: model.name,
+    universe: model.universe,
+    ticker: model.ticker,
+    lookbackDays: model.lookbackDays,
+    benchmark: model.benchmark,
+    logicMode: model.logicMode,
+    conditions: model.conditions.map((condition) => ({ ...condition })),
+    holdingHorizonDays: model.validation.holdingHorizonDays,
+    signalUpdateFrequency: model.validation.signalUpdateFrequency,
+    compareAgainstBenchmark: model.validation.compareAgainstBenchmark,
+    riskMode: model.validation.riskMode,
+    sourceKind: model.sourceKind ?? 'manual',
+    templateKey: model.templateKey ?? null,
+    variationOfModelId: model.variationOfModelId ?? null,
+    variationLabel: model.variationLabel ?? null,
+  }
+  const isSampleModel = model.id === SAMPLE_MODEL_ID
+  const modifyHref = `/models/new?draft=${encodeURIComponent(JSON.stringify(modifyDraftPayload))}`
+  const compareHref = parentModel
+    ? `/models/compare?left=${encodeURIComponent(parentModel.id)}&right=${encodeURIComponent(model.id)}`
+    : `/models/compare?left=${encodeURIComponent(model.id)}`
 
   const usageSignal =
     confidence === 'High'
@@ -735,21 +883,43 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
           action={
             <div className="flex flex-wrap items-center gap-2">
               <Link
-                href={`/models/new${model.ticker ? `?ticker=${encodeURIComponent(model.ticker)}` : ''}`}
+                href={modifyHref}
                 className={buttonClass({ variant: 'ghost' })}
+                onClick={() =>
+                  trackEvent('click_modify_model', {
+                    model_id: model.id,
+                    is_sample: isSampleModel,
+                    source: 'model_header_edit',
+                  })
+                }
               >
                 Edit
               </Link>
               <Link
                 href={`/models/compare?left=${encodeURIComponent(model.id)}`}
                 className={buttonClass({ variant: 'ghost' })}
+                onClick={() =>
+                  trackEvent('click_compare', {
+                    model_id: model.id,
+                    is_sample: isSampleModel,
+                    source: 'model_header_compare',
+                  })
+                }
               >
                 Compare models
               </Link>
               {parentModel ? (
                 <Link
                   href={`/models/compare?left=${encodeURIComponent(parentModel.id)}&right=${encodeURIComponent(model.id)}`}
-                  className={buttonClass({ variant: 'secondary' })}
+                  className={buttonClass({ variant: 'primary' })}
+                  onClick={() =>
+                    trackEvent('click_compare', {
+                      model_id: model.id,
+                      compare_to_model_id: parentModel.id,
+                      is_sample: isSampleModel,
+                      source: 'model_header_compare_previous',
+                    })
+                  }
                 >
                   Compare with previous
                 </Link>
@@ -833,6 +1003,10 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
         />
 
         {message ? <div className="text-[13px] text-emerald-600">{message}</div> : null}
+        <DismissibleLocalHint
+          storageKey="spy_signal_onboarding_loop_hint_dismissed_v1"
+          text="Start here: Explore a model → tweak it → compare results"
+        />
 
         <Card className="section-gap border-primary/20 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_68%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_68%)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -841,7 +1015,7 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
               <h2 className="mt-1 text-section-title text-neutral-900 dark:text-neutral-100">{model.name}</h2>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900">
+              <div className="rounded-xl border border-border bg-surface-elevated px-3 py-2">
                 <div className="flex items-center justify-between gap-3 text-[11px]">
                   <span className="text-neutral-500 dark:text-neutral-400">Confidence</span>
                   <span className="font-medium text-neutral-700 dark:text-neutral-300">
@@ -850,8 +1024,8 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
                 </div>
                 <div className="relative mt-1 h-2 w-[150px] overflow-hidden rounded-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-500">
                   <div
-                    className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-white bg-neutral-900 shadow-sm transition-all duration-300 dark:bg-white"
-                    style={{ left: `calc(${confidencePct}% - 6px)` }}
+                    className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border bg-neutral-900 shadow-sm transition-all duration-300 dark:bg-white"
+                    style={{ left: `calc(${confidencePct}% - 6px)`, borderColor: chartPalette.tooltipBg }}
                   />
                 </div>
               </div>
@@ -889,17 +1063,93 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
           <div className="text-[14px] font-semibold text-neutral-900 dark:text-neutral-100">{topInsightHeadline}</div>
           <p className="text-[13px] text-neutral-600 dark:text-neutral-400">{topInsightSummary}</p>
         </Card>
+        <Card className="section-gap">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            Explore → Modify → Compare
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium">
+            <a href="#key-findings" className="text-primary hover:underline">
+              Explore
+            </a>
+            <span className="text-neutral-400">→</span>
+            <Link
+              href={modifyHref}
+              className="text-primary hover:underline"
+              onClick={() =>
+                trackEvent('click_modify_model', {
+                  model_id: model.id,
+                  is_sample: isSampleModel,
+                  source: 'model_loop_modify',
+                })
+              }
+            >
+              Modify
+            </Link>
+            <span className="text-neutral-400">→</span>
+            <Link
+              href={compareHref}
+              className="text-primary hover:underline"
+              onClick={() =>
+                trackEvent('click_compare', {
+                  model_id: model.id,
+                  compare_to_model_id: parentModel?.id ?? null,
+                  is_sample: isSampleModel,
+                  source: 'model_loop_compare',
+                })
+              }
+            >
+              Compare
+            </Link>
+          </div>
+          <div className="pt-1">
+            <Link
+              href={modifyHref}
+              className={buttonClass({ variant: 'secondary' })}
+              onClick={() =>
+                trackEvent('click_modify_model', {
+                  model_id: model.id,
+                  is_sample: isSampleModel,
+                  source: 'model_try_adjusting',
+                })
+              }
+            >
+              Try adjusting this model
+            </Link>
+          </div>
+        </Card>
 
-        <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-          <span className="mr-2 font-medium text-neutral-900 dark:text-neutral-100">Should I use this?</span>
+        <Card className="section-gap">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Behavioral composition</h3>
+            <Badge variant="neutral">{compositionInsights.biasLabel}</Badge>
+          </div>
+          <p className="text-body">{compositionInsights.interpretation}</p>
+          {showActiveExposure ? (
+            <p className="text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
+              Active {compositionInsights.activePct}% of time
+            </p>
+          ) : null}
+          <SignalDistributionBubbleCluster
+            bullishCount={regimeComposition.bullishCount}
+            neutralCount={regimeComposition.neutralCount}
+            bearishCount={regimeComposition.bearishCount}
+            mode="compact"
+            showSummaryLine={false}
+            showCount={false}
+            showRoleInside
+          />
+        </Card>
+
+        <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 text-sm text-content-secondary">
+          <span className="mr-2 font-medium text-content-primary">Should I use this?</span>
           {usageSignal}
         </div>
 
         <Card className="section-gap">
           <details>
-            <summary className="cursor-pointer list-none text-card-title text-neutral-900 dark:text-neutral-100">
-              How this was evaluated
-            </summary>
+              <summary className="cursor-pointer list-none text-card-title text-content-primary">
+                How this was evaluated
+              </summary>
             <ul className="mt-3 list-disc space-y-1 pl-5 text-body">
               {evaluationMethodItems.map((item, index) => (
                 <li key={`evaluation-method-${index}`}>{item}</li>
@@ -908,8 +1158,8 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
           </details>
         </Card>
 
-        <Card className="section-gap">
-          <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Key Findings</h3>
+        <Card id="key-findings" className="section-gap">
+          <h3 className="text-card-title text-content-primary">Key Findings</h3>
           <div className="space-y-1 text-body">
             {keyFindings.slice(0, 3).map((finding, index) => (
               <p key={`finding-${index}`}>{finding}</p>
@@ -918,12 +1168,12 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
         </Card>
 
         <Card className="section-gap">
-          <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Trade examples</h3>
+          <h3 className="text-card-title text-content-primary">Trade examples</h3>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {tradeExamples.map((example) => (
               <div
                 key={`${example.label}-${example.row.date}-${example.row.signal}-${example.row.returnPct}`}
-                className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+                className="rounded-xl border border-border bg-surface-elevated p-3"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
@@ -944,10 +1194,10 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
                 <div className={`mt-1 text-base font-semibold ${example.row.returnPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                   {formatPercent(example.row.returnPct)}
                 </div>
-                <div className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+                <div className="mt-1 text-[12px] text-content-muted">
                   {formatDate(example.row.date)} · {model.validation.holdingHorizonDays}d hold
                 </div>
-                <p className="mt-2 text-[12px] text-neutral-700 dark:text-neutral-300">{tradeExplanation(example.row)}</p>
+                <p className="mt-2 text-[12px] text-content-secondary">{tradeExplanation(example.row)}</p>
               </div>
             ))}
           </div>
@@ -955,14 +1205,14 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
             <p className="text-body">No completed trade examples yet for this configuration.</p>
           ) : null}
           {bearishSignalsPresent ? (
-            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+            <p className="text-[12px] text-content-muted">
               Bearish returns assume frictionless short exposure.
             </p>
           ) : null}
         </Card>
 
         <Card className="section-gap">
-          <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">What drives performance</h3>
+          <h3 className="text-card-title text-content-primary">What drives performance</h3>
           <ul className="list-disc space-y-1 pl-5 text-body">
             {performanceDrivers.slice(0, 3).map((driver, index) => (
               <li key={`driver-${index}`}>{driver}</li>
@@ -971,25 +1221,25 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
         </Card>
 
         <Card className="section-gap">
-          <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Why this model works</h3>
+          <h3 className="text-card-title text-content-primary">Why this model works</h3>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-            <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="rounded-xl border border-border bg-surface-elevated p-3">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 Driver
               </div>
-              <p className="mt-1 text-[13px] text-neutral-700 dark:text-neutral-300">{whyDriver}</p>
+              <p className="mt-1 text-[13px] text-content-secondary">{whyDriver}</p>
             </div>
-            <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="rounded-xl border border-border bg-surface-elevated p-3">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 Filter
               </div>
-              <p className="mt-1 text-[13px] text-neutral-700 dark:text-neutral-300">{whyFilter}</p>
+              <p className="mt-1 text-[13px] text-content-secondary">{whyFilter}</p>
             </div>
-            <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="rounded-xl border border-border bg-surface-elevated p-3">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 Edge Source
               </div>
-              <p className="mt-1 text-[13px] text-neutral-700 dark:text-neutral-300">{whyEdgeSource}</p>
+              <p className="mt-1 text-[13px] text-content-secondary">{whyEdgeSource}</p>
             </div>
           </div>
         </Card>
@@ -1007,7 +1257,7 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
             <Card className="section-gap">
               <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Effect of change</h3>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 hover:bg-surface-hover">
                   <div className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                     Performance
                   </div>
@@ -1015,7 +1265,7 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
                     {directionArrow(performanceDirection)} {performanceDeltaLabel}
                   </div>
                 </div>
-                <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 hover:bg-surface-hover">
                   <div className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                     Stability
                   </div>
@@ -1023,7 +1273,7 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
                     {directionArrow(stabilityDirection)} {stabilityDeltaLabel}
                   </div>
                 </div>
-                <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 hover:bg-surface-hover">
                   <div className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                     Signal Frequency
                   </div>
@@ -1092,30 +1342,30 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
               </div>
 
               <ChartContainer className="h-[280px]">
-                {() => (
+                {({ palette }) => (
                   <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
                     <AreaChart data={model.equityCurve} margin={CHART_MARGINS.stock}>
                       <defs>
                         <linearGradient id="modelStrategyFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={CHART_PALETTE.secondary} stopOpacity={0.26} />
-                          <stop offset="100%" stopColor={CHART_PALETTE.secondary} stopOpacity={0.02} />
+                          <stop offset="0%" stopColor={palette.secondary} stopOpacity={0.26} />
+                          <stop offset="100%" stopColor={palette.secondary} stopOpacity={0.02} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="2 6" stroke="rgba(100,116,139,0.14)" vertical={false} />
-                      <XAxis dataKey="t" tick={{ fontSize: 11, fill: CHART_PALETTE.textMuted }} axisLine={false} tickLine={false} />
+                      <CartesianGrid strokeDasharray="2 6" stroke={palette.grid} vertical={false} />
+                      <XAxis dataKey="t" tick={{ fontSize: 11, fill: palette.textMuted }} axisLine={false} tickLine={false} />
                       <YAxis
-                        tick={{ fontSize: 11, fill: CHART_PALETTE.textMuted }}
+                        tick={{ fontSize: 11, fill: palette.textMuted }}
                         axisLine={false}
                         tickLine={false}
                         width={40}
                         tickFormatter={(value) => Number(value).toFixed(0)}
                       />
-                      <Tooltip content={<ValidationTooltip />} cursor={{ stroke: CHART_PALETTE.secondary, strokeOpacity: 0.26 }} />
+                      <Tooltip content={<ValidationTooltip palette={palette} />} cursor={{ stroke: palette.secondary, strokeOpacity: 0.26 }} />
                       {model.validation.compareAgainstBenchmark ? (
                         <Line
                           type="monotone"
                           dataKey="benchmark"
-                          stroke={CHART_PALETTE.neutral}
+                          stroke={palette.neutral}
                           strokeWidth={1.8}
                           strokeDasharray="4 4"
                           dot={false}
@@ -1125,7 +1375,7 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
                       <Line
                         type="monotone"
                         dataKey="strategy"
-                        stroke={CHART_PALETTE.secondary}
+                        stroke={palette.secondary}
                         strokeWidth={2.6}
                         dot={false}
                       />
@@ -1136,7 +1386,7 @@ export default function ModelDetailClient({ modelId }: { modelId: string }) {
                           y={marker.strategy}
                           r={3.5}
                           fill={markerColor(marker.signal)}
-                          stroke="#ffffff"
+                          stroke={palette.tooltipBg}
                           strokeWidth={1}
                           ifOverflow="extendDomain"
                         />

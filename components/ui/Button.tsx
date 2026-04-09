@@ -6,11 +6,11 @@ type ButtonSize = 'sm' | 'md'
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200',
+    'bg-primary text-primary-foreground hover:bg-primary/90',
   secondary:
-    'border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800',
+    'border border-border bg-surface-card text-content-primary hover:bg-surface-hover',
   ghost:
-    'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800',
+    'text-content-secondary hover:bg-surface-hover hover:text-content-primary',
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -28,7 +28,7 @@ export function buttonClass({
   size = 'md',
 }: ButtonClassOptions = {}): string {
   return cn(
-    'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-60',
+    'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-60',
     variantClasses[variant],
     sizeClasses[size]
   )

@@ -11,19 +11,19 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
 
   return (
     <nav aria-label="Breadcrumb" className="mb-4">
-      <ol className="flex flex-wrap items-center gap-1.5 text-[12px] text-gray-500">
+      <ol className="flex flex-wrap items-center gap-1.5 text-[12px] text-content-muted">
         {items.map((item, index) => {
           const isLast = index === items.length - 1
           return (
             <li key={`${item.label}-${index}`} className="inline-flex items-center gap-1.5">
               {item.href && !isLast ? (
-                <Link href={item.href} className="hover:text-gray-700 transition-colors">
+                <Link href={item.href} className="transition-colors hover:text-content-secondary">
                   {item.label}
                 </Link>
               ) : (
-                <span className={isLast ? 'text-gray-700 font-medium' : ''}>{item.label}</span>
+                <span className={isLast ? 'font-medium text-content-secondary' : ''}>{item.label}</span>
               )}
-              {!isLast && <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
+              {!isLast && <ChevronRight className="h-3.5 w-3.5 text-content-muted" />}
             </li>
           )
         })}
