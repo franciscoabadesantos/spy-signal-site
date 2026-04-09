@@ -1,6 +1,7 @@
 import Nav from '@/components/Nav'
 import { Filter, Lock } from 'lucide-react'
 import Link from 'next/link'
+import ScreenerSignalCard from '@/components/ScreenerSignalCard'
 import { getScreenerSignals, type ScreenerSort } from '@/lib/signals'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 
@@ -45,49 +46,6 @@ function parseMaxAgeDays(raw: string | undefined): number {
   const parsed = Number(raw)
   if (!Number.isFinite(parsed)) return 0
   return Math.max(0, Math.min(3650, Math.round(parsed)))
-}
-
-function formatConviction(value: number | null): string {
-  if (value === null) return '—'
-  return `${(value * 100).toFixed(0)}%`
-}
-
-function formatPrice(value: number | null): string {
-  if (value === null) return '—'
-  return `$${value.toFixed(2)}`
-}
-
-function formatPct(value: number | null): string {
-  if (value === null) return '—'
-  const sign = value >= 0 ? '+' : ''
-  return `${sign}${value.toFixed(2)}%`
-}
-
-function formatSignalDate(value: string | null): string {
-  if (!value) return '—'
-  const parsed = Date.parse(value)
-  if (!Number.isFinite(parsed)) return '—'
-  return new Date(parsed).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-function signalBadgeClass(signal: 'bullish' | 'neutral' | 'bearish'): string {
-  if (signal === 'bullish') {
-    return 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/30'
-  }
-  if (signal === 'bearish') {
-    return 'bg-red-500/10 text-red-700 border border-red-500/30'
-  }
-  return 'bg-slate-500/10 text-slate-700 border border-slate-400/30'
-}
-
-function signalLabel(signal: 'bullish' | 'neutral' | 'bearish'): string {
-  if (signal === 'bullish') return 'BUY'
-  if (signal === 'bearish') return 'SELL'
-  return 'HOLD'
 }
 
 export default async function ScreenerPage({
@@ -262,7 +220,7 @@ export default async function ScreenerPage({
             )}
           </div>
 
-          {/* Table Results */}
+          {/* Visual Results */}
           <div className="flex-1 p-6 relative overflow-hidden">
             <div className="flex justify-between items-center mb-6">
               <span className="text-sm text-muted-foreground">
@@ -286,63 +244,15 @@ export default async function ScreenerPage({
                 ) : null}
               </div>
             ) : (
-              <div className="overflow-auto">
-                <table className="w-full text-[13px] text-left whitespace-nowrap">
-                  <thead className="bg-muted text-muted-foreground border-b border-border sticky top-0">
-                    <tr>
-                      <th className="px-4 py-3 font-medium rounded-tl-md">Ticker</th>
-                      <th className="px-4 py-3 font-medium">Signal</th>
-                      <th className="px-4 py-3 font-medium">Conviction</th>
-                      <th className="px-4 py-3 font-medium">Signal Date</th>
-                      <th className="px-4 py-3 font-medium">Horizon</th>
-                      <th className="px-4 py-3 font-medium">Price</th>
-                      <th className="px-4 py-3 font-medium rounded-tr-md">% Chg</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleRows.map((row) => (
-                      <tr key={`${row.ticker}-${row.signalDate ?? ''}`} className="border-b border-border even:bg-muted/10 hover:bg-muted/20">
-                        <td className="px-4 py-3 font-semibold">
-                          <Link href={`/stocks/${row.ticker}`} className="text-primary hover:underline">
-                            {row.ticker}
-                          </Link>
-                          {row.name && (
-                            <div className="text-[12px] text-muted-foreground font-normal truncate max-w-[240px]">
-                              {row.name}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${signalBadgeClass(row.direction)}`}>
-                            {signalLabel(row.direction)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{formatConviction(row.conviction)}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{formatSignalDate(row.signalDate)}</td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {row.predictionHorizon === null ? '—' : `${row.predictionHorizon}d`}
-                        </td>
-                        <td className="px-4 py-3 font-medium">{formatPrice(row.price)}</td>
-                        <td
-                          className={`px-4 py-3 font-medium ${
-                            row.changePercent === null
-                              ? 'text-muted-foreground'
-                              : row.changePercent >= 0
-                                ? 'text-emerald-600'
-                                : 'text-red-600'
-                          }`}
-                        >
-                          {formatPct(row.changePercent)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+                {visibleRows.map((row) => (
+                  <ScreenerSignalCard key={`${row.ticker}-${row.signalDate ?? ''}`} row={row} />
+                ))}
               </div>
             )}
             
             {!viewer.isPro && hiddenCount > 0 && (
-              <div className="absolute inset-0 top-52 bg-gradient-to-t from-background via-background/92 to-transparent flex items-end justify-center pb-12">
+              <div className="absolute inset-0 top-56 bg-gradient-to-t from-background via-background/92 to-transparent flex items-end justify-center pb-12">
                <div className="bg-card border border-border p-5 rounded-xl shadow-2xl text-center max-w-sm">
                  <Lock className="w-8 h-8 text-primary mx-auto mb-3" />
                  <h4 className="font-semibold text-foreground mb-1">See All Tickers</h4>

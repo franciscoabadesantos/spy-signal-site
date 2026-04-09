@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getViewerUserId } from '@/lib/auth'
+import { createAiResearchRun, finalizeAiResearchRun } from '@/lib/ai-research'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,6 +19,23 @@ type AnalystNewsInput = {
   publisher?: unknown
   publishedAt?: unknown
   url?: unknown
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error'
+}
+
+function mergeUniqueUrls(existing: string[], incoming: unknown): string[] {
+  const next = new Set(existing)
+  if (Array.isArray(incoming)) {
+    for (const item of incoming) {
+      if (typeof item !== 'string') continue
+      const trimmed = item.trim()
+      if (!trimmed.startsWith('http')) continue
+      next.add(trimmed)
+    }
+  }
+  return [...next]
 }
 
 function asString(value: unknown): string | null {
@@ -84,6 +103,8 @@ function buildPrompt({
   ticker,
   signal,
   news,
+  question,
+  promptLabel,
 }: {
   ticker: string
   signal: {
@@ -98,6 +119,8 @@ function buildPrompt({
     publishedAt: string | null
     url: string
   }>
+  question: string | null
+  promptLabel: string | null
 }): string {
   const conviction =
     signal.conviction === null ? 'unknown conviction' : `${Math.round(signal.conviction * 100)}% conviction`
@@ -114,21 +137,27 @@ function buildPrompt({
     })
     .join('\n')
 
+  const requestLine = question ?? 'What are the main catalysts behind the current model stance?'
+
   return [
     `Ticker: ${ticker}`,
     `Signal: ${signal.direction.toUpperCase()} (${conviction}, ${horizon}, date ${signalDate})`,
+    promptLabel ? `Prompt label: ${promptLabel}` : null,
+    `User question: ${requestLine}`,
     '',
     'Recent headlines:',
     headlineContext || 'No headlines provided.',
     '',
     'Task:',
-    'Write exactly 3 concise bullet points explaining plausible catalysts behind this model stance.',
+    'Write exactly 3 concise bullet points answering the user question and explaining plausible catalysts behind this model stance.',
     'Rules:',
     '- Focus on macro, sector, company, rates, and flow dynamics.',
     '- Mention uncertainty when evidence is mixed.',
     '- Keep each bullet under 38 words.',
     '- Do not provide investment advice.',
-  ].join('\n')
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join('\n')
 }
 
 export async function POST(request: NextRequest) {
@@ -167,6 +196,16 @@ export async function POST(request: NextRequest) {
     signalDate: asString(signalInput.signalDate),
   }
   const news = sanitizeNews(payload.news)
+  const question = asString(payload.question)
+  const promptLabel = asString(payload.promptLabel)
+  const userId = await getViewerUserId()
+  const runId = await createAiResearchRun({
+    userId,
+    ticker,
+    promptLabel,
+    question,
+    signal,
+  })
 
   const body = {
     model,
@@ -180,7 +219,7 @@ export async function POST(request: NextRequest) {
       },
       {
         role: 'user',
-        content: buildPrompt({ ticker, signal, news }),
+        content: buildPrompt({ ticker, signal, news, question, promptLabel }),
       },
     ],
   }
@@ -197,11 +236,29 @@ export async function POST(request: NextRequest) {
       cache: 'no-store',
     })
   } catch {
+    if (runId !== null) {
+      await finalizeAiResearchRun({
+        runId,
+        status: 'failed',
+        provider: 'perplexity',
+        model,
+        errorMessage: 'Failed to reach Perplexity API.',
+      })
+    }
     return NextResponse.json({ error: 'Failed to reach Perplexity API.' }, { status: 502 })
   }
 
   if (!upstream.ok) {
     const errorBody = await upstream.text().catch(() => '')
+    if (runId !== null) {
+      await finalizeAiResearchRun({
+        runId,
+        status: 'failed',
+        provider: 'perplexity',
+        model,
+        errorMessage: `Perplexity API error ${upstream.status}: ${errorBody.slice(0, 400)}`,
+      })
+    }
     return NextResponse.json(
       {
         error: 'Perplexity API error.',
@@ -213,10 +270,111 @@ export async function POST(request: NextRequest) {
   }
 
   if (!upstream.body) {
+    if (runId !== null) {
+      await finalizeAiResearchRun({
+        runId,
+        status: 'failed',
+        provider: 'perplexity',
+        model,
+        errorMessage: 'Perplexity API returned an empty stream.',
+      })
+    }
     return NextResponse.json({ error: 'Perplexity API returned an empty stream.' }, { status: 502 })
   }
 
-  return new Response(upstream.body, {
+  const encoder = new TextEncoder()
+  const decoder = new TextDecoder()
+  const reader = upstream.body.getReader()
+  let buffer = ''
+  let accumulated = ''
+  let gatheredCitations: string[] = []
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      if (runId !== null) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ run_id: runId })}\n\n`))
+      }
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if (!value) continue
+
+          controller.enqueue(value)
+          buffer += decoder.decode(value, { stream: true })
+          const events = buffer.split(/\r?\n\r?\n/)
+          buffer = events.pop() || ''
+
+          for (const eventBlock of events) {
+            const lines = eventBlock
+              .split(/\r?\n/)
+              .map((line) => line.trim())
+              .filter((line) => line.startsWith('data:'))
+
+            for (const line of lines) {
+              const payload = line.slice(5).trim()
+              if (!payload || payload === '[DONE]') continue
+
+              let parsed: Record<string, unknown>
+              try {
+                parsed = JSON.parse(payload) as Record<string, unknown>
+              } catch {
+                continue
+              }
+
+              const choices = Array.isArray(parsed.choices) ? parsed.choices : []
+              const firstChoice = (choices[0] as Record<string, unknown> | undefined) ?? null
+              const delta = (firstChoice?.delta as Record<string, unknown> | undefined) ?? null
+              const message = (firstChoice?.message as Record<string, unknown> | undefined) ?? null
+
+              const deltaContent = typeof delta?.content === 'string' ? delta.content : null
+              const messageContent = typeof message?.content === 'string' ? message.content : null
+              const contentChunk = deltaContent ?? (accumulated.length === 0 ? messageContent : null)
+
+              if (contentChunk && accumulated.length < 4000) {
+                accumulated = `${accumulated}${contentChunk}`.slice(0, 4000)
+              }
+
+              gatheredCitations = mergeUniqueUrls(gatheredCitations, parsed.citations)
+            }
+          }
+        }
+
+        controller.close()
+
+        if (runId !== null) {
+          await finalizeAiResearchRun({
+            runId,
+            status: 'completed',
+            provider: 'perplexity',
+            model,
+            responseExcerpt: accumulated.trim() || null,
+            citations: gatheredCitations,
+          })
+        }
+      } catch (error) {
+        controller.error(error)
+
+        if (runId !== null) {
+          await finalizeAiResearchRun({
+            runId,
+            status: 'failed',
+            provider: 'perplexity',
+            model,
+            responseExcerpt: accumulated.trim() || null,
+            citations: gatheredCitations,
+            errorMessage: errorMessage(error),
+          })
+        }
+      }
+    },
+    async cancel() {
+      await reader.cancel()
+    },
+  })
+
+  return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',

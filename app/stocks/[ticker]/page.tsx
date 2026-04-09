@@ -10,6 +10,7 @@ import {
 } from '@/lib/finance'
 import { getViewerUserId } from '@/lib/auth'
 import { isTickerInWatchlist } from '@/lib/watchlist'
+import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import Nav from '@/components/Nav'
 import { ShieldCheck, Newspaper } from 'lucide-react'
 import Link from 'next/link'
@@ -21,9 +22,22 @@ import AiAnalystPanel from '@/components/AiAnalystPanel'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import PremiumSignalWidget from '@/components/PremiumSignalWidget'
 import StickySectionNav from '@/components/StickySectionNav'
+import RecentAiResearchRuns from '@/components/RecentAiResearchRuns'
 import type { Signal } from '@/lib/types'
+import { getRecentAiResearchRuns } from '@/lib/ai-research'
 
 export const dynamic = 'force-dynamic'
+
+function singleSearchParam(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return typeof value === 'string' ? value : null
+}
+
+function sanitizeAiQuestion(value: string | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed.slice(0, 240) : null
+}
 
 export async function generateMetadata({
   params,
@@ -210,11 +224,24 @@ function computeModelProofMetrics(signals: Signal[], historical: PricePoint[]): 
 }
 
 // --- MAIN PAGE COMPONENT ---
-export default async function TickerPage({ params }: { params: Promise<{ ticker: string }> }) {
+export default async function TickerPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ ticker: string }>
+  searchParams: Promise<{ aiQuestion?: string | string[]; aiPromptLabel?: string | string[] }>
+}) {
   const resolvedParams = await params
+  const resolvedSearchParams = await searchParams
   const ticker = resolvedParams.ticker.toUpperCase()
-  const viewerUserId = await getViewerUserId()
+  const initialAiQuestion = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiQuestion))
+  const initialAiPromptLabel = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiPromptLabel))
+  const viewerAccess = await getViewerAccess()
+  const viewerUserId = viewerAccess.userId ?? (await getViewerUserId())
   const aiAnalystEnabled = Boolean(process.env.PERPLEXITY_API_KEY?.trim())
+  const upgradeHref = viewerAccess.isSignedIn
+    ? getStripeUpgradeUrl(viewerAccess.userId)
+    : '/sign-up?redirect_url=/stocks/' + ticker
   const relatedTickerSymbols = getRelatedTickers(ticker)
 
   const [quote, historicalData, recentSignals, fundamentals, newsItems, relatedQuotes] = await Promise.all([
@@ -225,6 +252,11 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
     getTickerNews(ticker, 5),
     Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
   ])
+  const recentAiRuns = await getRecentAiResearchRuns({
+    userId: viewerAccess.userId,
+    ticker,
+    limit: 4,
+  })
   const isInWatchlist = viewerUserId ? await isTickerInWatchlist(viewerUserId, ticker) : false
   
   const hasSignals = recentSignals.length > 0
@@ -461,21 +493,33 @@ export default async function TickerPage({ params }: { params: Promise<{ ticker:
                    </div>
                  </div>
 
-                 {aiAnalystEnabled && (
-                   <AiAnalystPanel
-                     ticker={ticker}
-                     signal={{
-                       direction: latest.direction,
-                       conviction: latest.prob_side,
-                       predictionHorizon: latest.prediction_horizon,
-                       signalDate: latest.signal_date,
-                     }}
-                     news={newsItems.map((item) => ({
-                       title: item.title,
-                       publisher: item.publisher,
-                       publishedAt: item.publishedAt,
-                       url: item.url,
-                     }))}
+                 <AiAnalystPanel
+                   ticker={ticker}
+                   signal={{
+                     direction: latest.direction,
+                     conviction: latest.prob_side,
+                     predictionHorizon: latest.prediction_horizon,
+                     signalDate: latest.signal_date,
+                   }}
+                   news={newsItems.map((item) => ({
+                     title: item.title,
+                     publisher: item.publisher,
+                     publishedAt: item.publishedAt,
+                     url: item.url,
+                   }))}
+                   isPro={viewerAccess.isPro}
+                   providerEnabled={aiAnalystEnabled}
+                   upgradeHref={upgradeHref}
+                   initialQuestion={initialAiQuestion}
+                   initialPromptLabel={initialAiPromptLabel}
+                 />
+
+                 {viewerAccess.isSignedIn && (
+                   <RecentAiResearchRuns
+                     title="Recent AI Research"
+                     runs={recentAiRuns}
+                     compact
+                     emptyMessage="No saved AI research runs for this ticker yet."
                    />
                  )}
                </div>
