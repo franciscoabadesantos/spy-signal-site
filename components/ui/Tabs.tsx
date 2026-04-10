@@ -24,7 +24,7 @@ function tabClass(active: boolean, disabled: boolean): string {
     return 'border-content-primary text-content-primary'
   }
 
-  return 'border-transparent text-content-muted hover:text-content-primary'
+  return 'border-transparent text-content-muted hover:border-divider-strong hover:text-content-primary active:text-content-primary'
 }
 
 export default function Tabs({
@@ -39,7 +39,7 @@ export default function Tabs({
         {items.map((item) => {
           const active = item.key === activeKey
           const sharedClass = cn(
-            'inline-flex border-b-2 px-1 py-3 text-sm font-medium transition-colors',
+            'inline-flex rounded-t-md border-b-2 px-1 py-3 text-sm font-medium transition-[color,border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg',
             tabClass(active, Boolean(item.disabled))
           )
 

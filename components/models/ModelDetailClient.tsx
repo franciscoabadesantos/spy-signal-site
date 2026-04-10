@@ -80,7 +80,7 @@ function formatPercent(value: number | null): string {
 }
 
 function signalToneClass(signal: ModelRecord['currentSignal']): string {
-  if (!signal) return 'text-neutral-700 dark:text-neutral-300'
+  if (!signal) return 'text-content-secondary'
   if (signal.direction === 'bullish') return 'text-emerald-700 dark:text-emerald-300'
   if (signal.direction === 'bearish') return 'text-rose-700 dark:text-rose-300'
   return 'text-amber-700 dark:text-amber-300'
@@ -188,13 +188,13 @@ function directionArrow(direction: DeltaDirection): string {
 function directionToneClass(direction: DeltaDirection): string {
   if (direction === 'up') return 'text-emerald-600 dark:text-emerald-400'
   if (direction === 'down') return 'text-rose-600 dark:text-rose-400'
-  return 'text-neutral-500 dark:text-neutral-400'
+  return 'text-content-muted'
 }
 
 function frequencyToneClass(direction: DeltaDirection): string {
   if (direction === 'up') return 'text-sky-600 dark:text-sky-400'
   if (direction === 'down') return 'text-amber-600 dark:text-amber-400'
-  return 'text-neutral-500 dark:text-neutral-400'
+  return 'text-content-muted'
 }
 
 function markerColor(signal: ModelRecord['signals'][number]['signal']): string {
@@ -351,7 +351,7 @@ export default function ModelDetailClient({
     return (
       <AppShell active="models" container="md">
         <Card className="section-gap text-center">
-          <h2 className="text-section-title text-neutral-900 dark:text-neutral-100">Model not found</h2>
+          <h2 className="text-section-title text-content-primary">Model not found</h2>
           <p className="text-body">This model may be missing from local storage or was never created.</p>
           <div>
             <Link href="/models" className={buttonClass({ variant: 'primary' })}>
@@ -1012,19 +1012,19 @@ export default function ModelDetailClient({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-filter-label">Model identity</div>
-              <h2 className="mt-1 text-section-title text-neutral-900 dark:text-neutral-100">{model.name}</h2>
+              <h2 className="mt-1 text-section-title text-content-primary">{model.name}</h2>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="rounded-xl border border-border bg-surface-elevated px-3 py-2">
                 <div className="flex items-center justify-between gap-3 text-[11px]">
-                  <span className="text-neutral-500 dark:text-neutral-400">Confidence</span>
-                  <span className="font-medium text-neutral-700 dark:text-neutral-300">
+                  <span className="text-content-muted">Confidence</span>
+                  <span className="font-medium text-content-secondary">
                     {confidence} · {confidencePct}
                   </span>
                 </div>
-                <div className="relative mt-1 h-2 w-[150px] overflow-hidden rounded-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-500">
+                <div className="relative mt-1 h-2 w-[150px] overflow-hidden rounded-full bg-gradient-to-r from-rose-400/85 via-amber-400/85 to-emerald-500/85 dark:from-rose-500/70 dark:via-amber-500/70 dark:to-emerald-500/70">
                   <div
-                    className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border bg-neutral-900 shadow-sm transition-all duration-300 dark:bg-white"
+                    className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border bg-neutral-900 shadow-sm transition-all duration-300 dark:bg-slate-200"
                     style={{ left: `calc(${confidencePct}% - 6px)`, borderColor: chartPalette.tooltipBg }}
                   />
                 </div>
@@ -1034,13 +1034,13 @@ export default function ModelDetailClient({
             </div>
           </div>
           <p className="text-body">{modelDescription}</p>
-          <p className="text-[12px] text-neutral-500 dark:text-neutral-400">{confidenceHelper}</p>
+          <p className="text-[12px] text-content-muted">{confidenceHelper}</p>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="neutral">
               {usesHistoricalValidation ? 'Historical validation' : 'Preview validation'}
             </Badge>
             <span
-              className="text-[12px] text-neutral-500 dark:text-neutral-400"
+              className="text-[12px] text-content-muted"
               title={
                 usesHistoricalValidation
                   ? 'Validation uses historical daily data with simplified execution assumptions.'
@@ -1052,7 +1052,7 @@ export default function ModelDetailClient({
                 : 'Simulated result'}
             </span>
           </div>
-          <div className="grid grid-cols-1 gap-1 text-[12px] text-neutral-600 dark:text-neutral-400 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-1 text-[12px] text-content-secondary sm:grid-cols-2">
             <div>Created: {createdAtLabel}</div>
             <div>Last run: {lastRunLabel}</div>
             {variationMeta ? <div className="sm:col-span-2">Variation: {variationMeta}</div> : null}
@@ -1060,21 +1060,21 @@ export default function ModelDetailClient({
         </Card>
 
         <Card className="section-gap">
-          <div className="text-[14px] font-semibold text-neutral-900 dark:text-neutral-100">{topInsightHeadline}</div>
-          <p className="text-[13px] text-neutral-600 dark:text-neutral-400">{topInsightSummary}</p>
+          <div className="text-[14px] font-semibold text-content-primary">{topInsightHeadline}</div>
+          <p className="text-[13px] text-content-secondary">{topInsightSummary}</p>
         </Card>
         <Card className="section-gap">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
             Explore → Modify → Compare
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium">
-            <a href="#key-findings" className="text-primary hover:underline">
+            <a href="#key-findings" className="text-accent-text hover:underline">
               Explore
             </a>
-            <span className="text-neutral-400">→</span>
+            <span className="text-content-muted">→</span>
             <Link
               href={modifyHref}
-              className="text-primary hover:underline"
+              className="text-accent-text hover:underline"
               onClick={() =>
                 trackEvent('click_modify_model', {
                   model_id: model.id,
@@ -1085,10 +1085,10 @@ export default function ModelDetailClient({
             >
               Modify
             </Link>
-            <span className="text-neutral-400">→</span>
+            <span className="text-content-muted">→</span>
             <Link
               href={compareHref}
-              className="text-primary hover:underline"
+              className="text-accent-text hover:underline"
               onClick={() =>
                 trackEvent('click_compare', {
                   model_id: model.id,
@@ -1120,12 +1120,12 @@ export default function ModelDetailClient({
 
         <Card className="section-gap">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Behavioral composition</h3>
+            <h3 className="text-card-title text-content-primary">Behavioral composition</h3>
             <Badge variant="neutral">{compositionInsights.biasLabel}</Badge>
           </div>
           <p className="text-body">{compositionInsights.interpretation}</p>
           {showActiveExposure ? (
-            <p className="text-[12px] font-medium text-neutral-500 dark:text-neutral-400">
+            <p className="text-[12px] font-medium text-content-muted">
               Active {compositionInsights.activePct}% of time
             </p>
           ) : null}
@@ -1176,7 +1176,7 @@ export default function ModelDetailClient({
                 className="rounded-xl border border-border bg-surface-elevated p-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
                     {example.label}
                   </div>
                   <Badge
@@ -1224,19 +1224,19 @@ export default function ModelDetailClient({
           <h3 className="text-card-title text-content-primary">Why this model works</h3>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
             <div className="rounded-xl border border-border bg-surface-elevated p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
                 Driver
               </div>
               <p className="mt-1 text-[13px] text-content-secondary">{whyDriver}</p>
             </div>
             <div className="rounded-xl border border-border bg-surface-elevated p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
                 Filter
               </div>
               <p className="mt-1 text-[13px] text-content-secondary">{whyFilter}</p>
             </div>
             <div className="rounded-xl border border-border bg-surface-elevated p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
                 Edge Source
               </div>
               <p className="mt-1 text-[13px] text-content-secondary">{whyEdgeSource}</p>
@@ -1247,7 +1247,7 @@ export default function ModelDetailClient({
         {parentModel ? (
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card className="section-gap">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">What changed</h3>
+              <h3 className="text-card-title text-content-primary">What changed</h3>
               <ul className="list-disc space-y-1 pl-5 text-body">
                 {whatChanged.slice(0, 4).map((item, index) => (
                   <li key={`change-${index}`}>{item}</li>
@@ -1255,10 +1255,10 @@ export default function ModelDetailClient({
               </ul>
             </Card>
             <Card className="section-gap">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Effect of change</h3>
+              <h3 className="text-card-title text-content-primary">Effect of change</h3>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 hover:bg-surface-hover">
-                  <div className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <div className="text-[11px] uppercase tracking-wide text-content-muted">
                     Performance
                   </div>
                   <div className={`text-sm font-semibold ${directionToneClass(performanceDirection)}`}>
@@ -1266,7 +1266,7 @@ export default function ModelDetailClient({
                   </div>
                 </div>
                 <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 hover:bg-surface-hover">
-                  <div className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <div className="text-[11px] uppercase tracking-wide text-content-muted">
                     Stability
                   </div>
                   <div className={`text-sm font-semibold ${directionToneClass(stabilityDirection)}`}>
@@ -1274,7 +1274,7 @@ export default function ModelDetailClient({
                   </div>
                 </div>
                 <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 hover:bg-surface-hover">
-                  <div className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <div className="text-[11px] uppercase tracking-wide text-content-muted">
                     Signal Frequency
                   </div>
                   <div className={`text-sm font-semibold ${frequencyToneClass(frequencyDirection)}`}>
@@ -1288,7 +1288,7 @@ export default function ModelDetailClient({
         ) : null}
 
         <Card className="section-gap">
-          <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Next step</h3>
+          <h3 className="text-card-title text-content-primary">Next step</h3>
           <ul className="list-disc space-y-1 pl-5 text-body">
             {nextSteps.slice(0, 2).map((item, index) => (
               <li key={`next-${index}`}>{item}</li>
@@ -1322,19 +1322,19 @@ export default function ModelDetailClient({
           columns={4}
         />
 
-        <div className="text-[13px] text-neutral-600 dark:text-neutral-400">{benchmarkInterpretation}</div>
+        <div className="text-[13px] text-content-secondary">{benchmarkInterpretation}</div>
 
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_0.65fr]">
           <div className="section-gap">
             <Card className="section-gap">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-card-title text-neutral-900 dark:text-neutral-100">Validation and performance</div>
+                  <div className="text-card-title text-content-primary">Validation and performance</div>
                   <p className="text-body mt-1">
                     Strategy curve {model.validation.compareAgainstBenchmark ? `vs ${model.benchmark}` : 'without benchmark overlay'}.
                   </p>
                   {chartTradeMarkers.length > 0 ? (
-                    <p className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+                    <p className="mt-1 text-[12px] text-content-muted">
                       Markers show recent entry signals.
                     </p>
                   ) : null}
@@ -1398,10 +1398,10 @@ export default function ModelDetailClient({
             </Card>
 
             <Card className="section-gap">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Signal / trade table</h3>
+              <h3 className="text-card-title text-content-primary">Signal / trade table</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="text-[12px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <thead className="text-[12px] uppercase tracking-wide text-content-muted">
                     <tr>
                       <th className="px-2 py-2">Date</th>
                       <th className="px-2 py-2">Signal</th>
@@ -1431,7 +1431,7 @@ export default function ModelDetailClient({
                         </td>
                         <td className="px-2 py-2">
                           {stockContextHref ? (
-                            <Link href={stockContextHref} className="text-[12px] font-medium text-primary hover:underline">
+                            <Link href={stockContextHref} className="text-[12px] font-medium text-accent-text hover:underline">
                               View stock
                             </Link>
                           ) : (
@@ -1448,14 +1448,14 @@ export default function ModelDetailClient({
 
           <div className="section-gap">
             <Card>
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Model/system profile</h3>
+              <h3 className="text-card-title text-content-primary">Model/system profile</h3>
               <div className="mt-3 flex justify-center">
                 <SystemProfileBlob compact dimensions={model.profileDimensions} />
               </div>
             </Card>
 
             <Card className="section-gap">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Signal summary</h3>
+              <h3 className="text-card-title text-content-primary">Signal summary</h3>
               <div className={`text-base font-semibold ${signalToneClass(model.currentSignal)}`}>{signalHeadline}</div>
               <p className="text-body">
                 Latest regime: {model.currentSignal?.direction ?? 'neutral'} · Conviction {model.currentSignal ? `${Math.round(model.currentSignal.conviction * 100)}%` : '—'}.
@@ -1463,12 +1463,12 @@ export default function ModelDetailClient({
             </Card>
 
             <Card className="section-gap">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Rule summary</h3>
+              <h3 className="text-card-title text-content-primary">Rule summary</h3>
               <p className="text-body">
                 Universe: {universeLabel(model.universe)}
                 {model.ticker ? ` (${model.ticker})` : ''} · Logic mode: {model.logicMode === 'all' ? 'Match all' : 'Match any'}.
               </p>
-              <ul className="text-sm text-neutral-700 dark:text-neutral-300">
+              <ul className="text-sm text-content-secondary">
                 {model.conditions.map((condition) => (
                   <li key={condition.id}>
                     {condition.metric} {condition.operator} {condition.value}
@@ -1481,7 +1481,7 @@ export default function ModelDetailClient({
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card className="section-gap">
-            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Strengths</h3>
+            <h3 className="text-card-title text-content-primary">Strengths</h3>
             <ul className="list-disc space-y-1 pl-5 text-body">
               {strengths.slice(0, 3).map((item, index) => (
                 <li key={`strength-${index}`}>{item}</li>
@@ -1489,7 +1489,7 @@ export default function ModelDetailClient({
             </ul>
           </Card>
           <Card className="section-gap">
-            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Weaknesses</h3>
+            <h3 className="text-card-title text-content-primary">Weaknesses</h3>
             <ul className="list-disc space-y-1 pl-5 text-body">
               {weaknesses.slice(0, 3).map((item, index) => (
                 <li key={`weakness-${index}`}>{item}</li>
@@ -1500,7 +1500,7 @@ export default function ModelDetailClient({
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card className="section-gap">
-            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">When this works best</h3>
+            <h3 className="text-card-title text-content-primary">When this works best</h3>
             <ul className="list-disc space-y-1 pl-5 text-body">
               {worksBest.slice(0, 3).map((item, index) => (
                 <li key={`works-${index}`}>{item}</li>
@@ -1508,7 +1508,7 @@ export default function ModelDetailClient({
             </ul>
           </Card>
           <Card className="section-gap">
-            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">When to be cautious</h3>
+            <h3 className="text-card-title text-content-primary">When to be cautious</h3>
             <ul className="list-disc space-y-1 pl-5 text-body">
               {cautious.slice(0, 3).map((item, index) => (
                 <li key={`caution-${index}`}>{item}</li>
@@ -1518,7 +1518,7 @@ export default function ModelDetailClient({
         </section>
 
         <Card className="section-gap">
-          <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Supporting diagnostics</h3>
+          <h3 className="text-card-title text-content-primary">Supporting diagnostics</h3>
           <ul className="text-body space-y-1">
             {model.diagnostics.notes.map((item, index) => (
               <li key={`note-${index}`}>{item}</li>

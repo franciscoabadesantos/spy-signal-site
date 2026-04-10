@@ -19,7 +19,7 @@ export default function Card({
   return (
     <div
       className={cn(
-        'rounded-2xl border border-border bg-surface-card text-content-primary shadow-sm',
+        'card-depth rounded-2xl border border-border bg-surface-card text-content-primary',
         paddingClass(padding),
         className
       )}

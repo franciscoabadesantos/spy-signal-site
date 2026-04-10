@@ -21,9 +21,11 @@ type SearchSuggestion = {
 }
 
 function navLinkClass(isActive: boolean): string {
+  const base =
+    'rounded-md px-1.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg'
   return isActive
-    ? 'text-content-primary'
-    : 'text-content-secondary hover:text-content-primary'
+    ? `${base} text-content-primary`
+    : `${base} text-content-secondary hover:bg-surface-hover hover:text-content-primary active:bg-surface-elevated`
 }
 
 const NavAuthControls = dynamic(() => import('./NavAuthControls'), {
@@ -176,10 +178,10 @@ export default function Nav({ active }: NavProps) {
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => navigateToTicker(item.symbol)}
-                      className={`w-full border-b border-border px-3 py-2.5 text-left last:border-b-0 ${
+                      className={`w-full border-b border-border px-3 py-2.5 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset last:border-b-0 ${
                         index === highlightedIndex
                           ? 'bg-surface-hover'
-                          : 'hover:bg-surface-elevated'
+                          : 'hover:bg-surface-elevated active:bg-surface-hover'
                       }`}
                     >
                       <div className="text-[13px] font-semibold text-content-primary">{item.symbol}</div>

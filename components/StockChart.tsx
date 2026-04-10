@@ -59,21 +59,22 @@ function formatConviction(prob: number | null): string {
 }
 
 function signalColor(direction: SignalDirection, palette: ChartPalette): { solid: string; soft: string } {
+  const softAlpha = palette.isDark ? 0.17 : 0.22
   if (direction === 'bullish') {
     return {
       solid: palette.bullish,
-      soft: withAlpha(palette.bullish, 0.22),
+      soft: withAlpha(palette.bullish, softAlpha),
     }
   }
   if (direction === 'bearish') {
     return {
       solid: palette.bearish,
-      soft: withAlpha(palette.bearish, 0.22),
+      soft: withAlpha(palette.bearish, softAlpha),
     }
   }
   return {
     solid: palette.signalNeutral,
-    soft: withAlpha(palette.signalNeutral, 0.2),
+    soft: withAlpha(palette.signalNeutral, palette.isDark ? 0.16 : 0.2),
   }
 }
 
@@ -320,15 +321,19 @@ export default function StockChart({
           : 0
         const hoverX = hover?.mouseX ?? 0
         const hoverYOnCurve = hover?.yOnCurve ?? 0
+        const areaTopOpacity = palette.isDark ? 0.16 : 0.24
+        const areaMidOpacity = palette.isDark ? 0.06 : 0.09
+        const areaBottomOpacity = palette.isDark ? 0.015 : 0.02
+        const lineGlowOpacity = palette.isDark ? 0.14 : 0.22
 
         return (
           <>
             <svg width={width} height={height} className="block overflow-visible">
               <defs>
                 <linearGradient id={areaGradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={palette.primary} stopOpacity="0.24" />
-                  <stop offset="70%" stopColor={palette.primary} stopOpacity="0.09" />
-                  <stop offset="100%" stopColor={palette.primary} stopOpacity="0.02" />
+                  <stop offset="0%" stopColor={palette.primary} stopOpacity={areaTopOpacity} />
+                  <stop offset="70%" stopColor={palette.primary} stopOpacity={areaMidOpacity} />
+                  <stop offset="100%" stopColor={palette.primary} stopOpacity={areaBottomOpacity} />
                 </linearGradient>
                 <linearGradient id={lineGradientId} x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor={palette.primary} />
@@ -336,7 +341,7 @@ export default function StockChart({
                 </linearGradient>
                 <linearGradient id={currentRegimeGradientId} x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor={withAlpha(currentRegimeColor, 0)} />
-                  <stop offset="100%" stopColor={withAlpha(currentRegimeColor, 0.12)} />
+                  <stop offset="100%" stopColor={withAlpha(currentRegimeColor, palette.isDark ? 0.09 : 0.12)} />
                 </linearGradient>
               </defs>
 
@@ -393,7 +398,7 @@ export default function StockChart({
                       y={y + 4}
                       textAnchor="end"
                       fontSize={12}
-                      fill={palette.textMuted}
+                      fill={palette.axisText}
                     >
                       {formatPrice(value)}
                     </text>
@@ -411,7 +416,7 @@ export default function StockChart({
                     y={height - 8}
                     textAnchor="middle"
                     fontSize={12}
-                    fill={palette.textMuted}
+                    fill={palette.axisText}
                   >
                     {formatDateShort(point.date)}
                   </text>
@@ -419,11 +424,11 @@ export default function StockChart({
               })}
 
               {areaPath ? <path d={areaPath} fill={`url(#${areaGradientId})`} stroke="none" /> : null}
-              {path ? <path d={path} fill="none" stroke={withAlpha(palette.primary, 0.22)} strokeWidth={6} /> : null}
+              {path ? <path d={path} fill="none" stroke={withAlpha(palette.primary, lineGlowOpacity)} strokeWidth={6} /> : null}
               {path ? <path d={path} fill="none" stroke={`url(#${lineGradientId})`} strokeWidth={2.5} /> : null}
               {lastPoint ? (
                 <g style={{ pointerEvents: 'none' }}>
-                  <circle cx={lastPoint.x} cy={lastPoint.y} r={13} fill={withAlpha(currentRegimeColor, 0.18)} />
+                  <circle cx={lastPoint.x} cy={lastPoint.y} r={13} fill={withAlpha(currentRegimeColor, palette.isDark ? 0.13 : 0.18)} />
                   <circle cx={lastPoint.x} cy={lastPoint.y} r={6.5} fill={currentRegimeColor} stroke={palette.tooltipBg} strokeWidth={2.5} />
                   <circle cx={lastPoint.x} cy={lastPoint.y} r={2} fill={palette.tooltipBg} />
                 </g>
@@ -441,7 +446,7 @@ export default function StockChart({
                         y1={padding.top}
                         x2={marker.x}
                         y2={padding.top + innerH}
-                        stroke={withAlpha(colors.solid, 0.2)}
+                        stroke={withAlpha(colors.solid, palette.isDark ? 0.16 : 0.2)}
                         strokeWidth={1}
                         strokeDasharray="3 4"
                       />
@@ -492,10 +497,10 @@ export default function StockChart({
                     y1={padding.top}
                     x2={hoverX}
                     y2={padding.top + innerH}
-                    stroke={palette.grid}
+                    stroke={withAlpha(palette.axisText, palette.isDark ? 0.44 : 0.38)}
                     strokeWidth={1}
                   />
-                  <circle cx={hoverX} cy={hoverYOnCurve} r={12} fill={withAlpha(palette.primary, 0.20)} />
+                  <circle cx={hoverX} cy={hoverYOnCurve} r={12} fill={withAlpha(palette.primary, palette.isDark ? 0.15 : 0.2)} />
                   <circle cx={hoverX} cy={hoverYOnCurve} r={5} fill={palette.primary} stroke={palette.tooltipBg} strokeWidth={2} />
                 </g>
               ) : null}

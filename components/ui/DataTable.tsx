@@ -88,9 +88,9 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        'border-t border-border',
+        'border-t border-border transition-colors duration-150',
         striped && index % 2 === 1 ? 'bg-surface-elevated' : undefined,
-        hover ? 'hover:bg-surface-hover' : undefined,
+        hover ? 'hover:bg-surface-hover focus-within:bg-surface-hover' : undefined,
         className
       )}
     >

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 export type ChartPalette = {
+  isDark: boolean
   primary: string
   secondary: string
   accent: string
@@ -11,6 +12,7 @@ export type ChartPalette = {
   grid: string
   text: string
   textMuted: string
+  axisText: string
   tooltipBg: string
   tooltipBorder: string
   bullish: string
@@ -22,6 +24,7 @@ export type ChartPalette = {
 }
 
 export const LIGHT_CHART_PALETTE: ChartPalette = {
+  isDark: false,
   primary: '#2563eb',
   secondary: '#0f766e',
   accent: '#d97706',
@@ -29,6 +32,7 @@ export const LIGHT_CHART_PALETTE: ChartPalette = {
   grid: 'rgba(100, 116, 139, 0.24)',
   text: '#1f2937',
   textMuted: '#6b7280',
+  axisText: '#5f6f84',
   tooltipBg: '#ffffff',
   tooltipBorder: '#cbd5e1',
   bullish: '#16a34a',
@@ -40,21 +44,23 @@ export const LIGHT_CHART_PALETTE: ChartPalette = {
 }
 
 export const DARK_CHART_PALETTE: ChartPalette = {
-  primary: '#60a5fa',
-  secondary: '#34d399',
-  accent: '#f59e0b',
-  neutral: '#94a3b8',
-  grid: 'rgba(142, 162, 191, 0.24)',
-  text: '#dbe7f7',
-  textMuted: '#9ab0ca',
-  tooltipBg: '#0a1222',
-  tooltipBorder: '#33445f',
-  bullish: '#22c55e',
-  bearish: '#f87171',
-  signalNeutral: '#94a3b8',
-  regimeBullish: 'rgba(34, 197, 94, 0.22)',
-  regimeBearish: 'rgba(248, 113, 113, 0.24)',
-  regimeNeutral: 'rgba(148, 163, 184, 0.19)',
+  isDark: true,
+  primary: '#7ea6d9',
+  secondary: '#62b8a8',
+  accent: '#d2a14f',
+  neutral: '#9fb0c3',
+  grid: 'rgba(142, 162, 191, 0.15)',
+  text: '#dde8f6',
+  textMuted: '#9cb0c9',
+  axisText: '#b3c3d8',
+  tooltipBg: '#132238',
+  tooltipBorder: '#476184',
+  bullish: '#4fae7d',
+  bearish: '#d18b8b',
+  signalNeutral: '#9fb0c3',
+  regimeBullish: 'rgba(79, 174, 125, 0.18)',
+  regimeBearish: 'rgba(209, 139, 139, 0.19)',
+  regimeNeutral: 'rgba(159, 176, 195, 0.16)',
 }
 
 export const CHART_PALETTE: ChartPalette = LIGHT_CHART_PALETTE
@@ -119,7 +125,7 @@ export function ChartTooltipCard({
   if (rows.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-chart-tooltip-border bg-chart-tooltip px-3 py-2.5 shadow-sm">
+    <div className="rounded-xl border border-chart-tooltip-border bg-chart-tooltip px-3 py-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.16)] backdrop-blur-[2px] dark:shadow-[0_14px_32px_rgba(2,8,20,0.6)]">
       {title ? (
         <div className="mb-2 text-[12px] font-semibold text-content-primary">
           {title}

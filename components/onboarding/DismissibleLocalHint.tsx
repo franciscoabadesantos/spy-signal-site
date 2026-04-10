@@ -41,7 +41,7 @@ export default function DismissibleLocalHint({
       <p className="font-medium">{text}</p>
       <button
         type="button"
-        className="rounded-md border border-border px-2 py-1 text-[12px] text-content-muted transition-colors hover:bg-surface-hover hover:text-content-primary"
+        className="rounded-md border border-border px-2 py-1 text-[12px] text-content-muted transition-[background-color,color,border-color,box-shadow] duration-150 hover:bg-surface-hover hover:text-content-primary active:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg"
         onClick={() => {
           setVisible(false)
           try {

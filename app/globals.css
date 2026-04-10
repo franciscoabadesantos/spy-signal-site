@@ -20,6 +20,7 @@
   
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-accent-text: var(--accent-text);
   
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -49,9 +50,13 @@
     --input: #dbe3ef;
     --primary: #0284c7; /* Stockanalysis Blue */
     --primary-foreground: #ffffff;
+    --accent-text: #0369a1;
     --surface-card: #ffffff;
     --surface-elevated: #f8fbff;
     --surface-hover: #edf3fa;
+    --surface-card-top-light: rgba(255, 255, 255, 0.22);
+    --surface-elevated-top-light: rgba(255, 255, 255, 0.3);
+    --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
     --card: var(--surface-card);
     --card-foreground: var(--content-primary);
     --bullish-tint: rgba(16, 185, 129, 0.15);
@@ -67,60 +72,70 @@
   @media (prefers-color-scheme: dark) {
     :root {
       color-scheme: dark;
-      --page-bg: #070c16;
+      --page-bg: #02070f;
       --background: var(--page-bg);
-      --foreground: #e5edf8;
-      --content-primary: #e5edf8;
-      --content-secondary: #bfd0e8;
-      --content-muted: #8ea2bf;
-      --muted: #121a2a;
-      --muted-foreground: #8ea2bf;
-      --border: #223149;
-      --divider-strong: #2c3f5e;
-      --input: #223149;
-      --surface-card: #0f192b;
-      --surface-elevated: #142238;
-      --surface-hover: #1a2b44;
+      --foreground: #dde7f4;
+      --content-primary: #dde7f4;
+      --content-secondary: #bccde2;
+      --content-muted: #91a5bf;
+      --muted: #0f1726;
+      --muted-foreground: #91a5bf;
+      --border: #3a5272;
+      --divider-strong: #466488;
+      --input: #3a5272;
+      --primary: #3b8fbe;
+      --accent-text: #6aa9cc;
+      --surface-card: #122239;
+      --surface-elevated: #192d48;
+      --surface-hover: #223a5c;
+      --surface-card-top-light: rgba(184, 206, 235, 0.05);
+      --surface-elevated-top-light: rgba(184, 206, 235, 0.06);
+      --card-shadow: 0 4px 14px rgba(1, 8, 20, 0.28), inset 0 1px 0 rgba(184, 206, 235, 0.05);
       --card: var(--surface-card);
       --card-foreground: var(--content-primary);
-      --bullish-tint: rgba(16, 185, 129, 0.24);
-      --neutral-tint: rgba(148, 163, 184, 0.2);
-      --bearish-tint: rgba(244, 63, 94, 0.24);
-      --chart-grid: rgba(142, 162, 191, 0.24);
-      --chart-axis: #a7b8cf;
-      --chart-tooltip-bg: rgba(9, 15, 27, 0.96);
-      --chart-tooltip-border: #2c3f5e;
-      --accent-glow: rgba(59, 130, 246, 0.3);
+      --bullish-tint: rgba(16, 185, 129, 0.2);
+      --neutral-tint: rgba(148, 163, 184, 0.17);
+      --bearish-tint: rgba(244, 63, 94, 0.2);
+      --chart-grid: rgba(142, 162, 191, 0.15);
+      --chart-axis: #b3c3d8;
+      --chart-tooltip-bg: rgba(19, 34, 56, 0.97);
+      --chart-tooltip-border: #476184;
+      --accent-glow: rgba(59, 130, 246, 0.24);
     }
   }
 
   :root.dark,
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --page-bg: #070c16;
+    --page-bg: #02070f;
     --background: var(--page-bg);
-    --foreground: #e5edf8;
-    --content-primary: #e5edf8;
-    --content-secondary: #bfd0e8;
-    --content-muted: #8ea2bf;
-    --muted: #121a2a;
-    --muted-foreground: #8ea2bf;
-    --border: #223149;
-    --divider-strong: #2c3f5e;
-    --input: #223149;
-    --surface-card: #0f192b;
-    --surface-elevated: #142238;
-    --surface-hover: #1a2b44;
+    --foreground: #dde7f4;
+    --content-primary: #dde7f4;
+    --content-secondary: #bccde2;
+    --content-muted: #91a5bf;
+    --muted: #0f1726;
+    --muted-foreground: #91a5bf;
+    --border: #3a5272;
+    --divider-strong: #466488;
+    --input: #3a5272;
+    --primary: #3b8fbe;
+    --accent-text: #6aa9cc;
+    --surface-card: #122239;
+    --surface-elevated: #192d48;
+    --surface-hover: #223a5c;
+    --surface-card-top-light: rgba(184, 206, 235, 0.05);
+    --surface-elevated-top-light: rgba(184, 206, 235, 0.06);
+    --card-shadow: 0 4px 14px rgba(1, 8, 20, 0.28), inset 0 1px 0 rgba(184, 206, 235, 0.05);
     --card: var(--surface-card);
     --card-foreground: var(--content-primary);
-    --bullish-tint: rgba(16, 185, 129, 0.24);
-    --neutral-tint: rgba(148, 163, 184, 0.2);
-    --bearish-tint: rgba(244, 63, 94, 0.24);
-    --chart-grid: rgba(142, 162, 191, 0.24);
-    --chart-axis: #a7b8cf;
-    --chart-tooltip-bg: rgba(9, 15, 27, 0.96);
-    --chart-tooltip-border: #2c3f5e;
-    --accent-glow: rgba(59, 130, 246, 0.3);
+    --bullish-tint: rgba(16, 185, 129, 0.2);
+    --neutral-tint: rgba(148, 163, 184, 0.17);
+    --bearish-tint: rgba(244, 63, 94, 0.2);
+    --chart-grid: rgba(142, 162, 191, 0.15);
+    --chart-axis: #b3c3d8;
+    --chart-tooltip-bg: rgba(19, 34, 56, 0.97);
+    --chart-tooltip-border: #476184;
+    --accent-glow: rgba(59, 130, 246, 0.24);
   }
 }
 
@@ -137,10 +152,19 @@
 @layer utilities {
   .surface-card {
     @apply bg-surface-card border border-border;
+    background-image: linear-gradient(180deg, var(--surface-card-top-light), transparent 58%);
+    box-shadow: var(--card-shadow);
   }
 
   .surface-elevated {
     @apply bg-surface-elevated border border-border;
+    background-image: linear-gradient(180deg, var(--surface-elevated-top-light), transparent 62%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .card-depth {
+    background-image: linear-gradient(180deg, var(--surface-card-top-light), transparent 58%);
+    box-shadow: var(--card-shadow);
   }
 
   .surface-hover {

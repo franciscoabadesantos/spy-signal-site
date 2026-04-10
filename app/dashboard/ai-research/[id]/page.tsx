@@ -174,7 +174,7 @@ export default async function AiResearchRunDetailPage({
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block truncate text-sm text-primary hover:underline"
+                        className="block truncate text-sm text-accent-text hover:underline"
                       >
                         {url}
                       </a>

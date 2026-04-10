@@ -200,7 +200,7 @@ export default async function Home() {
                   return (
                     <TableRow key={`${row.ticker}-${row.signalDate ?? ''}`} index={index}>
                       <TableCell className="font-semibold">
-                        <Link href={`/stocks/${row.ticker}`} className="text-primary hover:underline">
+                        <Link href={`/stocks/${row.ticker}`} className="text-accent-text hover:underline">
                           {row.ticker}
                         </Link>
                       </TableCell>

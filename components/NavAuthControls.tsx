@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useAuth, UserButton } from '@clerk/nextjs'
+import { buttonClass } from '@/components/ui/Button'
 
 export default function NavAuthControls() {
   const { isSignedIn } = useAuth()
@@ -11,13 +12,13 @@ export default function NavAuthControls() {
       <>
         <Link
           href="/sign-in"
-          className="text-[14px] font-medium text-foreground hover:text-primary transition-colors px-3 py-1.5 hidden sm:block"
+          className={`${buttonClass({ variant: 'ghost', size: 'sm' })} hidden sm:inline-flex`}
         >
           Log In
         </Link>
         <Link
           href="/sign-up"
-          className="text-[14px] font-medium bg-[#1e293b] hover:bg-black text-white px-4 py-1.5 rounded transition-colors shadow-sm"
+          className={buttonClass({ variant: 'primary', size: 'sm' })}
         >
           Sign Up
         </Link>
@@ -29,7 +30,7 @@ export default function NavAuthControls() {
     <>
       <Link
         href="/dashboard"
-        className="text-[14px] font-medium text-foreground hover:text-primary transition-colors px-3 py-1.5 hidden sm:block"
+        className={`${buttonClass({ variant: 'ghost', size: 'sm' })} hidden sm:inline-flex`}
       >
         Dashboard
       </Link>

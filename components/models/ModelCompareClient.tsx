@@ -17,6 +17,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
+import Skeleton from '@/components/ui/Skeleton'
 import { buttonClass } from '@/components/ui/Button'
 import ChartContainer, {
   CHART_MARGINS,
@@ -254,6 +255,80 @@ function CompareTooltip({
   return <ChartTooltipCard title={point.t} rows={rows} />
 }
 
+function ComparePageSkeleton() {
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {[0, 1].map((key) => (
+          <Card key={`compare-skeleton-model-${key}`} className="section-gap">
+            <Skeleton className="h-4 w-16 rounded-md" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-2/3 rounded-md" />
+              <Skeleton className="h-4 w-1/4 rounded-md" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-6 w-28 rounded-full" />
+              <Skeleton className="h-6 w-32 rounded-full" />
+            </div>
+            <Skeleton className="h-16 w-full rounded-lg" />
+            <Skeleton className="h-4 w-32 rounded-md" />
+          </Card>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Skeleton className="h-10 w-36 rounded-xl" />
+        <Skeleton className="h-4 w-48 rounded-md" />
+      </div>
+
+      <Card className="section-gap">
+        <Skeleton className="h-6 w-56 rounded-md" />
+        <div className="grid grid-cols-[160px_1fr_1fr] gap-2">
+          {[0, 1, 2, 3, 4, 5].map((row) => (
+            <div key={`compare-skeleton-metric-${row}`} className="contents">
+              <Skeleton className="h-12 w-full rounded-lg" />
+              <Skeleton className="h-12 w-full rounded-lg" />
+              <Skeleton className="h-12 w-full rounded-lg" />
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="section-gap">
+        <Skeleton className="h-6 w-56 rounded-md" />
+        <Skeleton className="h-4 w-72 rounded-md" />
+        <Skeleton className="h-[300px] w-full rounded-xl" />
+        <div className="flex flex-wrap gap-3">
+          <Skeleton className="h-4 w-16 rounded-md" />
+          <Skeleton className="h-4 w-16 rounded-md" />
+          <Skeleton className="h-4 w-20 rounded-md" />
+        </div>
+      </Card>
+
+      <Card className="section-gap">
+        <Skeleton className="h-6 w-56 rounded-md" />
+        <div className="space-y-2">
+          {[0, 1, 2, 3, 4].map((row) => (
+            <Skeleton key={`compare-skeleton-diff-${row}`} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+      </Card>
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {[0, 1, 2].map((key) => (
+          <Card key={`compare-skeleton-insight-${key}`} className="section-gap">
+            <Skeleton className="h-6 w-40 rounded-md" />
+            <Skeleton className="h-4 w-full rounded-md" />
+            <Skeleton className="h-4 w-5/6 rounded-md" />
+            <Skeleton className="h-4 w-4/6 rounded-md" />
+          </Card>
+        ))}
+      </section>
+    </>
+  )
+}
+
 export default function ModelCompareClient({
   initialLeftId,
   initialRightId,
@@ -262,28 +337,43 @@ export default function ModelCompareClient({
   initialRightId?: string | null
 }) {
   const chartPalette = useChartPalette()
-  const models = useMemo(() => loadModelsFromStorage(), [])
+  const [models, setModels] = useState<ModelRecord[] | null>(null)
   const [selectedLeftId, setSelectedLeftId] = useState(initialLeftId ?? '')
   const [selectedRightId, setSelectedRightId] = useState(initialRightId ?? '')
+  const modelRows = useMemo(() => models ?? [], [models])
+  const isBootstrappingModels = models === null
+
+  useEffect(() => {
+    const raf = window.requestAnimationFrame(() => {
+      setModels(loadModelsFromStorage())
+    })
+    return () => window.cancelAnimationFrame(raf)
+  }, [])
 
   const leftId = useMemo(() => {
-    if (selectedLeftId && models.some((model) => model.id === selectedLeftId)) return selectedLeftId
-    return models[0]?.id ?? ''
-  }, [selectedLeftId, models])
+    if (selectedLeftId && modelRows.some((model) => model.id === selectedLeftId)) return selectedLeftId
+    return modelRows[0]?.id ?? ''
+  }, [selectedLeftId, modelRows])
 
   const rightId = useMemo(() => {
-    if (models.length === 0) return ''
+    if (modelRows.length === 0) return ''
     const hasSelectedRight =
-      selectedRightId && models.some((model) => model.id === selectedRightId)
+      selectedRightId && modelRows.some((model) => model.id === selectedRightId)
     const candidate = hasSelectedRight
       ? selectedRightId
-      : models.find((model) => model.id !== leftId)?.id ?? models[0]?.id ?? ''
+      : modelRows.find((model) => model.id !== leftId)?.id ?? modelRows[0]?.id ?? ''
     if (candidate !== leftId) return candidate
-    return models.find((model) => model.id !== leftId)?.id ?? candidate
-  }, [selectedRightId, models, leftId])
+    return modelRows.find((model) => model.id !== leftId)?.id ?? candidate
+  }, [selectedRightId, modelRows, leftId])
 
-  const leftModel = useMemo(() => models.find((model) => model.id === leftId) ?? null, [models, leftId])
-  const rightModel = useMemo(() => models.find((model) => model.id === rightId) ?? null, [models, rightId])
+  const leftModel = useMemo(
+    () => modelRows.find((model) => model.id === leftId) ?? null,
+    [modelRows, leftId]
+  )
+  const rightModel = useMemo(
+    () => modelRows.find((model) => model.id === rightId) ?? null,
+    [modelRows, rightId]
+  )
 
   const leftInsights = leftModel ? modelInsights(leftModel) : null
   const rightInsights = rightModel ? modelInsights(rightModel) : null
@@ -506,7 +596,9 @@ export default function ModelCompareClient({
           }
         />
 
-        {models.length === 0 ? (
+        {isBootstrappingModels ? (
+          <ComparePageSkeleton />
+        ) : modelRows.length === 0 ? (
           <Card>
             <EmptyState
               title="No models to compare"
@@ -524,7 +616,7 @@ export default function ModelCompareClient({
               <Card className="section-gap">
                 <div className="text-filter-label">Model A</div>
                 <Select value={leftId} onChange={(event) => setSelectedLeftId(event.target.value)}>
-                  {models.map((model) => (
+                  {modelRows.map((model) => (
                     <option key={model.id} value={model.id}>
                       {model.name}
                     </option>
@@ -560,7 +652,7 @@ export default function ModelCompareClient({
               <Card className="section-gap">
                 <div className="text-filter-label">Model B</div>
                 <Select value={rightId} onChange={(event) => setSelectedRightId(event.target.value)}>
-                  {models.map((model) => (
+                  {modelRows.map((model) => (
                     <option key={model.id} value={model.id}>
                       {model.name}
                     </option>
@@ -734,7 +826,7 @@ export default function ModelCompareClient({
                             : 'border-border'
                         }`}
                       >
-                        <div className="font-medium text-neutral-700 dark:text-neutral-300">{row.label}</div>
+                        <div className="font-medium text-content-secondary">{row.label}</div>
                         <div className="text-content-primary">{row.left}</div>
                         <div className="text-content-primary">{row.right}</div>
                       </div>
@@ -748,7 +840,7 @@ export default function ModelCompareClient({
                         : 'border-border'
                     }`}
                   >
-                    <div className="font-medium text-neutral-700 dark:text-neutral-300">Conditions</div>
+                    <div className="font-medium text-content-secondary">Conditions</div>
                     <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
                       <ul className="space-y-1 text-content-primary">
                         {leftConditionLabels.map((condition, index) => (

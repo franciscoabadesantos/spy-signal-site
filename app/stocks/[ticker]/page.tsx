@@ -723,11 +723,11 @@ export default async function TickerPage({
         <div className="section-gap">
           <Card className="border-primary/20 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_68%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_68%)]">
             <div className="flex items-start justify-between gap-3">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">System Profile</h3>
+              <h3 className="text-card-title text-content-primary">System Profile</h3>
               <div className="inline-flex items-center gap-3 rounded-xl border border-neutral-200 bg-white/80 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900/70">
-                <div className="leading-none text-neutral-900 dark:text-neutral-100">
+                <div className="leading-none text-content-primary">
                   <span className="text-2xl font-semibold">{overallSystemScore}</span>
-                  <span className="ml-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">/ 100</span>
+                  <span className="ml-1 text-sm font-medium text-content-muted">/ 100</span>
                 </div>
                 <Badge variant={profileBadge.variant}>{profileBadge.label}</Badge>
               </div>
@@ -745,15 +745,15 @@ export default async function TickerPage({
                   >
                     <div className="inline-flex items-center gap-2">
                       <span className={`h-2.5 w-2.5 rounded-full ${dimensionDotClass(dimension.label)}`} />
-                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      <span className="text-sm font-medium text-content-primary">
                         {dimension.label}
                       </span>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                      <div className="text-sm font-semibold text-content-primary">
                         {Math.round(dimension.score)}
                       </div>
-                      <div className="text-[11px] font-normal text-neutral-400 dark:text-neutral-500">
+                      <div className="text-[11px] font-normal text-content-muted">
                         {dimensionDescriptor(dimension.label, dimension.score)}
                       </div>
                     </div>
@@ -775,13 +775,13 @@ export default async function TickerPage({
             />
           ) : (
             <Card className="section-gap border-primary/30 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_68%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_68%)]">
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Signal Summary</h3>
+              <h3 className="text-lg font-semibold text-content-primary">Signal Summary</h3>
               <p className="text-body mt-2">No recent model output is available for this ticker yet.</p>
             </Card>
           )}
 
           <Card className="section-gap">
-            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Use this in your model</h3>
+            <h3 className="text-card-title text-content-primary">Use this in your model</h3>
             <p className="text-body">Save to watchlist, inspect financials, or compare nearby assets for validation.</p>
             <div className="flex flex-wrap gap-2">
               <Link
@@ -825,13 +825,16 @@ export default async function TickerPage({
       <PageSection
         title="Behavior Overview"
         description="How regime state, signal composition, and peer correlation interact."
+        className="rounded-2xl border border-border bg-[radial-gradient(circle_at_top_left,var(--neutral-tint),transparent_70%)] p-4 md:p-5"
       >
-        <p className="text-body">{overviewSummary}</p>
+        <p className="rounded-xl border border-border bg-surface-elevated px-3 py-2 text-body">
+          {overviewSummary}
+        </p>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
-          <Card className="section-gap lg:min-h-[520px]" padding="lg">
+          <Card className="section-gap border-primary/20 bg-[radial-gradient(circle_at_top_left,var(--bullish-tint),transparent_72%)] lg:min-h-[520px]" padding="lg">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Regime behavior</h3>
-              <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
+              <h3 className="text-card-title text-content-primary">Regime behavior</h3>
+              <span className="text-[12px] text-content-muted">
                 Last {recentSignals.length || 0} signals
               </span>
             </div>
@@ -847,10 +850,10 @@ export default async function TickerPage({
           <div className="grid grid-cols-1 gap-4">
             <Card className="section-gap" padding="lg">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Signal composition</h3>
+                <h3 className="text-card-title text-content-primary">Signal composition</h3>
                 <div className="flex items-center gap-2">
                   <Badge variant="neutral">{compositionInsights.biasLabel}</Badge>
-                  <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                  <span className="text-[12px] text-content-muted">
                     Active {compositionInsights.activePct}%
                   </span>
                 </div>
@@ -867,7 +870,7 @@ export default async function TickerPage({
             </Card>
 
             <Card className="section-gap" padding="lg">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Correlation network</h3>
+              <h3 className="text-card-title text-content-primary">Correlation network</h3>
               <p className="text-body">{correlationSummary}</p>
               <CorrelationNetwork
                 centerTicker={ticker}
@@ -881,13 +884,13 @@ export default async function TickerPage({
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <InsightCard title="Average Conviction" description="Recent 90-signal average">
-          <div className="text-metric text-neutral-900 dark:text-neutral-100">{formatConviction(insightStats.avgConviction)}</div>
+          <div className="text-metric text-content-primary">{formatConviction(insightStats.avgConviction)}</div>
         </InsightCard>
         <InsightCard title="Signal Flips" description="Direction changes in recent history">
-          <div className="text-metric text-neutral-900 dark:text-neutral-100">{insightStats.flips}</div>
+          <div className="text-metric text-content-primary">{insightStats.flips}</div>
         </InsightCard>
         <InsightCard title="Bullish Share" description="Portion of recent signals that were bullish">
-          <div className="text-metric text-neutral-900 dark:text-neutral-100">
+          <div className="text-metric text-content-primary">
             {insightStats.bullishShare === null ? '—' : `${Math.round(insightStats.bullishShare * 100)}%`}
           </div>
         </InsightCard>
@@ -924,11 +927,11 @@ export default async function TickerPage({
                 return (
                   <div key={`${holding.symbol}-${i}`} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
                     <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                      <div className="font-medium text-content-primary">
                         {holding.symbol}
-                        <span className="ml-2 text-neutral-500">{holding.name}</span>
+                        <span className="ml-2 text-content-muted">{holding.name}</span>
                       </div>
-                      <div className="font-semibold text-neutral-700 dark:text-neutral-200">{weightLabel}</div>
+                      <div className="font-semibold text-content-secondary">{weightLabel}</div>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
                       <div className="h-full rounded-full bg-primary" style={{ width: `${barWidth}%` }} />
@@ -978,7 +981,7 @@ export default async function TickerPage({
                         )}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2">
+                        <div className="text-sm font-semibold text-content-primary line-clamp-2">
                           {item.title}
                         </div>
                         <div className="text-body mt-1">{item.publisher} · {formatTimeAgo(item.publishedAt)}</div>
@@ -1012,7 +1015,7 @@ export default async function TickerPage({
             },
           ].map((item) => (
             <Card key={item.href} className="section-gap">
-              <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">{item.title}</h3>
+              <h3 className="text-card-title text-content-primary">{item.title}</h3>
               <p className="text-body">{item.body}</p>
               <Link href={item.href} className={buttonClass({ variant: 'secondary' })}>
                 Open
@@ -1037,9 +1040,9 @@ export default async function TickerPage({
               return (
                 <Link key={asset.symbol} href={`/stocks/${asset.symbol}`} className="block">
                   <Card className="transition-colors hover:border-neutral-400 dark:hover:border-neutral-600">
-                    <div className="text-base font-semibold text-neutral-900 dark:text-neutral-100">{asset.symbol}</div>
+                    <div className="text-base font-semibold text-content-primary">{asset.symbol}</div>
                     <div className="text-body mt-1 truncate">{peerQuote?.name ?? asset.symbol}</div>
-                    <div className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100 mt-3">
+                    <div className="text-2xl font-semibold text-content-primary mt-3">
                       {peerQuote ? `$${peerQuote.price.toFixed(2)}` : '—'}
                     </div>
                     <div className={`mt-1 text-sm font-medium ${up ? 'text-emerald-600' : 'text-rose-600'}`}>

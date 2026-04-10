@@ -378,16 +378,16 @@ function biasFilterLabel(bias: BiasFilter): string {
 
 function biasChipActiveClass(bias: BiasFilter): string | undefined {
   if (bias === 'bullish-biased') {
-    return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+    return 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950/55 dark:active:bg-emerald-950/70'
   }
   if (bias === 'balanced') {
-    return 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200'
+    return 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 active:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200 dark:hover:bg-sky-950/55 dark:active:bg-sky-950/70'
   }
   if (bias === 'neutral-heavy') {
-    return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+    return 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 active:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/55 dark:active:bg-amber-950/70'
   }
   if (bias === 'bearish-biased') {
-    return 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200'
+    return 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 active:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/55 dark:active:bg-rose-950/70'
   }
   return undefined
 }
@@ -725,7 +725,7 @@ export default async function ScreenerPage({
                           <TableCell className="min-w-[170px] font-semibold">
                             <TrackedLink
                               href={screenerHref}
-                              className="text-primary hover:underline"
+                              className="rounded-sm text-accent-text transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-1 focus-visible:ring-offset-page-bg"
                               eventName="click_stock_from_screener"
                               eventPayload={{
                                 ticker: row.ticker,
@@ -745,7 +745,7 @@ export default async function ScreenerPage({
                                 <Badge variant={badge.variant}>{badge.label}</Badge>
                                 <TrackedLink
                                   href={screenerHref}
-                                  className="text-[13px] font-semibold text-neutral-900 hover:text-primary dark:text-neutral-100"
+                                  className="rounded-sm text-[13px] font-semibold text-content-primary transition-colors hover:text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-1 focus-visible:ring-offset-page-bg"
                                   eventName="click_stock_from_screener"
                                   eventPayload={{
                                     ticker: row.ticker,
@@ -758,7 +758,7 @@ export default async function ScreenerPage({
                                   {shortHeadline}
                                 </TrackedLink>
                               </div>
-                              <div className={cn('text-[12px] text-neutral-500 dark:text-neutral-400', isBlurredRow ? 'blur-[2px] opacity-65' : undefined)}>
+                              <div className={cn('text-[12px] text-content-muted', isBlurredRow ? 'blur-[2px] opacity-65' : undefined)}>
                                 {fullHeadline} · {rowSignalQualityLabel(row.direction, row.conviction)}
                               </div>
                             </div>
@@ -771,7 +771,7 @@ export default async function ScreenerPage({
                                   style={{ width: `${Math.max(6, convictionWidth)}%` }}
                                 />
                               </div>
-                              <div className="text-[12px] font-semibold text-neutral-900 dark:text-neutral-100">
+                              <div className="text-[12px] font-semibold text-content-primary">
                                 {formatConviction(row.conviction)}
                               </div>
                             </div>
@@ -792,7 +792,7 @@ export default async function ScreenerPage({
                                   />
                                 ))}
                               </div>
-                              <div className="text-[11px] text-neutral-500 dark:text-neutral-400">System profile</div>
+                              <div className="text-[11px] text-content-muted">System profile</div>
                             </div>
                           </TableCell>
                           <TableCell muted>
@@ -837,11 +837,11 @@ export default async function ScreenerPage({
                       <Lock className="h-3.5 w-3.5" />
                       Premium Preview
                     </div>
-                    <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Unlock full signal details</h3>
+                    <h3 className="text-card-title text-content-primary">Unlock full signal details</h3>
                     <p className="text-body">
                       See full system profiles, validate these signals, and interact with all {filteredRows.length} rows.
                     </p>
-                    <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                    <p className="text-[12px] text-content-muted">
                       See full system profile · Validate these signals · Export deeper research
                     </p>
                     <div>
@@ -873,11 +873,11 @@ export default async function ScreenerPage({
               <Lock className="h-3.5 w-3.5" />
               Premium Preview
             </div>
-            <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Unlock full signal details</h3>
+            <h3 className="text-card-title text-content-primary">Unlock full signal details</h3>
             <p className="text-body">
               You are viewing {previewRows.length} preview rows. Upgrade to unlock {hiddenCount} additional tickers and full system profiles.
             </p>
-            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+            <p className="text-[12px] text-content-muted">
               See full system profile · Validate these signals
             </p>
             <div>

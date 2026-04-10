@@ -174,7 +174,7 @@ export default async function DashboardPage() {
                   {watchlistRows.map(({ ticker, row, direction, lastFlippedDate }, index) => (
                     <TableRow key={ticker} index={index}>
                       <TableCell className="font-semibold">
-                        <Link href={`/stocks/${ticker}`} className="text-primary hover:underline">
+                        <Link href={`/stocks/${ticker}`} className="text-accent-text hover:underline">
                           {ticker}
                         </Link>
                         {row?.name ? (

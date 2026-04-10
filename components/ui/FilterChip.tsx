@@ -19,10 +19,10 @@ export default function FilterChip({
   type = 'button',
 }: FilterChipProps) {
   const sharedClass = cn(
-    'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+    'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-[background-color,color,border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg',
     active
-      ? 'border-primary/40 bg-primary/12 text-content-primary'
-      : 'border-border bg-surface-card text-content-secondary hover:bg-surface-hover hover:text-content-primary',
+      ? 'border-primary/40 bg-primary/12 text-content-primary hover:bg-primary/16 active:bg-primary/20'
+      : 'border-border bg-surface-card text-content-secondary hover:border-divider-strong hover:bg-surface-hover hover:text-content-primary active:bg-surface-elevated',
     className
   )
 

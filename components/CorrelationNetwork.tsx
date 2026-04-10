@@ -1,9 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { CorrelationNetworkPeer } from '@/lib/finance'
-import { useChartPalette } from '@/components/charts/ChartContainer'
+import { ChartTooltipCard, useChartPalette } from '@/components/charts/ChartContainer'
 
 type CorrelationNetworkProps = {
   centerTicker: string
@@ -17,6 +17,11 @@ type LayoutNode = CorrelationNetworkPeer & {
   radius: number
   edgeOpacity: number
   edgeWidth: number
+}
+
+type HoverTooltipState = {
+  x: number
+  y: number
 }
 
 const WIDTH = 860
@@ -48,6 +53,20 @@ function correlationDescriptor(absCorrelation: number): 'high' | 'moderate' | 'l
   return 'low'
 }
 
+function withAlpha(hex: string, alpha: number): string {
+  const normalized = hex.replace('#', '')
+  if (normalized.length !== 6) return hex
+  const r = Number.parseInt(normalized.slice(0, 2), 16)
+  const g = Number.parseInt(normalized.slice(2, 4), 16)
+  const b = Number.parseInt(normalized.slice(4, 6), 16)
+  if (![r, g, b].every(Number.isFinite)) return hex
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
 function ringRadius(absCorrelation: number): number {
   const minRadius = 104
   const maxRadius = 172
@@ -74,8 +93,8 @@ function computeNodeLayout(peers: CorrelationNetworkPeer[]): LayoutNode[] {
     const x = CENTER_X + Math.cos(angle) * r
     const y = CENTER_Y + Math.sin(angle) * r
     const nodeRadius = 16 + peer.absCorrelation * 8
-    const edgeOpacity = 0.24 + peer.absCorrelation * 0.56
-    const edgeWidth = 1 + peer.absCorrelation * 3.6
+    const edgeOpacity = 0.2 + peer.absCorrelation * 0.34
+    const edgeWidth = 0.9 + peer.absCorrelation * 2.8
 
     return {
       ...peer,
@@ -94,7 +113,9 @@ export default function CorrelationNetwork({
   peers,
 }: CorrelationNetworkProps) {
   const palette = useChartPalette()
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const [hoveredTicker, setHoveredTicker] = useState<string | null>(null)
+  const [tooltipState, setTooltipState] = useState<HoverTooltipState | null>(null)
   const layoutNodes = useMemo(() => computeNodeLayout(peers), [peers])
   const hoveredNode = hoveredTicker
     ? layoutNodes.find((node) => node.ticker === hoveredTicker) ?? null
@@ -110,7 +131,7 @@ export default function CorrelationNetwork({
 
   return (
     <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-surface-card p-4">
+      <div ref={containerRef} className="relative overflow-hidden rounded-2xl border border-border bg-surface-card p-4">
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-[360px] w-full" role="img" aria-label="Correlation network">
           {layoutNodes.map((node) => {
             const isHovered = hoveredTicker === node.ticker
@@ -122,8 +143,14 @@ export default function CorrelationNetwork({
                 x2={node.x}
                 y2={node.y}
                 stroke={isHovered ? palette.primary : palette.neutral}
-                strokeOpacity={isHovered ? 0.92 : node.edgeOpacity}
-                strokeWidth={isHovered ? node.edgeWidth + 1.2 : node.edgeWidth}
+                strokeOpacity={
+                  isHovered
+                    ? (palette.isDark ? 0.82 : 0.92)
+                    : palette.isDark
+                      ? Math.max(0.24, node.edgeOpacity)
+                      : node.edgeOpacity
+                }
+                strokeWidth={isHovered ? node.edgeWidth + 1 : node.edgeWidth}
               />
             )
           })}
@@ -133,8 +160,8 @@ export default function CorrelationNetwork({
             cy={CENTER_Y}
             r={34}
             fill={palette.primary}
-            fillOpacity={0.18}
-            stroke={palette.primary}
+            fillOpacity={palette.isDark ? 0.14 : 0.18}
+            stroke={withAlpha(palette.primary, palette.isDark ? 0.88 : 1)}
             strokeWidth={2.4}
           />
           <text
@@ -159,20 +186,40 @@ export default function CorrelationNetwork({
           {layoutNodes.map((node) => {
             const isHovered = hoveredTicker === node.ticker
             const swatch = colorForSector(node.sector)
+            const nodeFill = withAlpha(swatch, palette.isDark ? (isHovered ? 0.3 : 0.2) : isHovered ? 0.36 : 0.2)
+            const nodeStroke = withAlpha(swatch, palette.isDark ? (isHovered ? 0.88 : 0.72) : isHovered ? 1 : 0.86)
             return (
               <a
                 key={node.ticker}
                 href={`/stocks/${node.ticker}`}
-                onMouseEnter={() => setHoveredTicker(node.ticker)}
-                onMouseLeave={() => setHoveredTicker((prev) => (prev === node.ticker ? null : prev))}
+                onMouseEnter={(event) => {
+                  setHoveredTicker(node.ticker)
+                  const rect = containerRef.current?.getBoundingClientRect()
+                  if (!rect) return
+                  setTooltipState({
+                    x: clamp(event.clientX - rect.left + 10, 8, rect.width - 196),
+                    y: clamp(event.clientY - rect.top - 10, 8, rect.height - 120),
+                  })
+                }}
+                onMouseMove={(event) => {
+                  const rect = containerRef.current?.getBoundingClientRect()
+                  if (!rect) return
+                  setTooltipState({
+                    x: clamp(event.clientX - rect.left + 10, 8, rect.width - 196),
+                    y: clamp(event.clientY - rect.top - 10, 8, rect.height - 120),
+                  })
+                }}
+                onMouseLeave={() => {
+                  setHoveredTicker((prev) => (prev === node.ticker ? null : prev))
+                  setTooltipState(null)
+                }}
               >
                 <circle
                   cx={node.x}
                   cy={node.y}
                   r={isHovered ? node.radius + 2 : node.radius}
-                  fill={swatch}
-                  fillOpacity={isHovered ? 0.36 : 0.2}
-                  stroke={swatch}
+                  fill={nodeFill}
+                  stroke={nodeStroke}
                   strokeWidth={isHovered ? 2.4 : 1.6}
                 />
                 <text
@@ -191,6 +238,31 @@ export default function CorrelationNetwork({
             )
           })}
         </svg>
+
+        {hoveredNode && tooltipState ? (
+          <div className="pointer-events-none absolute z-20" style={{ left: tooltipState.x, top: tooltipState.y }}>
+            <ChartTooltipCard
+              title={hoveredNode.ticker}
+              rows={[
+                {
+                  label: 'Correlation',
+                  value: `${(hoveredNode.correlation * 100).toFixed(1)}%`,
+                  swatchColor: palette.primary,
+                },
+                {
+                  label: 'Strength',
+                  value:
+                    correlationDescriptor(hoveredNode.absCorrelation) === 'high'
+                      ? 'High'
+                      : correlationDescriptor(hoveredNode.absCorrelation) === 'moderate'
+                        ? 'Moderate'
+                        : 'Low',
+                },
+                ...(hoveredNode.sector ? [{ label: 'Sector', value: hoveredNode.sector }] : []),
+              ]}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div

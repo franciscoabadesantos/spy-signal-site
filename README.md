@@ -60,6 +60,7 @@ Use this checklist when you're ready to move from local/dev to production:
    - `supabase/sql/market_signals.sql`
    - `supabase/sql/user_watchlists.sql`
    - `supabase/sql/signal_alert_dispatches.sql`
+   - `supabase/sql/analytics_events.sql`
 3. Deploy to Vercel (`vercel --prod` or your main-branch auto-deploy flow).
 4. Verify cron config from `vercel.json` is active in production.
 5. Run a cron smoke test:
@@ -193,6 +194,29 @@ Ticker pages now include a streaming AI analyst panel that summarizes likely cat
 The app sends ticker + latest signal + recent headlines to `POST /api/ai-analyst`, which proxies Perplexity streaming output back to the client.
 
 If `PERPLEXITY_API_KEY` is not set, the AI Analyst UI is hidden automatically.
+
+## Analytics Events (User Testing)
+
+To persist product-loop analytics used by `/api/analytics/event`, run:
+
+1. `supabase/sql/analytics_events.sql`
+
+The API writes via `SUPABASE_SERVICE_ROLE_KEY` and stores:
+
+- `event_name`
+- `payload`
+- `session_id`
+- `anonymous_id`
+- `pathname`
+- `referrer`
+- `occurred_at`
+
+Quick smoke test (requires running app):
+
+```bash
+set -a; source .env.local; set +a
+node scripts/analytics_e2e_smoke.mjs
+```
 
 ## Stripe Pro Plan Activation
 

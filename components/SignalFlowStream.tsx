@@ -287,6 +287,10 @@ export default function SignalFlowStream({
 
           const currentSegment = positionedSegments[positionedSegments.length - 1] ?? null
           const path = smoothPath(points)
+          const streamGlowOpacity = palette.isDark ? 0.12 : 0.2
+          const streamCoreOpacity = palette.isDark ? 0.88 : 1
+          const currentSegmentFillOpacity = palette.isDark ? 0.22 : 0.34
+          const currentSegmentStrokeOpacity = palette.isDark ? 0.52 : 0.7
 
           const gradientStops = positionedSegments.flatMap((segment, index) => {
             const startOffset = `${((segment.startX - padding.left) / innerWidth) * 100}%`
@@ -350,8 +354,8 @@ export default function SignalFlowStream({
                   y={padding.top}
                   width={currentSegment.width}
                   height={innerHeight}
-                  fill={withAlpha(signalColor(currentSegment.direction, palette), 0.34)}
-                  stroke={withAlpha(signalColor(currentSegment.direction, palette), 0.7)}
+                  fill={withAlpha(signalColor(currentSegment.direction, palette), currentSegmentFillOpacity)}
+                  stroke={withAlpha(signalColor(currentSegment.direction, palette), currentSegmentStrokeOpacity)}
                   strokeWidth={1.4}
                 />
               ) : null}
@@ -363,7 +367,7 @@ export default function SignalFlowStream({
                     x2={segment.startX}
                     y1={padding.top}
                     y2={padding.top + innerHeight}
-                    stroke={withAlpha(palette.textMuted, 0.45)}
+                    stroke={withAlpha(palette.axisText, palette.isDark ? 0.36 : 0.45)}
                     strokeWidth={1.2}
                     strokeDasharray="3 4"
                   />
@@ -388,10 +392,10 @@ export default function SignalFlowStream({
                     textAnchor="middle"
                     fontSize={11}
                     fontWeight={600}
-                    fill={withAlpha(signalColor(segment.direction, palette), 0.95)}
+                    fill={withAlpha(signalColor(segment.direction, palette), palette.isDark ? 0.82 : 0.95)}
                     style={{
                       paintOrder: 'stroke',
-                      stroke: withAlpha(palette.tooltipBg, 0.9),
+                      stroke: withAlpha(palette.tooltipBg, palette.isDark ? 0.98 : 0.9),
                       strokeWidth: 3,
                     }}
                   >
@@ -415,7 +419,7 @@ export default function SignalFlowStream({
                   strokeWidth={16}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  opacity={0.2}
+                  opacity={streamGlowOpacity}
                 />
                 <path
                   d={path}
@@ -424,6 +428,7 @@ export default function SignalFlowStream({
                   strokeWidth={8}
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  opacity={streamCoreOpacity}
                 />
               </g>
 
@@ -437,7 +442,7 @@ export default function SignalFlowStream({
                     y={height - 6}
                     textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
                     fontSize={11}
-                    fill={palette.textMuted}
+                    fill={palette.axisText}
                   >
                     {formatDateShort(point.date)}
                   </text>
@@ -450,7 +455,7 @@ export default function SignalFlowStream({
                   x2={hoverPoint.x}
                   y1={padding.top}
                   y2={padding.top + innerHeight}
-                  stroke={withAlpha(palette.neutral, 0.48)}
+                  stroke={withAlpha(palette.axisText, palette.isDark ? 0.42 : 0.48)}
                   strokeWidth={1}
                   strokeDasharray="3 4"
                 />

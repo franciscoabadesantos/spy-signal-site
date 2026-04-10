@@ -43,25 +43,34 @@ function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-function colorFor(direction: SignalDirection, palette: ChartPalette): { fill: string; stroke: string; text: string } {
+function colorFor(
+  direction: SignalDirection,
+  palette: ChartPalette,
+  descriptor: 'dominant' | 'secondary' | 'minor' = 'secondary'
+): { fill: string; stroke: string; text: string } {
+  const intensity =
+    descriptor === 'dominant' ? 1.12 : descriptor === 'secondary' ? 1 : 0.84
+  const fillAlpha = (palette.isDark ? 0.17 : 0.22) * intensity
+  const strokeAlpha = (palette.isDark ? 0.5 : 0.62) * intensity
+  const textAlpha = (palette.isDark ? 0.82 : 0.94) * intensity
   if (direction === 'bullish') {
     return {
-      fill: withAlpha(palette.bullish, 0.22),
-      stroke: withAlpha(palette.bullish, 0.62),
-      text: withAlpha(palette.bullish, 0.94),
+      fill: withAlpha(palette.bullish, Math.min(0.3, fillAlpha)),
+      stroke: withAlpha(palette.bullish, Math.min(0.74, strokeAlpha)),
+      text: withAlpha(palette.bullish, Math.min(0.98, textAlpha)),
     }
   }
   if (direction === 'bearish') {
     return {
-      fill: withAlpha(palette.bearish, 0.22),
-      stroke: withAlpha(palette.bearish, 0.6),
-      text: withAlpha(palette.bearish, 0.94),
+      fill: withAlpha(palette.bearish, Math.min(0.3, fillAlpha)),
+      stroke: withAlpha(palette.bearish, Math.min(0.72, (palette.isDark ? 0.48 : 0.6) * intensity)),
+      text: withAlpha(palette.bearish, Math.min(0.98, textAlpha)),
     }
   }
   return {
-    fill: withAlpha(palette.signalNeutral, 0.22),
-    stroke: withAlpha(palette.signalNeutral, 0.6),
-    text: withAlpha(palette.signalNeutral, 0.95),
+    fill: withAlpha(palette.signalNeutral, Math.min(0.28, fillAlpha)),
+    stroke: withAlpha(palette.signalNeutral, Math.min(0.72, (palette.isDark ? 0.52 : 0.6) * intensity)),
+    text: withAlpha(palette.signalNeutral, Math.min(0.96, (palette.isDark ? 0.9 : 0.95) * intensity)),
   }
 }
 
@@ -274,7 +283,7 @@ export default function SignalDistributionBubbleCluster({
           aria-label="Signal distribution bubbles"
         >
           {bubbles.map((bubble) => {
-            const bubblePalette = colorFor(bubble.direction, palette)
+            const bubblePalette = colorFor(bubble.direction, palette, bubble.descriptor)
             const canShowCount = (showCount ?? !compact) && bubble.r >= 58
             const roleText =
               bubble.descriptor === 'dominant'
@@ -314,7 +323,7 @@ export default function SignalDistributionBubbleCluster({
                   fill={bubblePalette.text}
                   style={{
                     paintOrder: 'stroke',
-                    stroke: withAlpha(palette.tooltipBg, 0.92),
+                    stroke: withAlpha(palette.tooltipBg, palette.isDark ? 0.98 : 0.92),
                     strokeWidth: 3,
                   }}
                 >
@@ -329,7 +338,7 @@ export default function SignalDistributionBubbleCluster({
                   fill={bubblePalette.text}
                   style={{
                     paintOrder: 'stroke',
-                    stroke: withAlpha(palette.tooltipBg, 0.94),
+                    stroke: withAlpha(palette.tooltipBg, palette.isDark ? 0.98 : 0.94),
                     strokeWidth: 3,
                   }}
                 >
@@ -345,7 +354,7 @@ export default function SignalDistributionBubbleCluster({
                     fill={withAlpha(bubblePalette.text, 0.84)}
                     style={{
                       paintOrder: 'stroke',
-                      stroke: withAlpha(palette.tooltipBg, 0.9),
+                      stroke: withAlpha(palette.tooltipBg, palette.isDark ? 0.98 : 0.9),
                       strokeWidth: 3,
                     }}
                   >
@@ -362,7 +371,7 @@ export default function SignalDistributionBubbleCluster({
                     fill={withAlpha(bubblePalette.text, 0.84)}
                     style={{
                       paintOrder: 'stroke',
-                      stroke: withAlpha(palette.tooltipBg, 0.9),
+                      stroke: withAlpha(palette.tooltipBg, palette.isDark ? 0.98 : 0.9),
                       strokeWidth: 3,
                     }}
                   >
@@ -382,7 +391,7 @@ export default function SignalDistributionBubbleCluster({
                 {
                   label: 'Share',
                   value: `${hoverBubble.percent.toFixed(1)}%`,
-                  swatchColor: colorFor(hoverBubble.direction, palette).stroke,
+                  swatchColor: colorFor(hoverBubble.direction, palette, hoverBubble.descriptor).stroke,
                 },
                 {
                   label: 'Count',

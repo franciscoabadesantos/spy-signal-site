@@ -70,7 +70,7 @@ export default function RecentAiResearchRuns({
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <Link href={`/stocks/${run.ticker}`} className="text-sm font-semibold text-primary hover:underline">
+                    <Link href={`/stocks/${run.ticker}`} className="text-sm font-semibold text-accent-text hover:underline">
                       {run.ticker}
                     </Link>
                     <Badge variant={statusVariant(run.status)}>{run.status.toUpperCase()}</Badge>
@@ -96,10 +96,10 @@ export default function RecentAiResearchRuns({
               </div>
 
               <div className="mt-3 flex items-center gap-3 text-[12px] font-semibold">
-                <Link href={`/dashboard/ai-research/${run.id}`} className="text-primary hover:underline">
+                <Link href={`/dashboard/ai-research/${run.id}`} className="text-accent-text hover:underline">
                   View Run
                 </Link>
-                <Link href={buildRerunHref(run)} className="text-neutral-700 hover:text-primary dark:text-neutral-300 dark:hover:text-primary">
+                <Link href={buildRerunHref(run)} className="text-content-secondary hover:text-accent-text">
                   Re-run Prompt
                 </Link>
               </div>

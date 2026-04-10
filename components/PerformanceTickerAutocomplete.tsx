@@ -126,7 +126,7 @@ export default function PerformanceTickerAutocomplete({
     <div className="relative max-w-[460px]">
       <label className="text-filter-label mb-2 block">Ticker</label>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-content-muted" />
         <Input
           type="text"
           value={search}
@@ -151,7 +151,7 @@ export default function PerformanceTickerAutocomplete({
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-border bg-surface-card shadow-sm">
           <ul className="max-h-80 overflow-auto">
             {suggestions.map((item, index) => (
               <li key={`${item.symbol}-${item.name}`}>
@@ -159,14 +159,14 @@ export default function PerformanceTickerAutocomplete({
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => navigate(item.symbol)}
-                  className={`w-full border-b border-neutral-200 px-3 py-2.5 text-left last:border-b-0 dark:border-neutral-800 ${
+                  className={`w-full border-b border-border px-3 py-2.5 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset last:border-b-0 ${
                     index === highlightedIndex
-                      ? 'bg-neutral-100 dark:bg-neutral-800'
-                      : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/70'
+                      ? 'bg-surface-hover'
+                      : 'hover:bg-surface-elevated active:bg-surface-hover'
                   }`}
                 >
-                  <div className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">{item.symbol}</div>
-                  <div className="text-[12px] text-neutral-500 dark:text-neutral-400 truncate">
+                  <div className="text-[13px] font-semibold text-content-primary">{item.symbol}</div>
+                  <div className="text-[12px] text-content-muted truncate">
                     {item.name}
                     {item.exchange ? ` · ${item.exchange}` : ''}
                   </div>
@@ -178,7 +178,7 @@ export default function PerformanceTickerAutocomplete({
       )}
 
       {loading && search.trim() && (
-        <div className="absolute right-16 top-[34px] text-[11px] text-neutral-500">Loading</div>
+        <div className="absolute right-16 top-[34px] text-[11px] text-content-muted">Loading</div>
       )}
     </div>
   )
