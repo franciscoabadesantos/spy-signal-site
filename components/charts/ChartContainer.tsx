@@ -25,42 +25,42 @@ export type ChartPalette = {
 
 export const LIGHT_CHART_PALETTE: ChartPalette = {
   isDark: false,
-  primary: '#2563eb',
-  secondary: '#0f766e',
-  accent: '#d97706',
-  neutral: '#64748b',
-  grid: 'rgba(100, 116, 139, 0.24)',
-  text: '#1f2937',
-  textMuted: '#6b7280',
-  axisText: '#5f6f84',
+  primary: '#0A99FF',
+  secondary: '#007BE0',
+  accent: '#D99A0B',
+  neutral: '#64768A',
+  grid: '#CBD7E3',
+  text: '#142133',
+  textMuted: '#7E8DA1',
+  axisText: '#506176',
   tooltipBg: '#ffffff',
-  tooltipBorder: '#cbd5e1',
-  bullish: '#16a34a',
-  bearish: '#ef4444',
-  signalNeutral: '#64748b',
-  regimeBullish: 'rgba(22, 163, 74, 0.14)',
-  regimeBearish: 'rgba(239, 68, 68, 0.14)',
-  regimeNeutral: 'rgba(100, 116, 139, 0.12)',
+  tooltipBorder: '#D9E2EC',
+  bullish: '#12B76A',
+  bearish: '#E23D2E',
+  signalNeutral: '#64768A',
+  regimeBullish: 'rgba(18, 183, 106, 0.14)',
+  regimeBearish: 'rgba(226, 61, 46, 0.14)',
+  regimeNeutral: 'rgba(100, 118, 138, 0.12)',
 }
 
 export const DARK_CHART_PALETTE: ChartPalette = {
   isDark: true,
-  primary: '#7ea6d9',
-  secondary: '#62b8a8',
-  accent: '#d2a14f',
-  neutral: '#9fb0c3',
+  primary: '#36B3FF',
+  secondary: '#73CBFF',
+  accent: '#FFCB47',
+  neutral: '#ACBCCB',
   grid: 'rgba(142, 162, 191, 0.15)',
   text: '#dde8f6',
   textMuted: '#9cb0c9',
   axisText: '#b3c3d8',
   tooltipBg: '#132238',
   tooltipBorder: '#476184',
-  bullish: '#4fae7d',
-  bearish: '#d18b8b',
-  signalNeutral: '#9fb0c3',
-  regimeBullish: 'rgba(79, 174, 125, 0.18)',
-  regimeBearish: 'rgba(209, 139, 139, 0.19)',
-  regimeNeutral: 'rgba(159, 176, 195, 0.16)',
+  bullish: '#67DEAB',
+  bearish: '#FF867B',
+  signalNeutral: '#ACBCCB',
+  regimeBullish: 'rgba(18, 183, 106, 0.2)',
+  regimeBearish: 'rgba(226, 61, 46, 0.2)',
+  regimeNeutral: 'rgba(100, 118, 138, 0.2)',
 }
 
 export const CHART_PALETTE: ChartPalette = LIGHT_CHART_PALETTE
@@ -125,23 +125,23 @@ export function ChartTooltipCard({
   if (rows.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-chart-tooltip-border bg-chart-tooltip px-3 py-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.16)] backdrop-blur-[2px] dark:shadow-[0_14px_32px_rgba(2,8,20,0.6)]">
+    <div className="rounded-[var(--radius-lg)] border border-chart-tooltip-border bg-chart-tooltip px-3.5 py-3 shadow-[var(--shadow-sm)] backdrop-blur-[3px]">
       {title ? (
-        <div className="mb-2 text-[12px] font-semibold text-content-primary">
+        <div className="mb-2 text-label-sm text-content-primary">
           {title}
         </div>
       ) : null}
 
       <div className="space-y-1.5">
         {rows.map((row, index) => (
-          <div key={`${row.label}-${index}`} className="flex items-center justify-between gap-4 text-[12px]">
+          <div key={`${row.label}-${index}`} className="flex items-center justify-between gap-4 text-label-sm">
             <div className="inline-flex items-center gap-2 text-content-secondary">
               {row.swatchColor ? (
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: row.swatchColor }} />
               ) : null}
               <span>{row.label}</span>
             </div>
-            <span className="font-semibold text-content-primary">
+            <span className="text-data-sm text-content-primary numeric-tabular">
               {row.value}
             </span>
           </div>

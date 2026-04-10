@@ -16,7 +16,7 @@ export default function InsightCard({
 }: InsightCardProps) {
   return (
     <Card className={cn('section-gap', className)}>
-      {title ? <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">{title}</h3> : null}
+      {title ? <h3 className="text-card-title text-content-primary">{title}</h3> : null}
       {description ? <p className="text-body">{description}</p> : null}
       {children}
     </Card>

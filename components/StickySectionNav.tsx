@@ -9,9 +9,9 @@ export type StickySection = {
 
 function itemClass(active: boolean): string {
   if (active) {
-    return 'relative rounded-r-md py-2.5 pl-4 text-left text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg'
+    return 'state-interactive relative rounded-[var(--radius-md)] bg-surface-hover py-2.5 pl-4 pr-3 text-left text-label-sm font-semibold text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg'
   }
-  return 'relative rounded-r-md py-2.5 pl-4 text-left text-sm font-medium text-content-muted transition-colors hover:bg-surface-hover hover:text-content-primary active:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg'
+  return 'state-interactive relative rounded-[var(--radius-md)] py-2.5 pl-4 pr-3 text-left text-label-sm font-medium text-content-secondary hover:bg-surface-hover hover:text-content-primary active:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg'
 }
 
 export default function StickySectionNav({
@@ -37,10 +37,10 @@ export default function StickySectionNav({
 
   return (
     <aside className="sticky top-24 hidden w-44 shrink-0 self-start xl:block">
-      <div className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-content-muted">
+      <div className="px-2 text-label-sm uppercase tracking-[0.16em] text-content-muted">
         On this page
       </div>
-      <nav className="relative mt-3 ml-2 border-l border-border">
+      <nav className="relative mt-3 ml-2 space-y-1 border-l border-border">
         {sections.map((section) => {
           const active = section.id === activeId
           return (

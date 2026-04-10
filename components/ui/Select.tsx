@@ -7,7 +7,7 @@ export default function Select({ className, children, ...props }: SelectProps) {
   return (
     <select
       className={cn(
-        'h-10 w-full rounded-xl border border-input bg-surface-card px-3 text-sm text-content-primary outline-none transition-[background-color,color,border-color,box-shadow] duration-150 focus-visible:border-primary/55 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-1 focus-visible:ring-offset-page-bg',
+        'state-interactive h-11 w-full rounded-[var(--radius-md)] border border-input bg-surface-card px-4 text-body-sm text-content-primary outline-none focus-visible:border-primary/55 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-1 focus-visible:ring-offset-page-bg',
         className
       )}
       {...props}

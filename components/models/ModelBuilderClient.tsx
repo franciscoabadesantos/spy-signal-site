@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import AppShell from '@/components/shells/AppShell'
 import Card from '@/components/ui/Card'
 import PageHeader from '@/components/ui/PageHeader'
 import Input from '@/components/ui/Input'
@@ -477,8 +476,7 @@ export default function ModelBuilderClient({
   }
 
   return (
-    <AppShell active="models" container="lg">
-      <div className="section-gap">
+    <div className="container-lg section-gap">
         <PageHeader
           title="New model"
           subtitle="Create a simple system in three guided steps, then run validation."
@@ -494,8 +492,8 @@ export default function ModelBuilderClient({
             <Card>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">Starter templates</h2>
-                  <p className="mt-1 text-[13px] text-neutral-600 dark:text-neutral-400">
+                  <h2 className="text-card-title text-content-primary">Starter templates</h2>
+                  <p className="text-body-sm mt-1 text-content-secondary">
                     Start from a proven structure, then tune conditions.
                   </p>
                 </div>
@@ -507,10 +505,10 @@ export default function ModelBuilderClient({
                     key={template.key}
                     type="button"
                     onClick={() => applyTemplate(template)}
-                    className="rounded-xl border border-neutral-200 bg-white p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-primary/40 dark:hover:bg-primary/10"
+                    className="state-interactive rounded-[var(--radius-lg)] border border-border bg-surface-card p-3 text-left hover:border-primary/40 hover:bg-surface-hover"
                   >
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{template.label}</div>
-                    <div className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">{template.blurb}</div>
+                    <div className="text-label-lg text-content-primary">{template.label}</div>
+                    <div className="text-caption mt-1 text-content-muted">{template.blurb}</div>
                   </button>
                 ))}
               </div>
@@ -518,7 +516,7 @@ export default function ModelBuilderClient({
 
             <Card className={step === 1 ? 'border-primary/40' : undefined}>
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">Step 1 · Scope</h2>
+                <h2 className="text-card-title text-content-primary">Step 1 · Scope</h2>
                 <Badge variant={scopeReady ? 'success' : 'neutral'}>{scopeReady ? 'Ready' : 'In progress'}</Badge>
               </div>
 
@@ -593,7 +591,7 @@ export default function ModelBuilderClient({
 
             <Card className={step === 2 ? 'border-primary/40' : 'opacity-80'}>
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">Step 2 · Logic</h2>
+                <h2 className="text-card-title text-content-primary">Step 2 · Logic</h2>
                 <Badge variant={logicReady ? 'success' : 'neutral'}>{logicReady ? 'Ready' : 'In progress'}</Badge>
               </div>
 
@@ -616,18 +614,18 @@ export default function ModelBuilderClient({
                   {conditions.map((condition, index) => (
                     <div
                       key={condition.id}
-                      className="rounded-2xl border border-neutral-200 bg-gradient-to-br from-white to-neutral-50 p-3 dark:border-neutral-800 dark:from-neutral-950 dark:to-neutral-900"
+                      className="rounded-[var(--radius-xl)] border border-border bg-[linear-gradient(160deg,var(--surface-card),var(--surface-elevated))] p-3"
                     >
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <div className="text-[12px] font-medium text-neutral-600 dark:text-neutral-400">
+                        <div className="text-caption text-content-muted">
                           Rule {index + 1}
                         </div>
-                        <div className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[12px] font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+                        <div className="text-caption rounded-[var(--radius-pill)] border border-border bg-surface-card px-2.5 py-1 text-content-secondary numeric-tabular">
                           {condition.metric} {OPERATOR_SYMBOL[condition.operator]} {condition.value}
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[12px] text-neutral-500 dark:text-neutral-400">When</span>
+                        <span className="text-caption text-content-muted">When</span>
                         <Select
                           value={condition.metric}
                           onChange={(event) =>
@@ -635,7 +633,7 @@ export default function ModelBuilderClient({
                               metric: event.target.value as ModelCondition['metric'],
                             })
                           }
-                          className="h-9 w-auto min-w-[130px] rounded-full bg-white px-3 text-[13px] dark:bg-neutral-900"
+                          className="h-9 w-auto min-w-[130px] rounded-[var(--radius-pill)] bg-surface-card px-3 text-body-sm"
                         >
                           {METRIC_OPTIONS.map((option) => (
                             <option key={option} value={option}>
@@ -650,7 +648,7 @@ export default function ModelBuilderClient({
                               operator: event.target.value as ModelCondition['operator'],
                             })
                           }
-                          className="h-9 w-auto min-w-[96px] rounded-full bg-white px-3 text-[13px] dark:bg-neutral-900"
+                          className="h-9 w-auto min-w-[96px] rounded-[var(--radius-pill)] bg-surface-card px-3 text-body-sm"
                         >
                           {OPERATOR_OPTIONS.map((option) => (
                             <option key={option} value={option}>
@@ -668,7 +666,7 @@ export default function ModelBuilderClient({
                               value: Number(event.target.value),
                             })
                           }
-                          className="h-9 w-20 rounded-full text-center text-[13px]"
+                          className="h-9 w-20 rounded-[var(--radius-pill)] text-center text-body-sm numeric-tabular"
                         />
                         <button
                           type="button"
@@ -692,7 +690,7 @@ export default function ModelBuilderClient({
                           className="w-full accent-primary"
                         />
                       </div>
-                      <div className="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                      <div className="text-micro mt-2 text-content-muted">
                         {METRIC_HELP_TEXT[condition.metric]}
                       </div>
                     </div>
@@ -721,7 +719,7 @@ export default function ModelBuilderClient({
 
             <Card className={step === 3 ? 'border-primary/40' : 'opacity-80'}>
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-card-title text-neutral-900 dark:text-neutral-100">Step 3 · Validate</h2>
+                <h2 className="text-card-title text-content-primary">Step 3 · Validate</h2>
                 <Badge variant={validationReady ? 'success' : 'neutral'}>{validationReady ? 'Ready' : 'In progress'}</Badge>
               </div>
 
@@ -767,12 +765,12 @@ export default function ModelBuilderClient({
                     ))}
                   </div>
                 </div>
-                <label className="inline-flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300 md:col-span-2">
+                <label className="text-body-sm inline-flex items-center gap-2 text-content-secondary md:col-span-2">
                   <input
                     type="checkbox"
                     checked={compareAgainstBenchmark}
                     onChange={(event) => setCompareAgainstBenchmark(event.target.checked)}
-                    className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary"
+                    className="h-4 w-4 rounded-[var(--radius-sm)] border-border text-primary focus:ring-primary"
                   />
                   Compare against benchmark
                 </label>
@@ -802,7 +800,7 @@ export default function ModelBuilderClient({
                 </div>
               </div>
               {runStageIndex !== null ? (
-                <div className="mt-3 text-[12px] font-medium text-primary">
+                <div className="text-caption mt-3 text-primary">
                   {VALIDATION_RUN_STAGES[runStageIndex]}
                 </div>
               ) : null}
@@ -814,10 +812,10 @@ export default function ModelBuilderClient({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-filter-label">Live summary</div>
-                  <h3 className="mt-1 text-card-title text-neutral-900 dark:text-neutral-100">
+                  <h3 className="mt-1 text-card-title text-content-primary">
                     {draftInput.name || 'Untitled model'}
                   </h3>
-                  <p className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+                  <p className="text-caption mt-1 text-content-muted">
                     {universeLabel(draftInput.universe)}
                     {draftInput.ticker ? ` · ${draftInput.ticker}` : ''}
                   </p>
@@ -827,20 +825,20 @@ export default function ModelBuilderClient({
                 </Badge>
               </div>
 
-              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+              <div className="rounded-[var(--radius-lg)] border border-border bg-surface-elevated p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-filter-label">Predicted state</div>
                   <Badge variant={qualitativeStateVariant(previewState)}>{previewState}</Badge>
                 </div>
-                <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">{previewDescription}</p>
+                <p className="text-body-sm mt-2 text-content-secondary">{previewDescription}</p>
                 <div className="mt-3 space-y-2">
                   {previewModel.profileDimensions.map((dimension) => (
                     <div key={dimension.label}>
-                      <div className="mb-1 flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400">
+                      <div className="text-micro mb-1 flex items-center justify-between text-content-muted">
                         <span>{dimension.label}</span>
-                        <span>{Math.round(dimension.score)}</span>
+                        <span className="numeric-tabular">{Math.round(dimension.score)}</span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800">
+                      <div className="h-1.5 rounded-full bg-[var(--neutral-200)]">
                         <div
                           className={`h-1.5 rounded-full ${metricBarClass(dimension.label)}`}
                           style={{ width: `${Math.round(dimension.score)}%` }}
@@ -853,11 +851,11 @@ export default function ModelBuilderClient({
 
               <div>
                 <div className="text-filter-label">Conditions</div>
-                <ul className="mt-2 flex flex-wrap gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+                <ul className="text-body-sm mt-2 flex flex-wrap gap-2 text-content-secondary">
                   {draftInput.conditions.map((condition) => (
                     <li
                       key={condition.id}
-                      className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[12px] dark:border-neutral-700 dark:bg-neutral-900"
+                      className="text-caption rounded-[var(--radius-pill)] border border-border bg-surface-card px-2.5 py-1 numeric-tabular"
                     >
                       {condition.metric} {OPERATOR_SYMBOL[condition.operator]} {condition.value}
                     </li>
@@ -867,7 +865,7 @@ export default function ModelBuilderClient({
 
               <div>
                 <div className="text-filter-label">Validation settings</div>
-                <div className="mt-2 space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
+                <div className="text-body-sm mt-2 space-y-1 text-content-secondary">
                   <div>Horizon: {draftInput.validation.holdingHorizonDays}d</div>
                   <div>Update: {draftInput.validation.signalUpdateFrequency}</div>
                   <div>Risk: {draftInput.validation.riskMode}</div>
@@ -877,7 +875,7 @@ export default function ModelBuilderClient({
 
               <div>
                 <div className="text-filter-label">Readiness</div>
-                <div className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">
+                <div className="text-body-sm mt-2 text-content-secondary">
                   Scope {scopeReady ? '✓' : '•'} · Logic {logicReady ? '✓' : '•'} · Validate {validationReady ? '✓' : '•'}
                 </div>
               </div>
@@ -901,10 +899,10 @@ export default function ModelBuilderClient({
                 </button>
               </div>
               {runStageIndex !== null ? (
-                <div className="text-[12px] font-medium text-primary">{VALIDATION_RUN_STAGES[runStageIndex]}</div>
+                <div className="text-caption text-primary">{VALIDATION_RUN_STAGES[runStageIndex]}</div>
               ) : null}
 
-              <div className="rounded-lg border border-neutral-200 p-3 text-[12px] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+              <div className="text-caption rounded-[var(--radius-md)] border border-border p-3 text-content-secondary">
                 Preview score (draft): {Math.round(
                   previewModel.profileDimensions.reduce((sum, row) => sum + row.score, 0) /
                     previewModel.profileDimensions.length
@@ -912,8 +910,7 @@ export default function ModelBuilderClient({
               </div>
             </Card>
           </div>
-        </div>
       </div>
-    </AppShell>
+    </div>
   )
 }

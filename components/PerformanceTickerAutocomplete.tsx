@@ -85,7 +85,7 @@ export default function PerformanceTickerAutocomplete({
     setSearch(ticker)
     setIsOpen(false)
     setHighlightedIndex(-1)
-    router.push(`/performance?ticker=${encodeURIComponent(ticker)}`)
+    router.push(`/stocks/${encodeURIComponent(ticker)}/performance`)
   }
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
