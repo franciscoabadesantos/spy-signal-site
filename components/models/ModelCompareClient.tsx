@@ -6,7 +6,6 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -733,9 +732,8 @@ export default function ModelCompareClient({
               <h3 className="text-card-title text-content-primary">Equity curve comparison</h3>
               <p className="text-body">Model A and B strategy curves on the same axis.</p>
               <ChartContainer className="h-[300px]">
-                {({ palette }) => (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
-                    <LineChart data={chartData} margin={CHART_MARGINS.stock}>
+                {({ width, height, palette }) => (
+                  <LineChart width={width} height={height} data={chartData} margin={CHART_MARGINS.stock}>
                       <CartesianGrid strokeDasharray="2 6" stroke={palette.grid} vertical={false} />
                       <XAxis dataKey="t" tick={{ fontSize: 11, fill: palette.textMuted }} axisLine={false} tickLine={false} />
                       <YAxis
@@ -768,8 +766,7 @@ export default function ModelCompareClient({
                           dot={false}
                         />
                       ) : null}
-                    </LineChart>
-                  </ResponsiveContainer>
+                  </LineChart>
                 )}
               </ChartContainer>
               <div className="flex flex-wrap items-center gap-2 text-[12px] text-content-muted">

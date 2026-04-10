@@ -4,7 +4,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -77,11 +76,16 @@ export default function AllocationMiniBars({
     <div className="rounded-2xl border border-border bg-surface-card p-3 shadow-sm">
       <div className="mb-2 text-[12px] font-semibold text-content-secondary">{title}</div>
       <ChartContainer className="h-[210px] w-full min-w-0">
-        {({ palette }) => {
+        {({ width, height, palette }) => {
           const barColor = resolveBarColor(tone, palette)
           return (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={170}>
-            <BarChart data={data} layout="vertical" margin={CHART_MARGINS.standard}>
+            <BarChart
+              width={width}
+              height={height}
+              data={data}
+              layout="vertical"
+              margin={CHART_MARGINS.standard}
+            >
               <CartesianGrid strokeDasharray="2 6" stroke={palette.grid} vertical={false} />
               <XAxis
                 type="number"
@@ -102,8 +106,8 @@ export default function AllocationMiniBars({
               <Tooltip content={<AllocationTooltip palette={palette} />} cursor={{ fill: 'rgba(37,99,235,0.08)' }} />
               <Bar dataKey="value" fill={barColor} radius={[6, 6, 6, 6]} />
             </BarChart>
-          </ResponsiveContainer>
-        )}}
+          )
+        }}
       </ChartContainer>
     </div>
   )

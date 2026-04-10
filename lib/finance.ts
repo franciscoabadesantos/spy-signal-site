@@ -473,6 +473,68 @@ function isRateLimitedYahooError(error: unknown): boolean {
   return error instanceof YahooHttpError && error.status === 429
 }
 
+function errorTreeMatches(
+  error: unknown,
+  predicate: (entry: { name?: string; message?: string; code?: string }) => boolean,
+  seen = new Set<unknown>()
+): boolean {
+  if (!error || (typeof error !== 'object' && typeof error !== 'function')) return false
+  if (seen.has(error)) return false
+  seen.add(error)
+
+  const entry = error as {
+    name?: unknown
+    message?: unknown
+    code?: unknown
+    cause?: unknown
+    errors?: unknown[]
+  }
+
+  if (
+    predicate({
+      name: typeof entry.name === 'string' ? entry.name : undefined,
+      message: typeof entry.message === 'string' ? entry.message : undefined,
+      code: typeof entry.code === 'string' ? entry.code : undefined,
+    })
+  ) {
+    return true
+  }
+
+  if (Array.isArray(entry.errors)) {
+    for (const nested of entry.errors) {
+      if (errorTreeMatches(nested, predicate, seen)) return true
+    }
+  }
+
+  return errorTreeMatches(entry.cause, predicate, seen)
+}
+
+function isTransientNetworkError(error: unknown): boolean {
+  return errorTreeMatches(error, ({ name, message, code }) => {
+    const normalizedCode = code?.toUpperCase()
+    const normalizedMessage = message?.toLowerCase() ?? ''
+    if (name === 'AbortError') return true
+    if (
+      normalizedCode === 'ETIMEDOUT' ||
+      normalizedCode === 'ECONNRESET' ||
+      normalizedCode === 'ECONNREFUSED' ||
+      normalizedCode === 'ENETUNREACH' ||
+      normalizedCode === 'EHOSTUNREACH' ||
+      normalizedCode === 'ENOTFOUND' ||
+      normalizedCode === 'EAI_AGAIN' ||
+      normalizedCode === 'UND_ERR_CONNECT_TIMEOUT'
+    ) {
+      return true
+    }
+    return (
+      normalizedMessage.includes('timed out') ||
+      normalizedMessage.includes('timeout') ||
+      normalizedMessage.includes('operation was aborted') ||
+      normalizedMessage.includes('fetch failed')
+    )
+  })
+}
+
 function isMissingTableError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const err = error as { code?: string; message?: string }
@@ -796,7 +858,6 @@ async function fetchYahooNews(ticker: string, limit: number): Promise<TickerNews
   }
 
   const items = [...deduped.values()].slice(0, limit)
-  if (items.length === 0) console.warn(`No usable news articles found for ${ticker}.`)
   return items
 }
 
@@ -1613,7 +1674,9 @@ async function fetchStooqQuote(ticker: string): Promise<StockQuote | null> {
   } catch (error) {
     stooqQuoteCooldownUntil = Date.now() + STOOQ_COOLDOWN_MS
     stooqCooldownLogged = false
-    throw new Error(`Stooq quote request failed: ${errorMessage(error)}`)
+    const wrappedError = new Error(`Stooq quote request failed: ${errorMessage(error)}`)
+    ;(wrappedError as Error & { cause?: unknown }).cause = error
+    throw wrappedError
   }
 
   if (!res.ok) throw new Error(`Stooq request failed (${res.status} ${res.statusText})`)
@@ -1859,7 +1922,11 @@ async function fetchLiveQuoteWithFallback(ticker: string): Promise<QuoteFetchRes
     if (yahooQuote) return { quote: yahooQuote, source: 'yahoo' }
   } catch (error) {
     if (!isRateLimitedYahooError(error)) {
-      console.warn(`Failed to fetch Yahoo quote for ${ticker}:`, error)
+      if (isTransientNetworkError(error)) {
+        console.warn(`Yahoo quote fetch timed out for ${ticker}; using fallback or cached quote if available.`)
+      } else {
+        console.warn(`Failed to fetch Yahoo quote for ${ticker}:`, error)
+      }
     }
   }
 
@@ -1869,7 +1936,11 @@ async function fetchLiveQuoteWithFallback(ticker: string): Promise<QuoteFetchRes
   } catch (error) {
     stooqQuoteCooldownUntil = Date.now() + STOOQ_COOLDOWN_MS
     stooqCooldownLogged = false
-    console.warn(`Failed to fetch fallback quote for ${ticker}; temporarily disabling Stooq fallback:`, error)
+    if (isTransientNetworkError(error)) {
+      console.warn(`Fallback quote provider timed out for ${ticker}; temporarily disabling Stooq fallback.`)
+    } else {
+      console.warn(`Failed to fetch fallback quote for ${ticker}; temporarily disabling Stooq fallback:`, error)
+    }
   }
 
   return null
@@ -1935,7 +2006,11 @@ async function loadHistorical(tickerRaw: string, periodDays: number): Promise<Pr
     }
   } catch (error) {
     if (!isRateLimitedYahooError(error)) {
-      console.warn(`Failed to fetch historicals for ${ticker}:`, error)
+      if (isTransientNetworkError(error)) {
+        console.warn(`Historical data fetch timed out for ${ticker}; using cached prices if available.`)
+      } else {
+        console.warn(`Failed to fetch historicals for ${ticker}:`, error)
+      }
     }
   }
 
@@ -1999,7 +2074,11 @@ export async function refreshTickerMarketData(
   } catch (error) {
     result.errors.push(`historical_fetch_failed:${errorMessage(error)}`)
     if (!isRateLimitedYahooError(error)) {
-      console.warn(`Historical refresh failed for ${ticker}:`, error)
+      if (isTransientNetworkError(error)) {
+        console.warn(`Historical refresh timed out for ${ticker}; keeping existing cached prices.`)
+      } else {
+        console.warn(`Historical refresh failed for ${ticker}:`, error)
+      }
     }
   }
 

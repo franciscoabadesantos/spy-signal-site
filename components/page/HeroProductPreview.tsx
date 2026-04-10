@@ -7,7 +7,6 @@ import {
   Line,
   ReferenceArea,
   ReferenceDot,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -235,9 +234,8 @@ export default function HeroProductPreview() {
             </div>
           </div>
           <ChartContainer className="h-[140px]">
-            {({ palette: chartPalette }) => (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={120}>
-                <AreaChart data={PRICE_SERIES} margin={CHART_MARGINS.standard}>
+            {({ width, height, palette: chartPalette }) => (
+              <AreaChart width={width} height={height} data={PRICE_SERIES} margin={CHART_MARGINS.standard}>
                   <defs>
                     <linearGradient id="heroPriceFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={chartPalette.primary} stopOpacity={0.26} />
@@ -312,8 +310,7 @@ export default function HeroProductPreview() {
                       strokeWidth={1.8}
                     />
                   ))}
-                </AreaChart>
-              </ResponsiveContainer>
+              </AreaChart>
             )}
           </ChartContainer>
         </div>
@@ -370,9 +367,8 @@ export default function HeroProductPreview() {
         </div>
 
         <ChartContainer className="h-[96px]">
-          {({ palette: chartPalette }) => (
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={84}>
-              <AreaChart data={comparisonSeries} margin={CHART_MARGINS.standard}>
+          {({ width, height, palette: chartPalette }) => (
+            <AreaChart width={width} height={height} data={comparisonSeries} margin={CHART_MARGINS.standard}>
                 <defs>
                   <linearGradient id="heroBacktestFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={chartPalette.secondary} stopOpacity={0.2} />
@@ -422,8 +418,7 @@ export default function HeroProductPreview() {
                     strokeWidth: 2,
                   }}
                 />
-              </AreaChart>
-            </ResponsiveContainer>
+            </AreaChart>
           )}
         </ChartContainer>
 

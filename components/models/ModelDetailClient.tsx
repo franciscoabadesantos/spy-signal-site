@@ -9,7 +9,6 @@ import {
   CartesianGrid,
   Line,
   ReferenceDot,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -1342,9 +1341,8 @@ export default function ModelDetailClient({
               </div>
 
               <ChartContainer className="h-[280px]">
-                {({ palette }) => (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                    <AreaChart data={model.equityCurve} margin={CHART_MARGINS.stock}>
+                {({ width, height, palette }) => (
+                  <AreaChart width={width} height={height} data={model.equityCurve} margin={CHART_MARGINS.stock}>
                       <defs>
                         <linearGradient id="modelStrategyFill" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor={palette.secondary} stopOpacity={0.26} />
@@ -1391,8 +1389,7 @@ export default function ModelDetailClient({
                           ifOverflow="extendDomain"
                         />
                       ))}
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  </AreaChart>
                 )}
               </ChartContainer>
             </Card>

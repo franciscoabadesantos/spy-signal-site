@@ -1,6 +1,6 @@
 'use client'
 
-import { ResponsiveContainer, Sankey, type SankeyLinkProps, type SankeyNodeProps } from 'recharts'
+import { Sankey, type SankeyLinkProps, type SankeyNodeProps } from 'recharts'
 import Card from '@/components/ui/Card'
 import ChartContainer, {
   CHART_MARGINS,
@@ -167,18 +167,18 @@ export default function PortfolioFlowSankey({
       </div>
 
       <ChartContainer className="h-[520px] w-full min-w-0">
-        {() => (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={380}>
-            <Sankey
-              data={data}
-              node={FlowNode}
-              link={FlowLink}
-              nodePadding={28}
-              nodeWidth={18}
-              margin={CHART_MARGINS.sankey}
-              sort
-            />
-          </ResponsiveContainer>
+        {({ width, height }) => (
+          <Sankey
+            width={width}
+            height={height}
+            data={data}
+            node={FlowNode}
+            link={FlowLink}
+            nodePadding={28}
+            nodeWidth={18}
+            margin={CHART_MARGINS.sankey}
+            sort
+          />
         )}
       </ChartContainer>
 

@@ -4,7 +4,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -75,30 +74,34 @@ export default function FinancialStatementBarChart({
 }: FinancialStatementBarChartProps) {
   return (
     <ChartContainer className="h-[290px] w-full min-w-0">
-      {({ palette }) => (
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
-          <BarChart data={data} layout="vertical" margin={CHART_MARGINS.withYAxisLabels}>
-            <CartesianGrid strokeDasharray="2 6" stroke={palette.grid} vertical={false} />
-            <XAxis
-              type="number"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: palette.textMuted }}
-              tickFormatter={(value) => formatTick(value as number, decimals, valueSuffix)}
-            />
-            <YAxis
-              type="category"
-              dataKey="label"
-              width={120}
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: palette.text }}
-              interval={0}
-            />
-            <Tooltip content={<FinancialTooltip palette={palette} />} cursor={{ fill: 'rgba(37,99,235,0.08)' }} />
-            <Bar dataKey="value" fill={palette.primary} radius={[6, 6, 6, 6]} />
-          </BarChart>
-        </ResponsiveContainer>
+      {({ width, height, palette }) => (
+        <BarChart
+          width={width}
+          height={height}
+          data={data}
+          layout="vertical"
+          margin={CHART_MARGINS.withYAxisLabels}
+        >
+          <CartesianGrid strokeDasharray="2 6" stroke={palette.grid} vertical={false} />
+          <XAxis
+            type="number"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: 12, fill: palette.textMuted }}
+            tickFormatter={(value) => formatTick(value as number, decimals, valueSuffix)}
+          />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={120}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: 12, fill: palette.text }}
+            interval={0}
+          />
+          <Tooltip content={<FinancialTooltip palette={palette} />} cursor={{ fill: 'rgba(37,99,235,0.08)' }} />
+          <Bar dataKey="value" fill={palette.primary} radius={[6, 6, 6, 6]} />
+        </BarChart>
       )}
     </ChartContainer>
   )
