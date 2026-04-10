@@ -10,15 +10,15 @@ type StatProps = {
 
 export default function Stat({ label, value, hint, className }: StatProps) {
   return (
-    <Card className={cn('p-5 md:p-6', className)}>
-      <div className="text-[10px] uppercase tracking-[0.08em] text-content-muted">
+    <Card className={cn('surface-tertiary p-5 md:p-6', className)}>
+      <div className="text-label-sm uppercase tracking-[0.08em] text-content-muted">
         {label}
       </div>
-      <div className="mt-2 text-[1.9rem] font-semibold leading-none text-content-primary">
+      <div className="text-data-lg numeric-tabular mt-2 text-content-primary">
         {value}
       </div>
       {hint ? (
-        <div className="mt-2 text-[12px] text-content-muted">
+        <div className="text-caption mt-2 text-content-muted">
           {hint}
         </div>
       ) : null}

@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import AppShell from '@/components/shells/AppShell'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
@@ -32,8 +31,7 @@ export default function ModelsHubClient() {
   const sampleModelHref = `/models/${SAMPLE_MODEL_ID}?from=models_hub`
 
   return (
-    <AppShell active="models" container="md">
-      <div className="section-gap">
+    <div className="container-md section-gap">
         <PageHeader
           title="Models"
           subtitle="Build, test, and compare your investing systems."
@@ -81,8 +79,8 @@ export default function ModelsHubClient() {
               <Card key={model.id} className="section-gap">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-card-title text-neutral-900 dark:text-neutral-100">{model.name}</div>
-                    <div className="mt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
+                    <div className="text-card-title text-content-primary">{model.name}</div>
+                    <div className="text-caption mt-1 text-content-muted">
                       {universeLabel(model.universe)}
                       {model.ticker ? ` · ${model.ticker}` : ''}
                     </div>
@@ -94,10 +92,10 @@ export default function ModelsHubClient() {
 
                 <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-[1fr_auto] md:items-end">
                   <div className="space-y-1">
-                    <div className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                    <div className="text-caption text-content-muted numeric-tabular">
                       Last run: {formatDate(model.lastRunAt)}
                     </div>
-                    <div className="font-medium text-neutral-900 dark:text-neutral-100">{modelSummaryResult(model)}</div>
+                    <div className="text-label-md text-content-primary">{modelSummaryResult(model)}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Link href={`/models/${model.id}?from=models_hub`} className={buttonClass({ variant: 'secondary' })}>
@@ -109,7 +107,6 @@ export default function ModelsHubClient() {
             ))}
           </div>
         )}
-      </div>
-    </AppShell>
+    </div>
   )
 }

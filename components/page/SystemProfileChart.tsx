@@ -143,8 +143,8 @@ export default function SystemProfileChart({
       >
         <defs>
           <linearGradient id={`${gradientId}-fill`} x1="15%" y1="12%" x2="86%" y2="90%">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.32} />
-            <stop offset="100%" stopColor="#2563eb" stopOpacity={0.08} />
+            <stop offset="0%" stopColor="var(--accent-400)" stopOpacity={0.3} />
+            <stop offset="100%" stopColor="var(--accent-600)" stopOpacity={0.08} />
           </linearGradient>
         </defs>
 
@@ -181,7 +181,7 @@ export default function SystemProfileChart({
         ) : null}
 
         <path d={shapePath} fill={`url(#${gradientId}-fill)`} stroke="none" />
-        <path d={shapePath} fill="none" stroke="#2563eb" strokeWidth={2.4} />
+        <path d={shapePath} fill="none" stroke="var(--accent-500)" strokeWidth={2.4} />
 
         {profilePoints.map((point, index) => (
           <g
@@ -189,8 +189,8 @@ export default function SystemProfileChart({
             onMouseEnter={() => setActiveIndex(index)}
             style={{ cursor: 'default' }}
           >
-            <circle cx={point.x} cy={point.y} r={5.5} fill="rgba(37, 99, 235, 0.16)" />
-            <circle cx={point.x} cy={point.y} r={3.4} fill="var(--chart-tooltip-bg)" stroke="#2563eb" strokeWidth={2} />
+            <circle cx={point.x} cy={point.y} r={5.5} fill="rgba(10, 153, 255, 0.16)" />
+            <circle cx={point.x} cy={point.y} r={3.4} fill="var(--chart-tooltip-bg)" stroke="var(--accent-500)" strokeWidth={2} />
           </g>
         ))}
 

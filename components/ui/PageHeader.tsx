@@ -18,7 +18,7 @@ export default function PageHeader({
   return (
     <div className={cn('flex flex-col gap-3 md:flex-row md:items-end md:justify-between', className)}>
       <div>
-        {meta ? <div className="text-[12px] text-content-muted">{meta}</div> : null}
+        {meta ? <div className="text-caption text-content-muted">{meta}</div> : null}
         <h1 className="text-page-title text-content-primary">{title}</h1>
         {subtitle ? <p className="text-body mt-2">{subtitle}</p> : null}
       </div>

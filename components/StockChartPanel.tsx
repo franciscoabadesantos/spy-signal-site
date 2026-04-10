@@ -238,7 +238,7 @@ export default function StockChartPanel({
               Price
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-[3px] bg-emerald-400/40" />
+              <span className="h-2.5 w-2.5 rounded-[3px] signal-fill-bullish signal-confidence-medium" />
               Regime
             </span>
             <span className="inline-flex items-center gap-1.5">

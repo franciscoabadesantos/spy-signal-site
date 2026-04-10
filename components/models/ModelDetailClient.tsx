@@ -13,7 +13,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import AppShell from '@/components/shells/AppShell'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import PageHeader from '@/components/ui/PageHeader'
@@ -80,9 +79,9 @@ function formatPercent(value: number | null): string {
 
 function signalToneClass(signal: ModelRecord['currentSignal']): string {
   if (!signal) return 'text-content-secondary'
-  if (signal.direction === 'bullish') return 'text-emerald-700 dark:text-emerald-300'
-  if (signal.direction === 'bearish') return 'text-rose-700 dark:text-rose-300'
-  return 'text-amber-700 dark:text-amber-300'
+  if (signal.direction === 'bullish') return 'signal-bullish'
+  if (signal.direction === 'bearish') return 'signal-bearish'
+  return 'signal-neutral'
 }
 
 function statusVariant(status: ModelRecord['status']): 'success' | 'warning' {
@@ -185,21 +184,21 @@ function directionArrow(direction: DeltaDirection): string {
 }
 
 function directionToneClass(direction: DeltaDirection): string {
-  if (direction === 'up') return 'text-emerald-600 dark:text-emerald-400'
-  if (direction === 'down') return 'text-rose-600 dark:text-rose-400'
+  if (direction === 'up') return 'signal-bullish'
+  if (direction === 'down') return 'signal-bearish'
   return 'text-content-muted'
 }
 
 function frequencyToneClass(direction: DeltaDirection): string {
-  if (direction === 'up') return 'text-sky-600 dark:text-sky-400'
-  if (direction === 'down') return 'text-amber-600 dark:text-amber-400'
+  if (direction === 'up') return 'text-accent-text'
+  if (direction === 'down') return 'signal-warn'
   return 'text-content-muted'
 }
 
 function markerColor(signal: ModelRecord['signals'][number]['signal']): string {
-  if (signal === 'bullish') return '#16a34a'
-  if (signal === 'bearish') return '#dc2626'
-  return '#f59e0b'
+  if (signal === 'bullish') return '#12B76A'
+  if (signal === 'bearish') return '#E23D2E'
+  return '#64768A'
 }
 
 function buildMetricHints(summary: NonNullable<ModelRecord['summary']>): {
@@ -348,7 +347,7 @@ export default function ModelDetailClient({
 
   if (!model) {
     return (
-      <AppShell active="models" container="md">
+      <div className="container-md section-gap">
         <Card className="section-gap text-center">
           <h2 className="text-section-title text-content-primary">Model not found</h2>
           <p className="text-body">This model may be missing from local storage or was never created.</p>
@@ -358,7 +357,7 @@ export default function ModelDetailClient({
             </Link>
           </div>
         </Card>
-      </AppShell>
+      </div>
     )
   }
 
@@ -867,8 +866,7 @@ export default function ModelDetailClient({
   })()
 
   return (
-    <AppShell active="models" container="lg">
-      <div className="section-gap">
+    <div className="container-lg section-gap">
         <PageHeader
           title={
             <span className="inline-flex items-center gap-2">
@@ -1001,29 +999,29 @@ export default function ModelDetailClient({
           }
         />
 
-        {message ? <div className="text-[13px] text-emerald-600">{message}</div> : null}
+        {message ? <div className="text-body-sm signal-bullish">{message}</div> : null}
         <DismissibleLocalHint
           storageKey="spy_signal_onboarding_loop_hint_dismissed_v1"
           text="Start here: Explore a model → tweak it → compare results"
         />
 
-        <Card className="section-gap border-primary/20 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_68%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_68%)]">
+        <Card className="section-gap border-primary/20 bg-[radial-gradient(circle_at_top_right,var(--accent-glow),transparent_68%)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-filter-label">Model identity</div>
               <h2 className="mt-1 text-section-title text-content-primary">{model.name}</h2>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-xl border border-border bg-surface-elevated px-3 py-2">
-                <div className="flex items-center justify-between gap-3 text-[11px]">
+              <div className="rounded-[var(--radius-lg)] border border-border bg-surface-elevated px-3 py-2">
+                <div className="text-micro flex items-center justify-between gap-3">
                   <span className="text-content-muted">Confidence</span>
-                  <span className="font-medium text-content-secondary">
+                  <span className="text-label-sm text-content-secondary numeric-tabular">
                     {confidence} · {confidencePct}
                   </span>
                 </div>
-                <div className="relative mt-1 h-2 w-[150px] overflow-hidden rounded-full bg-gradient-to-r from-rose-400/85 via-amber-400/85 to-emerald-500/85 dark:from-rose-500/70 dark:via-amber-500/70 dark:to-emerald-500/70">
+                <div className="relative mt-1 h-2 w-[150px] overflow-hidden rounded-full bg-gradient-to-r from-[var(--bear-400)] via-[var(--warn-400)] to-[var(--bull-500)]">
                   <div
-                    className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border bg-neutral-900 shadow-sm transition-all duration-300 dark:bg-slate-200"
+                    className="state-interactive absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border bg-surface-card"
                     style={{ left: `calc(${confidencePct}% - 6px)`, borderColor: chartPalette.tooltipBg }}
                   />
                 </div>
@@ -1033,13 +1031,13 @@ export default function ModelDetailClient({
             </div>
           </div>
           <p className="text-body">{modelDescription}</p>
-          <p className="text-[12px] text-content-muted">{confidenceHelper}</p>
+          <p className="text-caption text-content-muted">{confidenceHelper}</p>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="neutral">
               {usesHistoricalValidation ? 'Historical validation' : 'Preview validation'}
             </Badge>
             <span
-              className="text-[12px] text-content-muted"
+              className="text-caption text-content-muted"
               title={
                 usesHistoricalValidation
                   ? 'Validation uses historical daily data with simplified execution assumptions.'
@@ -1051,22 +1049,22 @@ export default function ModelDetailClient({
                 : 'Simulated result'}
             </span>
           </div>
-          <div className="grid grid-cols-1 gap-1 text-[12px] text-content-secondary sm:grid-cols-2">
-            <div>Created: {createdAtLabel}</div>
-            <div>Last run: {lastRunLabel}</div>
-            {variationMeta ? <div className="sm:col-span-2">Variation: {variationMeta}</div> : null}
+          <div className="text-caption grid grid-cols-1 gap-1 text-content-secondary sm:grid-cols-2">
+            <div>Created: <span className="numeric-tabular">{createdAtLabel}</span></div>
+            <div>Last run: <span className="numeric-tabular">{lastRunLabel}</span></div>
+            {variationMeta ? <div className="sm:col-span-2">Variation: <span className="numeric-tabular">{variationMeta}</span></div> : null}
           </div>
         </Card>
 
         <Card className="section-gap">
-          <div className="text-[14px] font-semibold text-content-primary">{topInsightHeadline}</div>
-          <p className="text-[13px] text-content-secondary">{topInsightSummary}</p>
+          <div className="text-label-lg text-content-primary">{topInsightHeadline}</div>
+          <p className="text-body-sm text-content-secondary">{topInsightSummary}</p>
         </Card>
         <Card className="section-gap">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
+          <div className="text-micro uppercase tracking-wide text-content-muted">
             Explore → Modify → Compare
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-medium">
+          <div className="text-label-md mt-2 flex flex-wrap items-center gap-2">
             <a href="#key-findings" className="text-accent-text hover:underline">
               Explore
             </a>
@@ -1119,15 +1117,15 @@ export default function ModelDetailClient({
 
         <Card className="section-gap">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-card-title text-content-primary">Behavioral composition</h3>
-            <Badge variant="neutral">{compositionInsights.biasLabel}</Badge>
-          </div>
-          <p className="text-body">{compositionInsights.interpretation}</p>
-          {showActiveExposure ? (
-            <p className="text-[12px] font-medium text-content-muted">
-              Active {compositionInsights.activePct}% of time
-            </p>
-          ) : null}
+          <h3 className="text-card-title text-content-primary">Behavioral composition</h3>
+          <Badge variant="neutral">{compositionInsights.biasLabel}</Badge>
+        </div>
+        <p className="text-body">{compositionInsights.interpretation}</p>
+        {showActiveExposure ? (
+          <p className="text-caption numeric-tabular text-content-muted">
+            Active {compositionInsights.activePct}% of time
+          </p>
+        ) : null}
           <SignalDistributionBubbleCluster
             bullishCount={regimeComposition.bullishCount}
             neutralCount={regimeComposition.neutralCount}
@@ -1139,8 +1137,8 @@ export default function ModelDetailClient({
           />
         </Card>
 
-        <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 text-sm text-content-secondary">
-          <span className="mr-2 font-medium text-content-primary">Should I use this?</span>
+        <div className="rounded-[var(--radius-md)] border border-border bg-surface-elevated px-3 py-2 text-body-sm text-content-secondary">
+          <span className="mr-2 text-label-md text-content-primary">Should I use this?</span>
           {usageSignal}
         </div>
 
@@ -1172,10 +1170,10 @@ export default function ModelDetailClient({
             {tradeExamples.map((example) => (
               <div
                 key={`${example.label}-${example.row.date}-${example.row.signal}-${example.row.returnPct}`}
-                className="rounded-xl border border-border bg-surface-elevated p-3"
+                className="rounded-[var(--radius-lg)] border border-border bg-surface-elevated p-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
+                  <div className="text-micro uppercase tracking-wide text-content-muted">
                     {example.label}
                   </div>
                   <Badge
@@ -1190,13 +1188,13 @@ export default function ModelDetailClient({
                     {example.row.signal}
                   </Badge>
                 </div>
-                <div className={`mt-1 text-base font-semibold ${example.row.returnPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                <div className={`text-data-sm numeric-tabular mt-1 ${example.row.returnPct >= 0 ? 'signal-bullish' : 'signal-bearish'}`}>
                   {formatPercent(example.row.returnPct)}
                 </div>
-                <div className="mt-1 text-[12px] text-content-muted">
+                <div className="text-caption numeric-tabular mt-1 text-content-muted">
                   {formatDate(example.row.date)} · {model.validation.holdingHorizonDays}d hold
                 </div>
-                <p className="mt-2 text-[12px] text-content-secondary">{tradeExplanation(example.row)}</p>
+                <p className="text-caption mt-2 text-content-secondary">{tradeExplanation(example.row)}</p>
               </div>
             ))}
           </div>
@@ -1204,7 +1202,7 @@ export default function ModelDetailClient({
             <p className="text-body">No completed trade examples yet for this configuration.</p>
           ) : null}
           {bearishSignalsPresent ? (
-            <p className="text-[12px] text-content-muted">
+            <p className="text-caption text-content-muted">
               Bearish returns assume frictionless short exposure.
             </p>
           ) : null}
@@ -1222,23 +1220,23 @@ export default function ModelDetailClient({
         <Card className="section-gap">
           <h3 className="text-card-title text-content-primary">Why this model works</h3>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-            <div className="rounded-xl border border-border bg-surface-elevated p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
+            <div className="rounded-[var(--radius-lg)] border border-border bg-surface-elevated p-3">
+              <div className="text-micro uppercase tracking-wide text-content-muted">
                 Driver
               </div>
-              <p className="mt-1 text-[13px] text-content-secondary">{whyDriver}</p>
+              <p className="text-body-sm mt-1 text-content-secondary">{whyDriver}</p>
             </div>
-            <div className="rounded-xl border border-border bg-surface-elevated p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
+            <div className="rounded-[var(--radius-lg)] border border-border bg-surface-elevated p-3">
+              <div className="text-micro uppercase tracking-wide text-content-muted">
                 Filter
               </div>
-              <p className="mt-1 text-[13px] text-content-secondary">{whyFilter}</p>
+              <p className="text-body-sm mt-1 text-content-secondary">{whyFilter}</p>
             </div>
-            <div className="rounded-xl border border-border bg-surface-elevated p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-content-muted">
+            <div className="rounded-[var(--radius-lg)] border border-border bg-surface-elevated p-3">
+              <div className="text-micro uppercase tracking-wide text-content-muted">
                 Edge Source
               </div>
-              <p className="mt-1 text-[13px] text-content-secondary">{whyEdgeSource}</p>
+              <p className="text-body-sm mt-1 text-content-secondary">{whyEdgeSource}</p>
             </div>
           </div>
         </Card>
@@ -1256,27 +1254,27 @@ export default function ModelDetailClient({
             <Card className="section-gap">
               <h3 className="text-card-title text-content-primary">Effect of change</h3>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 hover:bg-surface-hover">
-                  <div className="text-[11px] uppercase tracking-wide text-content-muted">
+                <div className="state-interactive rounded-[var(--radius-md)] border border-border bg-surface-elevated px-3 py-2 hover:bg-surface-hover">
+                  <div className="text-micro uppercase tracking-wide text-content-muted">
                     Performance
                   </div>
-                  <div className={`text-sm font-semibold ${directionToneClass(performanceDirection)}`}>
+                  <div className={`text-label-md ${directionToneClass(performanceDirection)}`}>
                     {directionArrow(performanceDirection)} {performanceDeltaLabel}
                   </div>
                 </div>
-                <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 hover:bg-surface-hover">
-                  <div className="text-[11px] uppercase tracking-wide text-content-muted">
+                <div className="state-interactive rounded-[var(--radius-md)] border border-border bg-surface-elevated px-3 py-2 hover:bg-surface-hover">
+                  <div className="text-micro uppercase tracking-wide text-content-muted">
                     Stability
                   </div>
-                  <div className={`text-sm font-semibold ${directionToneClass(stabilityDirection)}`}>
+                  <div className={`text-label-md ${directionToneClass(stabilityDirection)}`}>
                     {directionArrow(stabilityDirection)} {stabilityDeltaLabel}
                   </div>
                 </div>
-                <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 transition-all duration-300 hover:-translate-y-0.5 hover:bg-surface-hover">
-                  <div className="text-[11px] uppercase tracking-wide text-content-muted">
+                <div className="state-interactive rounded-[var(--radius-md)] border border-border bg-surface-elevated px-3 py-2 hover:bg-surface-hover">
+                  <div className="text-micro uppercase tracking-wide text-content-muted">
                     Signal Frequency
                   </div>
-                  <div className={`text-sm font-semibold ${frequencyToneClass(frequencyDirection)}`}>
+                  <div className={`text-label-md ${frequencyToneClass(frequencyDirection)}`}>
                     {directionArrow(frequencyDirection)} {frequencyDeltaLabel}
                   </div>
                 </div>
@@ -1321,7 +1319,7 @@ export default function ModelDetailClient({
           columns={4}
         />
 
-        <div className="text-[13px] text-content-secondary">{benchmarkInterpretation}</div>
+        <div className="text-body-sm text-content-secondary">{benchmarkInterpretation}</div>
 
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_0.65fr]">
           <div className="section-gap">
@@ -1333,7 +1331,7 @@ export default function ModelDetailClient({
                     Strategy curve {model.validation.compareAgainstBenchmark ? `vs ${model.benchmark}` : 'without benchmark overlay'}.
                   </p>
                   {chartTradeMarkers.length > 0 ? (
-                    <p className="mt-1 text-[12px] text-content-muted">
+                    <p className="text-caption mt-1 text-content-muted">
                       Markers show recent entry signals.
                     </p>
                   ) : null}
@@ -1397,8 +1395,8 @@ export default function ModelDetailClient({
             <Card className="section-gap">
               <h3 className="text-card-title text-content-primary">Signal / trade table</h3>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="text-[12px] uppercase tracking-wide text-content-muted">
+                <table className="numeric-tabular w-full text-left text-body-sm">
+                  <thead className="text-label-sm uppercase tracking-wide text-content-muted">
                     <tr>
                       <th className="px-2 py-2">Date</th>
                       <th className="px-2 py-2">Signal</th>
@@ -1410,7 +1408,7 @@ export default function ModelDetailClient({
                   </thead>
                   <tbody>
                     {model.signals.map((row) => (
-                      <tr key={`${row.date}-${row.signal}-${row.returnPct}`} className="border-t border-neutral-200 dark:border-neutral-800">
+                      <tr key={`${row.date}-${row.signal}-${row.returnPct}`} className="border-t border-border">
                         <td className="px-2 py-2">{formatDate(row.date)}</td>
                         <td className="px-2 py-2">
                           <Badge
@@ -1420,15 +1418,15 @@ export default function ModelDetailClient({
                           </Badge>
                         </td>
                         <td className="px-2 py-2">{Math.round(row.conviction * 100)}%</td>
-                        <td className={`px-2 py-2 ${row.returnPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <td className={`px-2 py-2 ${row.returnPct >= 0 ? 'signal-bullish' : 'signal-bearish'}`}>
                           {formatPercent(row.returnPct)}
                         </td>
-                        <td className={`px-2 py-2 ${row.benchmarkPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <td className={`px-2 py-2 ${row.benchmarkPct >= 0 ? 'signal-bullish' : 'signal-bearish'}`}>
                           {formatPercent(row.benchmarkPct)}
                         </td>
                         <td className="px-2 py-2">
                           {stockContextHref ? (
-                            <Link href={stockContextHref} className="text-[12px] font-medium text-accent-text hover:underline">
+                            <Link href={stockContextHref} className="text-label-sm text-accent-text hover:underline">
                               View stock
                             </Link>
                           ) : (
@@ -1453,7 +1451,7 @@ export default function ModelDetailClient({
 
             <Card className="section-gap">
               <h3 className="text-card-title text-content-primary">Signal summary</h3>
-              <div className={`text-base font-semibold ${signalToneClass(model.currentSignal)}`}>{signalHeadline}</div>
+              <div className={`text-data-sm numeric-tabular ${signalToneClass(model.currentSignal)}`}>{signalHeadline}</div>
               <p className="text-body">
                 Latest regime: {model.currentSignal?.direction ?? 'neutral'} · Conviction {model.currentSignal ? `${Math.round(model.currentSignal.conviction * 100)}%` : '—'}.
               </p>
@@ -1523,6 +1521,5 @@ export default function ModelDetailClient({
           </ul>
         </Card>
       </div>
-    </AppShell>
   )
 }

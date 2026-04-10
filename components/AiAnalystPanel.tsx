@@ -87,11 +87,11 @@ function LockedState({ ticker, upgradeHref }: { ticker: string; upgradeHref: str
   const openUpgradeInNewTab = href.startsWith('http')
 
   return (
-    <Card className="section-gap">
+    <Card className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-filter-label">AI Analyst</div>
-          <h3 className="text-card-title mt-1 text-neutral-900 dark:text-neutral-100">{ticker} research copilot</h3>
+          <h3 className="mt-1 text-heading-sm text-content-primary">{ticker} research copilot</h3>
         </div>
         <Badge variant="warning">
           <span className="inline-flex items-center gap-1">
@@ -100,7 +100,7 @@ function LockedState({ ticker, upgradeHref }: { ticker: string; upgradeHref: str
           </span>
         </Badge>
       </div>
-      <p className="text-body">
+      <p className="text-body-md text-content-secondary">
         Ask deeper questions about catalysts, risk scenarios, and stance shifts. Upgrade to run unlimited AI research prompts.
       </p>
       <a
@@ -117,10 +117,10 @@ function LockedState({ ticker, upgradeHref }: { ticker: string; upgradeHref: str
 
 function UnavailableState() {
   return (
-    <Card className="section-gap">
+    <Card className="space-y-6">
       <div className="text-filter-label">AI Analyst</div>
-      <h3 className="text-card-title text-neutral-900 dark:text-neutral-100">Provider not enabled</h3>
-      <p className="text-body">
+      <h3 className="text-heading-sm text-content-primary">Provider not enabled</h3>
+      <p className="text-body-md text-content-secondary">
         The AI panel is available, but the server provider key is missing. Add provider credentials to enable live responses.
       </p>
     </Card>
@@ -254,12 +254,12 @@ export default function AiAnalystPanel({
   if (!providerEnabled) return <UnavailableState />
 
   return (
-    <Card className="section-gap">
+    <Card className="space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-filter-label">AI Analyst</div>
-          <h3 className="text-card-title mt-1 text-neutral-900 dark:text-neutral-100">{ticker} research copilot</h3>
-          <p className="text-body mt-1">{signalSummary}</p>
+          <h3 className="mt-1 text-heading-sm text-content-primary">{ticker} research copilot</h3>
+          <p className="mt-1 text-body-sm text-content-secondary numeric-tabular">{signalSummary}</p>
         </div>
         <Badge variant={signalVariant(signal.direction)}>{signal.direction.toUpperCase()}</Badge>
       </div>
@@ -303,18 +303,18 @@ export default function AiAnalystPanel({
         </span>
       </button>
 
-      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950/60">
+      <div className="surface-tertiary rounded-[var(--radius-lg)] p-4 md:p-5">
         {error ? (
-          <p className="text-sm text-rose-600">{error}</p>
+          <p className="text-body-sm signal-bearish">{error}</p>
         ) : (
-          <pre className="min-h-[140px] whitespace-pre-wrap text-sm leading-6 text-neutral-700 dark:text-neutral-300">
+          <pre className="min-h-[140px] whitespace-pre-wrap text-body-sm leading-6 text-content-secondary">
             {analysis || (pending ? 'Running live synthesis...' : 'Run a prompt to generate AI analysis.')}
           </pre>
         )}
       </div>
 
       {citations.length > 0 ? (
-        <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <div className="surface-secondary rounded-[var(--radius-lg)] p-4">
           <div className="text-filter-label mb-2">Sources</div>
           <div className="space-y-1.5">
             {citations.slice(0, 5).map((url) => (
@@ -323,7 +323,7 @@ export default function AiAnalystPanel({
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block truncate text-sm text-accent-text hover:underline"
+                className="state-interactive block truncate text-body-sm text-accent-text hover:underline"
               >
                 {url}
               </a>

@@ -94,25 +94,22 @@ function styleMeta(direction: SignalDirection): {
 } {
   if (direction === 'bullish') {
     return {
-      cardClass:
-        'border-emerald-200/70 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.13),transparent_70%)] dark:border-emerald-900/60 dark:bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.22),transparent_70%)]',
-      headlineClass: 'text-emerald-900 dark:text-emerald-100',
-      hintClass: 'text-emerald-700 dark:text-emerald-300',
+      cardClass: 'signal-bg-bullish',
+      headlineClass: 'signal-bullish',
+      hintClass: 'signal-bullish',
     }
   }
   if (direction === 'bearish') {
     return {
-      cardClass:
-        'border-rose-200/70 bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.14),transparent_70%)] dark:border-rose-900/60 dark:bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.22),transparent_70%)]',
-      headlineClass: 'text-rose-900 dark:text-rose-100',
-      hintClass: 'text-rose-700 dark:text-rose-300',
+      cardClass: 'signal-bg-bearish',
+      headlineClass: 'signal-bearish',
+      hintClass: 'signal-bearish',
     }
   }
   return {
-    cardClass:
-      'border-amber-200/70 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.13),transparent_70%)] dark:border-amber-900/55 dark:bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.20),transparent_70%)]',
-    headlineClass: 'text-neutral-900 dark:text-neutral-100',
-    hintClass: 'text-amber-700 dark:text-amber-300',
+    cardClass: 'signal-bg-neutral',
+    headlineClass: 'text-content-primary',
+    hintClass: 'signal-neutral',
   }
 }
 
@@ -156,31 +153,31 @@ export default function PremiumSignalWidget({
         <div>
           <div className="text-filter-label">Signal Summary</div>
           <h3 className={`mt-1 text-3xl font-semibold tracking-tight ${tone.headlineClass}`}>{headline}</h3>
-          <p className="mt-3 max-w-[56ch] text-base leading-snug text-neutral-700 dark:text-neutral-300">{explanation}</p>
+          <p className="mt-3 max-w-[56ch] text-base leading-snug text-content-secondary">{explanation}</p>
         </div>
         <Badge variant={signal.variant} className="px-3 py-1 text-[12px]">
           {signal.label}
         </Badge>
       </div>
 
-      <div className="grid grid-cols-3 card-gap border-t border-neutral-200/80 pt-5 text-xs dark:border-neutral-800/80">
+      <div className="grid grid-cols-3 card-gap border-t border-border pt-5 text-xs">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Conviction</div>
-          <div className="mt-1 text-sm font-medium leading-none text-neutral-700 dark:text-neutral-300">
+          <div className="text-[11px] font-medium uppercase tracking-wide text-content-muted">Conviction</div>
+          <div className="mt-1 text-sm font-medium leading-none text-content-secondary">
             {convictionPct(conviction)}
           </div>
         </div>
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Horizon</div>
-          <div className="mt-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">{horizon}d</div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-content-muted">Horizon</div>
+          <div className="mt-1 text-sm font-medium text-content-secondary">{horizon}d</div>
         </div>
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Updated</div>
-          <div className="mt-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">{formatDate(signalDate)}</div>
+          <div className="text-[11px] font-medium uppercase tracking-wide text-content-muted">Updated</div>
+          <div className="mt-1 text-sm font-medium text-content-secondary">{formatDate(signalDate)}</div>
         </div>
       </div>
 
-      <Link href={`/performance?ticker=${encodeURIComponent(ticker)}`} className={buttonClass({ variant: 'secondary' })}>
+      <Link href={`/stocks/${encodeURIComponent(ticker)}/performance`} className={buttonClass({ variant: 'secondary' })}>
         View Backtest Performance
       </Link>
 

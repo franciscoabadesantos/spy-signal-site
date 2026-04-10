@@ -30,21 +30,21 @@ const CENTER_X = WIDTH / 2
 const CENTER_Y = HEIGHT / 2
 
 const SECTOR_SWATCH: Record<string, string> = {
-  Technology: '#3b82f6',
-  Semiconductors: '#6366f1',
-  'Communication Services': '#06b6d4',
-  Financials: '#14b8a6',
-  Energy: '#f59e0b',
-  'Consumer Discretionary': '#a855f7',
-  'Health Care': '#22c55e',
-  'Broad Market ETF': '#64748b',
-  'Growth ETF': '#60a5fa',
-  'Dow ETF': '#2dd4bf',
-  'Small Cap ETF': '#f97316',
-  'Total Market ETF': '#94a3b8',
-  'Technology ETF': '#818cf8',
-  'Financials ETF': '#34d399',
-  'Energy ETF': '#fbbf24',
+  Technology: '#0A99FF',
+  Semiconductors: '#36B3FF',
+  'Communication Services': '#73CBFF',
+  Financials: '#12B76A',
+  Energy: '#D99A0B',
+  'Consumer Discretionary': '#64768A',
+  'Health Care': '#67DEAB',
+  'Broad Market ETF': '#8799AB',
+  'Growth ETF': '#A8E0FF',
+  'Dow ETF': '#9DECC9',
+  'Small Cap ETF': '#FFCB47',
+  'Total Market ETF': '#ACBCCB',
+  'Technology ETF': '#0A4A85',
+  'Financials ETF': '#0E9F5B',
+  'Energy ETF': '#B87E09',
 }
 
 function correlationDescriptor(absCorrelation: number): 'high' | 'moderate' | 'low' {
@@ -75,8 +75,8 @@ function ringRadius(absCorrelation: number): number {
 }
 
 function colorForSector(sector: string | null): string {
-  if (!sector) return '#94a3b8'
-  return SECTOR_SWATCH[sector] ?? '#94a3b8'
+  if (!sector) return '#ACBCCB'
+  return SECTOR_SWATCH[sector] ?? '#ACBCCB'
 }
 
 function computeNodeLayout(peers: CorrelationNetworkPeer[]): LayoutNode[] {

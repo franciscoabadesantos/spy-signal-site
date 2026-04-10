@@ -21,10 +21,10 @@ function tabClass(active: boolean, disabled: boolean): string {
   }
 
   if (active) {
-    return 'border-content-primary text-content-primary'
+    return 'border-[var(--accent-200)] bg-[var(--accent-50)] text-[var(--accent-700)]'
   }
 
-  return 'border-transparent text-content-muted hover:border-divider-strong hover:text-content-primary active:text-content-primary'
+  return 'border-transparent bg-surface-elevated text-content-secondary hover:bg-[var(--accent-50)] hover:text-[var(--accent-700)]'
 }
 
 export default function Tabs({
@@ -34,12 +34,12 @@ export default function Tabs({
   onChange,
 }: TabsProps) {
   return (
-    <div className={cn('border-b border-border', className)}>
-      <nav className="flex items-center gap-6 overflow-x-auto whitespace-nowrap">
+    <div className={cn(className)}>
+      <nav className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
         {items.map((item) => {
           const active = item.key === activeKey
           const sharedClass = cn(
-            'inline-flex rounded-t-md border-b-2 px-1 py-3 text-sm font-medium transition-[color,border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg',
+            'state-interactive inline-flex h-9 items-center rounded-[var(--radius-pill)] border px-3 text-label-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg',
             tabClass(active, Boolean(item.disabled))
           )
 

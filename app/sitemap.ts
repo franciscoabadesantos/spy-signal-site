@@ -132,6 +132,12 @@ function tickerEntries(baseUrl: string, row: TickerSignal): MetadataRoute.Sitema
       priority: 0.75,
     },
     {
+      url: `${baseUrl}/stocks/${ticker}/performance`,
+      lastModified,
+      changeFrequency: 'daily',
+      priority: 0.75,
+    },
+    {
       url: `${baseUrl}/stocks/${ticker}/holdings-dividends`,
       lastModified,
       changeFrequency: 'weekly',
@@ -189,7 +195,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/performance`,
+      url: `${baseUrl}/stocks/SPY/performance`,
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.8,

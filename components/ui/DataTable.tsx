@@ -24,7 +24,7 @@ export function TableBase({
   children: React.ReactNode
   className?: string
 }) {
-  return <table className={cn('w-full text-left text-sm', className)}>{children}</table>
+  return <table className={cn('w-full text-left text-body-sm numeric-tabular', className)}>{children}</table>
 }
 
 export function TableHead({
@@ -59,7 +59,7 @@ export function TableHeaderCell({
 }) {
   const indicator = sortable ? (sortDirection === 'asc' ? '↑' : sortDirection === 'desc' ? '↓' : '↕') : null
   return (
-    <th className={cn('px-4 py-3 text-[12px] font-medium uppercase tracking-wide', className)}>
+    <th className={cn('px-4 py-3 text-label-sm uppercase tracking-wide text-content-secondary', className)}>
       <span className="inline-flex items-center gap-1.5">
         <span>{children}</span>
         {indicator ? <span className="text-[10px] text-content-muted">{indicator}</span> : null}
@@ -88,9 +88,9 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        'border-t border-border transition-colors duration-150',
+        'border-t border-border transition-colors duration-150 ease-out',
         striped && index % 2 === 1 ? 'bg-surface-elevated' : undefined,
-        hover ? 'hover:bg-surface-hover focus-within:bg-surface-hover' : undefined,
+        hover ? 'hover:bg-[var(--accent-50)] focus-within:bg-[var(--accent-50)]' : undefined,
         className
       )}
     >
@@ -109,7 +109,7 @@ export function TableCell({
   muted?: boolean
 }) {
   return (
-    <td className={cn('px-4 py-3', muted ? 'text-content-muted' : undefined, className)}>
+    <td className={cn('px-4 py-4', muted ? 'text-content-muted' : undefined, className)}>
       {children}
     </td>
   )

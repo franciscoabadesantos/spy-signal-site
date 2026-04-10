@@ -79,9 +79,8 @@ function signalColor(direction: SignalDirection, palette: ChartPalette): { solid
 }
 
 function signalBandFill(direction: SignalDirection, palette: ChartPalette): string {
-  if (direction === 'bullish') return palette.regimeBullish
-  if (direction === 'bearish') return palette.regimeBearish
-  return palette.regimeNeutral
+  const tone = signalColor(direction, palette).solid
+  return withAlpha(tone, palette.isDark ? 0.22 : 0.17)
 }
 
 function signalDirectionLabel(direction: SignalDirection): string {
@@ -341,21 +340,30 @@ export default function StockChart({
                 </linearGradient>
                 <linearGradient id={currentRegimeGradientId} x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor={withAlpha(currentRegimeColor, 0)} />
-                  <stop offset="100%" stopColor={withAlpha(currentRegimeColor, palette.isDark ? 0.09 : 0.12)} />
+                  <stop offset="100%" stopColor={withAlpha(currentRegimeColor, palette.isDark ? 0.13 : 0.16)} />
                 </linearGradient>
               </defs>
 
               <rect x={0} y={0} width={width} height={height} fill="transparent" />
 
               {signalBands.map((band, idx) => (
-                <rect
-                  key={`band-${idx}`}
-                  x={band.x}
-                  y={padding.top}
-                  width={band.width}
-                  height={innerH}
-                  fill={signalBandFill(band.direction, palette)}
-                />
+                <g key={`band-${idx}`}>
+                  <rect
+                    x={band.x}
+                    y={padding.top}
+                    width={band.width}
+                    height={innerH}
+                    fill={signalBandFill(band.direction, palette)}
+                  />
+                  <line
+                    x1={band.x}
+                    y1={padding.top + 1}
+                    x2={band.x + band.width}
+                    y2={padding.top + 1}
+                    stroke={withAlpha(signalColor(band.direction, palette).solid, palette.isDark ? 0.34 : 0.24)}
+                    strokeWidth={1.25}
+                  />
+                </g>
               ))}
               {signalBands.slice(1).map((band, idx) => (
                 <line
@@ -364,8 +372,8 @@ export default function StockChart({
                   y1={padding.top}
                   x2={band.x}
                   y2={padding.top + innerH}
-                  stroke={palette.grid}
-                  strokeWidth={1}
+                  stroke={withAlpha(signalColor(band.direction, palette).solid, palette.isDark ? 0.3 : 0.22)}
+                  strokeWidth={1.25}
                 />
               ))}
               {currentBand ? (

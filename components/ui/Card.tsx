@@ -7,7 +7,7 @@ type CardProps = React.HTMLAttributes<HTMLDivElement> & {
 
 function paddingClass(padding: CardProps['padding']): string {
   if (padding === 'none') return ''
-  if (padding === 'lg') return 'p-6'
+  if (padding === 'lg') return 'p-7'
   return 'p-5'
 }
 
@@ -19,7 +19,7 @@ export default function Card({
   return (
     <div
       className={cn(
-        'card-depth rounded-2xl border border-border bg-surface-card text-content-primary',
+        'surface-secondary text-content-primary',
         paddingClass(padding),
         className
       )}

@@ -10,13 +10,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import AppShell from '@/components/shells/AppShell'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import Skeleton from '@/components/ui/Skeleton'
+import CompareDiffRow from '@/components/models/CompareDiffRow'
 import { buttonClass } from '@/components/ui/Button'
 import ChartContainer, {
   CHART_MARGINS,
@@ -583,8 +583,7 @@ export default function ModelCompareClient({
   }, [compareReady, leftModel, rightModel, leftInsights?.signalCount, rightInsights?.signalCount])
 
   return (
-    <AppShell active="models" container="lg">
-      <div className="section-gap">
+    <div className="container-lg section-gap">
         <PageHeader
           title="Compare models"
           subtitle="Review two model versions side by side and inspect the tradeoffs."
@@ -625,7 +624,7 @@ export default function ModelCompareClient({
                   <>
                     <div>
                       <h2 className="text-card-title text-content-primary">{leftModel.name}</h2>
-                      <div className="mt-1 text-[12px] text-content-muted">
+                      <div className="text-caption mt-1 text-content-muted">
                         {leftModel.ticker ? leftModel.ticker : leftModel.universe}
                       </div>
                     </div>
@@ -633,15 +632,15 @@ export default function ModelCompareClient({
                       <Badge variant="neutral">{leftInsights.personality}</Badge>
                       <Badge variant="neutral">{leftInsights.confidence} confidence</Badge>
                     </div>
-                    <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2">
-                      <div className="text-[13px] font-semibold text-content-primary">
+                    <div className="surface-tertiary px-3 py-2">
+                      <div className="text-label-md text-content-primary">
                         {leftInsights.topInsightHeadline}
                       </div>
-                      <div className="text-[12px] text-content-secondary">
+                      <div className="text-caption text-content-secondary">
                         {leftInsights.topInsightSummary}
                       </div>
                     </div>
-                    <div className="text-[12px] text-content-muted">
+                    <div className="text-caption numeric-tabular text-content-muted">
                       Confidence score: {leftInsights.confidencePct}
                     </div>
                   </>
@@ -661,7 +660,7 @@ export default function ModelCompareClient({
                   <>
                     <div>
                       <h2 className="text-card-title text-content-primary">{rightModel.name}</h2>
-                      <div className="mt-1 text-[12px] text-content-muted">
+                      <div className="text-caption mt-1 text-content-muted">
                         {rightModel.ticker ? rightModel.ticker : rightModel.universe}
                       </div>
                     </div>
@@ -669,15 +668,15 @@ export default function ModelCompareClient({
                       <Badge variant="neutral">{rightInsights.personality}</Badge>
                       <Badge variant="neutral">{rightInsights.confidence} confidence</Badge>
                     </div>
-                    <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2">
-                      <div className="text-[13px] font-semibold text-content-primary">
+                    <div className="surface-tertiary px-3 py-2">
+                      <div className="text-label-md text-content-primary">
                         {rightInsights.topInsightHeadline}
                       </div>
-                      <div className="text-[12px] text-content-secondary">
+                      <div className="text-caption text-content-secondary">
                         {rightInsights.topInsightSummary}
                       </div>
                     </div>
-                    <div className="text-[12px] text-content-muted">
+                    <div className="text-caption numeric-tabular text-content-muted">
                       Confidence score: {rightInsights.confidencePct}
                     </div>
                   </>
@@ -694,7 +693,7 @@ export default function ModelCompareClient({
                 Refresh compare
               </Link>
               {compareReady ? null : (
-                <span className="text-[12px] text-content-muted">
+                <span className="text-caption text-content-muted">
                   Select two different models to compare.
                 </span>
               )}
@@ -708,17 +707,17 @@ export default function ModelCompareClient({
                 <div className="text-filter-label">Model B</div>
                 {comparisonMetrics.map((metric) => (
                   <div key={metric.key} className="contents">
-                    <div className="rounded-lg border border-border bg-surface-elevated px-3 py-2 text-content-secondary">
+                    <div className="surface-tertiary px-3 py-2 text-content-secondary">
                       {metric.label}
                     </div>
-                    <div className="rounded-lg border border-border px-3 py-2">
-                      <div className="font-medium text-content-primary">{metric.leftDisplay}</div>
+                    <div className="surface-secondary px-3 py-2">
+                      <div className="text-label-md text-content-primary numeric-tabular">{metric.leftDisplay}</div>
                       <Badge variant={sideVariant(metric.outcome, 'left')} className="mt-1">
                         {sideLabel(metric.outcome, 'left')}
                       </Badge>
                     </div>
-                    <div className="rounded-lg border border-border px-3 py-2">
-                      <div className="font-medium text-content-primary">{metric.rightDisplay}</div>
+                    <div className="surface-secondary px-3 py-2">
+                      <div className="text-label-md text-content-primary numeric-tabular">{metric.rightDisplay}</div>
                       <Badge variant={sideVariant(metric.outcome, 'right')} className="mt-1">
                         {sideLabel(metric.outcome, 'right')}
                       </Badge>
@@ -769,7 +768,7 @@ export default function ModelCompareClient({
                   </LineChart>
                 )}
               </ChartContainer>
-              <div className="flex flex-wrap items-center gap-2 text-[12px] text-content-muted">
+              <div className="text-caption flex flex-wrap items-center gap-2 text-content-muted">
                 <span className="inline-flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: chartPalette.secondary }} />
                   Model A
@@ -815,29 +814,24 @@ export default function ModelCompareClient({
                   ].map((row) => {
                     const changed = row.left !== row.right
                     return (
-                      <div
+                      <CompareDiffRow
                         key={row.label}
-                        className={`grid grid-cols-[150px_1fr_1fr] gap-2 rounded-lg border px-3 py-2 ${
-                          changed
-                            ? 'border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20'
-                            : 'border-border'
-                        }`}
-                      >
-                        <div className="font-medium text-content-secondary">{row.label}</div>
-                        <div className="text-content-primary">{row.left}</div>
-                        <div className="text-content-primary">{row.right}</div>
-                      </div>
+                        label={row.label}
+                        left={row.left}
+                        right={row.right}
+                        changed={changed}
+                      />
                     )
                   })}
 
                   <div
-                    className={`rounded-lg border px-3 py-2 ${
+                    className={`rounded-[var(--radius-md)] border px-3 py-2 ${
                       conditionDiff
-                        ? 'border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20'
-                        : 'border-border'
+                        ? 'signal-bg-warn'
+                        : 'border-border bg-surface-card'
                     }`}
                   >
-                    <div className="font-medium text-content-secondary">Conditions</div>
+                    <div className="text-label-md text-content-secondary">Conditions</div>
                     <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
                       <ul className="space-y-1 text-content-primary">
                         {leftConditionLabels.map((condition, index) => (
@@ -880,6 +874,5 @@ export default function ModelCompareClient({
           </>
         )}
       </div>
-    </AppShell>
   )
 }
