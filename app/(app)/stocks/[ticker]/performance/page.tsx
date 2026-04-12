@@ -118,7 +118,7 @@ export default async function PerformancePage({
   const ticker = normalizeTicker(resolvedParams.ticker)
 
   const [signals, quote, screener] = await Promise.all([
-    getSignalHistoryForTicker(ticker, 365),
+    getSignalHistoryForTicker(ticker, 365, { allowSyntheticFallback: false }),
     getStockQuote(ticker),
     getScreenerSignals({ sortBy: 'conviction', limit: 20 }),
   ])

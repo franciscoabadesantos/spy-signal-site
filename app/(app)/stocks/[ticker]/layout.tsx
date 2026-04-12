@@ -14,7 +14,7 @@ export default async function StockTickerLayout({ children, params }: StockTicke
 
   const [quote, signals] = await Promise.all([
     getStockQuote(ticker),
-    getSignalHistoryForTicker(ticker, 1),
+    getSignalHistoryForTicker(ticker, 1, { allowSyntheticFallback: false }),
   ])
 
   const latestSignal = signals[0] ?? null

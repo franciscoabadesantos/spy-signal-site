@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'ticker query param is required.' }, { status: 400 })
   }
 
-  const signals = await getSignalHistoryForTicker(ticker, 1000)
+  const signals = await getSignalHistoryForTicker(ticker, 1000, { allowSyntheticFallback: false })
   if (signals.length === 0) {
     return NextResponse.json(
       { error: `No signal history is available for ${ticker}.` },

@@ -129,7 +129,7 @@ export default async function SignalHistoryPage({
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
   const viewer = await getViewerAccess()
-  const signals = await getSignalHistoryForTicker(ticker, 250)
+  const signals = await getSignalHistoryForTicker(ticker, 250, { allowSyntheticFallback: false })
 
   const canExport = viewer.isPro && signals.length > 0
   const upgradeUrl = getStripeUpgradeUrl(viewer.userId)

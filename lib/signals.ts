@@ -18,10 +18,14 @@ export async function getRecentSignals(limit = 20): Promise<Signal[]> {
 
 export async function getSignalHistoryForTicker(
   tickerRaw: string,
-  limit = 250
+  limit = 250,
+  options?: {
+    allowSyntheticFallback?: boolean
+  }
 ): Promise<Signal[]> {
   const ticker = tickerRaw.trim().toUpperCase()
   if (!ticker) return []
+  const allowSyntheticFallback = options?.allowSyntheticFallback ?? true
 
   if (ticker === 'SPY') {
     try {
@@ -58,7 +62,7 @@ export async function getSignalHistoryForTicker(
     .slice(0, limit)
 
   if (sorted.length === 0) {
-    return buildFallbackSignalHistory(ticker, limit)
+    return allowSyntheticFallback ? buildFallbackSignalHistory(ticker, limit) : []
   }
 
   return sorted.map((row, index) => ({

@@ -18,6 +18,16 @@ import CorrelationNetwork from '@/components/CorrelationNetwork'
 import SignalFlowStream from '@/components/SignalFlowStream'
 import SignalDistributionBubbleCluster from '@/components/SignalDistributionBubbleCluster'
 import StockInsightSummary from '@/components/stocks/StockInsightSummary'
+import {
+  TableBase,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  TableShell,
+  TableEmptyRow,
+} from '@/components/ui/DataTable'
 import { getViewerUserId } from '@/lib/auth'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
@@ -33,6 +43,10 @@ import {
   type PricePoint,
   type TickerFundamentals,
 } from '@/lib/finance'
+import {
+  getTickerPageSummary,
+  type LatestFundamentalsRow,
+} from '@/lib/ticker-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -166,6 +180,55 @@ function formatConviction(value: number | null): string {
   return `${Math.round(value * 100)}%`
 }
 
+function formatCompactNumber(value: number | null, options?: { currency?: boolean }): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  const formatter = new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 2,
+  })
+  const formatted = formatter.format(value)
+  return options?.currency ? `$${formatted}` : formatted
+}
+
+function asPercent(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) return null
+  if (Math.abs(value) <= 1.5) return value * 100
+  return value
+}
+
+function formatSignedPercent(value: number | null): string {
+  const pct = asPercent(value)
+  if (pct === null) return '—'
+  const sign = pct > 0 ? '+' : ''
+  return `${sign}${pct.toFixed(2)}%`
+}
+
+function formatCalendarDate(value: string | null): string {
+  if (!value) return '—'
+  const parsed = Date.parse(value)
+  if (!Number.isFinite(parsed)) return '—'
+  return new Date(parsed).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function coverageBadge(available: boolean): { text: string; variant: 'success' | 'warning' } {
+  return available
+    ? { text: 'Available', variant: 'success' }
+    : { text: 'Unavailable', variant: 'warning' }
+}
+
+function findLatestFundamentalValue(
+  rows: LatestFundamentalsRow[],
+  matcher: (metric: string) => boolean
+): string | null {
+  const row = rows.find((item) => matcher(item.metric.toLowerCase()))
+  if (!row) return null
+  return row.valueDisplay ?? (row.valueNumber !== null ? row.valueNumber.toLocaleString() : null)
+}
+
 function computeInsightStats(signals: Signal[]) {
   const recent = signals.slice(0, 90)
   const convictionRows = recent
@@ -263,10 +326,12 @@ function buildScoreDimensions({
   historicalData,
   recentSignals,
   fundamentals,
+  hasFundamentals,
 }: {
   historicalData: PricePoint[]
   recentSignals: Signal[]
   fundamentals: TickerFundamentals
+  hasFundamentals: boolean
 }): SystemProfileBlobDimension[] {
   const latestPoint = historicalData[historicalData.length - 1]
   const ma200 = movingAverage(historicalData, 200)
@@ -289,10 +354,11 @@ function buildScoreDimensions({
   const riskScore = annualizedVol === null ? 48 : clampScore(100 - annualizedVol * 240)
 
   const yieldPct = parsePercentString(fundamentals.dividendYield)
-  // TODO(data): replace yield fallback with dedicated fundamentals feed when sparse ticker coverage is resolved.
-  const yieldScore = yieldPct === null ? 42 : clampScore(yieldPct * 14)
+  const yieldScore = !hasFundamentals ? 34 : yieldPct === null ? 42 : clampScore(yieldPct * 14)
   const yieldHint =
-    yieldPct === null
+    !hasFundamentals
+      ? 'Fundamentals coverage is not available for this ticker yet.'
+      : yieldPct === null
       ? 'Placeholder-derived until yield feed is available for this ticker.'
       : `Forward yield ${yieldPct.toFixed(2)}%.`
 
@@ -583,20 +649,44 @@ export default async function TickerPage({
     : '/sign-up?redirect_url=/stocks/' + ticker
 
   const relatedTickerSymbols = getRelatedTickers(ticker)
-  const [quote, historicalData, recentSignals, fundamentals, newsItems, relatedQuotes, correlationNetwork] = await Promise.all([
+  const [
+    tickerSummary,
+    fallbackQuote,
+    historicalData,
+    recentSignals,
+    fundamentals,
+    newsItems,
+    relatedQuotes,
+    correlationNetwork,
+  ] = await Promise.all([
+    getTickerPageSummary(ticker),
     getStockQuote(ticker),
     getHistoricalData(ticker, 1825),
-    getSignalHistoryForTicker(ticker, 180),
+    getSignalHistoryForTicker(ticker, 180, { allowSyntheticFallback: false }),
     getTickerFundamentals(ticker),
     getTickerNews(ticker, 5),
     Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
     getTickerCorrelationNetwork(ticker, { maxPeers: 10, lookbackDays: 504, minOverlapDays: 90 }),
   ])
 
+  const marketQuote = tickerSummary.quote
+  const marketStats = tickerSummary.marketStats
+  const coverage = tickerSummary.coverage
+  const fundamentalsSummary = tickerSummary.fundamentalsSummary
+  const latestFundamentals = tickerSummary.latestFundamentals
+  const nextEarnings = tickerSummary.nextEarnings
+  const earningsHistory = tickerSummary.earningsHistory
+  const quote = fallbackQuote
+  const displayName = marketQuote?.name ?? quote?.name ?? ticker
+
   const isInWatchlist = viewerUserId ? await isTickerInWatchlist(viewerUserId, ticker) : false
   const latest = recentSignals[0] ?? null
+  const hasMarketData = coverage.hasMarketData
+  const hasFundamentals = coverage.hasFundamentals
+  const hasEarnings = coverage.hasEarnings
+  const hasSignals = coverage.hasSignals || recentSignals.length > 0
   const signalMarkers = recentSignals.length > 0 ? buildChartSignalMarkers(recentSignals) : []
-  const holdingsPreview = (fundamentals.holdings ?? []).slice(0, 8)
+  const holdingsPreview = hasFundamentals ? (fundamentals.holdings ?? []).slice(0, 8) : []
   const maxHoldingPreviewWeight = holdingsPreview.reduce((max, holding) => {
     const weight = holding.weightPercent
     if (weight === null || !Number.isFinite(weight)) return max
@@ -630,16 +720,87 @@ export default async function TickerPage({
     peers: correlationNetwork.peers,
   })
 
+  const marketCapValue =
+    fundamentalsSummary?.marketCap !== null && fundamentalsSummary?.marketCap !== undefined
+      ? formatCompactNumber(fundamentalsSummary.marketCap, { currency: true })
+      : marketQuote?.marketCapText ?? '—'
   const quickStats = [
-    { label: 'Market Cap', value: fundamentals.marketCap ?? '—' },
-    { label: 'Dividend Yield', value: fundamentals.dividendYield ?? '—' },
-    { label: 'Holdings', value: (fundamentals.holdings?.length ?? 0).toString() },
-    { label: 'Last Signal', value: latest?.signal_date?.slice(0, 10) ?? '—' },
+    { label: 'Market Cap', value: hasFundamentals ? marketCapValue : 'Not available' },
+    {
+      label: '1M Return',
+      value: hasMarketData ? formatSignedPercent(marketStats?.return1m ?? null) : 'Not available',
+    },
+    {
+      label: '1Y Return',
+      value: hasMarketData ? formatSignedPercent(marketStats?.return1y ?? null) : 'Not available',
+    },
+    {
+      label: 'Next Earnings',
+      value: hasEarnings
+        ? formatCalendarDate(nextEarnings?.earningsDate ?? earningsHistory[0]?.earningsDate ?? null)
+        : 'Not available',
+    },
   ]
+  const fundamentalsSummaryRows = [
+    {
+      label: 'Latest Revenue',
+      value:
+        fundamentalsSummary?.latestRevenue !== null && fundamentalsSummary?.latestRevenue !== undefined
+          ? formatCompactNumber(fundamentalsSummary.latestRevenue, { currency: true })
+          : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('revenue')) ?? '—'),
+    },
+    {
+      label: 'Latest EPS',
+      value:
+        fundamentalsSummary?.latestEps !== null && fundamentalsSummary?.latestEps !== undefined
+          ? fundamentalsSummary.latestEps.toFixed(2)
+          : (findLatestFundamentalValue(
+              latestFundamentals,
+              (metric) => metric === 'eps' || metric.includes('diluted_eps')
+            ) ?? '—'),
+    },
+    {
+      label: 'Trailing P/E',
+      value:
+        fundamentalsSummary?.trailingPe !== null && fundamentalsSummary?.trailingPe !== undefined
+          ? fundamentalsSummary.trailingPe.toFixed(2)
+          : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('pe')) ?? '—'),
+    },
+    {
+      label: 'Revenue Growth YoY',
+      value:
+        fundamentalsSummary?.revenueGrowthYoy !== null && fundamentalsSummary?.revenueGrowthYoy !== undefined
+          ? formatSignedPercent(fundamentalsSummary.revenueGrowthYoy)
+          : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('revenue_growth')) ??
+            '—'),
+    },
+    {
+      label: 'Earnings Growth YoY',
+      value:
+        fundamentalsSummary?.earningsGrowthYoy !== null &&
+        fundamentalsSummary?.earningsGrowthYoy !== undefined
+          ? formatSignedPercent(fundamentalsSummary.earningsGrowthYoy)
+          : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('earnings_growth')) ??
+            '—'),
+    },
+    {
+      label: 'Latest Period End',
+      value: formatCalendarDate(fundamentalsSummary?.periodEnd ?? null),
+    },
+  ]
+  const latestFundamentalsRows = latestFundamentals.filter(
+    (row) => row.valueDisplay !== null || row.valueNumber !== null
+  )
+  const earningsHistoryRows = earningsHistory.slice(0, 6)
+  const marketCoverageBadge = coverageBadge(hasMarketData)
+  const fundamentalsCoverageBadge = coverageBadge(hasFundamentals)
+  const earningsCoverageBadge = coverageBadge(hasEarnings)
+  const signalsCoverageBadge = coverageBadge(hasSignals)
   const scoreDimensions = buildScoreDimensions({
     historicalData,
     recentSignals,
     fundamentals,
+    hasFundamentals,
   })
   const profileInterpretation = buildSystemProfileInterpretation(scoreDimensions)
   const overallSystemScore =
@@ -662,6 +823,18 @@ export default async function TickerPage({
         <div className="flex flex-wrap items-center gap-2">
           {modelTag ? <Badge variant="neutral">{modelTag}</Badge> : null}
           {screenerTag ? <Badge variant="neutral">{screenerTag}</Badge> : null}
+          <Badge variant={marketCoverageBadge.variant}>
+            Market {marketCoverageBadge.text}
+          </Badge>
+          <Badge variant={fundamentalsCoverageBadge.variant}>
+            Fundamentals {fundamentalsCoverageBadge.text}
+          </Badge>
+          <Badge variant={earningsCoverageBadge.variant}>
+            Earnings {earningsCoverageBadge.text}
+          </Badge>
+          <Badge variant={signalsCoverageBadge.variant}>
+            Signals {signalsCoverageBadge.text}
+          </Badge>
         </div>
         <WatchlistButton
           ticker={ticker}
@@ -678,6 +851,182 @@ export default async function TickerPage({
           has_model_context: Boolean(modelTag),
         }}
       />
+      <PageSection
+        title="Market Snapshot"
+        description="Latest quote and market stats sourced from Data Ops coverage-aware surfaces."
+      >
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1fr]">
+          <Card className="section-gap" padding="lg">
+            <h3 className="text-card-title text-content-primary">Quote</h3>
+            {hasMarketData && marketQuote && marketQuote.price !== null ? (
+              <div>
+                <div className="text-body text-content-secondary">{displayName}</div>
+                <div className="mt-2 text-display-md numeric-tabular leading-none text-content-primary">
+                  ${marketQuote.price.toFixed(2)}
+                </div>
+                <div
+                  className={`mt-2 text-data-sm numeric-tabular ${
+                    (marketQuote.change ?? 0) >= 0 ? 'signal-bullish' : 'signal-bearish'
+                  }`}
+                >
+                  {(marketQuote.change ?? 0) >= 0 ? '+' : ''}
+                  {(marketQuote.change ?? 0).toFixed(2)} ({formatSignedPercent(marketQuote.changePercent)})
+                </div>
+                <div className="mt-2 text-caption text-content-muted">
+                  {marketQuote.asOf ? `Updated ${formatTimeAgo(marketQuote.asOf)}` : 'Latest available quote'}
+                </div>
+              </div>
+            ) : (
+              <p className="text-body">Market data is not available for this ticker yet.</p>
+            )}
+          </Card>
+          <Card className="section-gap" padding="lg">
+            <h3 className="text-card-title text-content-primary">Stats</h3>
+            {hasMarketData ? (
+              <div className="grid grid-cols-2 gap-3">
+                <StatRowCard label="1D Return" value={formatSignedPercent(marketStats?.return1d ?? null)} />
+                <StatRowCard label="1M Return" value={formatSignedPercent(marketStats?.return1m ?? null)} />
+                <StatRowCard label="3M Return" value={formatSignedPercent(marketStats?.return3m ?? null)} />
+                <StatRowCard label="1Y Return" value={formatSignedPercent(marketStats?.return1y ?? null)} />
+                <StatRowCard
+                  label="From 52W High"
+                  value={formatSignedPercent(marketStats?.distanceFrom52wHighPct ?? null)}
+                />
+                <StatRowCard
+                  label="From 52W Low"
+                  value={formatSignedPercent(marketStats?.distanceFrom52wLowPct ?? null)}
+                />
+              </div>
+            ) : (
+              <p className="text-body">Market stats are not available for this ticker yet.</p>
+            )}
+          </Card>
+        </div>
+      </PageSection>
+      <PageSection
+        title="Fundamentals"
+        description="Summary metrics and latest fundamentals rows from Data Ops."
+      >
+        <Card className="section-gap" padding="lg">
+          {!hasFundamentals ? (
+            <p className="text-body">Fundamentals not available yet for this ticker.</p>
+          ) : fundamentalsSummaryRows.every((row) => row.value === '—') &&
+            latestFundamentalsRows.length === 0 ? (
+            <p className="text-body">Fundamentals coverage is enabled, but values have not been published yet.</p>
+          ) : (
+            <div className="section-gap">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                {fundamentalsSummaryRows.map((row) => (
+                  <StatRowCard key={row.label} label={row.label} value={row.value} />
+                ))}
+              </div>
+
+              {latestFundamentalsRows.length > 0 ? (
+                <TableShell>
+                  <TableBase>
+                    <TableHead>
+                      <tr>
+                        <TableHeaderCell>Metric</TableHeaderCell>
+                        <TableHeaderCell>Value</TableHeaderCell>
+                        <TableHeaderCell>Period End</TableHeaderCell>
+                      </tr>
+                    </TableHead>
+                    <TableBody>
+                      {latestFundamentalsRows.slice(0, 10).map((row, index) => (
+                        <TableRow key={`${row.metric}-${index}`} index={index}>
+                          <TableCell>{row.metricLabel}</TableCell>
+                          <TableCell className="numeric-tabular">
+                            {row.valueDisplay ??
+                              (row.valueNumber !== null ? row.valueNumber.toLocaleString() : '—')}
+                          </TableCell>
+                          <TableCell className="numeric-tabular" muted>
+                            {formatCalendarDate(row.periodEnd)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </TableBase>
+                </TableShell>
+              ) : null}
+            </div>
+          )}
+        </Card>
+      </PageSection>
+      <PageSection
+        title="Earnings"
+        description="Next event plus recent reported history, when earnings coverage is available."
+      >
+        <div className="section-gap">
+          <Card className="section-gap" padding="lg">
+            <h3 className="text-card-title text-content-primary">Next Earnings</h3>
+            {!hasEarnings ? (
+              <p className="text-body">No earnings data available for this ticker.</p>
+            ) : nextEarnings ? (
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatRowCard label="Date" value={formatCalendarDate(nextEarnings.earningsDate)} />
+                <StatRowCard label="Time" value={nextEarnings.earningsTime ?? '—'} />
+                <StatRowCard
+                  label="EPS Estimate"
+                  value={nextEarnings.epsEstimate === null ? '—' : nextEarnings.epsEstimate.toFixed(2)}
+                />
+                <StatRowCard
+                  label="Revenue Estimate"
+                  value={formatCompactNumber(nextEarnings.revenueEstimate, { currency: true })}
+                />
+              </div>
+            ) : (
+              <p className="text-body">Next earnings date is not published yet.</p>
+            )}
+          </Card>
+          <Card className="section-gap" padding="lg">
+            <h3 className="text-card-title text-content-primary">Recent Earnings History</h3>
+            {!hasEarnings ? (
+              <p className="text-body">No earnings history available for this ticker.</p>
+            ) : (
+              <TableShell>
+                <TableBase>
+                  <TableHead>
+                    <tr>
+                      <TableHeaderCell>Date</TableHeaderCell>
+                      <TableHeaderCell>Period</TableHeaderCell>
+                      <TableHeaderCell>EPS</TableHeaderCell>
+                      <TableHeaderCell>EPS Est.</TableHeaderCell>
+                      <TableHeaderCell>EPS Surprise</TableHeaderCell>
+                    </tr>
+                  </TableHead>
+                  <TableBody>
+                    {earningsHistoryRows.length === 0 ? (
+                      <TableEmptyRow
+                        colSpan={5}
+                        title="No earnings history published yet."
+                        description="Try again when the next filings are processed."
+                      />
+                    ) : (
+                      earningsHistoryRows.map((row, index) => (
+                        <TableRow key={`${row.earningsDate ?? 'row'}-${index}`} index={index}>
+                          <TableCell className="numeric-tabular">
+                            {formatCalendarDate(row.earningsDate)}
+                          </TableCell>
+                          <TableCell>{row.fiscalPeriod ?? '—'}</TableCell>
+                          <TableCell className="numeric-tabular">
+                            {row.epsActual === null ? '—' : row.epsActual.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="numeric-tabular">
+                            {row.epsEstimate === null ? '—' : row.epsEstimate.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="numeric-tabular">
+                            {formatSignedPercent(row.epsSurprisePct)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </TableBase>
+              </TableShell>
+            )}
+          </Card>
+        </div>
+      </PageSection>
       <PageSection
         title="Insight Summary"
         description="Current state, conviction context, and signal timing before drilling into deeper behavior."
@@ -759,7 +1108,7 @@ export default async function TickerPage({
               <p className="text-body">{correlationSummary}</p>
               <CorrelationNetwork
                 centerTicker={ticker}
-                centerName={quote?.name ?? null}
+                centerName={displayName}
                 peers={correlationNetwork.peers}
               />
             </Card>
@@ -839,7 +1188,7 @@ export default async function TickerPage({
               ) : (
                 <Card className="section-gap surface-primary">
                   <h3 className="text-heading-sm text-content-primary">Signal Summary</h3>
-                  <p className="text-body mt-2">No recent model output is available for this ticker yet.</p>
+                  <p className="text-body mt-2">Signals are not available for this ticker right now.</p>
                 </Card>
               )}
 
@@ -901,8 +1250,10 @@ export default async function TickerPage({
       <PageSection id="profile" title="About" description="Company / fund profile and strategy context.">
         <Card>
           <p className="text-body leading-7 text-base">
-            {fundamentals.about ||
-              `The ${quote?.name || ticker} provides exposure to highly liquid market segments. This page combines live model context with supporting fundamentals so you can evaluate stance changes in context.`}
+            {!hasFundamentals
+              ? 'Fundamentals profile information is not available for this ticker yet.'
+              : (fundamentals.about ||
+                `The ${displayName} provides exposure to highly liquid market segments. This page combines live model context with supporting fundamentals so you can evaluate stance changes in context.`)}
           </p>
         </Card>
       </PageSection>
