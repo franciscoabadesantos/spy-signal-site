@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
+import { ensureTickerOnboarding } from '@/lib/ticker-onboarding'
 
 type SearchSuggestion = {
   symbol: string
@@ -79,12 +80,13 @@ export default function PerformanceTickerAutocomplete({
     }
   }, [])
 
-  const navigate = (tickerRaw: string) => {
+  const navigate = (tickerRaw: string, exchange?: string | null) => {
     const ticker = tickerRaw.trim().toUpperCase()
     if (!ticker) return
     setSearch(ticker)
     setIsOpen(false)
     setHighlightedIndex(-1)
+    void ensureTickerOnboarding(ticker, exchange)
     router.push(`/stocks/${encodeURIComponent(ticker)}/performance`)
   }
 
@@ -115,7 +117,7 @@ export default function PerformanceTickerAutocomplete({
       event.preventDefault()
       if (isOpen && highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
         const selected = suggestions[highlightedIndex]
-        if (selected) navigate(selected.symbol)
+        if (selected) navigate(selected.symbol, selected.exchange)
         return
       }
       navigate(search)
@@ -158,7 +160,7 @@ export default function PerformanceTickerAutocomplete({
                 <button
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => navigate(item.symbol)}
+                  onClick={() => navigate(item.symbol, item.exchange)}
                   className={`w-full border-b border-border px-3 py-2.5 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset last:border-b-0 ${
                     index === highlightedIndex
                       ? 'bg-surface-hover'

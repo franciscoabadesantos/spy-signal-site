@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
+import { ensureTickerOnboarding } from '@/lib/ticker-onboarding'
 
 export type NavSection = 'stocks' | 'dashboard' | 'screener' | 'models' | 'performance' | 'methodology'
 
@@ -224,13 +225,14 @@ export default function Nav({ active }: NavProps) {
     })
   }
 
-  const navigateToTicker = (ticker: string) => {
+  const navigateToTicker = (ticker: string, exchange?: string | null) => {
     const symbol = ticker.trim().toUpperCase()
     if (!symbol) return
     pushRecentTicker(symbol)
     setSearch(symbol)
     setIsOpen(false)
     setHighlightedIndex(-1)
+    void ensureTickerOnboarding(symbol, exchange)
     router.push(`/stocks/${symbol}`)
   }
 
@@ -261,7 +263,7 @@ export default function Nav({ active }: NavProps) {
       e.preventDefault()
       if (isOpen && highlightedIndex >= 0 && highlightedIndex < displaySuggestions.length) {
         const selected = displaySuggestions[highlightedIndex]
-        if (selected) navigateToTicker(selected.symbol)
+        if (selected) navigateToTicker(selected.symbol, selected.exchange)
         return
       }
       if (search.trim()) navigateToTicker(search)
@@ -284,7 +286,7 @@ export default function Nav({ active }: NavProps) {
         <button
           type="button"
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => navigateToTicker(item.symbol)}
+          onClick={() => navigateToTicker(item.symbol, item.exchange)}
           className={`state-interactive w-full px-5 py-3.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset ${showBottomBorder ? 'border-b border-border' : ''} ${
             index === highlightedIndex ? 'bg-surface-hover' : 'hover:bg-surface-elevated'
           }`}
