@@ -122,9 +122,13 @@ export default function AnalystPage() {
   const [lastPolledAt, setLastPolledAt] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [resultActionMessage, setResultActionMessage] = useState<string | null>(null)
+  const [historyTickerFilter, setHistoryTickerFilter] = useState('')
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | AnalysisType>('all')
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<'all' | AnalysisJobStatus>('all')
+  const [latestOnly, setLatestOnly] = useState(true)
 
   const refreshRecent = useCallback(async () => {
-    const payload = await listAnalystJobs({ limit: 25 })
+    const payload = await listAnalystJobs({ limit: 200 })
     setRecentJobs(Array.isArray(payload.jobs) ? payload.jobs : [])
   }, [])
 
@@ -163,7 +167,36 @@ export default function AnalystPage() {
     return () => clearInterval(timer)
   }, [currentJobId, isPolling, refreshCurrent, refreshRecent])
 
-  const recentJobRows = useMemo(() => recentJobs.slice(0, 20), [recentJobs])
+  const recentJobRows = useMemo(() => {
+    const tickerFilter = historyTickerFilter.trim().toUpperCase()
+    const byCreatedDesc = [...recentJobs].sort((left, right) => {
+      const leftTs = Date.parse(left.created_at || '') || 0
+      const rightTs = Date.parse(right.created_at || '') || 0
+      return rightTs - leftTs
+    })
+
+    let filtered = byCreatedDesc
+    if (tickerFilter) {
+      filtered = filtered.filter((job) => String(job.ticker || '').toUpperCase().includes(tickerFilter))
+    }
+    if (historyTypeFilter !== 'all') {
+      filtered = filtered.filter((job) => job.analysis_type === historyTypeFilter)
+    }
+    if (historyStatusFilter !== 'all') {
+      filtered = filtered.filter((job) => job.status === historyStatusFilter)
+    }
+    if (latestOnly) {
+      const latestByKey = new Map<string, AnalystJob>()
+      for (const job of filtered) {
+        const key = `${job.ticker}|${job.analysis_type}`
+        if (!latestByKey.has(key)) {
+          latestByKey.set(key, job)
+        }
+      }
+      filtered = Array.from(latestByKey.values())
+    }
+    return filtered.slice(0, 50)
+  }, [historyStatusFilter, historyTickerFilter, historyTypeFilter, latestOnly, recentJobs])
   const operatorStats = useMemo(() => {
     const stats = {
       queued: 0,
@@ -505,7 +538,52 @@ export default function AnalystPage() {
       </Card>
 
       <Card className="section-gap surface-primary">
-        <h2 className="text-card-title text-content-primary">Recent Analyses</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-card-title text-content-primary">Recent Analyses</h2>
+          <label className="inline-flex items-center gap-2 text-body-sm text-content-secondary">
+            <input
+              type="checkbox"
+              checked={latestOnly}
+              onChange={(event) => setLatestOnly(event.target.checked)}
+              className="h-4 w-4 rounded border-input"
+            />
+            Latest only
+          </label>
+        </div>
+        <div className="grid gap-3 md:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-caption text-content-muted">Filter ticker</label>
+            <Input
+              value={historyTickerFilter}
+              onChange={(event) => setHistoryTickerFilter(event.target.value)}
+              placeholder="AAPL"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-caption text-content-muted">Filter analysis type</label>
+            <Select value={historyTypeFilter} onChange={(event) => setHistoryTypeFilter(event.target.value as 'all' | AnalysisType)}>
+              <option value="all">all</option>
+              <option value="ticker_snapshot">ticker_snapshot</option>
+              <option value="coverage_report">coverage_report</option>
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-caption text-content-muted">Filter status</label>
+            <Select
+              value={historyStatusFilter}
+              onChange={(event) => setHistoryStatusFilter(event.target.value as 'all' | AnalysisJobStatus)}
+            >
+              <option value="all">all</option>
+              <option value="queued">queued</option>
+              <option value="running">running</option>
+              <option value="completed">completed</option>
+              <option value="failed">failed</option>
+            </Select>
+          </div>
+          <div className="flex items-end text-body-sm text-content-secondary">
+            Showing {recentJobRows.length} job{recentJobRows.length === 1 ? '' : 's'} from {recentJobs.length}
+          </div>
+        </div>
         {recentJobRows.length === 0 ? (
           <p className="text-body text-content-secondary">No prior analysis jobs found.</p>
         ) : (
