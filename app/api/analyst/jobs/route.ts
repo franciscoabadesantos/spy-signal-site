@@ -35,8 +35,8 @@ export async function POST(request: Request) {
   if (!ticker) {
     return NextResponse.json({ error: 'ticker is required' }, { status: 400 })
   }
-  if (analysisType !== 'ticker_snapshot') {
-    return NextResponse.json({ error: 'analysis_type must be ticker_snapshot' }, { status: 400 })
+  if (!['ticker_snapshot', 'coverage_report'].includes(analysisType)) {
+    return NextResponse.json({ error: 'analysis_type must be ticker_snapshot or coverage_report' }, { status: 400 })
   }
   if (!['us', 'eu', 'apac'].includes(region)) {
     return NextResponse.json({ error: 'region must be one of us, eu, apac' }, { status: 400 })

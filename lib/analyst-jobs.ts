@@ -1,4 +1,4 @@
-export type AnalysisType = 'ticker_snapshot'
+export type AnalysisType = 'ticker_snapshot' | 'coverage_report'
 export type AnalysisJobStatus = 'queued' | 'running' | 'completed' | 'failed'
 
 export type AnalystResultSection = {
