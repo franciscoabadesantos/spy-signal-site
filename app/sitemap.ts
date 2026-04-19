@@ -8,6 +8,9 @@ type TickerSignal = {
   signalDate: string | null
 }
 
+const SITEMAP_SOURCE_TIMEOUT_MS = 4000
+const SITEMAP_TOTAL_TIMEOUT_MS = 10000
+
 const TICKER_SOURCES = [
   'latest_signals_view',
   'latest_signals',
@@ -70,7 +73,14 @@ function newerDate(current: string | null, incoming: string | null): string | nu
 }
 
 async function readTickerSignalsFromSource(source: string): Promise<TickerSignal[]> {
-  const { data, error } = await supabase.from(source).select('*').limit(1000)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), SITEMAP_SOURCE_TIMEOUT_MS)
+  const { data, error } = await supabase
+    .from(source)
+    .select('*')
+    .limit(1000)
+    .abortSignal(controller.signal)
+  clearTimeout(timeout)
   if (error || !data || data.length === 0) return []
 
   if (source === 'spy_signals_live') {
@@ -95,16 +105,25 @@ async function readTickerSignalsFromSource(source: string): Promise<TickerSignal
 }
 
 async function readTickerSignals(): Promise<TickerSignal[]> {
-  for (const source of TICKER_SOURCES) {
-    try {
-      const rows = await readTickerSignalsFromSource(source)
-      if (rows.length > 0) return rows
-    } catch {
-      // Try next candidate source.
-    }
-  }
+  const fallbackRows = FALLBACK_TICKERS.map((ticker) => ({ ticker, signalDate: null }))
 
-  return FALLBACK_TICKERS.map((ticker) => ({ ticker, signalDate: null }))
+  const read = (async (): Promise<TickerSignal[]> => {
+    for (const source of TICKER_SOURCES) {
+      try {
+        const rows = await readTickerSignalsFromSource(source)
+        if (rows.length > 0) return rows
+      } catch {
+        // Try next candidate source.
+      }
+    }
+    return fallbackRows
+  })()
+
+  const timeout = new Promise<TickerSignal[]>((resolve) =>
+    setTimeout(() => resolve(fallbackRows), SITEMAP_TOTAL_TIMEOUT_MS)
+  )
+
+  return Promise.race([read, timeout])
 }
 
 function toDate(value: string | null): Date | undefined {
