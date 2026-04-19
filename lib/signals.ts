@@ -1,6 +1,23 @@
 import { supabase } from './supabase'
 import { Signal } from './types'
 
+const SUPABASE_QUERY_TIMEOUT_MS = 3500
+const SCREENER_FETCH_BUDGET_MS = 9000
+const SAFE_SCREENER_TIMEOUT_MS = 9500
+
+async function withTimeout<T>(operation: PromiseLike<T>, timeoutMs: number, context: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${context} timed out after ${timeoutMs}ms`)), timeoutMs)
+  })
+
+  try {
+    return await Promise.race([Promise.resolve(operation), timeoutPromise])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 export async function getRecentSignals(limit = 20): Promise<Signal[]> {
   const { data, error } = await supabase
     .from('spy_signals_live')
@@ -488,7 +505,18 @@ async function readSourceRows(
         query = query.in(tickerColumn, tickers)
       }
 
-      const ordered = await query.order(orderColumn, { ascending: false }).limit(limit)
+      let ordered:
+        | { data: unknown[] | null; error: { message: string } | null }
+        | null = null
+      try {
+        ordered = await withTimeout(
+          query.order(orderColumn, { ascending: false }).limit(limit),
+          SUPABASE_QUERY_TIMEOUT_MS,
+          `supabase.${source}.order(${orderColumn})`
+        )
+      } catch {
+        continue
+      }
       if (!ordered.error) {
         return { data: ordered.data, error: null }
       }
@@ -498,7 +526,19 @@ async function readSourceRows(
     if (tickerColumn && tickers && tickers.length > 0) {
       fallbackQuery = fallbackQuery.in(tickerColumn, tickers)
     }
-    const fallback = await fallbackQuery.limit(limit)
+    let fallback:
+      | { data: unknown[] | null; error: { message: string } | null }
+      | null = null
+    try {
+      fallback = await withTimeout(
+        fallbackQuery.limit(limit),
+        SUPABASE_QUERY_TIMEOUT_MS,
+        `supabase.${source}.fallback`
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'supabase_query_timeout'
+      return { data: null, error: { message } }
+    }
     if (fallback.error) return { data: null, error: { message: fallback.error.message } }
     return { data: fallback.data, error: null }
   }
@@ -544,15 +584,27 @@ async function enrichWithQuotes(rows: ScreenerSignal[]): Promise<ScreenerSignal[
   const uniqueMissing = [...new Set(missing)]
   if (uniqueMissing.length === 0) return rows
 
-  const { data, error } = await supabase
-    .from('market_quotes')
-    .select('ticker,name,price,change_percent')
-    .in('ticker', uniqueMissing)
+  let data: Array<{ ticker: string; name: string | null; price: number | null; change_percent: number | null }> | null = null
+  let error: { message: string } | null = null
+  try {
+    const response = await withTimeout(
+      supabase
+        .from('market_quotes')
+        .select('ticker,name,price,change_percent')
+        .in('ticker', uniqueMissing),
+      SUPABASE_QUERY_TIMEOUT_MS,
+      'supabase.market_quotes.enrich'
+    )
+    data = response.data as Array<{ ticker: string; name: string | null; price: number | null; change_percent: number | null }> | null
+    error = response.error
+  } catch {
+    return rows
+  }
 
   if (error || !data) return rows
 
   const quoteByTicker = new Map<string, { name: string | null; price: number | null; change_percent: number | null }>()
-  for (const quote of data as Array<{ ticker: string; name: string | null; price: number | null; change_percent: number | null }>) {
+  for (const quote of data) {
     quoteByTicker.set(quote.ticker.toUpperCase(), quote)
   }
 
@@ -642,8 +694,12 @@ export async function getScreenerSignals(query: ScreenerQuery = {}): Promise<Scr
 
   let rows: ScreenerSignal[] = []
   let source: string | null = null
+  const startedAt = Date.now()
 
   for (const candidate of SCREENER_SOURCES) {
+    if (Date.now() - startedAt > SCREENER_FETCH_BUDGET_MS) {
+      break
+    }
     try {
       const candidateRows = await readSourceRows(candidate, limit * 3, tickerFilter)
       if (candidateRows.length === 0) continue
@@ -696,6 +752,22 @@ export async function getScreenerSignals(query: ScreenerQuery = {}): Promise<Scr
   rows = sortScreenerRows(rows, sortBy).slice(0, limit)
 
   return { rows, source }
+}
+
+export async function getScreenerSignalsSafe(
+  query: ScreenerQuery = {},
+  opts?: { timeoutMs?: number }
+): Promise<ScreenerResult> {
+  const limit = Math.max(1, Math.min(500, query.limit ?? 200))
+  const timeoutMs = Math.max(1000, opts?.timeoutMs ?? SAFE_SCREENER_TIMEOUT_MS)
+  try {
+    return await withTimeout(getScreenerSignals(query), timeoutMs, 'getScreenerSignals')
+  } catch {
+    return {
+      rows: buildFallbackScreenerRows(limit),
+      source: 'fallback_timeout',
+    }
+  }
 }
 
 function sortBySignalDateAscending(rows: ScreenerSignal[]): ScreenerSignal[] {

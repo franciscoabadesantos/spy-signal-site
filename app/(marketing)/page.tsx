@@ -17,7 +17,7 @@ import {
   TableShell,
   TableEmptyRow,
 } from '@/components/ui/DataTable'
-import { getScreenerSignals } from '@/lib/signals'
+import { getScreenerSignalsSafe } from '@/lib/signals'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,7 +65,7 @@ const HERO_COPY = {
 */
 
 export default async function Home() {
-  const { rows } = await getScreenerSignals({ sortBy: 'latest', limit: 320 })
+  const { rows } = await getScreenerSignalsSafe({ sortBy: 'latest', limit: 320 })
   const networkRows = rows.slice(0, 260)
   const visibleRows = rows.slice(0, 12)
 
