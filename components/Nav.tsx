@@ -9,7 +9,7 @@ import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
 import { ensureTickerOnboarding } from '@/lib/ticker-onboarding'
 
-export type NavSection = 'stocks' | 'dashboard' | 'screener' | 'models' | 'analyst' | 'performance' | 'methodology'
+export type NavSection = 'stocks' | 'dashboard' | 'screener' | 'models' | 'performance' | 'methodology'
 
 interface NavProps {
   active?: NavSection
@@ -430,7 +430,6 @@ export default function Nav({ active }: NavProps) {
             <Link href="/dashboard" className={navLinkClass(active === 'dashboard')}>Dashboard</Link>
             <Link href="/screener" className={navLinkClass(active === 'screener')}>Screener</Link>
             <Link href="/models" className={navLinkClass(active === 'models')}>Models</Link>
-            <Link href="/analyst" className={navLinkClass(active === 'analyst')}>Analyst</Link>
             <Link href="/methodology" className={navLinkClass(active === 'methodology')}>Methodology</Link>
           </nav>
 

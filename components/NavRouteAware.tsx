@@ -7,7 +7,6 @@ function sectionFromPath(pathname: string): NavSection {
   if (pathname.startsWith('/dashboard')) return 'dashboard'
   if (pathname.startsWith('/screener')) return 'screener'
   if (pathname.startsWith('/models')) return 'models'
-  if (pathname.startsWith('/analyst')) return 'analyst'
   if (pathname.startsWith('/methodology')) return 'methodology'
   if (
     pathname === '/performance' ||

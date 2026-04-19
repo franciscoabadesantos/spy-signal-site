@@ -7,8 +7,12 @@ function backendBaseUrl(): string {
 
 function backendHeaders(): HeadersInit {
   const headers: Record<string, string> = {}
-  const secret = (process.env.FINANCE_BACKEND_SHARED_SECRET || '').trim()
-  if (secret) headers['x-shared-secret'] = secret
+  const secret = (
+    process.env.BACKEND_SHARED_SECRET
+    || process.env.FINANCE_BACKEND_SHARED_SECRET
+    || ''
+  ).trim()
+  if (secret) headers['x-backend-shared-secret'] = secret
   return headers
 }
 
