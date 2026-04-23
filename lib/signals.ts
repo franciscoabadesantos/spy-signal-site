@@ -421,6 +421,15 @@ function normalizeConviction(raw: unknown): number | null {
   return value
 }
 
+function normalizeTickerSignalLabel(raw: unknown): SignalDirection | null {
+  const value = getString(raw)?.toLowerCase()
+  if (!value) return null
+  if (value === 'positive') return 'bullish'
+  if (value === 'caution') return 'bearish'
+  if (value === 'watch' || value === 'neutral') return 'neutral'
+  return null
+}
+
 function normalizeSignalRow(row: unknown, source?: string): ScreenerSignal | null {
   const record = asRecord(row)
   if (!record) return null
@@ -485,6 +494,130 @@ function normalizeSignalRow(row: unknown, source?: string): ScreenerSignal | nul
     price,
     changePercent,
   }
+}
+
+type AnalysisJobRecord = {
+  job_id: string
+  ticker: string
+  finished_at: string | null
+}
+
+function normalizeAnalysisJobRecord(row: unknown): AnalysisJobRecord | null {
+  const record = asRecord(row)
+  if (!record) return null
+  const jobId = getString(record.job_id)
+  const ticker = getString(record.ticker)?.toUpperCase()
+  if (!jobId || !ticker) return null
+  return {
+    job_id: jobId,
+    ticker,
+    finished_at: getString(record.finished_at),
+  }
+}
+
+function normalizeTickerSignalAnalysisRow(
+  job: AnalysisJobRecord,
+  resultRow: unknown
+): ScreenerSignal | null {
+  const record = asRecord(resultRow)
+  if (!record) return null
+  const resultJson = asRecord(record.result_json)
+  if (!resultJson) return null
+
+  const summary = asRecord(resultJson.summary)
+  const signal = asRecord(resultJson.signal)
+  const market = asRecord(resultJson.market)
+
+  const direction =
+    normalizeTickerSignalLabel(summary?.signal_label) ??
+    normalizeTickerSignalLabel(signal?.label)
+  if (!direction) return null
+
+  const conviction =
+    normalizeConviction(summary?.confidence) ??
+    normalizeConviction(signal?.confidence)
+
+  const signalDate =
+    getString(summary?.generated_at) ??
+    getString(record.created_at) ??
+    job.finished_at
+
+  const lastPrice = getNumber(market?.last_price)
+  const return1d = getNumber(market?.return_1d_pct)
+
+  return {
+    ticker: job.ticker,
+    name: null,
+    direction,
+    conviction,
+    signalDate,
+    predictionHorizon: null,
+    price: lastPrice,
+    changePercent: return1d === null ? null : return1d * 100,
+  }
+}
+
+async function readLatestTickerSignalRows(
+  limit: number,
+  tickers?: string[]
+): Promise<ScreenerSignal[]> {
+  const fetchLimit = Math.max(
+    100,
+    Math.min(1000, tickers && tickers.length > 0 ? tickers.length * 8 : limit * 5)
+  )
+
+  let jobsQuery = supabase
+    .from('analysis_jobs')
+    .select('job_id,ticker,finished_at')
+    .eq('analysis_type', 'ticker_signal_v1')
+    .eq('status', 'completed')
+    .not('finished_at', 'is', null)
+    .order('finished_at', { ascending: false })
+    .limit(fetchLimit)
+
+  if (tickers && tickers.length > 0) {
+    jobsQuery = jobsQuery.in('ticker', tickers)
+  }
+
+  const jobsResponse = await withTimeout(
+    jobsQuery,
+    SUPABASE_QUERY_TIMEOUT_MS,
+    'supabase.analysis_jobs.ticker_signal_v1'
+  )
+  if (jobsResponse.error) {
+    throw new Error(jobsResponse.error.message)
+  }
+
+  const jobs = (jobsResponse.data ?? [])
+    .map((row) => normalizeAnalysisJobRecord(row))
+    .filter((row): row is AnalysisJobRecord => row !== null)
+  if (jobs.length === 0) return []
+
+  const jobIds = [...new Set(jobs.map((row) => row.job_id))]
+  const resultsResponse = await withTimeout(
+    supabase
+      .from('analysis_results')
+      .select('job_id,result_json,created_at')
+      .eq('analysis_type', 'ticker_signal_v1')
+      .in('job_id', jobIds),
+    SUPABASE_QUERY_TIMEOUT_MS,
+    'supabase.analysis_results.ticker_signal_v1'
+  )
+  if (resultsResponse.error) {
+    throw new Error(resultsResponse.error.message)
+  }
+
+  const resultByJobId = new Map<string, unknown>()
+  for (const row of resultsResponse.data ?? []) {
+    const record = asRecord(row)
+    const jobId = getString(record?.job_id)
+    if (!jobId) continue
+    resultByJobId.set(jobId, row)
+  }
+
+  return jobs
+    .map((job) => normalizeTickerSignalAnalysisRow(job, resultByJobId.get(job.job_id)))
+    .filter((row): row is ScreenerSignal => row !== null)
 }
 
 async function readSourceRows(
@@ -694,21 +827,14 @@ export async function getScreenerSignals(query: ScreenerQuery = {}): Promise<Scr
 
   let rows: ScreenerSignal[] = []
   let source: string | null = null
-  const startedAt = Date.now()
 
-  for (const candidate of SCREENER_SOURCES) {
-    if (Date.now() - startedAt > SCREENER_FETCH_BUDGET_MS) {
-      break
+  try {
+    rows = await readLatestTickerSignalRows(limit, tickerFilter)
+    if (rows.length > 0) {
+      source = 'analysis_jobs_ticker_signal_v1'
     }
-    try {
-      const candidateRows = await readSourceRows(candidate, limit * 3, tickerFilter)
-      if (candidateRows.length === 0) continue
-      rows = candidateRows
-      source = candidate
-      break
-    } catch {
-      continue
-    }
+  } catch {
+    rows = []
   }
 
   rows = await enrichWithQuotes(rows)
