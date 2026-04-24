@@ -1,13 +1,4 @@
-import { supabase } from './supabase'
-
 type RowRecord = Record<string, unknown>
-
-type PostgrestErrorLike = {
-  code?: string
-  message?: string
-  details?: string
-  hint?: string
-}
 
 export type MarketQuoteSnapshot = {
   ticker: string
@@ -166,98 +157,37 @@ function normalizeTicker(tickerRaw: string): string {
   return tickerRaw.trim().toUpperCase()
 }
 
-function isMissingTableError(error: PostgrestErrorLike | null): boolean {
-  if (!error) return false
-  if (error.code === '42P01' || error.code === 'PGRST205') return true
-  const message = error.message ?? ''
-  return message.includes('does not exist') || message.includes('Could not find the table')
+function backendBaseUrl(): string {
+  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
+  return raw.trim().replace(/\/+$/, '')
 }
 
-function isMissingColumnError(error: PostgrestErrorLike | null, column: string): boolean {
-  if (!error) return false
-  if (error.code === '42703' || error.code === 'PGRST204') return true
-  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase()
-  return text.includes(`column '${column.toLowerCase()}'`) || text.includes(`column ${column.toLowerCase()}`)
-}
-
-async function fetchSingleByTicker(
-  table: string,
-  tickerRaw: string
-): Promise<RowRecord | null> {
-  const ticker = normalizeTicker(tickerRaw)
-
-  for (const column of ['ticker', 'symbol']) {
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .eq(column, ticker)
-      .maybeSingle()
-
-    if (!error) return asRecord(data)
-    if (isMissingTableError(error)) return null
-    if (isMissingColumnError(error, column)) continue
-    console.warn(`Failed reading ${table} for ${ticker}:`, error)
-    return null
+function backendHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    accept: 'application/json',
   }
-
-  return null
+  const secret = (
+    process.env.BACKEND_SHARED_SECRET ||
+    process.env.FINANCE_BACKEND_SHARED_SECRET ||
+    ''
+  ).trim()
+  if (secret) headers['x-backend-shared-secret'] = secret
+  return headers
 }
 
-async function fetchRowsByTicker(
-  table: string,
-  tickerRaw: string,
-  options: {
-    limit?: number
-    orderColumns?: string[]
-  } = {}
-): Promise<RowRecord[]> {
+async function fetchTickerPageSummaryFromBackend(tickerRaw: string): Promise<TickerPageSummary | null> {
   const ticker = normalizeTicker(tickerRaw)
-  const limit = Math.max(1, Math.min(200, options.limit ?? 20))
-  const orderColumns = options.orderColumns ?? []
+  const base = backendBaseUrl()
+  if (!ticker || !base) return null
 
-  for (const column of ['ticker', 'symbol']) {
-    for (const orderColumn of [...orderColumns, null]) {
-      let query = supabase.from(table).select('*').eq(column, ticker).limit(limit)
-      if (orderColumn) {
-        query = query.order(orderColumn, { ascending: false })
-      }
+  const response = await fetch(`${base}/tickers/${encodeURIComponent(ticker)}/summary`, {
+    headers: backendHeaders(),
+    cache: 'no-store',
+  }).catch(() => null)
 
-      const { data, error } = await query
-      if (!error) {
-        const rows = Array.isArray(data) ? data.map(asRecord).filter((row): row is RowRecord => row !== null) : []
-        return rows
-      }
-
-      if (isMissingTableError(error)) return []
-      if (isMissingColumnError(error, column) || (orderColumn && isMissingColumnError(error, orderColumn))) {
-        continue
-      }
-
-      console.warn(`Failed reading ${table} for ${ticker}:`, error)
-      return []
-    }
-  }
-
-  return []
-}
-
-function parseCoverageFlag(
-  row: RowRecord,
-  explicitKeys: string[],
-  countKeys: string[],
-  statusKeys: string[]
-): boolean {
-  const explicit = pickBoolean(row, explicitKeys)
-  if (explicit !== null) return explicit
-
-  const count = pickNumber(row, countKeys)
-  if (count !== null) return count > 0
-
-  const status = pickString(row, statusKeys)?.toLowerCase()
-  if (!status) return false
-  return ['available', 'ready', 'active', 'covered', 'complete', 'present'].some((token) =>
-    status.includes(token)
-  )
+  if (!response || !response.ok) return null
+  const payload = (await response.json().catch(() => null)) as TickerPageSummary | null
+  return payload && typeof payload === 'object' ? payload : null
 }
 
 function parseMarketQuote(row: RowRecord | null, ticker: string): MarketQuoteSnapshot | null {
@@ -401,130 +331,56 @@ function parseEarningsHistory(rows: RowRecord[], ticker: string): EarningsHistor
 }
 
 export async function getTickerCoverage(tickerRaw: string): Promise<SymbolCoverageRow | null> {
-  const ticker = normalizeTicker(tickerRaw)
-  const row = await fetchSingleByTicker('symbol_data_coverage', ticker)
-  if (!row) return null
-
-  return {
-    ticker: pickString(row, ['ticker', 'symbol']) ?? ticker,
-    hasMarketData: parseCoverageFlag(
-      row,
-      ['market_data_available', 'has_market_data', 'market_available', 'market_covered'],
-      ['market_rows', 'market_points', 'market_count'],
-      ['market_status']
-    ),
-    hasFundamentals: parseCoverageFlag(
-      row,
-      ['fundamentals_available', 'has_fundamentals', 'fundamentals_covered'],
-      ['fundamentals_rows', 'fundamentals_count'],
-      ['fundamentals_status']
-    ),
-    hasEarnings: parseCoverageFlag(
-      row,
-      ['earnings_available', 'has_earnings', 'earnings_covered'],
-      ['earnings_rows', 'earnings_count'],
-      ['earnings_status']
-    ),
-    hasSignals: parseCoverageFlag(
-      row,
-      ['signal_available', 'has_signals', 'signals_available', 'signals_covered'],
-      ['signals_rows', 'signals_count'],
-      ['signals_status']
-    ),
-    marketDataLastDate: pickString(row, ['market_data_last_date']),
-    fundamentalsLastDate: pickString(row, ['fundamentals_last_date']),
-    nextEarningsDate: pickString(row, ['next_earnings_date']),
-    source: 'coverage_table',
-    updatedAt: pickString(row, ['updated_at', 'as_of']),
-  }
+  const summary = await fetchTickerPageSummaryFromBackend(tickerRaw)
+  return summary?.coverage ?? null
 }
 
 export async function getTickerFundamentalsSummary(
   tickerRaw: string
 ): Promise<TickerFundamentalsSummary | null> {
-  const ticker = normalizeTicker(tickerRaw)
-  const row = await fetchSingleByTicker('ticker_fundamental_summary', ticker)
-  return parseFundamentalsSummary(row, ticker)
+  const summary = await fetchTickerPageSummaryFromBackend(tickerRaw)
+  return summary?.fundamentalsSummary ?? null
 }
 
 export async function getTickerLatestFundamentals(tickerRaw: string): Promise<LatestFundamentalsRow[]> {
-  const ticker = normalizeTicker(tickerRaw)
-  const rows = await fetchRowsByTicker('mv_latest_fundamentals', ticker, {
-    limit: 64,
-    orderColumns: ['as_of', 'period_end', 'updated_at'],
-  })
-  return parseLatestFundamentals(rows, ticker)
+  const summary = await fetchTickerPageSummaryFromBackend(tickerRaw)
+  return summary?.latestFundamentals ?? []
 }
 
 export async function getTickerNextEarnings(tickerRaw: string): Promise<NextEarningsRow | null> {
-  const ticker = normalizeTicker(tickerRaw)
-  const row = await fetchSingleByTicker('mv_next_earnings', ticker)
-  return parseNextEarnings(row, ticker)
+  const summary = await fetchTickerPageSummaryFromBackend(tickerRaw)
+  return summary?.nextEarnings ?? null
 }
 
 export async function getTickerEarningsHistory(tickerRaw: string): Promise<EarningsHistoryRow[]> {
-  const ticker = normalizeTicker(tickerRaw)
-  const rows = await fetchRowsByTicker('market_earnings_history', ticker, {
-    limit: 8,
-    orderColumns: ['earnings_date', 'report_date', 'fiscal_date', 'updated_at'],
-  })
-  return parseEarningsHistory(rows, ticker)
-}
-
-async function getTickerMarketQuoteSnapshot(tickerRaw: string): Promise<MarketQuoteSnapshot | null> {
-  const ticker = normalizeTicker(tickerRaw)
-  const row = await fetchSingleByTicker('market_quotes', ticker)
-  return parseMarketQuote(row, ticker)
-}
-
-async function getTickerMarketStatsSnapshot(tickerRaw: string): Promise<MarketStatsSnapshot | null> {
-  const ticker = normalizeTicker(tickerRaw)
-  const row = await fetchSingleByTicker('ticker_market_stats_snapshot', ticker)
-  return parseMarketStats(row, ticker)
+  const summary = await fetchTickerPageSummaryFromBackend(tickerRaw)
+  return summary?.earningsHistory ?? []
 }
 
 export async function getTickerPageSummary(tickerRaw: string): Promise<TickerPageSummary> {
   const ticker = normalizeTicker(tickerRaw)
-  const [quote, marketStats, coverageRow, fundamentalsSummary, latestFundamentals, nextEarnings, earningsHistory] =
-    await Promise.all([
-      getTickerMarketQuoteSnapshot(ticker),
-      getTickerMarketStatsSnapshot(ticker),
-      getTickerCoverage(ticker),
-      getTickerFundamentalsSummary(ticker),
-      getTickerLatestFundamentals(ticker),
-      getTickerNextEarnings(ticker),
-      getTickerEarningsHistory(ticker),
-    ])
-
-  const inferredCoverage: SymbolCoverageRow = {
-    ticker,
-    hasMarketData: Boolean(quote?.price !== null || marketStats !== null),
-    hasFundamentals: Boolean(fundamentalsSummary !== null || latestFundamentals.length > 0),
-    hasEarnings: Boolean(nextEarnings !== null || earningsHistory.length > 0),
-    hasSignals: coverageRow?.hasSignals ?? false,
-    marketDataLastDate: null,
-    fundamentalsLastDate: null,
-    nextEarningsDate: null,
-    source: 'inferred',
-    updatedAt: null,
-  }
-  const coverage: SymbolCoverageRow = coverageRow
-    ? {
-        ...coverageRow,
-        hasMarketData: coverageRow.hasMarketData || inferredCoverage.hasMarketData,
-        hasFundamentals: coverageRow.hasFundamentals || inferredCoverage.hasFundamentals,
-        hasEarnings: coverageRow.hasEarnings || inferredCoverage.hasEarnings,
-      }
-    : inferredCoverage
+  const summary = await fetchTickerPageSummaryFromBackend(ticker)
+  if (summary) return summary
 
   return {
     ticker,
-    quote,
-    marketStats,
-    coverage,
-    fundamentalsSummary,
-    latestFundamentals,
-    nextEarnings,
-    earningsHistory,
+    quote: null,
+    marketStats: null,
+    coverage: {
+      ticker,
+      hasMarketData: false,
+      hasFundamentals: false,
+      hasEarnings: false,
+      hasSignals: false,
+      marketDataLastDate: null,
+      fundamentalsLastDate: null,
+      nextEarningsDate: null,
+      source: 'inferred',
+      updatedAt: null,
+    },
+    fundamentalsSummary: null,
+    latestFundamentals: [],
+    nextEarnings: null,
+    earningsHistory: [],
   }
 }

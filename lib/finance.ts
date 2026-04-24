@@ -1,6 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
-import { supabase } from './supabase'
 
 const YAHOO_API_BASE = 'https://query1.finance.yahoo.com'
 const YAHOO_SUMMARY_API_BASE = 'https://query2.finance.yahoo.com'
@@ -38,15 +36,7 @@ let yahooSummaryAuth:
     }
   | null = null
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const canWriteCache = Boolean(supabaseUrl && supabaseServiceRoleKey)
-const supabaseWriteClient =
-  canWriteCache && supabaseUrl && supabaseServiceRoleKey
-    ? createClient(supabaseUrl, supabaseServiceRoleKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      })
-    : null
+const canWriteCache = false
 
 export interface StockQuote {
   ticker: string
@@ -1701,219 +1691,49 @@ async function fetchStooqQuote(ticker: string): Promise<StockQuote | null> {
 }
 
 async function readCachedQuote(
-  ticker: string,
-  maxAgeMs?: number
+  _ticker: string,
+  _maxAgeMs?: number
 ): Promise<StockQuote | null> {
-  if (!shouldUseCache()) return null
-
-  const { data, error } = await supabase
-    .from('market_quotes')
-    .select('ticker,name,price,change,change_percent,market_cap_text,fetched_at')
-    .eq('ticker', ticker)
-    .maybeSingle()
-
-  if (error) {
-    if (isMissingTableError(error)) {
-      markMissingSchema()
-      return null
-    }
-    console.warn(`Failed to read market quote cache for ${ticker}:`, error)
-    return null
-  }
-
-  marketCacheAvailable = true
-  const row = data as MarketQuoteRow | null
-  if (!row || row.price === null) return null
-  if (maxAgeMs !== undefined && !hasFreshTimestamp(row.fetched_at, maxAgeMs)) return null
-
-  return {
-    ticker: row.ticker,
-    name: row.name || row.ticker,
-    price: Number(row.price),
-    change: Number(row.change ?? 0),
-    changePercent: Number(row.change_percent ?? 0),
-    marketCap: row.market_cap_text || 'N/A',
-  }
+  return null
 }
 
 async function readCachedHistorical(
-  ticker: string,
-  periodDays: number,
-  maxAgeMs?: number
+  _ticker: string,
+  _periodDays: number,
+  _maxAgeMs?: number
 ): Promise<PricePoint[]> {
-  if (!shouldUseCache()) return []
-
-  const start = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10)
-
-  const { data, error } = await supabase
-    .from('market_price_daily')
-    .select('date,close,fetched_at')
-    .eq('ticker', ticker)
-    .gte('date', start)
-    .order('date', { ascending: true })
-
-  if (error) {
-    if (isMissingTableError(error)) {
-      markMissingSchema()
-      return []
-    }
-    console.warn(`Failed to read market historical cache for ${ticker}:`, error)
-    return []
-  }
-
-  marketCacheAvailable = true
-  const rows = (data as MarketPriceDailyRow[] | null) || []
-  if (rows.length === 0) return []
-
-  if (maxAgeMs !== undefined) {
-    const newest = rows[rows.length - 1]
-    if (!newest || !hasFreshTimestamp(newest.fetched_at, maxAgeMs)) return []
-  }
-
-  return rows
-    .map((row) => {
-      const close = typeof row.close === 'number' ? row.close : Number(row.close)
-      if (!Number.isFinite(close)) return null
-      return { date: row.date, close: Number(close.toFixed(2)) }
-    })
-    .filter((point): point is PricePoint => point !== null)
+  return []
 }
 
 async function readCachedFundamentals(
-  ticker: string,
-  maxAgeMs?: number
+  _ticker: string,
+  _maxAgeMs?: number
 ): Promise<TickerFundamentals | null> {
-  if (!shouldUseCache()) return null
-
-  const { data, error } = await supabase
-    .from('market_fundamentals')
-    .select('payload,fetched_at')
-    .eq('ticker', ticker)
-    .maybeSingle()
-
-  if (error) {
-    if (isMissingTableError(error)) {
-      markMissingSchema()
-      return null
-    }
-    console.warn(`Failed to read market fundamentals cache for ${ticker}:`, error)
-    return null
-  }
-
-  marketCacheAvailable = true
-  const row = data as MarketFundamentalsRow | null
-  if (!row) return null
-  if (maxAgeMs !== undefined && !hasFreshTimestamp(row.fetched_at, maxAgeMs)) return null
-
-  return parseCachedFundamentalsPayload(row.payload)
+  return null
 }
 
 async function writeQuoteCache(
-  ticker: string,
-  quote: StockQuote,
-  source: QuoteFetchResult['source']
+  _ticker: string,
+  _quote: StockQuote,
+  _source: QuoteFetchResult['source']
 ): Promise<void> {
-  if (!canWriteCache || !supabaseWriteClient) {
-    if (!writeSupportLogged) {
-      console.warn('Market cache write is disabled. Set SUPABASE_SERVICE_ROLE_KEY to enable writes.')
-      writeSupportLogged = true
-    }
-    return
-  }
-  if (!shouldUseCache()) return
-
-  const now = new Date().toISOString()
-  const { error } = await supabaseWriteClient.from('market_quotes').upsert(
-    [
-      {
-        ticker,
-        name: quote.name,
-        price: quote.price,
-        change: quote.change,
-        change_percent: quote.changePercent,
-        market_cap_text: quote.marketCap,
-        source,
-        fetched_at: now,
-      },
-    ],
-    { onConflict: 'ticker' }
-  )
-
-  if (error) {
-    if (isMissingTableError(error)) {
-      markMissingSchema()
-      return
-    }
-    console.warn(`Failed to write market quote cache for ${ticker}:`, error)
-  }
+  return
 }
 
 async function writeHistoricalCache(
-  ticker: string,
-  points: PricePoint[],
-  source: 'yahoo'
+  _ticker: string,
+  _points: PricePoint[],
+  _source: 'yahoo'
 ): Promise<void> {
-  if (!canWriteCache || !supabaseWriteClient || points.length === 0) return
-  if (!shouldUseCache()) return
-
-  const now = new Date().toISOString()
-  const payload = points.map((point) => ({
-    ticker,
-    date: point.date,
-    close: point.close,
-    source,
-    fetched_at: now,
-  }))
-
-  const { error } = await supabaseWriteClient
-    .from('market_price_daily')
-    .upsert(payload, { onConflict: 'ticker,date' })
-
-  if (error) {
-    if (isMissingTableError(error)) {
-      markMissingSchema()
-      return
-    }
-    console.warn(`Failed to write market historical cache for ${ticker}:`, error)
-  }
+  return
 }
 
 async function writeFundamentalsCache(
-  ticker: string,
-  fundamentals: TickerFundamentals,
-  source: FundamentalsSource
+  _ticker: string,
+  _fundamentals: TickerFundamentals,
+  _source: FundamentalsSource
 ): Promise<void> {
-  if (!canWriteCache || !supabaseWriteClient) {
-    if (!writeSupportLogged) {
-      console.warn('Market cache write is disabled. Set SUPABASE_SERVICE_ROLE_KEY to enable writes.')
-      writeSupportLogged = true
-    }
-    return
-  }
-  if (!shouldUseCache()) return
-
-  const now = new Date().toISOString()
-  const { error } = await supabaseWriteClient.from('market_fundamentals').upsert(
-    [
-      {
-        ticker,
-        payload: fundamentals,
-        source,
-        fetched_at: now,
-      },
-    ],
-    { onConflict: 'ticker' }
-  )
-
-  if (error) {
-    if (isMissingTableError(error)) {
-      markMissingSchema()
-      return
-    }
-    console.warn(`Failed to write market fundamentals cache for ${ticker}:`, error)
-  }
+  return
 }
 
 async function fetchLiveQuoteWithFallback(ticker: string): Promise<QuoteFetchResult | null> {

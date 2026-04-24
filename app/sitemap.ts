@@ -1,5 +1,4 @@
 import type { MetadataRoute } from 'next'
-import { supabase } from '@/lib/supabase'
 
 export const revalidate = 3600
 
@@ -10,15 +9,6 @@ type TickerSignal = {
 
 const SITEMAP_SOURCE_TIMEOUT_MS = 4000
 const SITEMAP_TOTAL_TIMEOUT_MS = 10000
-
-const TICKER_SOURCES = [
-  'latest_signals_view',
-  'latest_signals',
-  'signals_latest',
-  'signals_live',
-  'market_signals',
-  'spy_signals_live',
-]
 
 const FALLBACK_TICKERS = ['SPY', 'QQQ', 'DIA', 'AAPL', 'MSFT', 'NVDA', 'TSLA']
 
@@ -72,50 +62,48 @@ function newerDate(current: string | null, incoming: string | null): string | nu
   return incomingMs > currentMs ? incoming : current
 }
 
-async function readTickerSignalsFromSource(source: string): Promise<TickerSignal[]> {
+function backendBaseUrl(): string {
+  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
+  return raw.trim().replace(/\/+$/, '')
+}
+
+async function readTickerSignalsFromBackend(): Promise<TickerSignal[]> {
+  const base = backendBaseUrl()
+  if (!base) return []
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), SITEMAP_SOURCE_TIMEOUT_MS)
-  const { data, error } = await supabase
-    .from(source)
-    .select('*')
-    .limit(1000)
-    .abortSignal(controller.signal)
+  const response = await fetch(`${base}/screener/signals?limit=500`, {
+    cache: 'no-store',
+    headers: {
+      accept: 'application/json',
+    },
+    signal: controller.signal,
+  }).catch(() => null)
   clearTimeout(timeout)
-  if (error || !data || data.length === 0) return []
+  if (!response || !response.ok) return []
 
-  if (source === 'spy_signals_live') {
-    let latest: string | null = null
-    for (const row of data) {
-      const typed = (row ?? {}) as Record<string, unknown>
-      latest = newerDate(latest, readSignalDate(typed))
-    }
-    return [{ ticker: 'SPY', signalDate: latest }]
-  }
+  const data = (await response.json().catch(() => [])) as Array<Record<string, unknown>>
+  if (!Array.isArray(data) || data.length === 0) return []
 
-  const byTicker = new Map<string, string | null>()
-  for (const row of data) {
-    const typed = (row ?? {}) as Record<string, unknown>
-    const ticker = readTicker(typed)
-    if (!ticker) continue
-    const signalDate = readSignalDate(typed)
-    byTicker.set(ticker, newerDate(byTicker.get(ticker) ?? null, signalDate))
-  }
-
-  return [...byTicker.entries()].map(([ticker, signalDate]) => ({ ticker, signalDate }))
+  return data
+    .map((row) => {
+      const ticker = readTicker(row)
+      if (!ticker) return null
+      return {
+        ticker,
+        signalDate: readString(row.signalDate),
+      }
+    })
+    .filter((row): row is TickerSignal => row !== null)
 }
 
 async function readTickerSignals(): Promise<TickerSignal[]> {
   const fallbackRows = FALLBACK_TICKERS.map((ticker) => ({ ticker, signalDate: null }))
 
   const read = (async (): Promise<TickerSignal[]> => {
-    for (const source of TICKER_SOURCES) {
-      try {
-        const rows = await readTickerSignalsFromSource(source)
-        if (rows.length > 0) return rows
-      } catch {
-        // Try next candidate source.
-      }
-    }
+    const rows = await readTickerSignalsFromBackend()
+    if (rows.length > 0) return rows
     return fallbackRows
   })()
 

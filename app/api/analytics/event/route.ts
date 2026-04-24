@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
 type AnalyticsEventBody = {
   event_name?: string
@@ -37,13 +36,23 @@ function safeIsoTimestamp(value: unknown): string {
   return parsed.toISOString()
 }
 
-function getAnalyticsWriteClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceRoleKey) return null
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+function backendBaseUrl(): string {
+  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
+  return raw.trim().replace(/\/+$/, '')
+}
+
+function backendHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    accept: 'application/json',
+  }
+  const secret = (
+    process.env.BACKEND_SHARED_SECRET ||
+    process.env.FINANCE_BACKEND_SHARED_SECRET ||
+    ''
+  ).trim()
+  if (secret) headers['x-backend-shared-secret'] = secret
+  return headers
 }
 
 function errorMessage(error: unknown): string {
@@ -67,8 +76,6 @@ export async function POST(request: Request) {
   const sessionId = sanitizeString(body.session_id, 'unknown_session')
   const anonymousId = sanitizeString(body.anonymous_id, 'unknown_anon')
   const userAgent = request.headers.get('user-agent')
-  const client = getAnalyticsWriteClient()
-
   const insertPayload: AnalyticsInsertRow = {
     event_name: eventName,
     payload,
@@ -80,38 +87,23 @@ export async function POST(request: Request) {
     user_agent: userAgent,
   }
 
-  if (!client) {
-    console.error('[analytics] insert failed: supabase_write_client_missing', {
-      event_name: eventName,
-      pathname,
-    })
-    return NextResponse.json(
-      { ok: false, stored: 'none', error: 'supabase_write_client_missing' },
-      { status: 500 }
-    )
-  }
-
   try {
-    const { data, error } = await client
-      .from('analytics_events')
-      .insert(insertPayload)
-      .select('id')
-      .single()
-
-    if (error) {
-      console.error('[analytics] insert failed', {
-        event_name: eventName,
-        pathname,
-        session_id: sessionId,
-        error: error.message,
-      })
+    const base = backendBaseUrl()
+    if (!base) {
       return NextResponse.json(
-        { ok: false, stored: 'none', error: 'supabase_insert_failed', detail: error.message },
+        { ok: false, stored: 'none', error: 'finance_backend_url_missing' },
         { status: 500 }
       )
     }
-
-    return NextResponse.json({ ok: true, stored: 'supabase', id: data?.id ?? null })
+    const upstream = await fetch(`${base}/site/analytics/events`, {
+      method: 'POST',
+      headers: backendHeaders(),
+      body: JSON.stringify(insertPayload),
+      cache: 'no-store',
+    })
+    const text = await upstream.text()
+    const contentType = upstream.headers.get('content-type') || 'application/json'
+    return new NextResponse(text, { status: upstream.status, headers: { 'content-type': contentType } })
   } catch (error) {
     const detail = errorMessage(error)
     console.error('[analytics] insert failed', {

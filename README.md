@@ -44,9 +44,8 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 Use this checklist when you're ready to move from local/dev to production:
 
 1. Add production env vars in Vercel:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `FINANCE_BACKEND_URL`
+   - `BACKEND_SHARED_SECRET`
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
    - `CLERK_SECRET_KEY`
    - `NEXT_PUBLIC_APP_URL`
@@ -68,34 +67,22 @@ Use this checklist when you're ready to move from local/dev to production:
 6. Run one real delivery test on a known flip date:
    - `GET /api/cron/check-signals?date=YYYY-MM-DD`
 
-## Market Data Cache (Supabase)
+## Backend Data Contract
 
-The app now uses a Supabase-backed cache for quotes, historical prices, and ETF fundamentals:
+`spy-signal-site` no longer talks to Supabase directly at runtime. The site now fetches screener, ticker summary, watchlist, alerts, AI research, and analytics data through `finance-backend`.
 
-- Page requests read `market_quotes` and `market_price_daily` first.
-- Fundamentals pages read `market_fundamentals` first.
-- If cached data is stale/missing, the server fetches live data and writes fresh rows.
-- If providers rate-limit, stale cache is served when available.
+### Required runtime env vars
 
-### Setup
+- `FINANCE_BACKEND_URL`
+- `BACKEND_SHARED_SECRET`
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
 
-1. Run SQL: `supabase/sql/market_cache.sql` in your Supabase SQL editor.
-2. Add env vars:
-   - `SUPABASE_SERVICE_ROLE_KEY` (required for cache writes).
-   - `MARKET_REFRESH_TOKEN` (optional, protects refresh endpoint).
-3. Refresh endpoint:
-   - `GET /api/market/refresh?tickers=SPY,AAPL&periodDays=120`
-   - Header (if token configured): `Authorization: Bearer <MARKET_REFRESH_TOKEN>`
-
-If you already created the old schema, re-run `supabase/sql/market_cache.sql` so `market_fundamentals` is created.
+Supabase credentials belong in server-side repos (`finance-backend`, `finance-data-ops`), not in this site runtime.
 
 ## Watchlist Tables (Dashboard)
 
-To enable the Pro dashboard watchlist feature, also run:
-
-1. `supabase/sql/user_watchlists.sql`
-
-This table is keyed by Clerk `user_id` and is intended for server-side access via `SUPABASE_SERVICE_ROLE_KEY`.
+Watchlist persistence is now served through `finance-backend` `/site/*` endpoints. The underlying tables still live in Supabase, but this site does not access them directly.
 
 ## Signal Flip Alerts (Cron + Email)
 
@@ -139,7 +126,7 @@ If Yahoo is rate-limited from this runtime, you can bootstrap Supabase from your
 /home/franciscosantos/Finance/.venv/bin/python scripts/seed_market_cache_from_finance.py --tickers SPY
 ```
 
-This writes to `market_quotes` and `market_price_daily` using `SUPABASE_SERVICE_ROLE_KEY` from `.env.local`.
+This is a legacy maintenance utility for direct Supabase cache seeding. It is not part of the site runtime path anymore.
 
 ## Multi-Ticker Signal Source (Screener/Dashboard)
 
@@ -201,7 +188,7 @@ To persist product-loop analytics used by `/api/analytics/event`, run:
 
 1. `supabase/sql/analytics_events.sql`
 
-The API writes via `SUPABASE_SERVICE_ROLE_KEY` and stores:
+The site now forwards analytics events to `finance-backend`, which writes the underlying rows and stores:
 
 - `event_name`
 - `payload`

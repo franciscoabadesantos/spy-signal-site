@@ -1,9 +1,40 @@
-import { supabase } from './supabase'
 import { Signal } from './types'
 
-const SUPABASE_QUERY_TIMEOUT_MS = 3500
 const SCREENER_FETCH_BUDGET_MS = 9000
 const SAFE_SCREENER_TIMEOUT_MS = 9500
+
+function backendBaseUrl(): string {
+  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
+  return raw.trim().replace(/\/+$/, '')
+}
+
+function backendHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+  }
+  const secret = (
+    process.env.BACKEND_SHARED_SECRET ||
+    process.env.FINANCE_BACKEND_SHARED_SECRET ||
+    ''
+  ).trim()
+  if (secret) headers['x-backend-shared-secret'] = secret
+  return headers
+}
+
+async function backendJson<T>(path: string, context: string): Promise<T | null> {
+  const base = backendBaseUrl()
+  if (!base) return null
+  const response = await withTimeout(
+    fetch(`${base}${path}`, {
+      cache: 'no-store',
+      headers: backendHeaders(),
+    }),
+    SCREENER_FETCH_BUDGET_MS,
+    context
+  ).catch(() => null)
+  if (!response || !response.ok) return null
+  return (await response.json().catch(() => null)) as T | null
+}
 
 async function withTimeout<T>(operation: PromiseLike<T>, timeoutMs: number, context: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -19,18 +50,7 @@ async function withTimeout<T>(operation: PromiseLike<T>, timeoutMs: number, cont
 }
 
 export async function getRecentSignals(limit = 20): Promise<Signal[]> {
-  const { data, error } = await supabase
-    .from('spy_signals_live')
-    .select('*')
-    .order('signal_date', { ascending: false })
-    .limit(limit)
-
-  if (error) {
-    console.error('Error fetching signals:', error.message, error.details)
-    throw new Error(`Failed to fetch signals: ${error.message}`)
-  }
-
-  return data as Signal[]
+  return getSignalHistoryForTicker('SPY', limit, { allowSyntheticFallback: false })
 }
 
 export async function getSignalHistoryForTicker(
@@ -44,65 +64,10 @@ export async function getSignalHistoryForTicker(
   if (!ticker) return []
   const allowSyntheticFallback = options?.allowSyntheticFallback ?? true
 
-  if (ticker === 'SPY') {
-    try {
-      const liveSignals = await getRecentSignals(limit)
-      if (liveSignals.length > 0) return liveSignals
-    } catch {
-      // Fall through to heterogeneous source loader.
-    }
-  }
-
-  const rowsByKey = new Map<string, ScreenerSignal>()
-
-  for (const source of SIGNAL_HISTORY_SOURCES) {
-    let sourceRows: ScreenerSignal[] = []
-    try {
-      sourceRows = await readSourceRows(source, Math.max(limit * 8, 1000), [ticker])
-    } catch {
-      continue
-    }
-
-    for (const row of sourceRows) {
-      if (row.ticker !== ticker || !row.signalDate) continue
-      const key = `${row.ticker}:${row.signalDate.slice(0, 10)}`
-      const existing = rowsByKey.get(key)
-      if (!existing || (row.conviction ?? -1) > (existing.conviction ?? -1)) {
-        rowsByKey.set(key, row)
-      }
-    }
-  }
-
-  const sorted = [...rowsByKey.values()]
-    .filter((row) => Boolean(row.signalDate))
-    .sort((a, b) => parseSignalDateMs(b.signalDate) - parseSignalDateMs(a.signalDate))
-    .slice(0, limit)
-
-  if (sorted.length === 0) {
-    return allowSyntheticFallback ? buildFallbackSignalHistory(ticker, limit) : []
-  }
-
-  return sorted.map((row, index) => ({
-    id: index + 1,
-    signal_date: row.signalDate ?? new Date(0).toISOString(),
-    direction: row.direction,
-    position: null,
-    signal_strength: row.conviction,
-    prob_side: row.conviction,
-    prediction_horizon: row.predictionHorizon ?? 20,
-    realized_return: null,
-    correct: null,
-    model_version_id: null,
-    retrain_id: null,
-    created_at: row.signalDate ?? new Date().toISOString(),
-    updated_at: row.signalDate ?? new Date().toISOString(),
-    live_episode_status: null,
-    live_flat_episode_status: null,
-    live_episode_return_to_date: null,
-    live_flat_episode_spy_move_to_date: null,
-    live_episode_days_in_trade: null,
-    live_episode_entry_date: null,
-  }))
+  const payload = await backendJson<Signal[]>(`/signals/history/${encodeURIComponent(ticker)}?limit=${Math.max(1, Math.min(limit, 2000))}`, 'backend.signals.history')
+  const rows = Array.isArray(payload) ? payload : []
+  if (rows.length > 0) return rows
+  return allowSyntheticFallback ? buildFallbackSignalHistory(ticker, limit) : []
 }
 
 export async function getLatestSignal(): Promise<Signal | null> {
@@ -111,18 +76,8 @@ export async function getLatestSignal(): Promise<Signal | null> {
 }
 
 export async function getDataStartDate(): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('spy_signals_live')
-    .select('signal_date')
-    .order('signal_date', { ascending: true })
-    .limit(1)
-
-  if (error) {
-    console.error('Error fetching data start date:', error.message, error.details)
-    throw new Error(`Failed to fetch data start date: ${error.message}`)
-  }
-
-  return (data?.[0] as { signal_date?: string } | undefined)?.signal_date ?? null
+  const signals = await getSignalHistoryForTicker('SPY', 1000, { allowSyntheticFallback: false })
+  return signals.length > 0 ? signals[signals.length - 1]?.signal_date ?? null : null
 }
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
@@ -557,200 +512,58 @@ function normalizeTickerSignalAnalysisRow(
   }
 }
 
+function normalizeBackendScreenerRow(row: unknown): ScreenerSignal | null {
+  return normalizeSignalRow(row)
+}
+
+async function readSourceRows(
+  _source: string,
+  _limit: number,
+  _tickers?: string[]
+): Promise<ScreenerSignal[]> {
+  return []
+}
+
 async function readLatestTickerSignalRows(
   limit: number,
   tickers?: string[]
 ): Promise<ScreenerSignal[]> {
-  const fetchLimit = Math.max(
-    100,
-    Math.min(1000, tickers && tickers.length > 0 ? tickers.length * 8 : limit * 5)
-  )
+  const backendBase = (
+    process.env.FINANCE_BACKEND_URL ||
+    process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL ||
+    ''
+  ).trim().replace(/\/+$/, '')
+  if (!backendBase) {
+    throw new Error('FINANCE_BACKEND_URL is not configured')
+  }
 
-  let jobsQuery = supabase
-    .from('analysis_jobs')
-    .select('job_id,ticker,finished_at')
-    .eq('analysis_type', 'ticker_signal_v1')
-    .eq('status', 'completed')
-    .not('finished_at', 'is', null)
-    .order('finished_at', { ascending: false })
-    .limit(fetchLimit)
-
+  const params = new URLSearchParams()
+  params.set('limit', String(limit))
   if (tickers && tickers.length > 0) {
-    jobsQuery = jobsQuery.in('ticker', tickers)
+    params.set('tickers', tickers.join(','))
   }
 
-  const jobsResponse = await withTimeout(
-    jobsQuery,
-    SUPABASE_QUERY_TIMEOUT_MS,
-    'supabase.analysis_jobs.ticker_signal_v1'
+  const response = await withTimeout(
+    fetch(`${backendBase}/screener/signals?${params.toString()}`, {
+      cache: 'no-store',
+      headers: {
+        accept: 'application/json',
+      },
+    }),
+    SCREENER_FETCH_BUDGET_MS,
+    'backend.screener.signals'
   )
-  if (jobsResponse.error) {
-    throw new Error(jobsResponse.error.message)
+
+  if (!response.ok) {
+    throw new Error(`backend_screener_http_${response.status}`)
   }
 
-  const jobs = (jobsResponse.data ?? [])
-    .map((row) => normalizeAnalysisJobRecord(row))
-    .filter((row): row is AnalysisJobRecord => row !== null)
-  if (jobs.length === 0) return []
+  const payload = await response.json().catch(() => [])
+  if (!Array.isArray(payload)) return []
 
-  const jobIds = [...new Set(jobs.map((row) => row.job_id))]
-  const resultsResponse = await withTimeout(
-    supabase
-      .from('analysis_results')
-      .select('job_id,result_json,created_at')
-      .eq('analysis_type', 'ticker_signal_v1')
-      .in('job_id', jobIds),
-    SUPABASE_QUERY_TIMEOUT_MS,
-    'supabase.analysis_results.ticker_signal_v1'
-  )
-  if (resultsResponse.error) {
-    throw new Error(resultsResponse.error.message)
-  }
-
-  const resultByJobId = new Map<string, unknown>()
-  for (const row of resultsResponse.data ?? []) {
-    const record = asRecord(row)
-    const jobId = getString(record?.job_id)
-    if (!jobId) continue
-    resultByJobId.set(jobId, row)
-  }
-
-  return jobs
-    .map((job) => normalizeTickerSignalAnalysisRow(job, resultByJobId.get(job.job_id)))
+  return payload
+    .map((row) => normalizeBackendScreenerRow(row))
     .filter((row): row is ScreenerSignal => row !== null)
-}
-
-async function readSourceRows(
-  source: string,
-  limit: number,
-  tickers?: string[]
-): Promise<ScreenerSignal[]> {
-  let data: unknown[] = []
-
-  async function selectRows({
-    tickerColumn,
-  }: {
-    tickerColumn?: string
-  }): Promise<{ data: unknown[] | null; error: { message: string } | null }> {
-    for (const orderColumn of SOURCE_ORDER_COLUMNS) {
-      let query = supabase.from(source).select('*')
-      if (tickerColumn && tickers && tickers.length > 0) {
-        query = query.in(tickerColumn, tickers)
-      }
-
-      let ordered:
-        | { data: unknown[] | null; error: { message: string } | null }
-        | null = null
-      try {
-        ordered = await withTimeout(
-          query.order(orderColumn, { ascending: false }).limit(limit),
-          SUPABASE_QUERY_TIMEOUT_MS,
-          `supabase.${source}.order(${orderColumn})`
-        )
-      } catch {
-        continue
-      }
-      if (!ordered.error) {
-        return { data: ordered.data, error: null }
-      }
-    }
-
-    let fallbackQuery = supabase.from(source).select('*')
-    if (tickerColumn && tickers && tickers.length > 0) {
-      fallbackQuery = fallbackQuery.in(tickerColumn, tickers)
-    }
-    let fallback:
-      | { data: unknown[] | null; error: { message: string } | null }
-      | null = null
-    try {
-      fallback = await withTimeout(
-        fallbackQuery.limit(limit),
-        SUPABASE_QUERY_TIMEOUT_MS,
-        `supabase.${source}.fallback`
-      )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'supabase_query_timeout'
-      return { data: null, error: { message } }
-    }
-    if (fallback.error) return { data: null, error: { message: fallback.error.message } }
-    return { data: fallback.data, error: null }
-  }
-
-  if (tickers && tickers.length > 0) {
-    const tickerColumns = ['ticker', 'symbol', 'asset_ticker']
-    let success = false
-
-    for (const column of tickerColumns) {
-      const query = await selectRows({ tickerColumn: column })
-      if (query.error) continue
-      data = query.data ?? []
-      success = true
-      break
-    }
-
-    if (!success) {
-      const fallbackQuery = await selectRows({})
-      if (fallbackQuery.error) return []
-      data = fallbackQuery.data ?? []
-    }
-  } else {
-    const query = await selectRows({})
-    if (query.error) throw query.error
-    data = query.data ?? []
-  }
-
-  const normalized = data
-    .map((row) => normalizeSignalRow(row, source))
-    .filter((row): row is ScreenerSignal => row !== null)
-
-  if (!tickers || tickers.length === 0) return normalized
-  const tickerSet = new Set(tickers)
-  return normalized.filter((row) => tickerSet.has(row.ticker))
-}
-
-async function enrichWithQuotes(rows: ScreenerSignal[]): Promise<ScreenerSignal[]> {
-  if (rows.length === 0) return rows
-
-  const missing = rows
-    .filter((row) => row.price === null || row.changePercent === null || row.name === null)
-    .map((row) => row.ticker)
-  const uniqueMissing = [...new Set(missing)]
-  if (uniqueMissing.length === 0) return rows
-
-  let data: Array<{ ticker: string; name: string | null; price: number | null; change_percent: number | null }> | null = null
-  let error: { message: string } | null = null
-  try {
-    const response = await withTimeout(
-      supabase
-        .from('market_quotes')
-        .select('ticker,name,price,change_percent')
-        .in('ticker', uniqueMissing),
-      SUPABASE_QUERY_TIMEOUT_MS,
-      'supabase.market_quotes.enrich'
-    )
-    data = response.data as Array<{ ticker: string; name: string | null; price: number | null; change_percent: number | null }> | null
-    error = response.error
-  } catch {
-    return rows
-  }
-
-  if (error || !data) return rows
-
-  const quoteByTicker = new Map<string, { name: string | null; price: number | null; change_percent: number | null }>()
-  for (const quote of data) {
-    quoteByTicker.set(quote.ticker.toUpperCase(), quote)
-  }
-
-  return rows.map((row) => {
-    const quote = quoteByTicker.get(row.ticker)
-    if (!quote) return row
-    return {
-      ...row,
-      name: row.name ?? quote.name ?? null,
-      price: row.price ?? quote.price ?? null,
-      changePercent: row.changePercent ?? quote.change_percent ?? null,
-    }
-  })
 }
 
 function parseSignalDateMs(value: string | null): number {
@@ -831,13 +644,12 @@ export async function getScreenerSignals(query: ScreenerQuery = {}): Promise<Scr
   try {
     rows = await readLatestTickerSignalRows(limit, tickerFilter)
     if (rows.length > 0) {
-      source = 'analysis_jobs_ticker_signal_v1'
+      source = 'finance_backend_screener'
     }
   } catch {
     rows = []
   }
 
-  rows = await enrichWithQuotes(rows)
   rows = dedupeByTicker(rows)
   if (rows.length === 0) {
     rows = buildFallbackScreenerRows(limit * 2)
@@ -935,43 +747,16 @@ export async function getLastFlipDatesByTicker(
   for (const ticker of normalizedTickers) result[ticker] = null
   if (normalizedTickers.length === 0) return result
 
-  const rowsByTicker = new Map<string, ScreenerSignal[]>()
-
-  for (const source of SIGNAL_HISTORY_SOURCES) {
-    const rows = await readSourceRows(source, 5000, normalizedTickers)
-    for (const row of rows) {
-      const bucket = rowsByTicker.get(row.ticker) ?? []
-      bucket.push(row)
-      rowsByTicker.set(row.ticker, bucket)
-    }
-  }
+  const payload = await backendJson<Record<string, string | null>>(
+    `/signals/last-flips?tickers=${encodeURIComponent(normalizedTickers.join(','))}`,
+    'backend.signals.last_flips'
+  )
+  if (!payload || typeof payload !== 'object') return result
 
   for (const ticker of normalizedTickers) {
-    const rows = rowsByTicker.get(ticker)
-    if (!rows || rows.length === 0) continue
-
-    const sorted = sortBySignalDateAscending(rows)
-    if (sorted.length === 1) {
-      result[ticker] = sorted[0]?.signalDate ?? null
-      continue
-    }
-
-    let previousDirection = sorted[0]?.direction ?? null
-    let lastFlipDate: string | null = null
-
-    for (let i = 1; i < sorted.length; i++) {
-      const current = sorted[i]
-      if (!current || !previousDirection) continue
-
-      if (current.direction !== previousDirection && current.signalDate) {
-        lastFlipDate = current.signalDate
-      }
-      previousDirection = current.direction
-    }
-
-    result[ticker] = lastFlipDate ?? sorted[sorted.length - 1]?.signalDate ?? null
+    const value = payload[ticker]
+    result[ticker] = typeof value === 'string' ? value : null
   }
-
   return result
 }
 
@@ -987,45 +772,12 @@ export async function getSignalFlipsOnDate({
     (ticker) => ticker.length > 0
   )
 
-  const rowsByTicker = new Map<string, ScreenerSignal[]>()
-  for (const source of SIGNAL_HISTORY_SOURCES) {
-    const rows = await readSourceRows(
-      source,
-      normalizedTickers.length > 0 ? 5000 : 12000,
-      normalizedTickers.length > 0 ? normalizedTickers : undefined
-    )
-    const dedupedRows = dedupeHistoryRows(rows)
+  const params = new URLSearchParams()
+  params.set('date', normalizedDate)
+  if (normalizedTickers.length > 0) params.set('tickers', normalizedTickers.join(','))
 
-    for (const row of dedupedRows) {
-      const bucket = rowsByTicker.get(row.ticker) ?? []
-      bucket.push(row)
-      rowsByTicker.set(row.ticker, bucket)
-    }
-  }
-
-  const flips: SignalFlipEvent[] = []
-  for (const [ticker, rows] of rowsByTicker.entries()) {
-    const sorted = sortBySignalDateAscending(dedupeHistoryRows(rows))
-    if (sorted.length < 2) continue
-
-    for (let i = 1; i < sorted.length; i++) {
-      const previous = sorted[i - 1]
-      const current = sorted[i]
-      if (!previous || !current || !current.signalDate) continue
-      if (previous.direction === current.direction) continue
-      if (current.signalDate.slice(0, 10) !== normalizedDate) continue
-
-      flips.push({
-        ticker,
-        fromDirection: previous.direction,
-        toDirection: current.direction,
-        signalDate: current.signalDate,
-        conviction: current.conviction,
-      })
-    }
-  }
-
-  return flips.sort((a, b) => a.ticker.localeCompare(b.ticker))
+  const payload = await backendJson<SignalFlipEvent[]>(`/signals/flips?${params.toString()}`, 'backend.signals.flips')
+  return Array.isArray(payload) ? payload : []
 }
 
 export async function getSignalCompositionByTicker(
@@ -1052,60 +804,24 @@ export async function getSignalCompositionByTicker(
   for (const ticker of normalizedTickers) result[ticker] = { ...emptyComposition }
   if (normalizedTickers.length === 0) return result
 
-  const rowsByTicker = new Map<string, ScreenerSignal[]>()
-  // Keep source reads bounded for screener performance while still capturing recent behavior.
-  const sourceLimit = 6000
-
-  for (const source of SIGNAL_HISTORY_SOURCES) {
-    let rows: ScreenerSignal[] = []
-    try {
-      rows = await readSourceRows(source, sourceLimit, normalizedTickers)
-    } catch {
-      continue
-    }
-
-    const dedupedRows = dedupeHistoryRows(rows)
-    for (const row of dedupedRows) {
-      const bucket = rowsByTicker.get(row.ticker) ?? []
-      bucket.push(row)
-      rowsByTicker.set(row.ticker, bucket)
-    }
-  }
+  const payload = await backendJson<Record<string, ScreenerSignalComposition>>(
+    `/signals/composition?tickers=${encodeURIComponent(normalizedTickers.join(','))}&lookback_rows=${lookback}`,
+    'backend.signals.composition'
+  )
+  if (!payload || typeof payload !== 'object') return result
 
   for (const ticker of normalizedTickers) {
-    const rows = rowsByTicker.get(ticker)
-    if (!rows || rows.length === 0) continue
-
-    const history = dedupeHistoryRows(rows)
-      .sort((a, b) => parseSignalDateMs(b.signalDate) - parseSignalDateMs(a.signalDate))
-      .slice(0, lookback)
-
-    let bullishCount = 0
-    let neutralCount = 0
-    let bearishCount = 0
-    for (const row of history) {
-      if (row.direction === 'bullish') bullishCount += 1
-      else if (row.direction === 'neutral') neutralCount += 1
-      else bearishCount += 1
-    }
-
-    const total = bullishCount + neutralCount + bearishCount
-    if (total === 0) continue
-
-    const bullishPct = bullishCount / total
-    const neutralPct = neutralCount / total
-    const bearishPct = bearishCount / total
-    const activePct = Math.round((bullishPct + bearishPct) * 100)
-
+    const row = payload[ticker]
+    if (!row || typeof row !== 'object') continue
     result[ticker] = {
-      bullishCount,
-      neutralCount,
-      bearishCount,
-      total,
-      bullishPct,
-      neutralPct,
-      bearishPct,
-      activePct,
+      bullishCount: typeof row.bullishCount === 'number' ? row.bullishCount : 0,
+      neutralCount: typeof row.neutralCount === 'number' ? row.neutralCount : 0,
+      bearishCount: typeof row.bearishCount === 'number' ? row.bearishCount : 0,
+      total: typeof row.total === 'number' ? row.total : 0,
+      bullishPct: typeof row.bullishPct === 'number' ? row.bullishPct : 0,
+      neutralPct: typeof row.neutralPct === 'number' ? row.neutralPct : 0,
+      bearishPct: typeof row.bearishPct === 'number' ? row.bearishPct : 0,
+      activePct: typeof row.activePct === 'number' ? row.activePct : 0,
     }
   }
 

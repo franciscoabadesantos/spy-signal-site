@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
 import { clerkClient } from '@clerk/nextjs/server'
 import type { SignalFlipEvent } from '@/lib/signals'
 
@@ -8,14 +7,38 @@ type AlertRecipient = {
   firstName: string | null
 }
 
-function getWriteClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return null
+function backendBaseUrl(): string {
+  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
+  return raw.trim().replace(/\/+$/, '')
+}
 
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+function backendHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    accept: 'application/json',
+  }
+  const secret = (
+    process.env.BACKEND_SHARED_SECRET ||
+    process.env.FINANCE_BACKEND_SHARED_SECRET ||
+    ''
+  ).trim()
+  if (secret) headers['x-backend-shared-secret'] = secret
+  return headers
+}
+
+async function backendJson<T>(path: string, init?: RequestInit): Promise<T | null> {
+  const base = backendBaseUrl()
+  if (!base) return null
+  const response = await fetch(`${base}${path}`, {
+    cache: 'no-store',
+    ...init,
+    headers: {
+      ...backendHeaders(),
+      ...(init?.headers ?? {}),
+    },
+  }).catch(() => null)
+  if (!response || !response.ok) return null
+  return (await response.json().catch(() => null)) as T | null
 }
 
 function directionLabel(direction: 'bullish' | 'neutral' | 'bearish'): string {
@@ -35,44 +58,35 @@ function resolvePrimaryEmail(user: unknown): string | null {
     primaryEmailAddressId?: string | null
     emailAddresses?: Array<{ id?: string; emailAddress?: string }>
   }
-
   const addresses = Array.isArray(typed.emailAddresses) ? typed.emailAddresses : []
   const primaryId = typed.primaryEmailAddressId ?? null
-  const primary = primaryId
-    ? addresses.find((item) => item.id === primaryId)?.emailAddress
-    : null
+  const primary = primaryId ? addresses.find((item) => item.id === primaryId)?.emailAddress : null
   if (primary && primary.trim()) return primary.trim()
-
   const fallback = addresses[0]?.emailAddress
-  if (fallback && fallback.trim()) return fallback.trim()
-  return null
+  return fallback?.trim() || null
 }
 
 export async function getAlertRecipients(userIds: string[]): Promise<AlertRecipient[]> {
   const uniqueUserIds = [...new Set(userIds.map((userId) => userId.trim()).filter(Boolean))]
   if (uniqueUserIds.length === 0) return []
-
   const client = await clerkClient()
   const recipients: AlertRecipient[] = []
-
   await Promise.all(
     uniqueUserIds.map(async (userId) => {
       try {
         const user = await client.users.getUser(userId)
         const email = resolvePrimaryEmail(user)
         if (!email) return
-
         recipients.push({
           userId,
           email,
           firstName: typeof user.firstName === 'string' ? user.firstName : null,
         })
       } catch {
-        // Ignore users no longer available in Clerk.
+        // Ignore users no longer in Clerk.
       }
     })
   )
-
   return recipients
 }
 
@@ -84,39 +98,11 @@ export async function reserveUnsentFlipEventsForUser({
   events: SignalFlipEvent[]
 }): Promise<SignalFlipEvent[]> {
   if (events.length === 0) return []
-  const client = getWriteClient()
-  if (!client) return events
-
-  const sendable: SignalFlipEvent[] = []
-  for (const event of events) {
-    const signalDate = event.signalDate.slice(0, 10)
-    const { data, error } = await client
-      .from('signal_alert_dispatches')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('ticker', event.ticker)
-      .eq('signal_date', signalDate)
-      .eq('to_direction', event.toDirection)
-      .limit(1)
-
-    if (!error) {
-      if (!data || data.length === 0) {
-        sendable.push(event)
-      }
-      continue
-    }
-
-    if (error.message.toLowerCase().includes('does not exist')) {
-      // Dispatch table wasn't created yet. Allow sends to avoid dropping alerts.
-      sendable.push(event)
-      continue
-    }
-
-    console.warn('Failed to reserve signal alert dispatch:', error.message)
-    sendable.push(event)
-  }
-
-  return sendable
+  const payload = await backendJson<{ events?: SignalFlipEvent[] }>('/site/alerts/reserve', {
+    method: 'POST',
+    body: JSON.stringify({ userId, events }),
+  })
+  return Array.isArray(payload?.events) ? payload!.events : events
 }
 
 export async function recordFlipEventsDispatchedForUser({
@@ -127,24 +113,10 @@ export async function recordFlipEventsDispatchedForUser({
   events: SignalFlipEvent[]
 }): Promise<void> {
   if (events.length === 0) return
-  const client = getWriteClient()
-  if (!client) return
-
-  for (const event of events) {
-    const signalDate = event.signalDate.slice(0, 10)
-    const { error } = await client.from('signal_alert_dispatches').insert({
-      user_id: userId,
-      ticker: event.ticker,
-      signal_date: signalDate,
-      to_direction: event.toDirection,
-    })
-
-    if (!error) continue
-    const code = (error as { code?: string }).code
-    if (code === '23505') continue
-    if (error.message.toLowerCase().includes('does not exist')) return
-    console.warn('Failed to record signal alert dispatch:', error.message)
-  }
+  await backendJson('/site/alerts/record', {
+    method: 'POST',
+    body: JSON.stringify({ userId, events }),
+  })
 }
 
 export async function sendSignalFlipAlertEmail({
@@ -163,9 +135,10 @@ export async function sendSignalFlipAlertEmail({
   if (!from) return { ok: false, error: 'SIGNAL_ALERT_FROM_EMAIL is missing.' }
   if (events.length === 0) return { ok: true }
 
-  const headline = events.length === 1
-    ? `${events[0]?.ticker ?? 'Signal'} flipped to ${directionLabel(events[0]?.toDirection ?? 'neutral')}`
-    : `${events.length} tracked signals flipped today`
+  const headline =
+    events.length === 1
+      ? `${events[0]?.ticker ?? 'Signal'} flipped to ${directionLabel(events[0]?.toDirection ?? 'neutral')}`
+      : `${events.length} tracked signals flipped today`
 
   const subject = `Signal Alert: ${headline}`
 
@@ -181,7 +154,6 @@ export async function sendSignalFlipAlertEmail({
     .join('')
 
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
-
   const html = `
     <div style="font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111827;line-height:1.5;">
       <p>${greeting}</p>
@@ -220,10 +192,7 @@ export async function sendSignalFlipAlertEmail({
     }),
   })
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    return { ok: false, error: `Resend error ${response.status}: ${body.slice(0, 200)}` }
-  }
-
-  return { ok: true }
+  if (response.ok) return { ok: true }
+  const detail = await response.text().catch(() => '')
+  return { ok: false, error: detail || `Resend error ${response.status}` }
 }

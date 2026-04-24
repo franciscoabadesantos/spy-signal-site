@@ -1,17 +1,39 @@
-import { createClient } from '@supabase/supabase-js'
-
 function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase()
 }
 
-function getSupabaseWriteClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceRoleKey) return null
+function backendBaseUrl(): string {
+  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
+  return raw.trim().replace(/\/+$/, '')
+}
 
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+function backendHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    accept: 'application/json',
+  }
+  const secret = (
+    process.env.BACKEND_SHARED_SECRET ||
+    process.env.FINANCE_BACKEND_SHARED_SECRET ||
+    ''
+  ).trim()
+  if (secret) headers['x-backend-shared-secret'] = secret
+  return headers
+}
+
+async function backendJson<T>(path: string, init?: RequestInit): Promise<T | null> {
+  const base = backendBaseUrl()
+  if (!base) return null
+  const response = await fetch(`${base}${path}`, {
+    cache: 'no-store',
+    ...init,
+    headers: {
+      ...backendHeaders(),
+      ...(init?.headers ?? {}),
+    },
+  }).catch(() => null)
+  if (!response || !response.ok) return null
+  return (await response.json().catch(() => null)) as T | null
 }
 
 export type WatchlistSubscription = {
@@ -20,116 +42,54 @@ export type WatchlistSubscription = {
 }
 
 export async function getUserWatchlistTickers(userId: string): Promise<string[]> {
-  const client = getSupabaseWriteClient()
-  if (!client) return []
-
-  const { data, error } = await client
-    .from('user_watchlists')
-    .select('ticker')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.warn('Failed to read user watchlist:', error.message)
-    return []
-  }
-
-  return (data ?? [])
-    .map((row) => normalizeTicker((row as { ticker?: string }).ticker || ''))
-    .filter((ticker) => ticker.length > 0)
+  const payload = await backendJson<{ tickers?: string[] }>(`/site/watchlist?user_id=${encodeURIComponent(userId)}`)
+  return Array.isArray(payload?.tickers)
+    ? payload!.tickers.map((ticker) => normalizeTicker(ticker)).filter(Boolean)
+    : []
 }
 
 export async function isTickerInWatchlist(userId: string, ticker: string): Promise<boolean> {
-  const client = getSupabaseWriteClient()
-  if (!client) return false
-
-  const normalizedTicker = normalizeTicker(ticker)
-  const { data, error } = await client
-    .from('user_watchlists')
-    .select('ticker')
-    .eq('user_id', userId)
-    .eq('ticker', normalizedTicker)
-    .limit(1)
-
-  if (error) return false
-  return Boolean(data && data.length > 0)
+  const tickers = await getUserWatchlistTickers(userId)
+  return tickers.includes(normalizeTicker(ticker))
 }
 
 export async function addTickerToWatchlist(userId: string, ticker: string): Promise<{ ok: boolean; error?: string }> {
-  const client = getSupabaseWriteClient()
-  if (!client) {
-    return { ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY is missing.' }
-  }
-
-  const normalizedTicker = normalizeTicker(ticker)
-  if (!normalizedTicker) return { ok: false, error: 'Ticker is required.' }
-
-  const { error } = await client
-    .from('user_watchlists')
-    .upsert({ user_id: userId, ticker: normalizedTicker }, { onConflict: 'user_id,ticker' })
-
-  if (error) return { ok: false, error: error.message }
+  const payload = await backendJson<{ ok?: boolean; error?: string }>('/site/watchlist', {
+    method: 'POST',
+    body: JSON.stringify({ userId, ticker: normalizeTicker(ticker) }),
+  })
+  if (!payload?.ok) return { ok: false, error: payload?.error || 'Failed to add ticker.' }
   return { ok: true }
 }
 
 export async function removeTickerFromWatchlist(userId: string, ticker: string): Promise<{ ok: boolean; error?: string }> {
-  const client = getSupabaseWriteClient()
-  if (!client) {
-    return { ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY is missing.' }
-  }
-
-  const normalizedTicker = normalizeTicker(ticker)
-  const { error } = await client
-    .from('user_watchlists')
-    .delete()
-    .eq('user_id', userId)
-    .eq('ticker', normalizedTicker)
-
-  if (error) return { ok: false, error: error.message }
+  const payload = await backendJson<{ ok?: boolean; error?: string }>('/site/watchlist', {
+    method: 'DELETE',
+    body: JSON.stringify({ userId, ticker: normalizeTicker(ticker) }),
+  })
+  if (!payload?.ok) return { ok: false, error: payload?.error || 'Failed to remove ticker.' }
   return { ok: true }
 }
 
 export async function getAllWatchlistTickers(): Promise<string[]> {
-  const client = getSupabaseWriteClient()
-  if (!client) return []
-
-  const { data, error } = await client.from('user_watchlists').select('ticker')
-  if (error) {
-    console.warn('Failed to read watchlist tickers:', error.message)
-    return []
-  }
-
-  return [...new Set(
-    (data ?? [])
-      .map((row) => normalizeTicker((row as { ticker?: string }).ticker || ''))
-      .filter((ticker) => ticker.length > 0)
-  )]
+  const payload = await backendJson<{ tickers?: string[] }>('/site/watchlist/all-tickers')
+  return Array.isArray(payload?.tickers)
+    ? [...new Set(payload!.tickers.map((ticker) => normalizeTicker(ticker)).filter(Boolean))]
+    : []
 }
 
 export async function getWatchlistSubscriptionsForTickers(
   tickers: string[]
 ): Promise<WatchlistSubscription[]> {
-  const normalizedTickers = [...new Set(tickers.map((ticker) => normalizeTicker(ticker)))].filter(Boolean)
-  if (normalizedTickers.length === 0) return []
-
-  const client = getSupabaseWriteClient()
-  if (!client) return []
-
-  const { data, error } = await client
-    .from('user_watchlists')
-    .select('user_id,ticker')
-    .in('ticker', normalizedTickers)
-
-  if (error) {
-    console.warn('Failed to read watchlist subscriptions:', error.message)
-    return []
-  }
-
-  return (data ?? [])
+  const normalized = [...new Set(tickers.map((ticker) => normalizeTicker(ticker)))].filter(Boolean)
+  if (normalized.length === 0) return []
+  const payload = await backendJson<{ subscriptions?: Array<{ userId?: string; ticker?: string }> }>(
+    `/site/watchlist/subscriptions?tickers=${encodeURIComponent(normalized.join(','))}`
+  )
+  return (payload?.subscriptions ?? [])
     .map((row) => {
-      const typed = row as { user_id?: string; ticker?: string }
-      const userId = (typed.user_id || '').trim()
-      const ticker = normalizeTicker(typed.ticker || '')
+      const userId = (row.userId || '').trim()
+      const ticker = normalizeTicker(row.ticker || '')
       if (!userId || !ticker) return null
       return { userId, ticker }
     })
