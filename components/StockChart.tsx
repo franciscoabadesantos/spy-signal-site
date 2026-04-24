@@ -273,6 +273,7 @@ export default function StockChart({
           hoverPoint && hover
             ? [...stateMarkers].reverse().find((marker) => marker.index <= hover.index) ?? null
             : null
+        const hasSignalContext = stateMarkers.length > 0
 
         const handleHoverMove = (event: React.MouseEvent<SVGRectElement>) => {
           const rect = event.currentTarget.getBoundingClientRect()
@@ -308,14 +309,14 @@ export default function StockChart({
         }
 
         const tooltipWidth = 220
-        const tooltipHeight = hoverSignalMarker ? 148 : 90
+        const tooltipHeight = hasSignalContext ? 148 : 90
         const tooltipTop = hover
           ? Math.min(Math.max(8, hover.yOnCurve - tooltipHeight / 2), height - tooltipHeight - 8)
           : 0
-        const placeLeft = hover ? hover.mouseX - tooltipWidth - 14 >= 8 : true
+        const placeLeft = hover ? hover.mouseX > padding.left + innerW / 2 : false
         const tooltipLeft = hover
           ? placeLeft
-            ? hover.mouseX - tooltipWidth - 14
+            ? Math.max(8, hover.mouseX - tooltipWidth - 14)
             : Math.min(width - tooltipWidth - 8, hover.mouseX + 14)
           : 0
         const hoverX = hover?.mouseX ?? 0
@@ -534,24 +535,26 @@ export default function StockChart({
                       value: `$${hoverPoint.value.toFixed(2)}`,
                       swatchColor: palette.primary,
                     },
-                    ...(hoverSignalMarker
+                    ...(hasSignalContext
                       ? [
                           {
-                            label: signalKindLabel(hoverSignalMarker.kind),
-                            value: signalDirectionLabel(hoverSignalMarker.direction),
-                            swatchColor: signalColor(hoverSignalMarker.direction, palette).solid,
+                            label: hoverSignalMarker ? signalKindLabel(hoverSignalMarker.kind) : 'Signal Context',
+                            value: hoverSignalMarker ? signalDirectionLabel(hoverSignalMarker.direction) : '—',
+                            ...(hoverSignalMarker
+                              ? { swatchColor: signalColor(hoverSignalMarker.direction, palette).solid }
+                              : {}),
                           },
                           {
                             label: 'Signal Date',
-                            value: formatDateLong(hoverSignalMarker.date),
+                            value: hoverSignalMarker ? formatDateLong(hoverSignalMarker.date) : '—',
                           },
                           {
                             label: 'Conviction',
-                            value: formatConviction(hoverSignalMarker.conviction),
+                            value: hoverSignalMarker ? formatConviction(hoverSignalMarker.conviction) : '—',
                           },
                           {
                             label: 'Horizon',
-                            value: `${hoverSignalMarker.horizon}d`,
+                            value: hoverSignalMarker ? `${hoverSignalMarker.horizon}d` : '—',
                           },
                         ]
                       : []),

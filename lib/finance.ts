@@ -1852,7 +1852,7 @@ async function loadQuote(tickerRaw: string): Promise<StockQuote | null> {
 
 async function loadHistorical(tickerRaw: string, periodDays: number): Promise<PricePoint[]> {
   const ticker = normalizeTicker(tickerRaw)
-  const safeDays = Math.max(30, Math.min(periodDays, 3650))
+  const safeDays = Number.isFinite(periodDays) && periodDays > 0 ? Math.max(30, Math.min(periodDays, 3650)) : 0
   const payload = await backendJson<Array<{ date?: string; close?: number }>>(
     `/tickers/${encodeURIComponent(ticker)}/history?period_days=${safeDays}`
   )

@@ -661,7 +661,7 @@ export default async function TickerPage({
   ] = await Promise.all([
     getTickerPageSummary(ticker),
     getStockQuote(ticker),
-    getHistoricalData(ticker, 1825),
+    getHistoricalData(ticker, 0),
     getSignalHistoryForTicker(ticker, 180, { allowSyntheticFallback: false }),
     getTickerFundamentals(ticker),
     getTickerNews(ticker, 5),
