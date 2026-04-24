@@ -240,6 +240,32 @@ function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase()
 }
 
+function backendBaseUrl(): string {
+  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
+  return raw.trim().replace(/\/+$/, '')
+}
+
+function backendHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+  }
+  const secret = (
+    process.env.BACKEND_SHARED_SECRET ||
+    process.env.FINANCE_BACKEND_SHARED_SECRET ||
+    ''
+  ).trim()
+  if (secret) headers['x-backend-shared-secret'] = secret
+  return headers
+}
+
+async function backendJson<T>(path: string): Promise<T | null> {
+  const base = backendBaseUrl()
+  if (!base) return null
+  const response = await fetch(`${base}${path}`, { cache: 'no-store', headers: backendHeaders() }).catch(() => null)
+  if (!response || !response.ok) return null
+  return (await response.json().catch(() => null)) as T | null
+}
+
 const RELATED_TICKER_MAP: Record<string, string[]> = {
   SPY: ['QQQ', 'DIA', 'IWM', 'VOO', 'IVV', 'VTI', 'XLF', 'XLK'],
   QQQ: ['SPY', 'XLK', 'VGT', 'SOXX', 'DIA', 'IWM', 'AAPL', 'MSFT'],
@@ -1799,122 +1825,105 @@ async function fetchLiveFundamentalsWithFallback(
 
 async function loadQuote(tickerRaw: string): Promise<StockQuote | null> {
   const ticker = normalizeTicker(tickerRaw)
-
-  const freshCached = await readCachedQuote(ticker, QUOTE_FRESH_MS)
-  if (freshCached) return freshCached
-
-  const live = await fetchLiveQuoteWithFallback(ticker)
-  if (live) {
-    await writeQuoteCache(ticker, live.quote, live.source)
-    return live.quote
+  const payload = await backendJson<{
+    ticker: string
+    quote?: {
+      ticker?: string
+      name?: string | null
+      price?: number | null
+      change?: number | null
+      changePercent?: number | null
+      marketCapText?: string | null
+    } | null
+  }>(`/tickers/${encodeURIComponent(ticker)}/summary`)
+  const quote = payload?.quote
+  if (!quote || typeof quote !== 'object') return null
+  const price = typeof quote.price === 'number' ? quote.price : null
+  if (price === null) return null
+  return {
+    ticker,
+    name: typeof quote.name === 'string' && quote.name.trim() ? quote.name : ticker,
+    price,
+    change: typeof quote.change === 'number' ? quote.change : 0,
+    changePercent: typeof quote.changePercent === 'number' ? quote.changePercent : 0,
+    marketCap: typeof quote.marketCapText === 'string' && quote.marketCapText.trim() ? quote.marketCapText : 'N/A',
   }
-
-  return await readCachedQuote(ticker)
 }
 
 async function loadHistorical(tickerRaw: string, periodDays: number): Promise<PricePoint[]> {
   const ticker = normalizeTicker(tickerRaw)
-
-  const freshCached = await readCachedHistorical(ticker, periodDays, HISTORICAL_FRESH_MS)
-  if (freshCached.length > 0) return freshCached
-
-  try {
-    const live = await fetchYahooHistorical(ticker, periodDays)
-    if (live.length > 0) {
-      await writeHistoricalCache(ticker, live, 'yahoo')
-      return live
-    }
-  } catch (error) {
-    if (!isRateLimitedYahooError(error)) {
-      if (isTransientNetworkError(error)) {
-        console.warn(`Historical data fetch timed out for ${ticker}; using cached prices if available.`)
-      } else {
-        console.warn(`Failed to fetch historicals for ${ticker}:`, error)
-      }
-    }
-  }
-
-  return await readCachedHistorical(ticker, periodDays)
+  const safeDays = Math.max(30, Math.min(periodDays, 3650))
+  const payload = await backendJson<Array<{ date?: string; close?: number }>>(
+    `/tickers/${encodeURIComponent(ticker)}/history?period_days=${safeDays}`
+  )
+  if (!Array.isArray(payload)) return []
+  return payload
+    .map((row) => {
+      const date = typeof row?.date === 'string' ? row.date : null
+      const close = typeof row?.close === 'number' ? row.close : null
+      if (!date || close === null || !Number.isFinite(close)) return null
+      return { date, close: Number(close.toFixed(2)) }
+    })
+    .filter((point): point is PricePoint => point !== null)
 }
 
 async function loadTickerFundamentals(tickerRaw: string): Promise<TickerFundamentals> {
   const ticker = normalizeTicker(tickerRaw)
-  const freshCached = await readCachedFundamentals(ticker, FUNDAMENTALS_FRESH_MS)
-  if (freshCached && !shouldTreatAsInsufficientFundamentals(ticker, freshCached)) {
-    return freshCached
-  }
+  const payload = await backendJson<{
+    ticker: string
+    quote?: { name?: string | null; marketCapText?: string | null } | null
+    latestFundamentals?: Array<{ metricLabel?: string | null; valueDisplay?: string | null; valueNumber?: number | null }>
+  }>(`/tickers/${encodeURIComponent(ticker)}/summary`)
 
-  const staleCached = await readCachedFundamentals(ticker)
-  const live = await fetchLiveFundamentalsWithFallback(ticker)
-  if (live) {
-    await writeFundamentalsCache(ticker, live.fundamentals, live.source)
-    return live.fundamentals
-  }
+  const rows = Array.isArray(payload?.latestFundamentals) ? payload!.latestFundamentals : []
+  const financialRows: TickerFinancialRow[] = rows
+    .map((row) => {
+      const label = typeof row?.metricLabel === 'string' && row.metricLabel.trim() ? row.metricLabel : null
+      const valueDisplay = typeof row?.valueDisplay === 'string' && row.valueDisplay.trim() ? row.valueDisplay : null
+      const valueNumber = typeof row?.valueNumber === 'number' && Number.isFinite(row.valueNumber) ? row.valueNumber : null
+      if (!label) return null
+      return {
+        label,
+        value: valueDisplay ?? (valueNumber !== null ? String(valueNumber) : '—'),
+      }
+    })
+    .filter((row): row is TickerFinancialRow => row !== null)
 
-  if (staleCached && !shouldTreatAsInsufficientFundamentals(ticker, staleCached)) {
-    return staleCached
+  const marketCapText = typeof payload?.quote?.marketCapText === 'string' ? payload.quote.marketCapText : null
+  return {
+    about: `The ${ticker} provides exposure to highly liquid market segments. This page combines live model context with supporting fundamentals so you can evaluate stance changes in context.`,
+    marketCap: marketCapText || null,
+    snapshot: financialRows.slice(0, 10),
+    holdings: [],
+    sectorWeights: [],
+    dividendRate: null,
+    dividendYield: null,
+    exDividendDate: null,
+    payoutRatio: null,
+    profile: financialRows,
+    portfolio: [],
+    distributions: [],
+    risk: [],
   }
-
-  const quote = await loadQuote(ticker)
-  return fallbackFundamentalsFromQuote(ticker, quote)
 }
 
 export async function refreshTickerMarketData(
   tickerRaw: string,
-  periodDays: number = 120
+  _periodDays: number = 120
 ): Promise<RefreshTickerResult> {
   const ticker = normalizeTicker(tickerRaw)
-  const result: RefreshTickerResult = {
+  const quote = await loadQuote(ticker)
+  const historical = await loadHistorical(ticker, 120)
+  const fundamentals = await loadTickerFundamentals(ticker)
+  return {
     ticker,
     quoteSource: null,
-    quoteUpdated: false,
-    historicalUpdated: false,
+    quoteUpdated: quote !== null,
+    historicalUpdated: historical.length > 0,
     fundamentalsSource: null,
-    fundamentalsUpdated: false,
+    fundamentalsUpdated: Boolean(fundamentals.snapshot.length || fundamentals.profile.length),
     errors: [],
   }
-
-  const liveQuote = await fetchLiveQuoteWithFallback(ticker)
-  if (liveQuote) {
-    result.quoteSource = liveQuote.source
-    result.quoteUpdated = true
-    await writeQuoteCache(ticker, liveQuote.quote, liveQuote.source)
-  } else {
-    result.errors.push('quote_fetch_failed')
-  }
-
-  try {
-    const liveHistorical = await fetchYahooHistorical(ticker, periodDays)
-    if (liveHistorical.length > 0) {
-      result.historicalUpdated = true
-      await writeHistoricalCache(ticker, liveHistorical, 'yahoo')
-    } else {
-      result.errors.push('historical_empty')
-    }
-  } catch (error) {
-    result.errors.push(`historical_fetch_failed:${errorMessage(error)}`)
-    if (!isRateLimitedYahooError(error)) {
-      if (isTransientNetworkError(error)) {
-        console.warn(`Historical refresh timed out for ${ticker}; keeping existing cached prices.`)
-      } else {
-        console.warn(`Historical refresh failed for ${ticker}:`, error)
-      }
-    }
-  }
-
-  const liveFundamentals = await fetchLiveFundamentalsWithFallback(
-    ticker,
-    liveQuote?.quote ?? null
-  )
-  if (liveFundamentals) {
-    result.fundamentalsSource = liveFundamentals.source
-    result.fundamentalsUpdated = true
-    await writeFundamentalsCache(ticker, liveFundamentals.fundamentals, liveFundamentals.source)
-  } else {
-    result.errors.push('fundamentals_fetch_failed')
-  }
-
-  return result
 }
 
 export const getStockQuote = unstable_cache(
@@ -1937,10 +1946,10 @@ export const getTickerFundamentals = unstable_cache(
 )
 
 export async function getTickerNews(
-  ticker: string,
-  limit: number = 5
+  _ticker: string,
+  _limit: number = 5
 ): Promise<TickerNewsItem[]> {
-  return fetchYahooNews(normalizeTicker(ticker), limit)
+  return []
 }
 
 function getSectorHintForTicker(tickerRaw: string): string | null {
