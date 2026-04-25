@@ -38,25 +38,33 @@ function HomepageHeader() {
   const { brand, nav } = homepageContent
 
   return (
-    <header className="border-b border-[var(--nl-border)] bg-[var(--nl-bg)]/88 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#01131b]/96 text-white backdrop-blur">
       <div className="mx-auto flex h-[72px] w-full max-w-[1280px] items-center justify-between px-5 md:px-10">
-        <Link href="/" className="flex items-center gap-3 text-sm font-semibold uppercase text-[var(--nl-text)]">
+        <Link href="/" className="flex items-center gap-3 text-sm font-semibold uppercase">
           <LogoMark />
           <span>{brand}</span>
         </Link>
-        <nav className="hidden items-center gap-9 text-sm text-[var(--nl-muted)] lg:flex">
+        <nav className="hidden items-center gap-9 text-sm text-slate-300 lg:flex">
           {nav.map((item) => (
-            <Link key={item.label} href={item.href} className="transition hover:text-[var(--nl-text)]">
+            <Link key={item.label} href={item.href} className="transition hover:text-white">
               {item.label}
             </Link>
           ))}
         </nav>
-        <Link
-          href="/sign-in"
-          className="inline-flex h-10 items-center rounded-[4px] border border-[var(--nl-button-border)] bg-[var(--nl-button-bg)] px-5 text-sm font-semibold text-[var(--nl-button-text)] transition hover:opacity-85"
-        >
-          Log in
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/sign-up"
+            className="hidden h-10 items-center rounded-[4px] bg-[var(--nl-green)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--nl-green-strong)] sm:inline-flex"
+          >
+            Get access
+          </Link>
+          <Link
+            href="/sign-in"
+            className="inline-flex h-10 items-center rounded-[4px] border border-white/20 px-5 text-sm font-semibold text-white transition hover:border-[var(--nl-green)]"
+          >
+            Log in
+          </Link>
+        </div>
       </div>
     </header>
   )

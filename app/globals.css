@@ -41,13 +41,13 @@
 @layer base {
   :root {
     color-scheme: light;
-    --nl-bg: #f8f5ee;
-    --nl-card: rgba(255, 253, 248, 0.62);
-    --nl-card-solid: #fbfaf6;
-    --nl-panel: rgba(255, 253, 248, 0.46);
-    --nl-callout: rgba(242, 237, 226, 0.58);
-    --nl-section-muted: rgba(241, 236, 224, 0.38);
-    --nl-system-surface: rgba(255, 253, 248, 0.48);
+    --nl-bg: #fbfcfa;
+    --nl-card: rgba(255, 255, 255, 0.72);
+    --nl-card-solid: #ffffff;
+    --nl-panel: rgba(255, 255, 255, 0.58);
+    --nl-callout: rgba(239, 246, 241, 0.7);
+    --nl-section-muted: rgba(238, 245, 240, 0.42);
+    --nl-system-surface: rgba(255, 255, 255, 0.62);
     --nl-text: #09111d;
     --nl-muted: #5f6a67;
     --nl-soft: #6f7472;

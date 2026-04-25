@@ -20,10 +20,10 @@ export default function SiteFooter() {
           </div>
           <nav className="flex flex-wrap gap-x-9 gap-y-3 text-sm">
             <Link href="/#problem" className="transition hover:text-[var(--nl-text)]">How it works</Link>
-            <Link href="/#evidence" className="transition hover:text-[var(--nl-text)]">Performance</Link>
+            <Link href="/performance" className="transition hover:text-[var(--nl-text)]">Performance</Link>
             <Link href="/methodology" className="transition hover:text-[var(--nl-text)]">Methodology</Link>
-            <Link href="/#access" className="transition hover:text-[var(--nl-text)]">Pricing</Link>
-            <Link href="/#system" className="transition hover:text-[var(--nl-text)]">About</Link>
+            <Link href="/pricing" className="transition hover:text-[var(--nl-text)]">Pricing</Link>
+            <Link href="/about" className="transition hover:text-[var(--nl-text)]">About</Link>
           </nav>
         </div>
         <div className="flex flex-col gap-4 border-t border-[var(--nl-border)] pt-6 text-xs md:flex-row md:items-center md:justify-between">

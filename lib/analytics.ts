@@ -2,6 +2,8 @@
 
 export type AnalyticsEventName =
   | 'view_homepage'
+  | 'view_pricing'
+  | 'view_about'
   | 'click_sample_model'
   | 'view_stock'
   | 'click_stock_from_screener'

@@ -2,10 +2,10 @@ export const homepageContent = {
   brand: 'Northline Signal',
   nav: [
     { label: 'How it works', href: '#problem' },
-    { label: 'Performance', href: '#evidence' },
+    { label: 'Performance', href: '/performance' },
     { label: 'Methodology', href: '/methodology' },
-    { label: 'Pricing', href: '#access' },
-    { label: 'About', href: '#system' },
+    { label: 'Pricing', href: '/pricing' },
+    { label: 'About', href: '/about' },
   ],
   hero: {
     eyebrow: '1. The Answer',
