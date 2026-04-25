@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SpySignal | Algorithmic Trading Intelligence",
-  description: "Institutional-grade signal models for the stock market.",
+  title: "Northline Signal | Systematic Market Exposure",
+  description: "A daily, rule-based market exposure system built to remove emotion and guesswork.",
 };
 
 export default function RootLayout({

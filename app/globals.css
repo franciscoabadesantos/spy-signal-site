@@ -41,6 +41,35 @@
 @layer base {
   :root {
     color-scheme: light;
+    --nl-bg: #f8f5ee;
+    --nl-card: rgba(255, 253, 248, 0.62);
+    --nl-card-solid: #fbfaf6;
+    --nl-panel: rgba(255, 253, 248, 0.46);
+    --nl-callout: rgba(242, 237, 226, 0.58);
+    --nl-section-muted: rgba(241, 236, 224, 0.38);
+    --nl-system-surface: rgba(255, 253, 248, 0.48);
+    --nl-text: #09111d;
+    --nl-muted: #5f6a67;
+    --nl-soft: #6f7472;
+    --nl-border: rgba(15, 36, 28, 0.1);
+    --nl-border-strong: rgba(15, 36, 28, 0.16);
+    --nl-green: #0e7a35;
+    --nl-green-strong: #095f2a;
+    --nl-red: #dc2f28;
+    --nl-warn: #d79512;
+    --nl-ring-muted: #b7c4b5;
+    --nl-dot-muted: #c5cbc8;
+    --nl-grid: rgba(19, 36, 28, 0.1);
+    --nl-axis: rgba(19, 36, 28, 0.25);
+    --nl-chart-muted: #7d8683;
+    --nl-meter-bg: rgba(13, 31, 24, 0.14);
+    --nl-trend: #8ab785;
+    --nl-step-bg: #edf3ea;
+    --nl-map-text: #1f312b;
+    --nl-button-bg: #063924;
+    --nl-button-text: #ffffff;
+    --nl-button-border: #063924;
+    --nl-card-shadow: none;
     --page-bg: #f4f7fb;
     --background: var(--page-bg);
     --foreground: #142133;
@@ -182,6 +211,35 @@
   @media (prefers-color-scheme: dark) {
     :root {
       color-scheme: dark;
+      --nl-bg: #020c12;
+      --nl-card: rgba(10, 22, 29, 0.56);
+      --nl-card-solid: #08161d;
+      --nl-panel: rgba(8, 21, 28, 0.42);
+      --nl-callout: rgba(12, 24, 30, 0.58);
+      --nl-section-muted: rgba(255, 255, 255, 0.018);
+      --nl-system-surface: rgba(8, 21, 28, 0.5);
+      --nl-text: #f5f7f5;
+      --nl-muted: #a7b0ad;
+      --nl-soft: #a7b0ad;
+      --nl-border: rgba(213, 233, 221, 0.1);
+      --nl-border-strong: rgba(213, 233, 221, 0.16);
+      --nl-green: #73c75d;
+      --nl-green-strong: #5cae48;
+      --nl-red: #ff5c48;
+      --nl-warn: #f0b63c;
+      --nl-ring-muted: #27452f;
+      --nl-dot-muted: #52605f;
+      --nl-grid: rgba(230, 242, 234, 0.09);
+      --nl-axis: rgba(230, 242, 234, 0.25);
+      --nl-chart-muted: #7f8682;
+      --nl-meter-bg: rgba(230, 242, 234, 0.2);
+      --nl-trend: #8bb978;
+      --nl-step-bg: rgba(255, 255, 255, 0.04);
+      --nl-map-text: #19231f;
+      --nl-button-bg: transparent;
+      --nl-button-text: #ffffff;
+      --nl-button-border: rgba(255, 255, 255, 0.5);
+      --nl-card-shadow: none;
       --page-bg: #02070f;
       --background: var(--page-bg);
       --foreground: #dde7f4;
@@ -237,6 +295,35 @@
   :root.dark,
   :root[data-theme="dark"] {
     color-scheme: dark;
+    --nl-bg: #020c12;
+    --nl-card: rgba(10, 22, 29, 0.56);
+    --nl-card-solid: #08161d;
+    --nl-panel: rgba(8, 21, 28, 0.42);
+    --nl-callout: rgba(12, 24, 30, 0.58);
+    --nl-section-muted: rgba(255, 255, 255, 0.018);
+    --nl-system-surface: rgba(8, 21, 28, 0.5);
+    --nl-text: #f5f7f5;
+    --nl-muted: #a7b0ad;
+    --nl-soft: #a7b0ad;
+    --nl-border: rgba(213, 233, 221, 0.1);
+    --nl-border-strong: rgba(213, 233, 221, 0.16);
+    --nl-green: #73c75d;
+    --nl-green-strong: #5cae48;
+    --nl-red: #ff5c48;
+    --nl-warn: #f0b63c;
+    --nl-ring-muted: #27452f;
+    --nl-dot-muted: #52605f;
+    --nl-grid: rgba(230, 242, 234, 0.09);
+    --nl-axis: rgba(230, 242, 234, 0.25);
+    --nl-chart-muted: #7f8682;
+    --nl-meter-bg: rgba(230, 242, 234, 0.2);
+    --nl-trend: #8bb978;
+    --nl-step-bg: rgba(255, 255, 255, 0.04);
+    --nl-map-text: #19231f;
+    --nl-button-bg: transparent;
+    --nl-button-text: #ffffff;
+    --nl-button-border: rgba(255, 255, 255, 0.5);
+    --nl-card-shadow: none;
     --page-bg: #02070f;
     --background: var(--page-bg);
     --foreground: #dde7f4;
@@ -286,6 +373,48 @@
     --motion-xslow: 420ms;
     --motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
     --motion-ease-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@layer utilities {
+  .nl-page-bg {
+    background:
+      radial-gradient(circle at 18% 7%, rgba(14, 122, 53, 0.055), transparent 30rem),
+      radial-gradient(circle at 76% 8%, rgba(14, 122, 53, 0.115), transparent 34rem),
+      radial-gradient(circle at 72% 56%, rgba(14, 122, 53, 0.045), transparent 42rem),
+      linear-gradient(rgba(15, 36, 28, 0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 36, 28, 0.022) 1px, transparent 1px),
+      var(--nl-bg);
+    background-size: auto, auto, auto, 42px 42px, 42px 42px, auto;
+  }
+
+  .nl-system-field::before {
+    content: "";
+    position: absolute;
+    inset: -20% 0 auto auto;
+    width: min(720px, 72vw);
+    height: 620px;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(14, 122, 53, 0.105), transparent 68%);
+    opacity: 0.9;
+  }
+
+  .nl-system-field::after {
+    content: "";
+    position: absolute;
+    inset: auto auto -24% -12%;
+    width: min(620px, 68vw);
+    height: 420px;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(14, 122, 53, 0.065), transparent 70%);
+    opacity: 0.7;
+  }
+
+  .nl-wave-bg {
+    background:
+      radial-gradient(circle at 82% 56%, rgba(14, 122, 53, 0.08), transparent 34%),
+      repeating-radial-gradient(ellipse at 92% 84%, rgba(14, 122, 53, 0.12) 0 1px, transparent 1px 7px);
+    mask-image: linear-gradient(to top, black, transparent 82%);
   }
 }
 

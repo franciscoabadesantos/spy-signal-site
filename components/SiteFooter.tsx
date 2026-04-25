@@ -4,48 +4,35 @@ export default function SiteFooter() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="mt-auto border-t border-border bg-surface-card text-content-secondary">
-      <div className="container-lg py-12">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-3">
+    <footer className="mt-auto border-t border-[var(--nl-border)] bg-[var(--nl-bg)] text-[var(--nl-muted)]">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-5 py-8 md:px-10">
+        <div className="flex flex-col gap-7 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="mb-3 text-heading-sm text-content-primary">SpySignal</div>
-            <p className="max-w-sm text-body-sm text-content-muted">
-              Quantitative research platform for signal monitoring, market screening, and model-state
-              tracking across actively covered assets.
+            <Link href="/" className="flex items-center gap-3 text-sm font-semibold uppercase text-[var(--nl-text)]">
+              <span className="inline-flex size-6 items-center justify-center rounded-full border-2 border-[var(--nl-green)]">
+                <span className="size-2.5 rounded-full bg-[var(--nl-green)]" />
+              </span>
+              Northline Signal
+            </Link>
+            <p className="mt-3 max-w-sm text-sm leading-6">
+              A systematic market exposure signal for the S&P 500.
             </p>
           </div>
-
-          <div>
-            <div className="mb-3 text-label-sm uppercase tracking-[0.12em] text-content-muted">Platform</div>
-            <div className="space-y-2 text-body-sm">
-              <Link href="/screener" className="state-interactive block hover:text-content-primary">
-                Screener
-              </Link>
-              <Link href="/stocks/SPY/performance" className="state-interactive block hover:text-content-primary">
-                Performance
-              </Link>
-              <Link href="/methodology" className="state-interactive block hover:text-content-primary">
-                Methodology
-              </Link>
-              <Link href="/dashboard" className="state-interactive block hover:text-content-primary">
-                Dashboard
-              </Link>
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-3 text-label-sm uppercase tracking-[0.12em] text-content-muted">Research Disclaimer</div>
-            <p className="text-caption leading-6 text-content-muted">
-              SpySignal is a research platform and is not a registered investment advisor. Algorithmic
-              signals and analytics are for informational purposes only. Past performance does not
-              guarantee future results.
-            </p>
-          </div>
+          <nav className="flex flex-wrap gap-x-9 gap-y-3 text-sm">
+            <Link href="/#problem" className="transition hover:text-[var(--nl-text)]">How it works</Link>
+            <Link href="/#evidence" className="transition hover:text-[var(--nl-text)]">Performance</Link>
+            <Link href="/methodology" className="transition hover:text-[var(--nl-text)]">Methodology</Link>
+            <Link href="/#access" className="transition hover:text-[var(--nl-text)]">Pricing</Link>
+            <Link href="/#system" className="transition hover:text-[var(--nl-text)]">About</Link>
+          </nav>
         </div>
-
-        <div className="mt-10 flex flex-col gap-2 border-t border-border pt-5 text-caption text-content-muted sm:flex-row sm:items-center sm:justify-between">
-          <span>© {year} SpySignal. All rights reserved.</span>
-          <span>For research use only.</span>
+        <div className="flex flex-col gap-4 border-t border-[var(--nl-border)] pt-6 text-xs md:flex-row md:items-center md:justify-between">
+          <div className="flex gap-7">
+            <Link href="/privacy" className="transition hover:text-[var(--nl-text)]">Privacy</Link>
+            <Link href="/terms" className="transition hover:text-[var(--nl-text)]">Terms</Link>
+            <Link href="/contact" className="transition hover:text-[var(--nl-text)]">Contact</Link>
+          </div>
+          <span>© {year} Northline Signal. All rights reserved.</span>
         </div>
       </div>
     </footer>

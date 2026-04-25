@@ -90,10 +90,7 @@ export async function POST(request: Request) {
   try {
     const base = backendBaseUrl()
     if (!base) {
-      return NextResponse.json(
-        { ok: false, stored: 'none', error: 'finance_backend_url_missing' },
-        { status: 500 }
-      )
+      return new NextResponse(null, { status: 204 })
     }
     const upstream = await fetch(`${base}/site/analytics/events`, {
       method: 'POST',

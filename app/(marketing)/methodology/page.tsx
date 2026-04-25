@@ -1,3 +1,5 @@
+import MarketingShell from '@/components/shells/MarketingShell'
+
 export default function Methodology() {
   const rightRail = (
     <div style={{ position: 'sticky', top: '24px', alignSelf: 'start' }}>
@@ -48,7 +50,8 @@ export default function Methodology() {
   )
 
   return (
-    <div className="grid grid-cols-1 gap-10 xl:grid-cols-[1fr_280px]">
+    <MarketingShell active="methodology">
+      <div className="grid grid-cols-1 gap-10 xl:grid-cols-[1fr_280px]">
       <div>
       <div style={{ padding: '20px 0 16px', borderBottom: '1px solid #e5e7eb' }}>
         <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
@@ -419,6 +422,7 @@ export default function Methodology() {
       </div>
       </div>
       <aside className="hidden xl:block">{rightRail}</aside>
-    </div>
+      </div>
+    </MarketingShell>
   )
 }
