@@ -14,7 +14,7 @@ const navItems = [
 function HeroBackground() {
   const common = {
     alt: '',
-    className: 'h-full w-full object-cover object-[64%_50%] md:object-center',
+    className: 'h-full w-full object-cover object-[58%_50%] lg:object-contain lg:object-center',
     priority: true,
     sizes: '100vw',
   }
@@ -47,33 +47,33 @@ function HeroBackground() {
 function SignalPanel({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`overflow-hidden rounded-[28px] border border-sky-300/35 bg-white/35 p-4 text-slate-950 shadow-[0_30px_90px_rgba(14,47,82,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/35 dark:text-white dark:shadow-[0_30px_110px_rgba(0,0,0,0.45)] ${className}`}
+      className={`overflow-hidden rounded-[22px] border border-sky-300/30 bg-white/26 p-2.5 text-slate-950 shadow-[0_22px_70px_rgba(14,47,82,0.14)] backdrop-blur-2xl dark:border-white/10 dark:bg-black/28 dark:text-white dark:shadow-[0_22px_80px_rgba(0,0,0,0.42)] ${className}`}
     >
-      <div className="rounded-[22px] border border-white/35 bg-white/30 p-5 shadow-inner dark:border-white/10 dark:bg-black/25 md:p-6">
-        <div className="flex items-center justify-between gap-4 font-mono text-[11px] uppercase tracking-[0.16em] text-slate-600 dark:text-white/68">
-          <div className="flex items-center gap-2.5">
-            <span className="size-2 rounded-full bg-[#65ff00] shadow-[0_0_16px_rgba(101,255,0,0.72)]" />
+      <div className="rounded-[18px] border border-white/30 bg-white/24 p-4 shadow-inner dark:border-white/10 dark:bg-black/18 md:p-5">
+        <div className="flex items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-600 dark:text-white/62">
+          <div className="flex items-center gap-2">
+            <span className="size-1.5 rounded-full bg-[#65ff00] shadow-[0_0_14px_rgba(101,255,0,0.72)]" />
             <span>This week</span>
-            <span className="rounded-md border border-[#65ff00]/25 bg-[#65ff00]/12 px-2 py-1 text-[#167a00] dark:text-[#75ff17]">
+            <span className="rounded-md border border-[#65ff00]/25 bg-[#65ff00]/12 px-2 py-0.5 text-[#167a00] dark:text-[#75ff17]">
               Long
             </span>
           </div>
           <span>Week 21</span>
         </div>
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-[0.78fr_1.22fr]">
+        <div className="mt-5 grid gap-4 lg:grid-cols-[0.78fr_1.22fr]">
           <div>
-            <div className="flex items-end gap-3">
-              <h3 className="text-4xl font-black tracking-tight">SPY</h3>
-              <span className="pb-2 text-sm text-slate-500 dark:text-white/58">S&amp;P 500</span>
+            <div className="flex items-end gap-2.5">
+              <h3 className="text-3xl font-extrabold tracking-tight md:text-4xl">SPY</h3>
+              <span className="pb-1.5 text-xs text-slate-500 dark:text-white/52 md:text-sm">S&amp;P 500</span>
             </div>
-            <p className="mt-2 text-3xl font-light">598.40</p>
-            <p className="mt-4 inline-flex rounded-lg border border-[#65ff00]/25 bg-[#65ff00]/12 px-3 py-2 text-xl text-[#167a00] shadow-[0_0_24px_rgba(101,255,0,0.16)] dark:text-[#75ff17]">
+            <p className="mt-1 text-2xl font-light md:text-3xl">598.40</p>
+            <p className="mt-3 inline-flex rounded-lg border border-[#65ff00]/25 bg-[#65ff00]/12 px-3 py-1.5 text-lg text-[#167a00] shadow-[0_0_20px_rgba(101,255,0,0.14)] dark:text-[#75ff17]">
               +1.2%
             </p>
           </div>
 
-          <div className="relative min-h-40 overflow-visible">
+          <div className="relative min-h-32 overflow-visible md:min-h-36">
             <svg viewBox="0 0 390 190" className="h-full w-full overflow-visible" aria-hidden="true">
               <defs>
                 <linearGradient id="heroSignalFill" x1="0" x2="0" y1="0" y2="1">
@@ -102,18 +102,18 @@ function SignalPanel({ className = '' }: { className?: string }) {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-950/8 bg-white/35 p-4 dark:border-white/8 dark:bg-white/[0.035]">
-            <p className="text-sm text-slate-500 dark:text-white/58">Confidence</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-950/8 bg-white/28 p-3 dark:border-white/8 dark:bg-white/[0.028]">
+            <p className="text-sm text-slate-500 dark:text-white/52">Confidence</p>
             <div className="mt-3 flex gap-1.5">
               {Array.from({ length: 9 }).map((_, index) => (
-                <span key={index} className="h-3 w-2.5 rounded-sm bg-[#65ff00] shadow-[0_0_12px_rgba(101,255,0,0.35)]" />
+                <span key={index} className="h-2.5 w-2.5 rounded-sm bg-[#65ff00] shadow-[0_0_12px_rgba(101,255,0,0.32)]" />
               ))}
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-950/8 bg-white/35 p-4 dark:border-white/8 dark:bg-white/[0.035]">
-            <p className="text-sm text-slate-500 dark:text-white/58">Model</p>
-            <p className="mt-2 text-xl">TrendFlowv2</p>
+          <div className="rounded-2xl border border-slate-950/8 bg-white/28 p-3 dark:border-white/8 dark:bg-white/[0.028]">
+            <p className="text-sm text-slate-500 dark:text-white/52">Model</p>
+            <p className="mt-2 text-lg md:text-xl">TrendFlowv2</p>
           </div>
         </div>
       </div>
@@ -131,17 +131,16 @@ function TickerTape() {
   ] as const
 
   return (
-    <div className="absolute inset-x-6 bottom-6 z-20 hidden rounded-full border border-white/45 bg-white/28 px-6 py-4 text-slate-950 shadow-[0_18px_70px_rgba(18,36,54,0.16)] backdrop-blur-2xl dark:border-white/14 dark:bg-white/[0.07] dark:text-white dark:shadow-[0_20px_80px_rgba(0,0,0,0.55)] lg:block">
-      <div className="flex items-center justify-between gap-8 text-sm xl:text-base">
-        {tickers.map(([symbol, price, move, moveClass]) => (
-          <div key={symbol} className="flex items-center gap-4 whitespace-nowrap">
+    <div className="absolute inset-x-6 bottom-5 z-20 hidden overflow-hidden rounded-full border border-white/35 bg-white/18 py-3 text-slate-950 shadow-[0_16px_56px_rgba(18,36,54,0.12)] backdrop-blur-xl dark:border-white/12 dark:bg-white/[0.045] dark:text-white dark:shadow-[0_18px_70px_rgba(0,0,0,0.45)] lg:block">
+      <div className="marketing-ticker-track flex w-max items-center gap-9 whitespace-nowrap px-6 text-sm xl:text-base">
+        {[...tickers, ...tickers].map(([symbol, price, move, moveClass], index) => (
+          <div key={`${symbol}-${index}`} className="flex items-center gap-4 whitespace-nowrap">
             <span className="size-2 rounded-full bg-[#0757ff] shadow-[0_0_16px_rgba(7,87,255,0.9)]" />
             <span className="font-medium tracking-wide">{symbol}</span>
-            <span className="text-slate-500 dark:text-white/58">{price}</span>
+            <span className="text-slate-500 dark:text-white/52">{price}</span>
             <span className={moveClass}>{move}</span>
           </div>
         ))}
-        <span className="rounded-full border border-white/30 bg-white/24 px-5 py-2 dark:border-white/10 dark:bg-white/8">Live now</span>
       </div>
     </div>
   )
@@ -149,50 +148,50 @@ function TickerTape() {
 
 function Hero() {
   return (
-    <section className="relative isolate min-h-screen overflow-hidden bg-[#efe7dc] text-slate-950 dark:bg-[#01050b] dark:text-white">
+    <section className="relative isolate min-h-screen overflow-hidden bg-[#f1e9de] text-slate-950 dark:bg-[#00040a] dark:text-white">
       <HeroBackground />
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(239,231,220,0.94)_0%,rgba(239,231,220,0.76)_31%,rgba(239,231,220,0.16)_58%,rgba(239,231,220,0)_100%)] dark:bg-[linear-gradient(90deg,rgba(1,5,11,0.95)_0%,rgba(1,5,11,0.76)_34%,rgba(1,5,11,0.16)_62%,rgba(1,5,11,0)_100%)]" />
-      <div className="absolute inset-x-0 bottom-0 -z-10 h-56 bg-gradient-to-t from-[#efe7dc] via-[#efe7dc]/60 to-transparent dark:from-[#01050b] dark:via-[#01050b]/68" />
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(241,233,222,0.88)_0%,rgba(241,233,222,0.58)_32%,rgba(241,233,222,0.06)_58%,rgba(241,233,222,0)_100%)] dark:bg-[linear-gradient(90deg,rgba(0,4,10,0.86)_0%,rgba(0,4,10,0.58)_34%,rgba(0,4,10,0.08)_62%,rgba(0,4,10,0)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 -z-10 h-48 bg-gradient-to-t from-[#f1e9de] via-[#f1e9de]/48 to-transparent dark:from-[#00040a] dark:via-[#00040a]/58" />
 
-      <header className="relative z-30 mx-auto flex max-w-[1500px] items-center justify-between px-6 py-6 sm:px-10 lg:px-16">
-        <Link href="/" className="flex items-center gap-3 text-2xl font-black tracking-tight">
+      <header className="relative z-30 mx-auto flex max-w-[1500px] items-center justify-between px-6 py-6 sm:px-10 lg:px-14">
+        <Link href="/" className="flex items-center gap-3 text-xl font-extrabold tracking-tight md:text-2xl">
           <span>lb</span>
           <span className="text-[#ffb000]">/</span>
           <span>signal</span>
         </Link>
-        <nav className="hidden rounded-full border border-white/45 bg-white/26 px-5 py-3 text-sm text-slate-700 shadow-[0_12px_40px_rgba(24,36,48,0.08)] backdrop-blur-2xl dark:border-white/12 dark:bg-white/[0.06] dark:text-[#efe5b8] md:flex md:items-center md:gap-7">
+        <nav className="hidden text-sm font-medium text-slate-700 dark:text-[#efe5b8] md:flex md:items-center md:gap-8">
           {navItems.map(([label, href]) => (
             <Link key={href} href={href} className="transition hover:text-[#0757ff] dark:hover:text-white">
               {label}
             </Link>
           ))}
         </nav>
-        <Link href="/sign-up" className="hidden items-center gap-3 rounded-full border border-white/45 bg-white/30 px-6 py-3 font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_14px_38px_rgba(24,36,48,0.1)] backdrop-blur-2xl transition hover:bg-white/45 dark:border-white/14 dark:bg-white/10 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] dark:hover:bg-white/16 sm:flex">
+        <Link href="/sign-up" className="hidden items-center gap-3 rounded-full border border-white/45 bg-white/24 px-5 py-3 text-sm font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_12px_34px_rgba(24,36,48,0.09)] backdrop-blur-2xl transition hover:bg-white/38 dark:border-white/14 dark:bg-white/9 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] dark:hover:bg-white/14 sm:flex md:text-base">
           Join the lounge <ArrowRight className="size-5" />
         </Link>
       </header>
 
-      <div className="relative z-20 mx-auto grid max-w-[1500px] gap-8 px-6 pb-40 pt-12 sm:px-10 md:min-h-[760px] md:grid-cols-[0.82fr_1.18fr] md:items-center md:pb-32 md:pt-16 lg:px-16">
-        <div className="max-w-[620px]">
-          <h1 className="text-[clamp(4.2rem,11vw,8.7rem)] font-black leading-[0.88] text-slate-950 drop-shadow-[0_8px_26px_rgba(255,255,255,0.25)] dark:text-white dark:drop-shadow-[0_8px_28px_rgba(255,255,255,0.1)]">
+      <div className="relative z-20 mx-auto grid max-w-[1500px] gap-8 px-6 pb-32 pt-10 sm:px-10 md:min-h-[720px] md:grid-cols-[0.78fr_1.22fr] md:items-center md:pb-28 md:pt-12 lg:px-14">
+        <div className="max-w-[560px]">
+          <h1 className="text-[clamp(3.4rem,8vw,6.5rem)] font-extrabold leading-[0.94] text-slate-950 drop-shadow-[0_8px_24px_rgba(255,255,255,0.18)] dark:text-white dark:drop-shadow-[0_8px_28px_rgba(255,255,255,0.08)]">
             Signal <span className="block text-[#0757ff]">before</span>
             <span className="block">the open<span className="text-[#0757ff]">.</span></span>
           </h1>
-          <p className="mt-7 max-w-lg text-xl leading-8 text-slate-700 dark:text-[#fff4c8] md:text-2xl">
+          <p className="mt-6 max-w-lg text-lg leading-8 text-slate-700 dark:text-[#fff4c8] md:text-xl">
             AI-driven signals. One trade.<br />
             Every Sunday before the market opens.
           </p>
-          <div className="mt-9 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Link href="/screener" className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-[#0757ff] px-7 font-semibold text-white shadow-[0_0_42px_rgba(7,87,255,0.34)] transition hover:scale-[1.02]">
+          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <Link href="/screener" className="inline-flex h-[52px] items-center justify-center gap-3 rounded-xl bg-[#0757ff] px-6 font-semibold text-white shadow-[0_0_36px_rgba(7,87,255,0.3)] transition hover:scale-[1.02]">
               See this week&apos;s signal <ArrowRight className="size-5" />
             </Link>
-            <Link href="#how-it-works" className="inline-flex h-14 items-center justify-center border-b-2 border-[#f8f200] px-1 text-lg text-slate-950 transition hover:text-[#0757ff] dark:text-white dark:hover:text-[#fff4c8]">
+            <Link href="#how-it-works" className="inline-flex h-[52px] items-center justify-center border-b-2 border-[#f8f200] px-1 text-base text-slate-950 transition hover:text-[#0757ff] dark:text-white dark:hover:text-[#fff4c8]">
               How it works
             </Link>
           </div>
         </div>
 
-        <SignalPanel className="md:absolute md:right-[10.5%] md:top-[16%] md:w-[41%] md:max-w-[660px] md:rotate-[1.7deg]" />
+        <SignalPanel className="md:absolute md:right-[11.5%] md:top-[24%] md:w-[37%] md:max-w-[560px] md:rotate-[1.3deg]" />
       </div>
 
       <TickerTape />
@@ -212,7 +211,7 @@ function FeatureCard({ icon, title, children }: { icon: React.ReactNode; title: 
 
 function Sections() {
   return (
-    <div className="bg-[#efe7dc] text-slate-950 dark:bg-[#03050b] dark:text-white">
+    <div className="bg-[#f1e9de] text-slate-950 dark:bg-[#00040a] dark:text-white">
       <section id="how-it-works" className="mx-auto max-w-[1280px] px-6 py-24 sm:px-10 lg:px-16">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">How it works</p>
@@ -280,7 +279,7 @@ function Sections() {
 
 export default function MarketingHomePage() {
   return (
-    <main className="min-h-screen bg-[#efe7dc] dark:bg-[#03050b]">
+    <main className="min-h-screen bg-[#f1e9de] dark:bg-[#00040a]">
       <Hero />
       <Sections />
     </main>

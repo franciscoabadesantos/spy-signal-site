@@ -469,6 +469,23 @@
     box-shadow: none;
   }
 
+  .marketing-ticker-track {
+    animation: marketing-ticker-scroll 26s linear infinite;
+  }
+
+  .marketing-ticker-track:hover {
+    animation-play-state: paused;
+  }
+
+  @keyframes marketing-ticker-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
   .container-sm {
     @apply mx-auto w-full max-w-[720px] px-4 md:px-6;
   }
