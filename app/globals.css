@@ -473,10 +473,6 @@
     animation: marketing-ticker-scroll 26s linear infinite;
   }
 
-  .marketing-ticker-track:hover {
-    animation-play-state: paused;
-  }
-
   @keyframes marketing-ticker-scroll {
     from {
       transform: translateX(0);

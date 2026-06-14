@@ -14,7 +14,7 @@ const navItems = [
 function HeroBackground() {
   const common = {
     alt: '',
-    className: 'h-full w-full object-cover object-[58%_50%] lg:object-contain lg:object-center',
+    className: 'h-full w-full object-cover object-[58%_0%] lg:object-contain lg:object-top',
     priority: true,
     sizes: '100vw',
   }
@@ -44,83 +44,6 @@ function HeroBackground() {
   )
 }
 
-function SignalPanel({ className = '' }: { className?: string }) {
-  return (
-    <div
-      className={`overflow-hidden rounded-[22px] border border-sky-300/30 bg-white/26 p-2.5 text-slate-950 shadow-[0_22px_70px_rgba(14,47,82,0.14)] backdrop-blur-2xl dark:border-white/10 dark:bg-black/28 dark:text-white dark:shadow-[0_22px_80px_rgba(0,0,0,0.42)] ${className}`}
-    >
-      <div className="rounded-[18px] border border-white/30 bg-white/24 p-4 shadow-inner dark:border-white/10 dark:bg-black/18 md:p-5">
-        <div className="flex items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-600 dark:text-white/62">
-          <div className="flex items-center gap-2">
-            <span className="size-1.5 rounded-full bg-[#65ff00] shadow-[0_0_14px_rgba(101,255,0,0.72)]" />
-            <span>This week</span>
-            <span className="rounded-md border border-[#65ff00]/25 bg-[#65ff00]/12 px-2 py-0.5 text-[#167a00] dark:text-[#75ff17]">
-              Long
-            </span>
-          </div>
-          <span>Week 21</span>
-        </div>
-
-        <div className="mt-5 grid gap-4 lg:grid-cols-[0.78fr_1.22fr]">
-          <div>
-            <div className="flex items-end gap-2.5">
-              <h3 className="text-3xl font-extrabold tracking-tight md:text-4xl">SPY</h3>
-              <span className="pb-1.5 text-xs text-slate-500 dark:text-white/52 md:text-sm">S&amp;P 500</span>
-            </div>
-            <p className="mt-1 text-2xl font-light md:text-3xl">598.40</p>
-            <p className="mt-3 inline-flex rounded-lg border border-[#65ff00]/25 bg-[#65ff00]/12 px-3 py-1.5 text-lg text-[#167a00] shadow-[0_0_20px_rgba(101,255,0,0.14)] dark:text-[#75ff17]">
-              +1.2%
-            </p>
-          </div>
-
-          <div className="relative min-h-32 overflow-visible md:min-h-36">
-            <svg viewBox="0 0 390 190" className="h-full w-full overflow-visible" aria-hidden="true">
-              <defs>
-                <linearGradient id="heroSignalFill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#65ff00" stopOpacity="0.38" />
-                  <stop offset="100%" stopColor="#65ff00" stopOpacity="0" />
-                </linearGradient>
-                <filter id="heroSignalGlow" x="-20%" y="-40%" width="140%" height="180%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              <path d="M18 132 L45 108 L70 115 L100 72 L130 82 L161 50 L192 58 L230 28 L263 38 L298 14 L338 25 L372 4 L372 148 L18 148 Z" fill="url(#heroSignalFill)" />
-              <path d="M18 132 L45 108 L70 115 L100 72 L130 82 L161 50 L192 58 L230 28 L263 38 L298 14 L338 25 L372 4" fill="none" filter="url(#heroSignalGlow)" stroke="#65ff00" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
-              <path d="M228 62 L348 18" fill="none" stroke="#ffb000" strokeLinecap="round" strokeWidth="5" />
-              <ellipse cx="307" cy="28" rx="78" ry="23" transform="rotate(-11 307 28)" fill="none" stroke="#ffb000" strokeWidth="1.6" />
-              <text x="264" y="40" fill="currentColor" fontSize="17" fontFamily="monospace" fontStyle="italic" transform="rotate(-11 264 40)">real signal.</text>
-              {['M', 'T', 'W', 'T', 'F'].map((day, index) => (
-                <text key={`${day}-${index}`} x={55 + index * 70} y="180" fill="currentColor" fontSize="13" fontFamily="monospace">
-                  {day}
-                </text>
-              ))}
-            </svg>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-950/8 bg-white/28 p-3 dark:border-white/8 dark:bg-white/[0.028]">
-            <p className="text-sm text-slate-500 dark:text-white/52">Confidence</p>
-            <div className="mt-3 flex gap-1.5">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <span key={index} className="h-2.5 w-2.5 rounded-sm bg-[#65ff00] shadow-[0_0_12px_rgba(101,255,0,0.32)]" />
-              ))}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-950/8 bg-white/28 p-3 dark:border-white/8 dark:bg-white/[0.028]">
-            <p className="text-sm text-slate-500 dark:text-white/52">Model</p>
-            <p className="mt-2 text-lg md:text-xl">TrendFlowv2</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function TickerTape() {
   const tickers = [
     ['SPY', '598.40', '+1.2%', 'text-[#167a00] dark:text-[#75ff17]'],
@@ -132,15 +55,17 @@ function TickerTape() {
 
   return (
     <div className="absolute inset-x-6 bottom-5 z-20 hidden overflow-hidden rounded-full border border-white/35 bg-white/18 py-3 text-slate-950 shadow-[0_16px_56px_rgba(18,36,54,0.12)] backdrop-blur-xl dark:border-white/12 dark:bg-white/[0.045] dark:text-white dark:shadow-[0_18px_70px_rgba(0,0,0,0.45)] lg:block">
-      <div className="marketing-ticker-track flex w-max items-center gap-9 whitespace-nowrap px-6 pr-44 text-sm xl:text-base">
-        {[...tickers, ...tickers].map(([symbol, price, move, moveClass], index) => (
-          <div key={`${symbol}-${index}`} className="flex items-center gap-4 whitespace-nowrap">
-            <span className="size-2 rounded-full bg-[#0757ff] shadow-[0_0_16px_rgba(7,87,255,0.9)]" />
-            <span className="font-medium tracking-wide">{symbol}</span>
-            <span className="text-slate-500 dark:text-white/52">{price}</span>
-            <span className={moveClass}>{move}</span>
-          </div>
-        ))}
+      <div className="mr-36 overflow-hidden">
+        <div className="marketing-ticker-track flex w-max items-center gap-9 whitespace-nowrap px-6 text-sm xl:text-base">
+          {[...tickers, ...tickers].map(([symbol, price, move, moveClass], index) => (
+            <div key={`${symbol}-${index}`} className="flex items-center gap-4 whitespace-nowrap">
+              <span className="size-2 rounded-full bg-[#0757ff] shadow-[0_0_16px_rgba(7,87,255,0.9)]" />
+              <span className="font-medium tracking-wide">{symbol}</span>
+              <span className="text-slate-500 dark:text-white/52">{price}</span>
+              <span className={moveClass}>{move}</span>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 rounded-full border border-white/28 bg-white/24 px-4 py-2 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_12px_28px_rgba(0,0,0,0.16)] backdrop-blur-2xl dark:border-white/12 dark:bg-white/[0.08] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_30px_rgba(0,0,0,0.38)]">
         <Activity className="size-4" aria-hidden="true" />
@@ -163,9 +88,9 @@ function Hero() {
           <span className="text-[#ffb000]">/</span>
           <span>signal</span>
         </Link>
-        <nav className="hidden text-sm font-medium text-slate-700 dark:text-[#efe5b8] md:flex md:items-center md:gap-8">
+        <nav className="hidden text-sm font-medium text-slate-950 dark:text-white md:flex md:items-center md:gap-8">
           {navItems.map(([label, href]) => (
-            <Link key={href} href={href} className="transition hover:text-[#0757ff] dark:hover:text-white">
+            <Link key={href} href={href} className="transition hover:opacity-70">
               {label}
             </Link>
           ))}
@@ -175,13 +100,13 @@ function Hero() {
         </Link>
       </header>
 
-      <div className="relative z-20 mx-auto grid max-w-[1760px] gap-8 px-6 pb-32 pt-10 sm:px-10 md:min-h-[720px] md:grid-cols-[0.78fr_1.22fr] md:items-center md:pb-28 md:pt-12 lg:px-14">
-        <div className="max-w-[560px]">
-          <h1 className="text-[clamp(3.4rem,8vw,6.5rem)] font-extrabold leading-[0.94] text-slate-950 drop-shadow-[0_8px_24px_rgba(255,255,255,0.18)] dark:text-white dark:drop-shadow-[0_8px_28px_rgba(255,255,255,0.08)]">
+      <div className="relative z-20 mx-auto grid max-w-[1760px] gap-8 px-6 pb-32 pt-2 sm:px-10 md:min-h-[600px] md:grid-cols-[0.78fr_1.22fr] md:items-start md:pb-24 md:pt-8 lg:px-14">
+        <div className="max-w-[520px]">
+          <h1 className="text-[clamp(3rem,6.8vw,5.5rem)] font-extrabold leading-[0.96] text-slate-950 drop-shadow-[0_8px_24px_rgba(255,255,255,0.18)] dark:text-white dark:drop-shadow-[0_8px_28px_rgba(255,255,255,0.08)]">
             Signal <span className="block text-[#0757ff]">before</span>
             <span className="block">the open<span className="text-[#0757ff]">.</span></span>
           </h1>
-          <p className="mt-6 max-w-lg text-lg leading-8 text-slate-700 dark:text-[#fff4c8] md:text-xl">
+          <p className="mt-4 max-w-lg text-base leading-7 text-slate-700 dark:text-[#fff4c8] md:text-lg">
             AI-driven signals. One trade.<br />
             Every Sunday before the market opens.
           </p>
@@ -195,7 +120,6 @@ function Hero() {
           </div>
         </div>
 
-        <SignalPanel className="md:absolute md:right-[11.5%] md:top-[24%] md:w-[37%] md:max-w-[560px] md:rotate-[1.3deg]" />
       </div>
 
       <TickerTape />
