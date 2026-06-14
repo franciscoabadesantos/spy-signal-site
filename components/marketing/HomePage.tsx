@@ -1,639 +1,311 @@
 import Link from 'next/link'
-import {
-  Activity,
-  ArrowRight,
-  Brain,
-  Check,
-  Clock3,
-  MonitorCheck,
-  Power,
-  RefreshCw,
-  ShieldCheck,
-  SlidersHorizontal,
-  TrendingUp,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { homepageContent } from './home-content'
+import type React from 'react'
+import { Activity, ArrowRight, BarChart3, Check, CircleDollarSign, Sparkles, Zap } from 'lucide-react'
 
-type IconType = React.ComponentType<React.SVGProps<SVGSVGElement>>
+const navItems = [
+  { label: 'How it works', href: '#how-it-works' },
+  { label: 'Performance', href: '#performance' },
+  { label: 'Method', href: '#method' },
+  { label: 'Pricing', href: '#pricing' },
+  { label: 'FAQ', href: '#faq' },
+]
 
-const proofIcons: IconType[] = [ShieldCheck, RefreshCw, MonitorCheck, Power]
-const problemIcons: IconType[] = [Brain, Clock3, TrendingUp, SlidersHorizontal]
+const tickerTape = [
+  ['SPY', '598.40', '+1.2%', 'up'],
+  ['QQQ', '511.82', '+0.8%', 'up'],
+  ['VIX', '14.3', '-1.8%', 'down'],
+  ['TLT', '88.22', '-0.5%', 'down'],
+  ['GLD', '318.90', '+0.1%', 'up'],
+]
 
-function LogoMark({ className }: { className?: string }) {
+function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <span
-      className={cn(
-        'inline-flex size-5 items-center justify-center rounded-full border-2 border-[var(--nl-green)]',
-        className
-      )}
-      aria-hidden="true"
-    >
-      <span className="size-2 rounded-full bg-[var(--nl-green)]" />
-    </span>
+    <Link href="/" className="flex items-center gap-3 font-semibold tracking-tight text-white">
+      <span className={compact ? 'text-3xl' : 'text-[1.72rem]'}>lb</span>
+      <span className="text-3xl font-light leading-none text-[#ffb000]">/</span>
+      {!compact ? <span className="text-[1.72rem]">signal</span> : null}
+    </Link>
   )
 }
 
-function HomepageHeader() {
-  const { brand, nav } = homepageContent
-
+function Header() {
   return (
-    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#01131b]/96 text-white backdrop-blur">
-      <div className="mx-auto flex h-[72px] w-full max-w-[1280px] items-center justify-between px-5 md:px-10">
-        <Link href="/" className="flex items-center gap-3 text-sm font-semibold uppercase">
-          <LogoMark />
-          <span>{brand}</span>
-        </Link>
-        <nav className="hidden items-center gap-9 text-sm text-slate-300 lg:flex">
-          {nav.map((item) => (
-            <Link key={item.label} href={item.href} className="transition hover:text-white">
+    <header className="absolute inset-x-0 top-0 z-40">
+      <div className="mx-auto flex h-24 w-full max-w-[1800px] items-center justify-between px-6 sm:px-10 lg:px-16">
+        <Logo />
+        <nav className="hidden items-center gap-9 text-[15px] text-[#efe5b8] md:flex">
+          {navItems.map((item, index) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="group relative transition hover:text-white"
+            >
               {item.label}
+              {index === 0 ? (
+                <span className="absolute -bottom-3 left-0 h-0.5 w-full rounded-full bg-[#f8f200] shadow-[0_0_14px_rgba(248,242,0,0.8)]" />
+              ) : null}
             </Link>
           ))}
         </nav>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/sign-up"
-            className="hidden h-10 items-center rounded-[4px] bg-[var(--nl-green)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--nl-green-strong)] sm:inline-flex"
-          >
-            Get access
-          </Link>
-          <Link
-            href="/sign-in"
-            className="inline-flex h-10 items-center rounded-[4px] border border-white/20 px-5 text-sm font-semibold text-white transition hover:border-[var(--nl-green)]"
-          >
-            Log in
-          </Link>
-        </div>
+        <Link
+          href="/sign-up"
+          className="group hidden items-center gap-4 rounded-full border border-white/15 bg-white/[0.08] px-7 py-3 text-sm font-medium text-white shadow-[inset_0_0_20px_rgba(255,255,255,0.08),0_0_24px_rgba(255,255,255,0.1)] backdrop-blur transition hover:border-white/30 hover:bg-white/[0.12] sm:flex"
+        >
+          Join the lounge
+          <ArrowRight className="size-5 transition group-hover:translate-x-1" />
+        </Link>
       </div>
     </header>
   )
 }
 
-function PrimaryButton({
-  href,
-  children,
-  className,
-}: {
-  href: string
-  children: React.ReactNode
-  className?: string
-}) {
+function PriceChart() {
   return (
-    <Link
-      href={href}
-      className={cn(
-        'inline-flex h-[52px] items-center justify-center gap-3 rounded-[4px] bg-[var(--nl-green)] px-7 text-sm font-semibold text-white shadow-none transition hover:bg-[var(--nl-green-strong)]',
-        className
-      )}
-    >
-      {children}
-      <ArrowRight className="size-4" />
-    </Link>
+    <svg viewBox="0 0 420 170" className="h-full w-full overflow-visible" aria-hidden="true">
+      <defs>
+        <linearGradient id="signalFill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#6eff00" stopOpacity="0.36" />
+          <stop offset="100%" stopColor="#6eff00" stopOpacity="0" />
+        </linearGradient>
+        <filter id="chartGlow" x="-20%" y="-40%" width="140%" height="180%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <path d="M18 132 L46 112 L70 120 L92 84 L119 93 L145 64 L174 76 L199 44 L230 57 L260 34 L284 52 L316 20 L344 29 L376 5 L404 14 L404 150 L18 150 Z" fill="url(#signalFill)" />
+      <path d="M18 132 L46 112 L70 120 L92 84 L119 93 L145 64 L174 76 L199 44 L230 57 L260 34 L284 52 L316 20 L344 29 L376 5 L404 14" fill="none" filter="url(#chartGlow)" stroke="#65ff00" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
+      {['M', 'T', 'W', 'T', 'F'].map((day, index) => (
+        <text key={`${day}-${index}`} x={58 + index * 74} y="164" fill="#fbf7e8" fontSize="14" fontFamily="monospace">
+          {day}
+        </text>
+      ))}
+    </svg>
   )
 }
 
-function SecondaryButton({ href, children }: { href: string; children: React.ReactNode }) {
+function Radar() {
   return (
-    <Link
-      href={href}
-      className="inline-flex h-[52px] items-center justify-center rounded-[4px] border border-[var(--nl-border)] bg-transparent px-7 text-sm font-semibold text-[var(--nl-text)] transition hover:border-[var(--nl-green)]"
-    >
-      {children}
-    </Link>
-  )
-}
-
-function AllocationRing({ value, size = 'large' }: { value: number; size?: 'large' | 'small' }) {
-  const dimensions = size === 'large' ? 'size-52 md:size-56' : 'size-20'
-  const inner = size === 'large' ? 'size-32 text-4xl' : 'size-14 text-lg'
-
-  return (
-    <div
-      className={cn('grid place-items-center rounded-full', dimensions)}
-      style={{
-        background: `conic-gradient(var(--nl-green) 0 ${value}%, var(--nl-ring-muted) ${value}% 100%)`,
-      }}
-    >
-      <div className={cn('grid place-items-center rounded-full bg-[var(--nl-card-solid)] font-medium text-[var(--nl-text)]', inner)}>
-        {value}%
-      </div>
+    <div className="relative grid size-36 place-items-center rounded-full bg-[radial-gradient(circle,rgba(103,255,0,0.12),rgba(103,255,0,0)_64%)]">
+      <span className="absolute size-32 rounded-full border border-[#5cff00]/15" />
+      <span className="absolute size-20 rounded-full border border-[#5cff00]/20" />
+      <span className="absolute size-9 rounded-full border border-[#5cff00]/20" />
+      <span className="absolute left-4 top-8 size-5 rounded-full bg-[#63ff00] shadow-[0_0_24px_rgba(99,255,0,0.9)]" />
+      <span className="absolute size-4 rounded-full bg-[#63ff00] shadow-[0_0_18px_rgba(99,255,0,0.9)]" />
     </div>
   )
 }
 
-function ConfidenceDots() {
+function SignalScreen() {
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-sm font-medium text-[var(--nl-green)]">{homepageContent.hero.snapshot.confidence}</span>
-      <div className="flex gap-2" aria-hidden="true">
-        {[0, 1, 2, 3, 4].map((index) => (
-          <span
-            key={index}
-            className={cn(
-              'size-2.5 rounded-full',
-              index < 4 ? 'bg-[var(--nl-green)]' : 'bg-[var(--nl-dot-muted)]'
-            )}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function LiveSignalCard({
-  compact = false,
-  integrated = false,
-}: {
-  compact?: boolean
-  integrated?: boolean
-}) {
-  const { snapshot } = homepageContent.hero
-
-  return (
-    <div
-      className={cn(
-        'rounded-[5px] shadow-none',
-        integrated
-          ? 'bg-transparent p-0'
-          : 'border border-[var(--nl-border)] bg-[var(--nl-card)]',
-        compact && !integrated ? 'p-5' : 'p-7 md:p-8',
-        integrated && 'p-0'
-      )}
-    >
-      <div className="text-xs font-semibold uppercase text-[var(--nl-muted)]">{snapshot.label}</div>
-      <div className={cn('mt-6 flex items-center justify-between gap-7', compact ? '' : 'min-h-[230px]')}>
-        <div>
-          <div className="text-2xl font-medium uppercase text-[var(--nl-green)]">{snapshot.status}</div>
-          <div className={cn('mt-5 font-medium leading-none text-[var(--nl-text)]', compact ? 'text-5xl' : 'text-7xl md:text-8xl')}>
-            {snapshot.allocation}
-            <span className="text-[0.46em]">%</span>
+    <div className="relative mx-auto w-full max-w-[730px] rotate-[-4deg] rounded-[34px] border border-[#e49b22]/50 bg-[#030914] p-4 shadow-[0_34px_90px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,188,33,0.18)]">
+      <div className="rounded-[24px] border border-white/5 bg-[radial-gradient(circle_at_78%_20%,rgba(0,94,255,0.22),transparent_26%),linear-gradient(145deg,rgba(9,17,31,0.98),rgba(2,6,13,0.98))] p-6 text-white shadow-[inset_0_0_50px_rgba(0,0,0,0.7)]">
+        <div className="flex items-center justify-between font-mono text-sm uppercase tracking-wide text-white/85">
+          <div className="flex items-center gap-3">
+            <span className="size-2.5 rounded-full bg-[#61ff00] shadow-[0_0_12px_rgba(97,255,0,0.9)]" />
+            This week
+            <span className="rounded-md bg-[#19330c] px-3 py-1 text-[#75ff17]">Long</span>
           </div>
-          <div className="mt-4 text-sm text-[var(--nl-muted)]">{snapshot.caption}</div>
+          <div>Week 21 ⛶</div>
         </div>
-        <AllocationRing value={snapshot.allocation} size={compact ? 'small' : 'large'} />
+
+        <div className="relative mt-8 grid gap-8 lg:grid-cols-[0.95fr_1.3fr]">
+          <div>
+            <div className="flex items-end gap-3">
+              <div className="text-4xl font-black tracking-tight">SPY</div>
+              <div className="pb-1 text-sm text-white/72">S&amp;P 500</div>
+            </div>
+            <div className="mt-2 text-3xl font-light">598.40</div>
+            <div className="mt-3 inline-flex rounded-md bg-[#14340a] px-3 py-1 text-xl text-[#6cff13]">+1.2%</div>
+          </div>
+          <div className="relative min-h-[180px]">
+            <div className="absolute right-0 top-0 -rotate-12 rounded-[50%] border border-[#ffb000] px-8 py-2 font-mono text-lg italic text-white shadow-[0_0_14px_rgba(255,176,0,0.42)]">
+              real signal.
+              <span className="absolute -bottom-2 left-8 h-1 w-32 rotate-[-3deg] rounded-full bg-[#ffb000]" />
+            </div>
+            <PriceChart />
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-4 lg:grid-cols-2">
+          <div>
+            <div className="text-sm text-white/65">Confidence</div>
+            <div className="mt-4 flex gap-1.5">
+              {Array.from({ length: 9 }).map((_, index) => (
+                <span key={index} className="h-3 w-2.5 rounded-[2px] bg-[#65ff00] shadow-[0_0_10px_rgba(101,255,0,0.5)]" />
+              ))}
+            </div>
+          </div>
+          <div className="border-t border-white/5 pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+            <div className="text-sm text-white/65">Model</div>
+            <div className="mt-4 text-lg">TrendFlowv2</div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.025] p-4 lg:grid-cols-[1fr_auto]">
+          <div>
+            <div className="text-sm text-white/65">Market bias</div>
+            <div className="mt-3 text-2xl text-[#65ff00]">BULLISH</div>
+          </div>
+          <Radar />
+        </div>
       </div>
-      <div className={cn('mt-7 pt-5', !integrated && 'border-t border-[var(--nl-border)]')}>
-        <ConfidenceDots />
-      </div>
-      <div className={cn('mt-5 flex flex-col gap-2 pt-4 text-xs text-[var(--nl-muted)] sm:flex-row sm:justify-between', !integrated && 'border-t border-[var(--nl-border)]')}>
-        <span>{snapshot.updatedAt}</span>
-        <span>{snapshot.age}</span>
-      </div>
-      <div className="mt-3 text-xs text-[var(--nl-soft)]">{snapshot.nextUpdate}</div>
     </div>
   )
 }
 
-function HeroSection() {
-  const { hero } = homepageContent
-
+function DeskProps() {
   return (
-    <section className="relative overflow-hidden border-b border-[var(--nl-border)]">
-      <div className="nl-wave-bg absolute inset-x-0 bottom-0 h-44 opacity-70" />
-      <div className="relative mx-auto grid w-full max-w-[1280px] gap-10 px-5 py-10 md:px-10 lg:grid-cols-[minmax(0,55fr)_minmax(360px,45fr)] lg:items-center xl:gap-14">
-        <div className="min-w-0">
-          <h1 className="max-w-[14ch] text-5xl font-medium leading-[1.05] text-[var(--nl-text)] md:text-6xl xl:text-7xl">
-            <span className="block">{hero.headline[0]}</span>
-            <span className="block">{hero.headline[1]}</span>
-            <span className="block text-[var(--nl-green)]">{hero.headline[2]}</span>
+    <div className="pointer-events-none absolute bottom-20 right-4 hidden w-[420px] items-end justify-end gap-5 xl:flex">
+      <div className="grid size-36 place-items-center rounded-[22px] border border-[#e6ff00]/70 bg-[#05070a] text-5xl font-bold text-white shadow-[0_0_30px_rgba(226,255,0,0.45)]">
+        <Logo compact />
+      </div>
+      <div className="rounded-full border border-[#ffb000]/60 bg-[#030303] px-10 py-8 text-xl text-white shadow-[0_0_35px_rgba(255,176,0,0.28)]">
+        Long<span className="font-serif italic text-[#ffb000]">brunch</span>
+      </div>
+    </div>
+  )
+}
+
+function Hero() {
+  return (
+    <section className="relative min-h-[940px] overflow-hidden bg-[#03050b] text-white">
+      <Header />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_10%,rgba(0,93,255,0.27),transparent_26%),radial-gradient(circle_at_12%_55%,rgba(0,20,80,0.35),transparent_33%),linear-gradient(180deg,#03050b_0%,#02040a_70%,#080403_100%)]" />
+      <div className="absolute right-0 top-0 hidden h-[520px] w-[760px] opacity-60 [background-image:radial-gradient(rgba(0,92,255,0.9)_1px,transparent_1px)] [background-size:13px_13px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)] lg:block" />
+      <div className="absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(180deg,transparent,rgba(90,39,0,0.18)_44%,rgba(13,5,0,0.9))]" />
+
+      <div className="relative mx-auto grid w-full max-w-[1800px] gap-12 px-6 pb-40 pt-40 sm:px-10 lg:grid-cols-[0.86fr_1.14fr] lg:px-16 lg:pt-48">
+        <div className="z-10 flex flex-col justify-center">
+          <h1 className="max-w-[620px] text-[clamp(4.2rem,8.4vw,9.2rem)] font-black leading-[0.92] tracking-[-0.08em] text-white drop-shadow-[0_8px_20px_rgba(255,255,255,0.16)]">
+            <span className="block">Signal</span>
+            <span className="block bg-[linear-gradient(180deg,#1c73ff,#003cff)] bg-clip-text text-transparent">before</span>
+            <span className="block">the open<span className="text-[#0d57ff]">.</span></span>
           </h1>
-          <p className="mt-7 max-w-[38rem] text-lg leading-8 text-[var(--nl-muted)]">
-            {hero.body}
+          <p className="mt-8 max-w-[560px] text-xl leading-8 text-[#fff4c8] md:text-2xl">
+            AI-driven signals. One trade.<br />Every Sunday before the market opens.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <PrimaryButton href={hero.primaryCta.href}>{hero.primaryCta.label}</PrimaryButton>
-            <SecondaryButton href={hero.secondaryCta.href}>{hero.secondaryCta.label}</SecondaryButton>
-          </div>
-          <div className="mt-11 grid grid-cols-2 gap-x-5 gap-y-5 opacity-75 sm:grid-cols-4">
-            {hero.proofs.map((item, index) => {
-              const Icon = proofIcons[index] ?? ShieldCheck
-              return (
-              <div key={item.title} className="border-[var(--nl-border)] pr-4 sm:border-r sm:last:border-r-0">
-                <Icon className="mb-2 size-4 text-[var(--nl-green)] opacity-70" strokeWidth={1.7} />
-                <div className="text-xs font-semibold text-[var(--nl-text)]">{item.title}</div>
-                <div className="mt-1 text-[0.68rem] text-[var(--nl-muted)]">{item.body}</div>
-              </div>
-              )
-            })}
+          <div className="mt-10 flex flex-col gap-5 sm:flex-row sm:items-center">
+            <Link
+              href="/screener"
+              className="group inline-flex h-16 items-center justify-center gap-4 rounded-xl bg-[#0757ff] px-8 text-lg font-medium text-white shadow-[0_0_40px_rgba(7,87,255,0.42)] transition hover:bg-[#1a67ff]"
+            >
+              See this week&apos;s signal
+              <ArrowRight className="size-5 transition group-hover:translate-x-1" />
+            </Link>
+            <Link href="#how-it-works" className="relative inline-flex h-16 items-center text-lg text-white transition hover:text-[#fff6a8]">
+              How it works
+              <span className="absolute bottom-2 left-0 h-0.5 w-full rounded-full bg-[#f8f200] shadow-[0_0_12px_rgba(248,242,0,0.8)]" />
+            </Link>
           </div>
         </div>
-        <div className="lg:-mt-8">
-          <LiveSignalCard />
+
+        <div className="relative z-10 min-h-[540px] lg:min-h-[700px]">
+          <div className="absolute -right-8 top-12 w-full max-w-[790px] lg:right-0">
+            <SignalScreen />
+          </div>
+          <DeskProps />
         </div>
       </div>
-    </section>
-  )
-}
 
-function ProblemSection() {
-  const { problem } = homepageContent
-
-  return (
-    <section id="problem" className="border-b border-[var(--nl-border)]">
-      <div className="mx-auto w-full max-w-[1280px] px-5 py-12 md:px-10">
-        <div>
-          <div className="max-w-[42rem]">
-            <h2 className="max-w-[34rem] text-3xl font-medium leading-snug text-[var(--nl-text)] md:text-4xl">
-              {problem.headline}
-            </h2>
-          </div>
-          <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {problem.reasons.map((item, index) => {
-              const Icon = problemIcons[index] ?? Activity
-              return (
-                <div key={item.title} className="border-l border-[var(--nl-border)] pl-5">
-                  <Icon className="mb-5 size-5 text-[var(--nl-green)] opacity-55" strokeWidth={1.5} />
-                  <div className="text-base font-medium text-[var(--nl-text)]">{item.title}</div>
-                  <div className="mt-3 text-sm leading-6 text-[var(--nl-muted)]">{item.body}</div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-        <div className="mt-10 flex flex-col gap-4 border-t border-[var(--nl-border)] pt-5 text-sm text-[var(--nl-muted)] md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <LogoMark className="size-5 shrink-0 opacity-80" />
-            <span>{problem.callout}</span>
-          </div>
-          <span className="font-medium text-[var(--nl-green)]">{problem.calloutAside}</span>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function EvidenceMetric({ title, value }: { title: string; value: string }) {
-  return (
-    <div>
-      <div className="text-sm font-semibold text-[var(--nl-text)]">{title}</div>
-      <div className="mt-1 text-xs text-[var(--nl-muted)]">{value}</div>
-    </div>
-  )
-}
-
-function EquityCurveChart() {
-  const { chart } = homepageContent.evidence
-
-  return (
-    <div className="relative pt-1">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="text-lg font-medium text-[var(--nl-text)]">{chart.title}</div>
-          <div className="mt-2 text-xs text-[var(--nl-muted)]">{chart.subtitle}</div>
-          <div className="mt-5 flex gap-9 text-xs">
-            <span className="flex items-center gap-2 text-[var(--nl-text)]">
-              <span className="size-2 rounded-full bg-[var(--nl-green)]" />
-              Northline Signal
-            </span>
-            <span className="flex items-center gap-2 text-[var(--nl-muted)]">
-              <span className="size-2 rounded-full bg-[var(--nl-chart-muted)]" />
-              Buy & Hold
-            </span>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-7 text-right">
-          <div>
-            <div className="text-5xl font-medium leading-none text-[var(--nl-green)]">{chart.modelReturn}</div>
-            <div className="mt-2 text-sm text-[var(--nl-text)]">System</div>
-          </div>
-          <div>
-            <div className="text-4xl font-medium leading-none text-[var(--nl-muted)]">{chart.buyHoldReturn}</div>
-            <div className="mt-2 text-sm text-[var(--nl-muted)]">Buy & Hold</div>
-          </div>
-        </div>
-      </div>
-      <div className="mt-6 overflow-hidden">
-        <svg viewBox="0 0 620 310" role="img" aria-label="Northline Signal performance compared with buy and hold" className="h-auto w-full">
-          <g stroke="var(--nl-grid)" strokeWidth="1">
-            <line x1="34" x2="594" y1="42" y2="42" />
-            <line x1="34" x2="594" y1="106" y2="106" />
-            <line x1="34" x2="594" y1="170" y2="170" />
-            <line x1="34" x2="594" y1="234" y2="234" />
-          </g>
-          <g fill="var(--nl-muted)" fontSize="12">
-            <text x="0" y="46">400%</text>
-            <text x="0" y="110">200%</text>
-            <text x="8" y="174">0%</text>
-            <text x="2" y="238">-20%</text>
-          </g>
-          <path
-            d="M40 230 C80 222 102 212 130 205 C154 196 170 185 194 176 C222 164 224 138 236 174 C250 204 270 148 300 133 C328 117 344 102 372 88 C394 76 418 130 444 116 C480 96 510 65 536 56 C560 48 575 40 592 24"
-            fill="none"
-            stroke="var(--nl-green)"
-            strokeWidth="3"
-          />
-          <path
-            d="M40 236 C82 230 112 222 142 212 C180 203 208 207 238 192 C260 176 274 160 306 154 C334 147 356 174 382 176 C414 180 434 222 464 191 C490 162 518 142 548 110 C566 94 580 80 592 68"
-            fill="none"
-            stroke="var(--nl-chart-muted)"
-            strokeWidth="2.2"
-          />
-          <line x1="34" x2="594" y1="234" y2="234" stroke="var(--nl-axis)" />
-          {['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025 YTD'].map((year, index) => (
-            <text key={year} x={42 + index * 74} y="282" fill="var(--nl-muted)" fontSize="12">
-              {year}
-            </text>
+      <div className="absolute inset-x-6 bottom-8 z-30 mx-auto max-w-[1680px] rounded-full border border-white/25 bg-white/[0.07] px-5 py-3 text-white shadow-[inset_0_0_18px_rgba(255,255,255,0.08),0_10px_50px_rgba(0,0,0,0.55)] backdrop-blur md:px-9">
+        <div className="flex items-center gap-8 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">
+          {tickerTape.map(([symbol, price, change, direction]) => (
+            <div key={symbol} className="flex shrink-0 items-center gap-4 text-lg">
+              <span className="size-2.5 rounded-full bg-[#0757ff]" />
+              <span>{symbol}</span>
+              <span className="text-white/68">{price}</span>
+              <span className={direction === 'up' ? 'text-[#75ff17]' : 'text-[#ff7a22]'}>{change}</span>
+            </div>
           ))}
-        </svg>
-      </div>
-      <div className="mt-4 text-right text-xs text-[var(--nl-muted)]">{chart.asOf}</div>
-      <div className="mt-8 grid border-t border-[var(--nl-border)] md:grid-cols-6">
-        {chart.phases.map((phase) => (
-          <div key={phase.year} className="border-b border-[var(--nl-border)] py-6 pr-5 last:border-b-0 md:border-b-0">
-            <div className="flex items-center gap-2 text-sm text-[var(--nl-muted)]">
-              <span className={cn('size-2 rounded-full', phase.tone === 'green' ? 'bg-[var(--nl-green)]' : 'bg-[var(--nl-red)]')} />
-              {phase.year}
-            </div>
-            <div className="mt-3 text-base text-[var(--nl-text)] md:text-sm xl:text-base">{phase.title}</div>
-            <div className={cn('mt-3 text-base font-medium', phase.tone === 'green' ? 'text-[var(--nl-green)]' : 'text-[var(--nl-red)]')}>
-              {phase.state}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function EvidenceSection() {
-  const { evidence } = homepageContent
-
-  return (
-    <section id="evidence" className="border-b border-[var(--nl-border)]">
-      <div className="mx-auto grid w-full max-w-[1280px] gap-12 px-5 py-12 md:px-10 lg:grid-cols-[0.4fr_0.6fr] lg:items-start">
-        <div>
-          <h2 className="max-w-[23rem] text-3xl font-medium leading-snug text-[var(--nl-text)] md:text-4xl">{evidence.headline}</h2>
-          <p className="mt-5 text-base font-medium text-[var(--nl-text)]">{evidence.processLine}</p>
-          <div className="mt-7 space-y-2 text-sm leading-7 text-[var(--nl-muted)]">
-            {evidence.body.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-          </div>
-          <div className="mt-9 grid grid-cols-4 gap-x-5 border-t border-[var(--nl-border)] pt-5">
-            {evidence.stats.map((item) => (
-              <EvidenceMetric key={item.title} title={item.title} value={item.value} />
-            ))}
-          </div>
-        </div>
-        <EquityCurveChart />
-      </div>
-    </section>
-  )
-}
-
-const trendPaths: Record<string, string> = {
-  Momentum: 'M3 31 L14 29 L25 23 L36 26 L48 18 L59 20 L71 15 L83 17 L96 10 L110 12 L124 7 L145 4',
-  'Macro Regime': 'M3 29 L17 25 L29 28 L43 22 L56 23 L70 18 L82 14 L96 16 L110 10 L124 8 L145 3',
-  Volatility: 'M3 18 L17 22 L30 17 L43 25 L57 20 L70 24 L83 21 L96 26 L110 22 L124 25 L145 20',
-  'Market Breadth': 'M3 30 L16 27 L30 29 L44 23 L58 25 L72 19 L86 20 L100 16 L114 18 L129 12 L145 9',
-  Liquidity: 'M3 27 L16 30 L29 24 L42 28 L56 21 L70 25 L84 19 L98 22 L112 15 L126 17 L145 11',
-}
-
-function MiniTrend({ condition }: { condition: (typeof homepageContent.system.conditions)[number] }) {
-  const path = trendPaths[condition.title] ?? trendPaths.Momentum
-  const scaled = condition.outcome.toLowerCase() === 'scaled'
-
-  return (
-    <div>
-      <div className="mt-3 flex items-center justify-between gap-3 text-[0.7rem] uppercase text-[var(--nl-muted)]">
-        <span>{condition.window}</span>
-        <span className={cn('font-semibold', scaled ? 'text-[var(--nl-warn)]' : 'text-[var(--nl-green)]')}>
-          {condition.outcome}
-        </span>
-      </div>
-      <svg viewBox="0 0 150 42" className="mt-3 h-10 w-full" aria-hidden="true">
-        <path
-          d="M0 32 H150"
-          fill="none"
-          stroke="var(--nl-grid)"
-          strokeWidth="1"
-        />
-        <path
-          d={path}
-          fill="none"
-          stroke={scaled ? 'var(--nl-warn)' : 'var(--nl-trend)'}
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <div className="h-1 overflow-hidden rounded-full bg-[var(--nl-meter-bg)]">
-        <div
-          className={cn('h-full rounded-full', scaled ? 'bg-[var(--nl-warn)]' : 'bg-[var(--nl-green)]')}
-          style={{ width: `${condition.score}%` }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function ConditionCard({ condition }: { condition: (typeof homepageContent.system.conditions)[number] }) {
-  return (
-    <div className="min-h-[218px] border-t border-[var(--nl-border)] bg-transparent px-4 py-4 first:border-t-0 sm:border-l sm:first:border-l-0 lg:border-t-0">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs text-[var(--nl-muted)]">{condition.title}</div>
-          <div className="mt-2 text-3xl font-medium text-[var(--nl-text)]">{condition.value}</div>
-        </div>
-        <div className="pt-1 text-right text-[0.7rem] uppercase text-[var(--nl-muted)]">{condition.label}</div>
-      </div>
-      <div className="mt-3 min-h-5 text-sm text-[var(--nl-text)]">{condition.interpretation}</div>
-      <MiniTrend condition={condition} />
-    </div>
-  )
-}
-
-function LogicRow({
-  label,
-  status,
-}: {
-  label: string
-  status: string
-}) {
-  const scaled = status.toLowerCase() === 'scaled'
-  return (
-    <div className="flex items-center gap-4 border-b border-[var(--nl-border)] py-3 last:border-b-0">
-      <span className="size-1.5 shrink-0 rounded-full bg-[var(--nl-green)]" />
-      <span className="min-w-0 flex-1 text-base text-[var(--nl-text)]">{label}</span>
-      <span className={cn('min-w-16 text-right text-sm font-semibold uppercase', scaled ? 'text-[var(--nl-warn)]' : 'text-[var(--nl-green)]')}>
-        {status}
-      </span>
-    </div>
-  )
-}
-
-function RegimeMap() {
-  return (
-    <div className="h-full bg-transparent">
-      <div className="text-xs font-semibold uppercase text-[var(--nl-muted)]">Regime position</div>
-      <div className="mx-auto mt-5 grid max-w-[720px] grid-cols-[76px_1fr_76px] grid-rows-[32px_1fr_32px] items-center text-center text-[11px] font-semibold uppercase text-[var(--nl-text)]">
-        <div />
-        <div>Macro improving</div>
-        <div />
-        <div className="leading-4">Momentum weak</div>
-        <div className="relative grid aspect-[1.75/1] grid-cols-2 overflow-hidden rounded-[4px] border border-[var(--nl-border)] text-base font-medium normal-case text-white">
-          <div className="grid place-items-center bg-[linear-gradient(135deg,#8bb9a4,#b8d69a)] text-[var(--nl-map-text)]">Recovering</div>
-          <div className="grid place-items-center bg-[linear-gradient(135deg,#6aa45f,#b2cf70)] text-white">Aligned</div>
-          <div className="grid place-items-center bg-[linear-gradient(135deg,#d65f51,#f29179)]">Dislocated</div>
-          <div className="grid place-items-center bg-[linear-gradient(135deg,#e8894d,#f1c875)] text-[var(--nl-map-text)]">Divergent</div>
-          <div className="absolute right-9 top-9 grid size-10 place-items-center rounded-full border-4 border-white bg-white/25 shadow-[0_0_0_8px_rgba(255,255,255,0.16)]">
-            <span className="size-3 rounded-full bg-white" />
-          </div>
-        </div>
-        <div className="leading-4">Momentum strong</div>
-        <div />
-        <div>Macro deteriorating</div>
-        <div />
-      </div>
-    </div>
-  )
-}
-
-function ProductPreviewSection() {
-  const { system } = homepageContent
-
-  return (
-    <section id="system" className="nl-system-field relative overflow-hidden border-b border-[var(--nl-border)]">
-      <div className="relative mx-auto w-full max-w-[1280px] px-5 pb-5 pt-11 md:px-10">
-        <h2 className="text-3xl font-medium leading-snug text-[var(--nl-text)] md:text-4xl">
-          {system.headline}
-        </h2>
-        <div className="mt-7 overflow-hidden rounded-[5px] bg-[var(--nl-system-surface)]">
-          <div className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="text-xs font-semibold uppercase text-[var(--nl-muted)]">Current conditions</div>
-            <div className="text-xs text-[var(--nl-muted)]">Inputs read daily after market close</div>
-          </div>
-          <div className="grid border-t border-[var(--nl-border)] sm:grid-cols-2 lg:grid-cols-5">
-            {system.conditions.map((condition) => (
-              <ConditionCard key={condition.title} condition={condition} />
-            ))}
-          </div>
-          <div className="grid border-t border-[var(--nl-border)] lg:grid-cols-[minmax(0,0.7fr)_minmax(280px,0.3fr)]">
-            <div className="p-5 lg:p-6">
-              <div className="text-xs font-semibold uppercase text-[var(--nl-muted)]">Logic chain</div>
-              <div className="mt-4">
-                {system.logic.map((item) => (
-                  <LogicRow key={item.label} label={item.label} status={item.status} />
-                ))}
-              </div>
-            </div>
-            <div className="border-t border-[var(--nl-border)] p-5 lg:flex lg:flex-col lg:justify-center lg:border-l lg:border-t-0 lg:px-5 lg:py-6">
-              <div className="text-xs font-semibold uppercase text-[var(--nl-muted)]">System output</div>
-              <div className="mt-7 text-[3.35rem] font-medium uppercase leading-none text-[var(--nl-green)]">{system.result}</div>
-              <p className="mt-5 text-sm leading-6 text-[var(--nl-soft)]">{system.resultCopy}</p>
-            </div>
-          </div>
-          <div className="border-t border-[var(--nl-border)] p-5 lg:px-7 lg:py-5">
-            <div className="mx-auto max-w-[860px]">
-              <div className="text-sm font-medium text-[var(--nl-text)]">These conditions place the market here:</div>
-              <div className="mt-3">
-                <RegimeMap />
-              </div>
-            </div>
-          </div>
-          <Link
-            href={system.cta.href}
-            className="flex flex-col gap-4 border-t border-[var(--nl-border)] bg-[var(--nl-callout)] px-8 py-5 text-[var(--nl-text)] transition hover:bg-[var(--nl-card)] sm:flex-row sm:items-center sm:justify-between"
-          >
-            <span>
-              <span className="block text-xl font-medium">{system.cta.title}</span>
-              <span className="mt-2 block text-sm text-[var(--nl-muted)]">{system.cta.body}</span>
-            </span>
-            <span className="flex items-center gap-4 text-base font-medium">
-              {system.cta.label}
-              <ArrowRight className="size-5" />
-            </span>
-          </Link>
+          <span className="ml-auto hidden shrink-0 rounded-full border border-white/10 bg-white/[0.07] px-5 py-2 text-base text-white/90 md:inline-flex">▥ Live now</span>
         </div>
       </div>
     </section>
   )
 }
 
-function PricingCard() {
-  const { access } = homepageContent
-
+function FeatureCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="flex h-full flex-col rounded-[5px] border border-[var(--nl-border)] bg-[var(--nl-card)] p-6 shadow-none">
-      <div className="flex items-start justify-between gap-4">
-        <div className="text-sm text-[var(--nl-muted)]">Monthly</div>
-        <div className="text-xs text-[var(--nl-muted)]">Cancel anytime</div>
-      </div>
-      <div className="mt-4 flex items-baseline gap-2 text-[var(--nl-text)]">
-        <span className="text-6xl font-medium leading-none">{access.price}</span>
-        <span className="text-lg text-[var(--nl-muted)]">{access.period}</span>
-      </div>
-      <ul className="mt-7 grid gap-3">
-        {access.benefits.map((benefit) => (
-          <li key={benefit} className="flex items-start gap-3 text-sm text-[var(--nl-text)]">
-            <Check className="mt-0.5 size-4 shrink-0 text-[var(--nl-green)]" />
-            {benefit}
-          </li>
-        ))}
-      </ul>
-      <PrimaryButton href={access.cta.href} className="mt-auto h-[52px] w-full translate-y-1">{access.cta.label}</PrimaryButton>
+    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.25)] backdrop-blur">
+      <div className="mb-6 grid size-12 place-items-center rounded-2xl bg-[#0757ff]/15 text-[#3d82ff]">{icon}</div>
+      <h3 className="text-xl font-semibold text-white">{title}</h3>
+      <p className="mt-3 leading-7 text-white/62">{children}</p>
     </div>
   )
 }
 
-function IncludedCard() {
-  const { access } = homepageContent
-
+function Sections() {
   return (
-    <div className="h-full rounded-[5px] border border-[var(--nl-border)] bg-[var(--nl-panel)] p-6 shadow-none">
-      <div className="flex items-start justify-between gap-4">
-        <h3 className="text-base font-semibold text-[var(--nl-text)]">What you get</h3>
-        <span className="text-xs text-[var(--nl-muted)]">Included</span>
-      </div>
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        {access.included.map((item, index) => (
-          <div key={item.title} className="grid min-h-24 grid-cols-[24px_1fr] gap-3 border-t border-[var(--nl-border)] pt-3">
-            <div className="text-sm font-semibold text-[var(--nl-green)]">{String(index + 1).padStart(2, '0')}</div>
-            <div>
-              <div className="text-sm font-semibold text-[var(--nl-text)]">{item.title}</div>
-              <div className="mt-1 text-xs leading-5 text-[var(--nl-muted)]">{item.body}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+    <div className="bg-[#03050b] text-white">
+      <section id="how-it-works" className="mx-auto max-w-[1280px] px-6 py-24 sm:px-10 lg:px-16">
+        <div className="max-w-3xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#f8f200]">How it works</p>
+          <h2 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">A weekly signal designed for calm execution.</h2>
+        </div>
+        <div className="mt-12 grid gap-5 md:grid-cols-3">
+          <FeatureCard icon={<Sparkles className="size-6" />} title="Model reads the tape">Trend, breadth, volatility, liquidity, and regime context are compressed into a simple market bias.</FeatureCard>
+          <FeatureCard icon={<Zap className="size-6" />} title="Published before the open">You get the trade direction before Monday opens, so you are not chasing noise in real time.</FeatureCard>
+          <FeatureCard icon={<Check className="size-6" />} title="One clear action">Long, defensive, or neutral. The page is built around clarity rather than another crowded dashboard.</FeatureCard>
+        </div>
+      </section>
 
-function AccessSection() {
-  const { access } = homepageContent
-
-  return (
-    <section id="access">
-      <div className="mx-auto grid w-full max-w-[1280px] items-stretch gap-5 px-5 py-10 md:px-10 lg:grid-cols-[minmax(240px,0.8fr)_minmax(300px,0.86fr)_minmax(480px,1.34fr)]">
-        <div className="flex h-full flex-col justify-between border-y border-[var(--nl-border)] py-6">
+      <section id="performance" className="border-y border-white/10 bg-white/[0.025]">
+        <div className="mx-auto grid max-w-[1280px] gap-10 px-6 py-24 sm:px-10 lg:grid-cols-[0.85fr_1.15fr] lg:px-16">
           <div>
-            <h2 className="max-w-[24rem] text-3xl font-medium leading-tight text-[var(--nl-text)] md:text-[2.35rem]">{access.headline}</h2>
-            <p className="mt-4 max-w-[22rem] text-xl leading-8 text-[var(--nl-soft)]">{access.subhead}</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#f8f200]">Performance</p>
+            <h2 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">Built to make the big weeks obvious.</h2>
+            <p className="mt-6 text-lg leading-8 text-white/62">The visual system from your mockup is now the front door: live-looking signal state, confidence, model, bias, and a market tape.</p>
           </div>
-          <div className="mt-8 text-sm text-[var(--nl-muted)]">
-            Current signal, full system view, historical record.
+          <div className="rounded-[32px] border border-white/10 bg-[#060b16] p-6 shadow-[0_30px_90px_rgba(0,0,0,0.35)]">
+            <div className="mb-5 flex items-center justify-between text-sm text-white/55">
+              <span>Weekly signal curve</span>
+              <span className="text-[#75ff17]">Bullish week</span>
+            </div>
+            <div className="h-72"><PriceChart /></div>
           </div>
         </div>
-        <PricingCard />
-        <IncludedCard />
-      </div>
-    </section>
+      </section>
+
+      <section id="method" className="mx-auto max-w-[1280px] px-6 py-24 sm:px-10 lg:px-16">
+        <div className="grid gap-5 md:grid-cols-3">
+          <FeatureCard icon={<Activity className="size-6" />} title="Signal discipline">A fixed publication cadence keeps the decision process separate from intraday emotion.</FeatureCard>
+          <FeatureCard icon={<BarChart3 className="size-6" />} title="Market context">The screen emphasizes confidence and bias instead of burying the signal in dozens of indicators.</FeatureCard>
+          <FeatureCard icon={<CircleDollarSign className="size-6" />} title="Trade simplicity">Optimized for one high-conviction weekly decision rather than constant tinkering.</FeatureCard>
+        </div>
+      </section>
+
+      <section id="pricing" className="border-t border-white/10 bg-[radial-gradient(circle_at_50%_0%,rgba(7,87,255,0.22),transparent_38%)] px-6 py-24 text-center sm:px-10">
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#f8f200]">Pricing</p>
+        <h2 className="mx-auto mt-4 max-w-3xl text-4xl font-black tracking-tight md:text-6xl">Join the lounge before next Sunday.</h2>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-white/62">Keep the paid flow connected to your existing sign-up and screener pages.</p>
+        <Link href="/sign-up" className="mt-10 inline-flex h-14 items-center justify-center gap-3 rounded-full bg-white px-8 font-semibold text-[#03050b] transition hover:scale-[1.02]">
+          Join the lounge <ArrowRight className="size-5" />
+        </Link>
+      </section>
+
+      <section id="faq" className="mx-auto max-w-[980px] px-6 py-24 sm:px-10">
+        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#f8f200]">FAQ</p>
+        <div className="mt-8 space-y-4">
+          {[['When is the signal sent?', 'Every Sunday before the market opens, matching the promise in the hero.'], ['What does the signal show?', 'Direction, confidence, model version, market bias, and the current weekly tape.'], ['Can I still use the app?', 'Yes — the main CTA routes to your screener and the account CTA routes to sign-up.']].map(([q, a]) => (
+            <div key={q} className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+              <h3 className="text-lg font-semibold">{q}</h3>
+              <p className="mt-2 text-white/62">{a}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
   )
 }
 
 export default function MarketingHomePage() {
   return (
-    <div className="nl-page-bg min-h-screen bg-[var(--nl-bg)] text-[var(--nl-text)]">
-      <HomepageHeader />
-      <main>
-        <HeroSection />
-        <ProblemSection />
-        <EvidenceSection />
-        <ProductPreviewSection />
-        <AccessSection />
-      </main>
-    </div>
+    <main className="min-h-screen bg-[#03050b]">
+      <Hero />
+      <Sections />
+    </main>
   )
 }
