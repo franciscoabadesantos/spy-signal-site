@@ -54,7 +54,7 @@ function TickerTape() {
   ] as const
 
   return (
-    <div className="absolute inset-x-6 bottom-5 z-20 hidden overflow-hidden rounded-full border border-white/35 bg-white/18 py-3 text-slate-950 shadow-[0_16px_56px_rgba(18,36,54,0.12)] backdrop-blur-xl dark:border-white/12 dark:bg-white/[0.045] dark:text-white dark:shadow-[0_18px_70px_rgba(0,0,0,0.45)] lg:block">
+    <div className="absolute inset-x-6 bottom-8 z-20 hidden overflow-hidden rounded-full border border-white/35 bg-white/18 py-3 text-slate-950 shadow-[0_16px_56px_rgba(18,36,54,0.12)] backdrop-blur-xl dark:border-white/12 dark:bg-white/[0.045] dark:text-white dark:shadow-[0_18px_70px_rgba(0,0,0,0.45)] lg:block">
       <div className="mr-36 overflow-hidden">
         <div className="marketing-ticker-track flex w-max items-center gap-9 whitespace-nowrap px-6 text-sm xl:text-base">
           {[...tickers, ...tickers].map(([symbol, price, move, moveClass], index) => (
@@ -106,11 +106,11 @@ function Hero() {
             Signal <span className="block text-[#0757ff]">before</span>
             <span className="block">the open<span className="text-[#0757ff]">.</span></span>
           </h1>
-          <p className="mt-4 max-w-lg text-base leading-7 text-slate-700 dark:text-white md:text-lg">
+          <p className="mt-6 max-w-lg text-base leading-7 text-slate-700 dark:text-white md:text-lg">
             AI-driven signals. One trade.<br />
             Every Sunday before the market opens.
           </p>
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
             <Link href="/screener" className="group inline-flex h-[52px] items-center justify-center gap-3 rounded-xl bg-[#0757ff] px-6 font-semibold text-white shadow-[0_0_36px_rgba(7,87,255,0.3)] transition duration-200 ease-out hover:-translate-y-1 hover:scale-[1.015] hover:bg-[#1a66ff] hover:shadow-[0_18px_52px_rgba(7,87,255,0.38)] active:translate-y-0 active:scale-[0.96]">
               See this week&apos;s signal <ArrowRight className="size-5 transition-transform duration-200 group-hover:translate-x-1.5" />
             </Link>
