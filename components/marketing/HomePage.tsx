@@ -83,7 +83,7 @@ function Hero() {
       <div className="absolute inset-x-0 bottom-0 -z-10 h-48 bg-gradient-to-t from-[#f1e9de] via-[#f1e9de]/48 to-transparent dark:from-[#00040a] dark:via-[#00040a]/58" />
 
       <header className="relative z-30 mx-auto flex max-w-[1500px] items-center justify-between px-6 py-6 sm:px-10 lg:px-14">
-        <Link href="/" className="flex items-center gap-3 text-xl font-extrabold tracking-tight md:text-2xl">
+        <Link href="/" className="marketing-logo-type flex items-center gap-3 text-xl tracking-normal md:text-2xl">
           <span>lb</span>
           <span className="text-[#ffb000]">/</span>
           <span>signal</span>
@@ -102,11 +102,11 @@ function Hero() {
 
       <div className="relative z-20 mx-auto grid max-w-[1760px] gap-8 px-6 pb-32 pt-2 sm:px-10 md:min-h-[600px] md:grid-cols-[0.78fr_1.22fr] md:items-start md:pb-24 md:pt-8 lg:px-14">
         <div className="max-w-[520px]">
-          <h1 className="text-[clamp(3rem,6.8vw,5.5rem)] font-extrabold leading-[0.96] text-slate-950 drop-shadow-[0_8px_24px_rgba(255,255,255,0.18)] dark:text-white dark:drop-shadow-[0_8px_28px_rgba(255,255,255,0.08)]">
+          <h1 className="marketing-hero-type text-[clamp(3rem,6.8vw,5.5rem)] leading-[0.96] text-slate-950 drop-shadow-[0_8px_24px_rgba(255,255,255,0.18)] dark:text-white dark:drop-shadow-[0_8px_28px_rgba(255,255,255,0.08)]">
             Signal <span className="block text-[#0757ff]">before</span>
             <span className="block">the open<span className="text-[#0757ff]">.</span></span>
           </h1>
-          <p className="mt-4 max-w-lg text-base leading-7 text-slate-700 dark:text-[#fff4c8] md:text-lg">
+          <p className="mt-4 max-w-lg text-base leading-7 text-slate-700 dark:text-white md:text-lg">
             AI-driven signals. One trade.<br />
             Every Sunday before the market opens.
           </p>

@@ -473,6 +473,19 @@
     animation: marketing-ticker-scroll 26s linear infinite;
   }
 
+  .marketing-logo-type,
+  .marketing-hero-type {
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .marketing-logo-type {
+    font-weight: 700;
+  }
+
+  .marketing-hero-type {
+    font-weight: 900;
+  }
+
   @keyframes marketing-ticker-scroll {
     from {
       transform: translateX(0);
