@@ -132,7 +132,7 @@ function TickerTape() {
 
   return (
     <div className="absolute inset-x-6 bottom-5 z-20 hidden overflow-hidden rounded-full border border-white/35 bg-white/18 py-3 text-slate-950 shadow-[0_16px_56px_rgba(18,36,54,0.12)] backdrop-blur-xl dark:border-white/12 dark:bg-white/[0.045] dark:text-white dark:shadow-[0_18px_70px_rgba(0,0,0,0.45)] lg:block">
-      <div className="marketing-ticker-track flex w-max items-center gap-9 whitespace-nowrap px-6 text-sm xl:text-base">
+      <div className="marketing-ticker-track flex w-max items-center gap-9 whitespace-nowrap px-6 pr-44 text-sm xl:text-base">
         {[...tickers, ...tickers].map(([symbol, price, move, moveClass], index) => (
           <div key={`${symbol}-${index}`} className="flex items-center gap-4 whitespace-nowrap">
             <span className="size-2 rounded-full bg-[#0757ff] shadow-[0_0_16px_rgba(7,87,255,0.9)]" />
@@ -141,6 +141,10 @@ function TickerTape() {
             <span className={moveClass}>{move}</span>
           </div>
         ))}
+      </div>
+      <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 rounded-full border border-white/28 bg-white/24 px-4 py-2 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_12px_28px_rgba(0,0,0,0.16)] backdrop-blur-2xl dark:border-white/12 dark:bg-white/[0.08] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_30px_rgba(0,0,0,0.38)]">
+        <Activity className="size-4" aria-hidden="true" />
+        <span>Live now</span>
       </div>
     </div>
   )
@@ -166,12 +170,12 @@ function Hero() {
             </Link>
           ))}
         </nav>
-        <Link href="/sign-up" className="hidden items-center gap-3 rounded-full border border-white/45 bg-white/24 px-5 py-3 text-sm font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_12px_34px_rgba(24,36,48,0.09)] backdrop-blur-2xl transition hover:bg-white/38 dark:border-white/14 dark:bg-white/9 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] dark:hover:bg-white/14 sm:flex md:text-base">
-          Join the lounge <ArrowRight className="size-5" />
+        <Link href="/sign-up" className="group hidden items-center gap-3 rounded-full border border-white/45 bg-white/24 px-5 py-3 text-sm font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_12px_34px_rgba(24,36,48,0.09)] backdrop-blur-2xl transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-white/38 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.58),0_18px_42px_rgba(24,36,48,0.14)] active:translate-y-0 active:scale-[0.97] dark:border-white/14 dark:bg-white/9 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] dark:hover:bg-white/14 sm:flex md:text-base">
+          Join the lounge <ArrowRight className="size-5 transition-transform duration-200 group-hover:translate-x-1" />
         </Link>
       </header>
 
-      <div className="relative z-20 mx-auto grid max-w-[1500px] gap-8 px-6 pb-32 pt-10 sm:px-10 md:min-h-[720px] md:grid-cols-[0.78fr_1.22fr] md:items-center md:pb-28 md:pt-12 lg:px-14">
+      <div className="relative z-20 mx-auto grid max-w-[1760px] gap-8 px-6 pb-32 pt-10 sm:px-10 md:min-h-[720px] md:grid-cols-[0.78fr_1.22fr] md:items-center md:pb-28 md:pt-12 lg:px-14">
         <div className="max-w-[560px]">
           <h1 className="text-[clamp(3.4rem,8vw,6.5rem)] font-extrabold leading-[0.94] text-slate-950 drop-shadow-[0_8px_24px_rgba(255,255,255,0.18)] dark:text-white dark:drop-shadow-[0_8px_28px_rgba(255,255,255,0.08)]">
             Signal <span className="block text-[#0757ff]">before</span>
@@ -182,10 +186,10 @@ function Hero() {
             Every Sunday before the market opens.
           </p>
           <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Link href="/screener" className="inline-flex h-[52px] items-center justify-center gap-3 rounded-xl bg-[#0757ff] px-6 font-semibold text-white shadow-[0_0_36px_rgba(7,87,255,0.3)] transition hover:scale-[1.02]">
-              See this week&apos;s signal <ArrowRight className="size-5" />
+            <Link href="/screener" className="group inline-flex h-[52px] items-center justify-center gap-3 rounded-xl bg-[#0757ff] px-6 font-semibold text-white shadow-[0_0_36px_rgba(7,87,255,0.3)] transition duration-200 ease-out hover:-translate-y-1 hover:scale-[1.015] hover:bg-[#1a66ff] hover:shadow-[0_18px_52px_rgba(7,87,255,0.38)] active:translate-y-0 active:scale-[0.96]">
+              See this week&apos;s signal <ArrowRight className="size-5 transition-transform duration-200 group-hover:translate-x-1.5" />
             </Link>
-            <Link href="#how-it-works" className="inline-flex h-[52px] items-center justify-center border-b-2 border-[#f8f200] px-1 text-base text-slate-950 transition hover:text-[#0757ff] dark:text-white dark:hover:text-[#fff4c8]">
+            <Link href="#how-it-works" className="inline-flex h-[52px] items-center justify-center border-b-2 border-[#f8f200] px-1 text-base text-slate-950 transition duration-200 ease-out hover:-translate-y-0.5 hover:text-[#0757ff] active:translate-y-0 active:scale-[0.97] dark:text-white dark:hover:text-[#fff4c8]">
               How it works
             </Link>
           </div>
