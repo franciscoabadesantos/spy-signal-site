@@ -143,8 +143,8 @@ export async function generateMetadata({
   const name = quote?.name || ticker
 
   return {
-    title: `${ticker} Holdings, Dividends & Sector Weights - SpySignal`,
-    description: `Explore top holdings, sector exposure, and dividend metrics for ${name} (${ticker}) on SpySignal.`,
+    title: `${ticker} Holdings, Dividends & Sector Weights - Longbrunch`,
+    description: `Explore top holdings, sector exposure, and dividend metrics for ${name} (${ticker}) on Longbrunch.`,
   }
 }
 

@@ -19,7 +19,7 @@ export default function Card({
   return (
     <div
       className={cn(
-        'surface-secondary text-content-primary',
+        'surface-secondary relative overflow-hidden text-content-primary',
         paddingClass(padding),
         className
       )}

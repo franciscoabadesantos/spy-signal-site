@@ -3,9 +3,9 @@ import MethodologyPage from '@/components/marketing/MethodologyPage'
 
 export const metadata: Metadata = {
   title: 'Method | Longbrunch',
-  description: 'How Longbrunch turns market context into one weekly SPY decision.',
+  description: 'Read the Longbrunch method and how the weekly read is built.',
 }
 
-export default function Methodology() {
+export default function Method() {
   return <MethodologyPage />
 }

@@ -169,7 +169,7 @@ export async function sendSignalFlipAlertEmail({
         </thead>
         <tbody>${rowsHtml}</tbody>
       </table>
-      <p style="margin-top:16px;">Review details in your dashboard: <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard">SpySignal Dashboard</a></p>
+      <p style="margin-top:16px;">Review details in your dashboard: <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard">Longbrunch Dashboard</a></p>
     </div>
   `
 

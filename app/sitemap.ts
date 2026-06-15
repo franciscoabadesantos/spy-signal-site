@@ -43,25 +43,6 @@ function readTicker(row: Record<string, unknown>): string | null {
   return candidate ?? null
 }
 
-function readSignalDate(row: Record<string, unknown>): string | null {
-  return (
-    readString(row.signal_date) ??
-    readString(row.as_of_date) ??
-    readString(row.date) ??
-    readString(row.updated_at)
-  )
-}
-
-function newerDate(current: string | null, incoming: string | null): string | null {
-  if (!incoming) return current
-  if (!current) return incoming
-  const currentMs = Date.parse(current)
-  const incomingMs = Date.parse(incoming)
-  if (!Number.isFinite(incomingMs)) return current
-  if (!Number.isFinite(currentMs)) return incoming
-  return incomingMs > currentMs ? incoming : current
-}
-
 function backendBaseUrl(): string {
   const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
   return raw.trim().replace(/\/+$/, '')
@@ -214,6 +195,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
+      url: `${baseUrl}/how-it-works`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/method`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    {
       url: `${baseUrl}/methodology`,
       lastModified: now,
       changeFrequency: 'monthly',
@@ -221,6 +214,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${baseUrl}/pricing`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/faq`,
       lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.6,

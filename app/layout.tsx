@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Northline Signal | Systematic Market Exposure",
-  description: "A daily, rule-based market exposure system built to remove emotion and guesswork.",
+  title: "Longbrunch | Signal Before The Open",
+  description: "AI-driven weekly SPY signals built for one clear decision before the open.",
 };
 
 export default function RootLayout({

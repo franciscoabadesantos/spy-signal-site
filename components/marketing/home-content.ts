@@ -1,18 +1,18 @@
 export const homepageContent = {
-  brand: 'Northline Signal',
+  brand: 'Longbrunch',
   nav: [
-    { label: 'How it works', href: '#problem' },
+    { label: 'How it works', href: '/how-it-works' },
     { label: 'Performance', href: '/performance' },
-    { label: 'Methodology', href: '/methodology' },
+    { label: 'Method', href: '/method' },
     { label: 'Pricing', href: '/pricing' },
-    { label: 'About', href: '/about' },
+    { label: 'FAQ', href: '/faq' },
   ],
   hero: {
     eyebrow: '1. The Answer',
     headline: ['One question.', 'One answer.', 'Every day.'],
     body: 'System output: S&P 500 exposure signal. Updated daily. No discretion.',
     primaryCta: { label: 'View current signal', href: '/stocks/SPY' },
-    secondaryCta: { label: 'See how it works', href: '#problem' },
+    secondaryCta: { label: 'See how it works', href: '/how-it-works' },
     snapshot: {
       label: 'Current signal',
       status: 'Allocated',
@@ -52,14 +52,14 @@ export const homepageContent = {
       },
     ],
     callout:
-      'Northline Signal removes emotion and guesswork, giving you a clear, systematic read on exposure.',
+      'Longbrunch removes emotion and guesswork, giving you a clear, systematic read on exposure.',
     calloutAside: 'Built for investors who want a system, not speculation.',
   },
   evidence: {
     eyebrow: '3. The Evidence',
     headline: 'A consistent process. Through every kind of market.',
     body: [
-      'Northline Signal has been running live since January 2018.',
+      'Longbrunch has been running live since January 2018.',
       'A systematic signal for market exposure, shown here on the S&P 500.',
       'The same rules are applied through every market regime.',
     ],
@@ -149,7 +149,7 @@ export const homepageContent = {
       title: 'See where these readings place the market',
       body: 'Explore the full condition space and regime analysis.',
       label: 'View full condition space',
-      href: '/methodology',
+      href: '/method',
     },
   },
   access: {

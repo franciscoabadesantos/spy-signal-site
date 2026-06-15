@@ -3,8 +3,8 @@ import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
 import AboutPage from '@/components/marketing/AboutPage'
 
 export const metadata: Metadata = {
-  title: 'About | Northline Signal',
-  description: 'Learn about Northline Signal, a systematic market exposure signal built for clarity and discipline.',
+  title: 'About | Longbrunch',
+  description: 'Learn about Longbrunch and the product principles behind the weekly signal.',
 }
 
 export default function About() {

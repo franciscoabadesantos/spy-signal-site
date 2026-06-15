@@ -109,7 +109,7 @@ export default async function DashboardPage() {
   return (
     <div className="section-gap">
         <PageHeader
-          title="Watchlist"
+          title="Dashboard"
           subtitle="Track live model stance, conviction, and flip cadence for the assets you follow."
           action={
             <Link href="/screener" className={buttonClass({ variant: 'secondary' })}>

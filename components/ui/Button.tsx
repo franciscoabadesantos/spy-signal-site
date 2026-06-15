@@ -6,11 +6,11 @@ type ButtonSize = 'sm' | 'md'
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'border border-transparent bg-primary text-primary-foreground hover:bg-[var(--accent-600)]',
+    'border border-[#f5df57]/45 bg-[linear-gradient(180deg,rgba(245,223,87,0.22),rgba(245,223,87,0.12))] text-[#fff8cc] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_18px_42px_rgba(245,223,87,0.08)] backdrop-blur-xl hover:border-[#ffe97d]/58 hover:bg-[linear-gradient(180deg,rgba(245,223,87,0.28),rgba(245,223,87,0.16))] hover:text-white',
   secondary:
-    'border border-border bg-surface-card text-content-primary hover:border-primary/40 hover:bg-surface-hover',
+    'border border-white/12 bg-white/[0.06] text-content-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-xl hover:border-white/18 hover:bg-white/[0.1]',
   ghost:
-    'border border-transparent text-content-secondary hover:bg-surface-hover hover:text-content-primary',
+    'border border-transparent text-content-secondary hover:bg-white/[0.06] hover:text-content-primary',
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -28,7 +28,7 @@ export function buttonClass({
   size = 'md',
 }: ButtonClassOptions = {}): string {
   return cn(
-    'state-interactive inline-flex items-center justify-center rounded-[var(--radius-md)] font-medium duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg disabled:pointer-events-none disabled:cursor-not-allowed',
+    'state-interactive inline-flex items-center justify-center rounded-full font-medium duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg disabled:pointer-events-none disabled:cursor-not-allowed',
     variantClasses[variant],
     sizeClasses[size]
   )

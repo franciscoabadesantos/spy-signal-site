@@ -8,7 +8,8 @@ type DashboardLayoutProps = {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="container-md section-gap">
-      <div className="surface-tertiary flex flex-wrap items-center gap-2 p-2.5">
+      <div className="sticky top-[5.8rem] z-20 rounded-[26px] border border-white/10 bg-white/[0.05] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-[26px]">
+        <div className="flex flex-wrap items-center gap-2">
         <Link href="/dashboard" className={buttonClass({ variant: 'ghost', size: 'sm' })}>
           Overview
         </Link>
@@ -21,6 +22,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Link href="/dashboard/alerts" className={buttonClass({ variant: 'ghost', size: 'sm' })}>
           Alerts
         </Link>
+        </div>
       </div>
       {children}
     </div>

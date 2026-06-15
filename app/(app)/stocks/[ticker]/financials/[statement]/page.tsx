@@ -210,7 +210,7 @@ export async function generateMetadata({
   const name = quote?.name || ticker
 
   return {
-    title: `${ticker} ${sectionName} - SpySignal`,
+    title: `${ticker} ${sectionName} - Longbrunch`,
     description: `${sectionName} for ${name} (${ticker}), including ETF profile, portfolio metrics, distributions, and risk data.`,
   }
 }

@@ -1,4 +1,5 @@
 import Badge from '@/components/ui/Badge'
+import { HandScript } from '@/components/marketing/site-chrome'
 
 type StockSignalTone = 'bullish' | 'bearish' | 'neutral'
 
@@ -56,6 +57,10 @@ export default function StockHeader({
             <Badge variant={signalVariant(signal.tone)}>{signal.label}</Badge>
           ) : null}
         </div>
+
+        <HandScript className="mt-2 block text-[1.9rem] leading-none text-[#7d8cff]">
+          Live tape. Real calm.
+        </HandScript>
 
         {price !== null && price !== undefined ? (
           <div className="mt-2 flex flex-wrap items-end gap-3">

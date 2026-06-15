@@ -116,8 +116,8 @@ export async function generateMetadata({
   const name = quote?.name || ticker
 
   return {
-    title: `${ticker} Signal History - SpySignal`,
-    description: `Daily model stance and conviction history for ${name} (${ticker}) from the SpySignal predictive system.`,
+    title: `${ticker} Signal History - Longbrunch`,
+    description: `Daily model stance and conviction history for ${name} (${ticker}) from the Longbrunch predictive system.`,
   }
 }
 

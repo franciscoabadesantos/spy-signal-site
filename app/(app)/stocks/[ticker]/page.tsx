@@ -611,7 +611,7 @@ export async function generateMetadata({
   const name = quote?.name || ticker
 
   return {
-    title: `${ticker} Stock Price, Target, Signals & Overview - SpySignal`,
+    title: `${ticker} Stock Price, Target, Signals & Overview - Longbrunch`,
     description: `Real-time price, algorithmic trading signals, and predictive data for ${name} (${ticker}). View conviction scores, performance, and key statistics.`,
   }
 }

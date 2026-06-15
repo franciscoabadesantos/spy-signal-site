@@ -1,38 +1,49 @@
 import Link from 'next/link'
+import { Caveat } from 'next/font/google'
+import { BRAND_NAME, FOOTER_SECONDARY_LINKS, MARKETING_NAV_ITEMS } from '@/components/marketing/site-config'
+
+const caveat = Caveat({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+})
 
 export default function SiteFooter() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="mt-auto border-t border-[var(--nl-border)] bg-[var(--nl-bg)] text-[var(--nl-muted)]">
-      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-5 py-8 md:px-10">
-        <div className="flex flex-col gap-7 md:flex-row md:items-end md:justify-between">
+    <footer className="mt-auto border-t border-white/10 bg-[#02050d] text-white/72">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-5 py-10 md:px-10">
+        <div className="flex flex-col gap-7 md:flex-row md:items-start md:justify-between">
           <div>
-            <Link href="/" className="flex items-center gap-3 text-sm font-semibold uppercase text-[var(--nl-text)]">
-              <span className="inline-flex size-6 items-center justify-center rounded-full border-2 border-[var(--nl-green)]">
-                <span className="size-2.5 rounded-full bg-[var(--nl-green)]" />
-              </span>
-              Northline Signal
+            <Link href="/" className="marketing-logo-type flex items-center gap-3 text-lg font-semibold text-white">
+              <span>lb</span>
+              <span className="text-[#ff8b2b]">/</span>
+              <span>longbrunch</span>
             </Link>
-            <p className="mt-3 max-w-sm text-sm leading-6">
-              A systematic market exposure signal for the S&P 500.
+            <p className="mt-3 max-w-sm text-sm leading-6 text-white/58">
+              AI-driven weekly SPY signals built for one clear decision before the open.
+            </p>
+            <p className={`${caveat.className} mt-4 text-3xl leading-none text-[#7d8cff]`}>
+              Signal before the open.
             </p>
           </div>
-          <nav className="flex flex-wrap gap-x-9 gap-y-3 text-sm">
-            <Link href="/#problem" className="transition hover:text-[var(--nl-text)]">How it works</Link>
-            <Link href="/performance" className="transition hover:text-[var(--nl-text)]">Performance</Link>
-            <Link href="/methodology" className="transition hover:text-[var(--nl-text)]">Methodology</Link>
-            <Link href="/pricing" className="transition hover:text-[var(--nl-text)]">Pricing</Link>
-            <Link href="/about" className="transition hover:text-[var(--nl-text)]">About</Link>
+          <nav className="flex max-w-[34rem] flex-wrap gap-x-6 gap-y-3 text-sm text-white/72">
+            {MARKETING_NAV_ITEMS.map((item) => (
+              <Link key={item.href} href={item.href} className="transition hover:text-white">
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
-        <div className="flex flex-col gap-4 border-t border-[var(--nl-border)] pt-6 text-xs md:flex-row md:items-center md:justify-between">
-          <div className="flex gap-7">
-            <Link href="/privacy" className="transition hover:text-[var(--nl-text)]">Privacy</Link>
-            <Link href="/terms" className="transition hover:text-[var(--nl-text)]">Terms</Link>
-            <Link href="/contact" className="transition hover:text-[var(--nl-text)]">Contact</Link>
+        <div className="flex flex-col gap-4 border-t border-white/10 pt-6 text-xs md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap gap-7">
+            {FOOTER_SECONDARY_LINKS.map((item) => (
+              <Link key={item.href} href={item.href} className="transition hover:text-white">
+                {item.label}
+              </Link>
+            ))}
           </div>
-          <span>© {year} Northline Signal. All rights reserved.</span>
+          <span>© {year} {BRAND_NAME}. All rights reserved.</span>
         </div>
       </div>
     </footer>

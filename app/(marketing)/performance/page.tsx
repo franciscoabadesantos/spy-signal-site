@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import PerformancePage from '@/components/marketing/PerformancePage'
 
 export const metadata: Metadata = {
-  title: 'Performance | Northline Signal',
-  description: 'Northline Signal live performance, key metrics, and behavior across market cycles.',
+  title: 'Performance | Longbrunch',
+  description: 'Longbrunch performance, cycle behavior, and weekly execution framing.',
 }
 
 export default function Performance() {

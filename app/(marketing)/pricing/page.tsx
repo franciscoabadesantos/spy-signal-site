@@ -3,8 +3,8 @@ import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
 import PricingPage from '@/components/marketing/PricingPage'
 
 export const metadata: Metadata = {
-  title: 'Pricing | Northline Signal',
-  description: 'Simple monthly pricing for full access to Northline Signal.',
+  title: 'Pricing | Longbrunch',
+  description: 'Simple pricing for full access to the Longbrunch weekly workflow.',
 }
 
 export default function Pricing() {
