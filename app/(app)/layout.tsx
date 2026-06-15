@@ -1,4 +1,5 @@
 import NavRouteAware from '@/components/NavRouteAware'
+import { sharedHeaderOffsetClass } from '@/components/marketing/site-chrome'
 
 type AppLayoutProps = {
   children: React.ReactNode
@@ -40,7 +41,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         />
       </svg>
       <NavRouteAware />
-      <main className="relative z-10 pt-[6.5rem] pb-8 section-gap">{children}</main>
+      <main className={`relative z-10 ${sharedHeaderOffsetClass} pb-8 section-gap`}>{children}</main>
     </div>
   )
 }

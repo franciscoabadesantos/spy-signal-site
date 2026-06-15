@@ -1,4 +1,5 @@
 import Nav, { type NavSection } from '@/components/Nav'
+import { sharedHeaderOffsetClass } from '@/components/marketing/site-chrome'
 import { cn } from '@/lib/utils'
 
 type AppShellProps = {
@@ -23,7 +24,7 @@ export default function AppShell({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Nav active={active} />
-      <main className={cn(containerClass(container), 'py-8 section-gap', className)}>
+      <main className={cn(containerClass(container), sharedHeaderOffsetClass, 'pb-8 section-gap', className)}>
         {controls ? <div>{controls}</div> : null}
         <div>{children}</div>
       </main>

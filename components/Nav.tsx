@@ -3,9 +3,15 @@
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import BrandHomeMenu from '@/components/BrandHomeMenu'
-import { HandScript } from '@/components/marketing/site-chrome'
+import {
+  HandScript,
+  sharedHeaderDesktopSearchClass,
+  sharedHeaderInnerClass,
+  sharedHeaderMenuShellClass,
+  sharedHeaderMobileSearchClass,
+  sharedHeaderShellClass,
+} from '@/components/marketing/site-chrome'
 import HeaderSearch from '@/components/HeaderSearch'
-import { buttonClass } from '@/components/ui/Button'
 
 export type NavSection = 'stocks' | 'dashboard' | 'screener' | 'models' | 'performance' | 'methodology'
 
@@ -17,11 +23,15 @@ const NavAuthControls = dynamic(() => import('./NavAuthControls'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center gap-3">
-      <HandScript className="hidden text-[1.35rem] leading-none text-[#7d8cff] xl:block">
-        Live tape.
-      </HandScript>
-      <Link href="/sign-up" className={buttonClass({ variant: 'primary', size: 'sm' })}>
-        Join the lounge
+      <HandScript className="hidden text-[1.35rem] leading-none text-[#7d8cff] xl:block">Live tape.</HandScript>
+      <Link
+        href="/sign-up"
+        className="group relative inline-flex items-center rounded-full px-2 py-1 text-[1.22rem] leading-none text-[#ffb46a] transition duration-200 hover:text-[#ffd3a3] dark:text-[#ffc27f] dark:hover:text-[#ffe1ba]"
+      >
+        <HandScript className="relative z-10 transition duration-200 group-hover:-rotate-[2deg] group-hover:scale-[1.04]">
+          Join the lounge
+        </HandScript>
+        <span className="pointer-events-none absolute inset-x-2 bottom-0 h-px origin-left scale-x-0 bg-current/70 transition duration-300 group-hover:scale-x-100" />
       </Link>
     </div>
   ),
@@ -31,26 +41,26 @@ export default function Nav({ active }: NavProps) {
   return (
     <header
       data-section={active ?? undefined}
-      className="fixed inset-x-0 top-0 z-[80] border-b border-white/8 bg-[#020611]/58 backdrop-blur-[28px] saturate-[1.8]"
+      className={sharedHeaderShellClass}
     >
-      <div className="container-lg py-3">
-        <div className="flex h-[48px] items-center justify-between gap-5">
+      <div className={sharedHeaderInnerClass}>
+        <div className="flex items-center justify-between gap-4">
           <BrandHomeMenu
-            textClassName="text-content-primary"
-            menuShellClassName="border border-white/8 bg-[#020611]/58 backdrop-blur-[28px] saturate-[1.8]"
+            textClassName="text-slate-950 dark:text-white"
+            menuShellClassName={sharedHeaderMenuShellClass}
           />
 
           <div className="hidden min-w-0 flex-1 md:block">
-            <HeaderSearch className="ml-auto w-full max-w-[520px] lg:max-w-[480px]" />
+            <HeaderSearch className={sharedHeaderDesktopSearchClass} />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <NavAuthControls />
           </div>
         </div>
 
         <div className="mt-3 md:hidden">
-          <HeaderSearch className="mx-auto w-full max-w-[680px]" />
+          <HeaderSearch className={sharedHeaderMobileSearchClass} />
         </div>
       </div>
     </header>

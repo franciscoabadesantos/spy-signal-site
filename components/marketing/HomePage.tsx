@@ -80,10 +80,10 @@ function TickerTape() {
 
 function Hero() {
   return (
-    <section className="relative min-h-screen overflow-hidden bg-[#f1e9de] text-slate-950 dark:bg-[#00040a] dark:text-white">
+    <section className="relative min-h-screen overflow-hidden bg-white text-slate-950 dark:bg-[#00040a] dark:text-white">
       <HeroBackground />
-      <div className="absolute inset-0 z-10 bg-[linear-gradient(90deg,rgba(241,233,222,0.72)_0%,rgba(241,233,222,0.38)_28%,rgba(241,233,222,0.06)_54%,rgba(241,233,222,0)_100%)] dark:bg-[linear-gradient(90deg,rgba(0,4,10,0.7)_0%,rgba(0,4,10,0.34)_28%,rgba(0,4,10,0.06)_56%,rgba(0,4,10,0)_100%)]" />
-      <div className="absolute inset-x-0 bottom-0 z-10 h-40 bg-gradient-to-t from-[#f1e9de] via-[#f1e9de]/28 to-transparent dark:from-[#00040a] dark:via-[#00040a]/34" />
+      <div className="absolute inset-0 z-10 bg-[linear-gradient(90deg,rgba(255,255,255,0.82)_0%,rgba(255,255,255,0.52)_28%,rgba(255,255,255,0.12)_54%,rgba(255,255,255,0)_100%)] dark:bg-[linear-gradient(90deg,rgba(0,4,10,0.7)_0%,rgba(0,4,10,0.34)_28%,rgba(0,4,10,0.06)_56%,rgba(0,4,10,0)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 z-10 h-40 bg-gradient-to-t from-white via-white/36 to-transparent dark:from-[#00040a] dark:via-[#00040a]/34" />
 
       <MarketingHeader activeHref="/" />
       <div className="h-[100px] md:h-[72px]" aria-hidden="true" />
@@ -102,7 +102,7 @@ function Hero() {
             <Link href="/screener" className="group inline-flex h-[52px] items-center justify-center gap-3 rounded-xl bg-[#0757ff] px-6 font-semibold text-white shadow-[0_0_36px_rgba(7,87,255,0.3)] transition duration-200 ease-out hover:-translate-y-1 hover:scale-[1.015] hover:bg-[#1a66ff] hover:shadow-[0_18px_52px_rgba(7,87,255,0.38)] active:translate-y-0 active:scale-[0.96]">
               See this week&apos;s signal <ArrowRight className="size-5 transition-transform duration-200 group-hover:translate-x-1.5" />
             </Link>
-            <Link href="/how-it-works" className="inline-flex h-[52px] items-center justify-center border-b-2 border-[#f8f200] px-1 text-base text-slate-950 transition duration-200 ease-out hover:-translate-y-0.5 hover:text-[#0757ff] active:translate-y-0 active:scale-[0.97] dark:text-white dark:hover:text-[#fff4c8]">
+            <Link href="/how-it-works" className="inline-flex h-[52px] items-center justify-center border-b-2 border-slate-950/16 px-1 text-base text-slate-950 transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#0757ff]/28 hover:text-[#0757ff] active:translate-y-0 active:scale-[0.97] dark:border-[#f8f200] dark:text-white dark:hover:text-[#fff4c8]">
               How it works
             </Link>
           </div>
@@ -127,7 +127,7 @@ function FeatureCard({ icon, title, children }: { icon: React.ReactNode; title: 
 
 function Sections() {
   return (
-    <div className="bg-[#f1e9de] text-slate-950 dark:bg-[#00040a] dark:text-white">
+    <div className="bg-white text-slate-950 dark:bg-[#00040a] dark:text-white">
       <section id="how-it-works" className="mx-auto max-w-[1280px] px-6 py-24 sm:px-10 lg:px-16">
         <SectionHeading
           eyebrow="How it works"
@@ -235,7 +235,7 @@ function Sections() {
 
 export default function MarketingHomePage() {
   return (
-    <main className="min-h-screen bg-[#f1e9de] dark:bg-[#00040a]">
+    <main className="min-h-screen bg-white dark:bg-[#00040a]">
       <Hero />
       <Sections />
     </main>

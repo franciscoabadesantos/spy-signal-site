@@ -50,16 +50,16 @@ type MenuItem = {
   icon: LucideIcon
 }
 
+function subscribe() {
+  return () => {}
+}
+
 function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/'
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
 type GroupKey = 'Product' | 'Explore'
-
-function subscribe() {
-  return () => {}
-}
 
 export default function BrandHomeMenu({
   className,
@@ -147,49 +147,29 @@ export default function BrandHomeMenu({
           }
           setOpen((value) => !value)
         }}
-        className="group relative inline-flex h-10 w-10 items-center justify-center transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8b2b]/50"
+        className="group relative inline-flex h-10 w-10 cursor-pointer items-center justify-center transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8b2b]/50"
       >
         <svg
           aria-hidden="true"
           viewBox="0 0 44 44"
           className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
         >
-          <ellipse
-            cx="23"
-            cy="25.5"
-            rx="13.5"
-            ry="11"
-            fill="rgba(0,0,0,0.28)"
-            className={cn(
-              'origin-center blur-[4px] transition duration-300',
-              open
-                ? 'translate-x-[3px] translate-y-[4px] opacity-100'
-                : 'translate-x-[2px] translate-y-[3px] opacity-72 group-hover:opacity-95'
-            )}
-          />
           <path
             d="M7 17 C9 8 32 6 37 15 C41 25 38 38 27 39 C15 41 7 34 6 25 C5 22 5 19 7 17 Z"
             fill="none"
-            stroke="rgba(248,242,0,0.74)"
+            stroke="currentColor"
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth="1.7"
             pathLength="100"
             className={cn(
-              'origin-center opacity-0 [stroke-dasharray:100] [stroke-dashoffset:100] group-hover:animate-[brand-menu-scribble-draw_520ms_ease-out_forwards]',
+              'origin-center text-[#0757ff]/70 opacity-0 [stroke-dasharray:100] [stroke-dashoffset:100] group-hover:animate-[brand-menu-scribble-draw_520ms_ease-out_forwards] dark:text-[#f8f200]/75',
               open
                 ? 'opacity-100 [stroke-dashoffset:0]'
                 : ''
             )}
           />
         </svg>
-        <span
-          aria-hidden="true"
-          className={cn(
-            'pointer-events-none absolute h-7 w-7 rounded-full bg-[#ffb56d]/18 blur-md transition duration-300 animate-[brand-menu-glow_2.6s_ease-in-out_infinite]',
-            open ? 'opacity-0 scale-75' : 'opacity-100 scale-100 group-hover:opacity-0 group-hover:scale-90'
-          )}
-        />
         <span
           className={cn(
             'marketing-logo-type relative z-10 text-[1.7rem] font-bold leading-none text-[#ffb56d] transition duration-300',
@@ -203,7 +183,7 @@ export default function BrandHomeMenu({
         <span
           aria-hidden="true"
           className={cn(
-            'pointer-events-none absolute bottom-[8px] right-[6px] h-1.5 w-1.5 rounded-full bg-[#f8f200] transition duration-300',
+            'pointer-events-none absolute bottom-[8px] right-[6px] h-1.5 w-1.5 rounded-full bg-[#0757ff] transition duration-300 dark:bg-[#f8f200]',
             open ? 'opacity-0 scale-75' : 'opacity-100 scale-100 group-hover:opacity-0 group-hover:scale-75'
           )}
         />
@@ -216,7 +196,7 @@ export default function BrandHomeMenu({
               aria-hidden={!open}
               className={cn(
                 'fixed z-[120] w-[22rem] origin-top-left overflow-hidden rounded-none transition-all duration-200 ease-out',
-                menuShellClassName ?? 'border border-white/8 bg-[#020611]/58 backdrop-blur-[28px] saturate-[1.8]',
+                menuShellClassName ?? 'border border-slate-950/8 bg-white/88 backdrop-blur-[28px] saturate-[1.8] dark:border-white/8 dark:bg-[#020611]/58',
                 open
                   ? 'translate-y-0 scale-100 opacity-100 blur-0'
                   : 'pointer-events-none -translate-y-3 scale-[0.97] opacity-0 blur-[2px]'
@@ -226,7 +206,7 @@ export default function BrandHomeMenu({
                 {MENU_GROUPS.map((group) => (
                   <div
                     key={group.label}
-                    className="ml-5 w-[calc(100%-1.4rem)] rounded-[18px] border border-white/10 bg-[#04070d]/94 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_30px_rgba(0,0,0,0.2)]"
+                    className="ml-5 w-[calc(100%-1.4rem)] rounded-[18px] border border-slate-950/8 bg-white/88 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_18px_30px_rgba(20,33,51,0.08)] dark:border-white/10 dark:bg-[#04070d]/94 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_30px_rgba(0,0,0,0.2)]"
                   >
                     <button
                       type="button"
@@ -235,7 +215,7 @@ export default function BrandHomeMenu({
                           current === group.label ? null : (group.label as GroupKey)
                         )
                       }
-                      className="grid w-full grid-cols-[1.25rem_minmax(0,1fr)_1px_0.8rem] items-center gap-3.5 rounded-[14px] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.05]"
+                      className="grid w-full grid-cols-[1.25rem_minmax(0,1fr)_1px_0.8rem] items-center gap-3.5 rounded-[14px] px-3 py-2.5 text-left transition-colors hover:bg-slate-950/[0.04] dark:hover:bg-white/[0.05]"
                     >
                       <group.icon className="h-5 w-5 text-content-secondary" strokeWidth={2} />
                       <span className="text-sm font-medium text-content-primary/88">{group.label}</span>
@@ -250,7 +230,7 @@ export default function BrandHomeMenu({
                     </button>
 
                     {expandedGroup === group.label ? (
-                      <div className="mt-1 space-y-1 border-t border-white/10 pt-1.5">
+                      <div className="mt-1 space-y-1 border-t border-slate-950/8 pt-1.5 dark:border-white/10">
                         {(group.items as readonly MenuItem[]).map((item) => {
                           const active = isActive(pathname, item.href)
                           const Icon = item.icon
@@ -262,8 +242,8 @@ export default function BrandHomeMenu({
                               className={cn(
                                 'grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-3.5 rounded-[14px] px-3 py-2.5 transition',
                                 active
-                                  ? 'bg-white/[0.08] text-content-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                                  : 'text-content-secondary hover:bg-white/[0.05] hover:text-content-primary'
+                                  ? 'bg-slate-950/[0.05] text-content-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:bg-white/[0.08] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+                                  : 'text-content-secondary hover:bg-slate-950/[0.04] hover:text-content-primary dark:hover:bg-white/[0.05]'
                               )}
                             >
                               <Icon

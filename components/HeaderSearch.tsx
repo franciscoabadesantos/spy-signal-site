@@ -316,11 +316,11 @@ export default function HeaderSearch({
           }, 120)
         }}
         placeholder={placeholder}
-        className="no-lift-interaction h-12 rounded-full border-white/10 bg-white/[0.07] pl-11 pr-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl placeholder:text-content-muted/80 hover:border-white/18 hover:bg-white/[0.09] focus-visible:border-primary/55 focus-visible:ring-primary/30"
+        className="no-lift-interaction h-12 rounded-full border-slate-950/8 bg-white/80 pl-11 pr-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.84),0_12px_28px_rgba(20,33,51,0.05)] backdrop-blur-xl placeholder:text-content-muted/80 hover:border-slate-950/14 hover:bg-white focus-visible:border-primary/55 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] dark:hover:border-white/18 dark:hover:bg-white/[0.09]"
       />
 
       {shouldShowDropdown ? (
-        <div className="absolute left-0 right-0 top-full z-50 mt-3 overflow-hidden rounded-[26px] border border-white/10 bg-[#0a1220]/90 shadow-[0_28px_90px_rgba(0,0,0,0.34)] ring-1 ring-white/8 backdrop-blur-[32px]">
+        <div className="absolute left-0 right-0 top-full z-50 mt-3 overflow-hidden rounded-[26px] border border-slate-950/8 bg-white/96 shadow-[0_28px_90px_rgba(20,33,51,0.14)] ring-1 ring-slate-950/6 backdrop-blur-[32px] dark:border-white/10 dark:bg-[#0a1220]/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.34)] dark:ring-white/8">
           {query.length === 0 ? (
             <div className="max-h-[30rem] overflow-auto py-1">
               {recentSuggestions.length > 0 ? (

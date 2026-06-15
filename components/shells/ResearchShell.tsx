@@ -1,4 +1,5 @@
 import Nav from '@/components/Nav'
+import { sharedHeaderOffsetClass } from '@/components/marketing/site-chrome'
 import StockHeader from '@/components/page/StockHeader'
 import StockTabs, { type StockTabKey } from '@/components/page/StockTabs'
 
@@ -22,7 +23,7 @@ export default function ResearchShell({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Nav active="stocks" />
-      <main className="container-lg py-6 pb-20 section-gap">
+      <main className={`container-lg ${sharedHeaderOffsetClass} pb-20 section-gap`}>
         {breadcrumbs}
         <StockHeader {...header} />
         <StockTabs ticker={ticker} active={activeTab} />

@@ -70,13 +70,13 @@
     --nl-button-text: #ffffff;
     --nl-button-border: #063924;
     --nl-card-shadow: none;
-    --page-bg: #f1e9de;
+    --page-bg: #ffffff;
     --background: var(--page-bg);
     --foreground: #11182a;
     --content-primary: #11182a;
     --content-secondary: #48566d;
     --content-muted: #76839a;
-    --muted: #efe7da;
+    --muted: #f3f6fb;
     --muted-foreground: #76839a;
     --border: rgba(17, 24, 42, 0.1);
     --divider-strong: rgba(17, 24, 42, 0.16);
@@ -422,8 +422,12 @@
   * {
     @apply border-border;
   }
+  html {
+    background-color: var(--page-bg);
+  }
   body {
     @apply bg-page-bg text-content-primary antialiased;
+    background-color: var(--page-bg);
     background:
       radial-gradient(circle at 16% 0%, rgba(111, 121, 255, 0.14), transparent 26rem),
       radial-gradient(circle at 84% 10%, rgba(255, 139, 43, 0.1), transparent 24rem),

@@ -12,6 +12,20 @@ const caveat = Caveat({
   weight: ['600', '700'],
 })
 
+export const sharedHeaderShellClass =
+  'fixed inset-x-0 top-0 z-[90] border-b border-slate-950/8 bg-white/76 backdrop-blur-[28px] saturate-[1.75] dark:border-white/8 dark:bg-[#00040a]/38'
+
+export const sharedHeaderInnerClass = 'mx-auto max-w-[1500px] px-6 py-3 sm:px-10 lg:px-14'
+
+export const sharedHeaderMenuShellClass =
+  'border border-slate-950/8 bg-white/84 backdrop-blur-[28px] saturate-[1.75] dark:border-white/8 dark:bg-[#00040a]/38'
+
+export const sharedHeaderDesktopSearchClass = 'ml-auto w-full max-w-[520px] lg:max-w-[480px]'
+
+export const sharedHeaderMobileSearchClass = 'mx-auto w-full max-w-[680px]'
+
+export const sharedHeaderOffsetClass = 'h-[100px] md:h-[72px]'
+
 type PageLink = {
   label: string
   href: string
@@ -171,17 +185,17 @@ export function MarketingHeader({ activeHref }: { activeHref?: string }) {
   return (
     <header
       data-active-href={activeHref ?? undefined}
-      className="fixed inset-x-0 top-0 z-[90] border-b border-white/18 bg-[#f1e9de]/40 backdrop-blur-[28px] saturate-[1.75] dark:border-white/8 dark:bg-[#00040a]/38"
+      className={sharedHeaderShellClass}
     >
-      <div className="mx-auto max-w-[1500px] px-6 py-3 sm:px-10 lg:px-14">
+      <div className={sharedHeaderInnerClass}>
         <div className="flex items-center justify-between gap-4">
           <BrandHomeMenu
             textClassName="text-slate-950 dark:text-white"
-            menuShellClassName="border border-white/18 bg-[#f1e9de]/40 backdrop-blur-[28px] saturate-[1.75] dark:border-white/8 dark:bg-[#00040a]/38"
+            menuShellClassName={sharedHeaderMenuShellClass}
           />
 
           <div className="hidden min-w-0 flex-1 md:block">
-            <HeaderSearch className="ml-auto w-full max-w-[520px] lg:max-w-[480px]" />
+            <HeaderSearch className={sharedHeaderDesktopSearchClass} />
           </div>
 
           <div className="flex items-center gap-3">
@@ -201,7 +215,7 @@ export function MarketingHeader({ activeHref }: { activeHref?: string }) {
         </div>
 
         <div className="mt-3 md:hidden">
-          <HeaderSearch className="mx-auto w-full max-w-[680px]" />
+          <HeaderSearch className={sharedHeaderMobileSearchClass} />
         </div>
       </div>
     </header>
@@ -220,12 +234,12 @@ export function MarketingPageShell({
   children,
 }: PageShellProps) {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#f1e9de] text-slate-950 dark:bg-[#00040a] dark:text-white">
-      <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_18%_8%,rgba(7,87,255,0.18),transparent_28%),radial-gradient(circle_at_83%_0%,rgba(255,139,43,0.14),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] dark:bg-[radial-gradient(circle_at_18%_8%,rgba(7,87,255,0.22),transparent_28%),radial-gradient(circle_at_83%_0%,rgba(255,139,43,0.12),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]" />
+    <main className="relative min-h-screen overflow-hidden bg-white text-slate-950 dark:bg-[#00040a] dark:text-white">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_18%_8%,rgba(7,87,255,0.14),transparent_28%),radial-gradient(circle_at_83%_0%,rgba(255,139,43,0.12),transparent_30%),linear-gradient(180deg,rgba(232,240,255,0.48),rgba(255,255,255,0)_68%)] dark:bg-[radial-gradient(circle_at_18%_8%,rgba(7,87,255,0.22),transparent_28%),radial-gradient(circle_at_83%_0%,rgba(255,139,43,0.12),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]" />
       <div className="pointer-events-none absolute left-[-5%] top-[8rem] h-72 w-72 rounded-full border border-white/22 bg-white/12 blur-[2px] dark:border-white/8 dark:bg-white/[0.02]" />
       <div className="pointer-events-none absolute right-[-3%] top-[16rem] h-56 w-56 rounded-full border border-[#6f79ff]/26 bg-[#6f79ff]/8 blur-[2px]" />
       <MarketingHeader activeHref={activeHref} />
-      <div className="h-[100px] md:h-[72px]" aria-hidden="true" />
+      <div className={sharedHeaderOffsetClass} aria-hidden="true" />
 
       <section className="mx-auto grid max-w-[1500px] gap-8 px-6 pb-16 pt-10 sm:px-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(340px,0.7fr)] lg:px-14 lg:pt-16">
         <div className="max-w-[760px]">
@@ -253,7 +267,7 @@ export function MarketingPageShell({
             {secondaryCta ? (
               <Link
                 href={secondaryCta.href}
-                className="inline-flex h-[52px] items-center justify-center border-b-2 border-[#f8f200] px-1 text-base text-slate-950 transition hover:text-[#0757ff] dark:text-white dark:hover:text-[#fff4c8]"
+                className="inline-flex h-[52px] items-center justify-center border-b-2 border-slate-950/16 px-1 text-base text-slate-950 transition hover:border-[#0757ff]/28 hover:text-[#0757ff] dark:border-[#f8f200] dark:text-white dark:hover:text-[#fff4c8]"
               >
                 {secondaryCta.label}
               </Link>

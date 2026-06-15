@@ -1,4 +1,5 @@
 import Nav, { type NavSection } from '@/components/Nav'
+import { sharedHeaderOffsetClass } from '@/components/marketing/site-chrome'
 import { cn } from '@/lib/utils'
 
 type MarketingShellProps = {
@@ -17,7 +18,7 @@ export default function MarketingShell({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Nav active={active} />
-      <main className={cn('container-md py-8', className)}>
+      <main className={cn('container-md', sharedHeaderOffsetClass, className)}>
         {rightRail ? (
           <div className="grid grid-cols-1 gap-10 xl:grid-cols-[1fr_280px]">
             <div>{children}</div>
