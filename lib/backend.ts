@@ -13,7 +13,7 @@ export class BackendDataError extends Error {
 }
 
 export function backendBaseUrl(): string {
-  const raw = process.env.FINANCE_BACKEND_URL || ''
+  const raw = process.env.BACKEND_BASE_URL || ''
   return raw.trim().replace(/\/+$/, '')
 }
 
@@ -22,11 +22,11 @@ export function backendSharedSecret(): string {
 }
 
 export function backendConfigSnapshot(): {
-  hasFinanceBackendUrl: boolean
+  hasBackendBaseUrl: boolean
   hasBackendSharedSecret: boolean
 } {
   return {
-    hasFinanceBackendUrl: backendBaseUrl().length > 0,
+    hasBackendBaseUrl: backendBaseUrl().length > 0,
     hasBackendSharedSecret: backendSharedSecret().length > 0,
   }
 }
@@ -89,7 +89,7 @@ export async function fetchBackendJson<T>(
 ): Promise<T> {
   const base = backendBaseUrl()
   if (!base) {
-    throw new BackendDataError(context, 'FINANCE_BACKEND_URL is not configured')
+    throw new BackendDataError(context, 'BACKEND_BASE_URL is not configured')
   }
 
   let response: Response

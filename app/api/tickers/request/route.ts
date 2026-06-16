@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   try {
     const base = backendBaseUrl()
     if (!base) {
-      return NextResponse.json({ error: 'FINANCE_BACKEND_URL is not configured.' }, { status: 500 })
+      return NextResponse.json({ error: 'BACKEND_BASE_URL is not configured.' }, { status: 500 })
     }
     if (!config.hasBackendSharedSecret) {
       return NextResponse.json({ error: 'BACKEND_SHARED_SECRET is not configured.' }, { status: 500 })
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     return new NextResponse(text, { status: upstream.status, headers: { 'content-type': contentType } })
   } catch (error) {
     console.error('[api/tickers/request] proxy failed', {
-      hasFinanceBackendUrl: config.hasFinanceBackendUrl,
+      hasBackendBaseUrl: config.hasBackendBaseUrl,
       hasBackendSharedSecret: config.hasBackendSharedSecret,
       message: error instanceof Error ? error.message : 'Unknown proxy error',
     })
