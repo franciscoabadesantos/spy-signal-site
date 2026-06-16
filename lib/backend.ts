@@ -21,13 +21,36 @@ export function backendSharedSecret(): string {
   return (process.env.BACKEND_SHARED_SECRET || '').trim()
 }
 
+function backendCfAccessConfig(): {
+  clientId: string
+  clientSecret: string
+} | null {
+  const clientId = (process.env.CF_ACCESS_CLIENT_ID || '').trim()
+  const clientSecret = (process.env.CF_ACCESS_CLIENT_SECRET || '').trim()
+
+  if (!clientId && !clientSecret) return null
+  if (!clientId || !clientSecret) {
+    throw new BackendDataError(
+      'backend.config.cloudflare_access',
+      'CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET must both be set or both be unset'
+    )
+  }
+
+  return { clientId, clientSecret }
+}
+
 export function backendConfigSnapshot(): {
   hasBackendBaseUrl: boolean
   hasBackendSharedSecret: boolean
+  hasCfAccessClientId: boolean
+  hasCfAccessClientSecret: boolean
 } {
+  const cfAccess = backendCfAccessConfig()
   return {
     hasBackendBaseUrl: backendBaseUrl().length > 0,
     hasBackendSharedSecret: backendSharedSecret().length > 0,
+    hasCfAccessClientId: Boolean(cfAccess?.clientId),
+    hasCfAccessClientSecret: Boolean(cfAccess?.clientSecret),
   }
 }
 
@@ -46,6 +69,12 @@ export function backendHeaders(
 
   const secret = backendSharedSecret()
   if (secret) headers['x-backend-shared-secret'] = secret
+
+  const cfAccess = backendCfAccessConfig()
+  if (cfAccess) {
+    headers['CF-Access-Client-Id'] = cfAccess.clientId
+    headers['CF-Access-Client-Secret'] = cfAccess.clientSecret
+  }
 
   return {
     ...headers,
