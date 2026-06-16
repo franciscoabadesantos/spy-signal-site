@@ -24,7 +24,8 @@ export const sharedHeaderDesktopSearchClass = 'ml-auto w-full max-w-[520px] lg:m
 
 export const sharedHeaderMobileSearchClass = 'mx-auto w-full max-w-[680px]'
 
-export const sharedHeaderOffsetClass = 'h-[100px] md:h-[72px]'
+export const sharedHeaderOffsetClass = 'pt-[100px] md:pt-[72px]'
+export const sharedHeaderSpacerClass = 'h-[100px] md:h-[72px]'
 
 type PageLink = {
   label: string
@@ -239,7 +240,7 @@ export function MarketingPageShell({
       <div className="pointer-events-none absolute left-[-5%] top-[8rem] h-72 w-72 rounded-full border border-white/22 bg-white/12 blur-[2px] dark:border-white/8 dark:bg-white/[0.02]" />
       <div className="pointer-events-none absolute right-[-3%] top-[16rem] h-56 w-56 rounded-full border border-[#6f79ff]/26 bg-[#6f79ff]/8 blur-[2px]" />
       <MarketingHeader activeHref={activeHref} />
-      <div className={sharedHeaderOffsetClass} aria-hidden="true" />
+      <div className={sharedHeaderSpacerClass} aria-hidden="true" />
 
       <section className="mx-auto grid max-w-[1500px] gap-8 px-6 pb-16 pt-10 sm:px-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(340px,0.7fr)] lg:px-14 lg:pt-16">
         <div className="max-w-[760px]">

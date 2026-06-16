@@ -7,7 +7,10 @@ type AppLayoutProps = {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
+    <div
+      className="relative min-h-screen bg-background text-foreground"
+      style={{ overflowX: 'clip' }}
+    >
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(111,121,255,0.16),transparent_28%),radial-gradient(circle_at_86%_10%,rgba(255,139,43,0.14),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_22%)]"
