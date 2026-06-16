@@ -17,6 +17,20 @@ export function backendBaseUrl(): string {
   return raw.trim().replace(/\/+$/, '')
 }
 
+export function backendSharedSecret(): string {
+  return (process.env.BACKEND_SHARED_SECRET || '').trim()
+}
+
+export function backendConfigSnapshot(): {
+  hasFinanceBackendUrl: boolean
+  hasBackendSharedSecret: boolean
+} {
+  return {
+    hasFinanceBackendUrl: backendBaseUrl().length > 0,
+    hasBackendSharedSecret: backendSharedSecret().length > 0,
+  }
+}
+
 export function backendHeaders(
   options: {
     includeContentType?: boolean
@@ -30,10 +44,7 @@ export function backendHeaders(
     headers['content-type'] = 'application/json'
   }
 
-  const secret = (
-    process.env.BACKEND_SHARED_SECRET ||
-    ''
-  ).trim()
+  const secret = backendSharedSecret()
   if (secret) headers['x-backend-shared-secret'] = secret
 
   return {
