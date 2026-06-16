@@ -88,11 +88,32 @@ function smoothClosedPath(points: Point[], tension = 1): string {
   return `${path} Z`
 }
 
+function smoothOpenPath(points: Point[]): string {
+  if (points.length < 2) return ''
+  if (points.length === 2) {
+    return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} L ${points[1].x.toFixed(2)} ${points[1].y.toFixed(2)}`
+  }
+
+  let path = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const current = points[index]
+    const next = points[index + 1]
+    const midX = (current.x + next.x) / 2
+    const midY = (current.y + next.y) / 2
+    path += ` Q ${current.x.toFixed(2)} ${current.y.toFixed(2)} ${midX.toFixed(2)} ${midY.toFixed(2)}`
+  }
+
+  const last = points[points.length - 1]
+  path += ` T ${last.x.toFixed(2)} ${last.y.toFixed(2)}`
+  return path
+}
+
 function orbitNoise(angle: number, seed: number, time: number): number {
   return (
-    Math.sin(angle * 1.9 + seed * 1.7 + time * 0.28) * 0.52 +
+    Math.sin(angle * 1.9 + seed * 1.7 + time * 0.26) * 0.52 +
     Math.cos(angle * 4.7 - seed * 2.3 - time * 0.18) * 0.3 +
-    Math.sin(angle * 7.2 + seed * 0.9 + time * 0.12) * 0.18
+    Math.sin(angle * 7.2 + seed * 0.9 + time * 0.1) * 0.18
   )
 }
 
@@ -116,14 +137,14 @@ function orbitPoint({
   seed: number
 }): Point {
   const noise = orbitNoise(angle, seed, time)
-  const drag = 1 - pull * (0.1 + 0.08 * (0.5 + 0.5 * Math.sin(angle * 2 - time * 0.55)))
-  const scribbleX = Math.sin(angle * 8 + seed * 1.4 + time * 0.35) * irregularity * radiusX * 0.045
-  const scribbleY = Math.cos(angle * 6.4 - seed * 1.1 - time * 0.28) * irregularity * radiusY * 0.06
-  const rotatedAngle = angle + Math.sin(angle * 2.5 + seed * 0.6) * irregularity * 0.11
+  const drag = 1 - pull * (0.14 + 0.1 * (0.5 + 0.5 * Math.sin(angle * 2 - time * 0.55)))
+  const scribbleX = Math.sin(angle * 8.4 + seed * 1.4 + time * 0.34) * irregularity * radiusX * 0.06
+  const scribbleY = Math.cos(angle * 6.3 - seed * 1.08 - time * 0.29) * irregularity * radiusY * 0.075
+  const rotatedAngle = angle + Math.sin(angle * 2.5 + seed * 0.6) * irregularity * 0.14
 
   return {
-    x: center + Math.cos(rotatedAngle) * radiusX * (1 + noise * irregularity * 0.11) * drag + scribbleX,
-    y: center + Math.sin(angle) * radiusY * (1 + noise * irregularity * 0.14) * drag + scribbleY,
+    x: center + Math.cos(rotatedAngle) * radiusX * (1 + noise * irregularity * 0.16) * drag + scribbleX,
+    y: center + Math.sin(angle) * radiusY * (1 + noise * irregularity * 0.19) * drag + scribbleY,
   }
 }
 
@@ -145,7 +166,7 @@ function buildOrbitPath({
   seed: number
 }): string {
   const points: Point[] = []
-  const steps = 54
+  const steps = 56
 
   for (let index = 0; index < steps; index += 1) {
     const angle = (Math.PI * 2 * index) / steps
@@ -163,7 +184,7 @@ function buildOrbitPath({
     )
   }
 
-  return smoothClosedPath(points, 0.82)
+  return smoothClosedPath(points, 0.84)
 }
 
 function normalizeMarketCap(value: number | null | undefined): number | null {
@@ -172,45 +193,25 @@ function normalizeMarketCap(value: number | null | undefined): number | null {
 }
 
 function massDescriptor(value: number): string {
-  if (value >= 0.78) return 'heavy core'
-  if (value >= 0.56) return 'stable mass'
-  if (value >= 0.34) return 'light body'
+  if (value >= 0.8) return 'heavy core'
+  if (value >= 0.58) return 'anchored body'
+  if (value >= 0.36) return 'light body'
   return 'fragile body'
 }
 
-function trendDescriptor(value: number): string {
-  if (value >= 0.72) return 'wide orbit'
-  if (value >= 0.52) return 'held orbit'
-  if (value >= 0.36) return 'tight orbit'
-  return 'collapsed orbit'
-}
-
-function stabilityDescriptor(value: number): string {
-  if (value >= 0.72) return 'smooth'
-  if (value >= 0.52) return 'mostly smooth'
-  if (value >= 0.34) return 'wobbling'
-  return 'jittering'
-}
-
-function momentumDescriptor(value: number): string {
-  if (value >= 0.74) return 'fast'
-  if (value >= 0.54) return 'active'
-  if (value >= 0.38) return 'steady'
-  return 'slow'
-}
-
-function riskDescriptor(value: number): string {
-  if (value >= 0.72) return 'hot'
-  if (value >= 0.5) return 'charged'
-  if (value >= 0.3) return 'warm'
-  return 'cool'
-}
-
-function yieldDescriptor(value: number): string {
-  if (value >= 0.72) return 'strong pull'
-  if (value >= 0.5) return 'firm pull'
-  if (value >= 0.32) return 'loose pull'
-  return 'weak pull'
+function movementCallout({
+  riskHeat,
+  cleanEnergy,
+  instability,
+}: {
+  riskHeat: number
+  cleanEnergy: number
+  instability: number
+}): string {
+  if (instability >= 0.7) return 'orbit breaking'
+  if (riskHeat >= 0.66) return 'hot drift'
+  if (cleanEnergy >= 0.66) return 'clean drive'
+  return 'held line'
 }
 
 export default function SystemProfileBlob({
@@ -231,7 +232,7 @@ export default function SystemProfileBlob({
       const elapsed = (now - started) / 1000
       setClock({
         time: elapsed,
-        intro: easeOutCubic(Math.min(1, elapsed / 1.1)),
+        intro: easeOutCubic(Math.min(1, elapsed / 1.05)),
       })
       frame = requestAnimationFrame(tick)
     }
@@ -253,7 +254,6 @@ export default function SystemProfileBlob({
     return orderedLabels.map((label) => ({
       label,
       score: clampScore(byLabel.get(label)?.score ?? 50),
-      hint: byLabel.get(label)?.hint,
     }))
   }, [dimensions])
 
@@ -265,96 +265,121 @@ export default function SystemProfileBlob({
   const stability = (scoreByLabel.get('Stability') ?? 50) / 100
   const riskHeat = 1 - riskControl
   const capMass = normalizeMarketCap(marketCap)
-  const mass = capMass ?? clamp01(0.44 + stability * 0.18 - riskHeat * 0.12)
-  const fragility = clamp01((1 - stability) * 0.52 + (1 - mass) * 0.34 + riskHeat * 0.22)
+  const mass = capMass ?? clamp01(0.44 + stability * 0.16 - riskHeat * 0.12)
+
+  const instability = clamp01(riskHeat * 0.46 + (1 - stability) * 0.74 + (1 - mass) * 0.34)
+  const heavyContainment = clamp01(mass * 0.66 + stability * 0.22)
+  const microBurst = clamp01(instability * (1 - mass * 0.72))
+  const cleanEnergy = clamp01(momentum * 0.44 + trend * 0.24 + stability * 0.32)
 
   const size = compact ? 264 : 420
   const center = size / 2
   const maxRadius = compact ? 92 : 154
-  const orbitRadiusX = lerp(maxRadius * 0.38, maxRadius * 0.9, trend) * clock.intro
-  const orbitRadiusY = orbitRadiusX * lerp(0.72, 0.94, 1 - yieldValue * 0.28)
-  const coreRadius = lerp(compact ? 16 : 20, compact ? 30 : 38, mass)
-  const pull = lerp(0.04, 0.28, yieldValue)
-  const irregularity = lerp(0.04, 0.46, fragility)
-  const angularSpeed = lerp(0.6, 2.15, momentum) * lerp(1.06, 0.76, mass)
-  const baseAngle = clock.time * angularSpeed
-  const cleanEnergy = clamp01(momentum * 0.45 + trend * 0.22 + stability * 0.33)
-  const orbitBrokenness = clamp01(riskHeat * 0.5 + (1 - stability) * 0.42 + (1 - mass) * 0.24)
-  const trailStrength = clamp01(momentum * 0.55 + riskHeat * 0.45)
+  const orbitRadiusX = lerp(maxRadius * 0.34, maxRadius * 0.9, trend) * clock.intro
+  const orbitRadiusY = orbitRadiusX * lerp(0.76, 0.96, 1 - yieldValue * 0.18) * lerp(1.04, 0.82, yieldValue)
+  const coreRadius = lerp(compact ? 16 : 20, compact ? 32 : 45, mass)
+  const pull = lerp(0.06, 0.34, clamp01(yieldValue * 0.78 + mass * 0.22))
+  const irregularity = lerp(0.03, 0.56, clamp01(microBurst * 0.82 + instability * 0.18))
+  const angularSpeed = lerp(0.54, 2.45, momentum) * lerp(1.08, 0.58, mass)
+  const orbitBrokenness = clamp01(instability * 0.82 - heavyContainment * 0.18 + riskHeat * 0.14)
+  const trailStrength = clamp01(momentum * 0.44 + riskHeat * 0.28 + microBurst * 0.48)
 
-  const coolGlow = mixRgb(COOL_BLUE, COOL_GREEN, clamp01(cleanEnergy * 0.9))
-  const hotGlow = mixRgb(HOT_AMBER, HOT_RED, clamp01(riskHeat * 0.92))
-  const orbitGlow = mixRgb(coolGlow, hotGlow, clamp01(riskHeat * 0.74))
-  const particleGlow = mixRgb(coolGlow, hotGlow, clamp01(riskHeat * 0.88))
-  const coreGlow = mixRgb(COOL_BLUE, HOT_AMBER, clamp01(riskHeat * 0.6 + yieldValue * 0.2))
+  const coolGlow = mixRgb(COOL_BLUE, COOL_GREEN, clamp01(cleanEnergy * 0.92))
+  const hotGlow = mixRgb(HOT_AMBER, HOT_RED, clamp01(riskHeat * 0.94))
+  const orbitGlow = mixRgb(coolGlow, hotGlow, clamp01(riskHeat * 0.7))
+  const particleGlow = mixRgb(coolGlow, hotGlow, clamp01(riskHeat * 0.88 + microBurst * 0.12))
+  const coreGlow = mixRgb(COOL_BLUE, HOT_AMBER, clamp01(riskHeat * 0.58 + mass * 0.16 + yieldValue * 0.16))
 
-  const orbitPaths = [0.25, 1.15, 2.05].map((seed, index) =>
+  const baseAngle =
+    clock.time * angularSpeed +
+    Math.sin(clock.time * (8 + microBurst * 16)) * microBurst * 0.18 +
+    Math.cos(clock.time * (3.2 + momentum * 2)) * instability * 0.05
+
+  const particleBase = orbitPoint({
+    angle: baseAngle,
+    center,
+    radiusX: orbitRadiusX,
+    radiusY: orbitRadiusY,
+    irregularity: irregularity * (1 + microBurst * 0.45),
+    pull,
+    time: clock.time,
+    seed: 0.82,
+  })
+
+  const jitterRadius = maxRadius * (microBurst * 0.042 + (1 - stability) * 0.014)
+  const particle = {
+    x: particleBase.x + Math.sin(clock.time * 34 + baseAngle * 2.1) * jitterRadius,
+    y: particleBase.y + Math.cos(clock.time * 28 - baseAngle * 1.7) * jitterRadius * 0.9,
+  }
+
+  const orbitPaths = [0.2, 1.18, 2.14].map((seed, index) =>
     buildOrbitPath({
       center,
-      radiusX: orbitRadiusX * (1 + index * 0.016),
-      radiusY: orbitRadiusY * (1 - index * 0.012),
-      irregularity: irregularity * (1 + index * 0.12),
+      radiusX: orbitRadiusX * (1 + index * 0.018),
+      radiusY: orbitRadiusY * (1 - index * 0.014),
+      irregularity: irregularity * (1 + index * 0.18),
       pull,
       time: clock.time,
       seed,
     })
   )
 
-  const particle = orbitPoint({
-    angle: baseAngle,
-    center,
-    radiusX: orbitRadiusX,
-    radiusY: orbitRadiusY,
-    irregularity: irregularity * 1.08,
-    pull,
-    time: clock.time,
-    seed: 0.82,
-  })
-
-  const trail = Array.from({ length: compact ? 12 : 18 }, (_, index) => {
-    const progress = index / (compact ? 12 : 18)
-    const angle = baseAngle - progress * lerp(0.85, 2.2, trailStrength)
+  const trailPoints = Array.from({ length: compact ? 16 : 24 }, (_, index) => {
+    const progress = index / (compact ? 16 : 24)
+    const angle = baseAngle - progress * lerp(1.1, 2.9, trailStrength)
     const point = orbitPoint({
       angle,
       center,
       radiusX: orbitRadiusX,
       radiusY: orbitRadiusY,
-      irregularity: irregularity * (1 + progress * 0.12),
+      irregularity: irregularity * (1 + progress * 0.4),
       pull,
-      time: clock.time - progress * 0.16,
+      time: clock.time - progress * 0.22,
       seed: 0.82,
     })
 
+    const noise = maxRadius * microBurst * 0.022 * (1 - progress * 0.4)
     return {
-      ...point,
-      radius: lerp(compact ? 1.4 : 1.8, compact ? 4.8 : 6.4, 1 - progress),
-      opacity: (1 - progress) * lerp(0.18, 0.56, trailStrength),
+      x: point.x + Math.sin(clock.time * 22 + index * 0.8) * noise,
+      y: point.y + Math.cos(clock.time * 18 + index * 0.72) * noise,
+      radius: lerp(compact ? 1.2 : 1.5, compact ? 6 : 8.5, 1 - progress),
+      opacity: (1 - progress) * lerp(0.16, 0.78, trailStrength),
     }
   })
+  const trailPath = smoothOpenPath(trailPoints.slice(0, compact ? 10 : 14))
 
-  const sparkCount = compact ? 0 : Math.round(lerp(0, 7, clamp01(riskHeat * 0.72 + fragility * 0.44 - 0.38)))
+  const sparkCount = compact
+    ? 0
+    : Math.round(
+        lerp(0, 12, clamp01(microBurst * 0.9 + riskHeat * 0.22 + orbitBrokenness * 0.28 - 0.26))
+      )
   const sparks = Array.from({ length: sparkCount }, (_, index) => {
-    const sparkAngle = baseAngle + index * ((Math.PI * 2) / Math.max(1, sparkCount)) + Math.sin(clock.time * 2 + index) * 0.35
-    const length = lerp(8, 20, clamp01(riskHeat * 0.8 + momentum * 0.2)) * (0.72 + (index % 3) * 0.15)
+    const sparkAngle =
+      baseAngle +
+      index * ((Math.PI * 2) / Math.max(1, sparkCount)) +
+      Math.sin(clock.time * 2.2 + index * 0.9) * 0.4
+    const length = lerp(8, 24, clamp01(microBurst * 0.82 + momentum * 0.18)) * (0.68 + (index % 4) * 0.12)
     return {
       x1: particle.x + Math.cos(sparkAngle) * 4,
       y1: particle.y + Math.sin(sparkAngle) * 4,
       x2: particle.x + Math.cos(sparkAngle) * length,
       y2: particle.y + Math.sin(sparkAngle) * length,
-      opacity: 0.16 + ((index + 1) / Math.max(1, sparkCount)) * 0.42,
+      opacity: 0.16 + ((index + 1) / Math.max(1, sparkCount)) * 0.46,
     }
   })
 
-  const massText = marketCapLabel ?? massDescriptor(mass)
-  const orbitText = trendDescriptor(trend)
-  const heatText = riskDescriptor(riskHeat)
-  const pullText = yieldDescriptor(yieldValue)
-  const motionText = momentumDescriptor(momentum)
-  const smoothText = stabilityDescriptor(stability)
+  const particlePulse = 1 + Math.sin(clock.time * (6.8 + momentum * 5.2)) * (0.05 + trailStrength * 0.08)
+  const particleCoreRadius = lerp(compact ? 5.2 : 7, compact ? 7.6 : 11.4, momentum) * lerp(0.88, 1.14, mass) * particlePulse
+  const particleHaloRadius = particleCoreRadius * lerp(2.4, 4.8, clamp01(trailStrength * 0.72 + microBurst * 0.28))
+  const particleShockRadius = particleCoreRadius * lerp(1.45, 2.3, clamp01(momentum * 0.5 + riskHeat * 0.24 + microBurst * 0.26))
+
+  const massText = massDescriptor(mass)
+  const actionText = movementCallout({ riskHeat, cleanEnergy, instability })
   const orbitDasharray =
-    orbitBrokenness > 0.34
-      ? `${lerp(compact ? 20 : 34, compact ? 9 : 14, orbitBrokenness).toFixed(1)} ${lerp(compact ? 5 : 7, compact ? 16 : 22, orbitBrokenness).toFixed(1)}`
+    orbitBrokenness > 0.18
+      ? `${lerp(compact ? 42 : 62, compact ? 7 : 9, orbitBrokenness).toFixed(1)} ${lerp(compact ? 8 : 10, compact ? 26 : 38, orbitBrokenness).toFixed(1)}`
       : undefined
+  const fractureDasharray = `${lerp(compact ? 18 : 26, compact ? 5 : 6.5, orbitBrokenness).toFixed(1)} ${lerp(compact ? 10 : 16, compact ? 20 : 28, orbitBrokenness).toFixed(1)}`
 
   return (
     <div
@@ -365,7 +390,7 @@ export default function SystemProfileBlob({
       )}
       style={{
         background:
-          'radial-gradient(circle at 50% 46%, rgba(183,255,81,0.08), transparent 18%), radial-gradient(circle at 52% 52%, rgba(55,130,255,0.12), transparent 34%), linear-gradient(180deg, rgba(5,8,14,0.98), rgba(2,4,11,0.98) 58%, rgba(0,0,0,0.98))',
+          'radial-gradient(circle at 50% 44%, rgba(183,255,81,0.05), transparent 14%), radial-gradient(circle at 56% 52%, rgba(55,130,255,0.14), transparent 36%), linear-gradient(180deg, rgba(5,8,14,0.98), rgba(2,4,11,0.98) 58%, rgba(0,0,0,0.98))',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 80px rgba(0,0,0,0.28)',
       }}
     >
@@ -374,8 +399,8 @@ export default function SystemProfileBlob({
         className="pointer-events-none absolute inset-0 opacity-80"
         style={{
           backgroundImage:
-            'radial-gradient(circle at 18% 14%, rgba(55,130,255,0.18), transparent 20%), radial-gradient(circle at 82% 76%, rgba(255,171,74,0.14), transparent 24%), linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
-          backgroundSize: 'auto, auto, 30px 30px, 30px 30px',
+            'radial-gradient(circle at 18% 14%, rgba(55,130,255,0.18), transparent 20%), radial-gradient(circle at 82% 76%, rgba(255,171,74,0.14), transparent 24%), linear-gradient(rgba(255,255,255,0.024) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
+          backgroundSize: 'auto, auto, 32px 32px, 32px 32px',
           maskImage: 'radial-gradient(circle at 50% 50%, black, transparent 82%)',
         }}
       />
@@ -384,44 +409,67 @@ export default function SystemProfileBlob({
           <span className="font-semibold text-[rgba(183,255,81,0.92)]">lb/</span> signal orbit
         </div>
       ) : null}
+
       <svg
         viewBox={`0 0 ${size} ${size}`}
         className="relative z-[1] h-full w-full"
         role="img"
-        aria-label="Animated signal orbit showing trend, momentum, risk, yield, stability, and mass."
+        aria-label="Animated signal orbit showing trend, momentum, risk control, yield, stability, and mass."
       >
         <defs>
           <filter id={`${gradientSeed}-glow`} x="-35%" y="-35%" width="170%" height="170%">
-            <feGaussianBlur stdDeviation={compact ? 3 : 4.5} />
+            <feGaussianBlur stdDeviation={compact ? 3.2 : 4.8} />
           </filter>
           <filter id={`${gradientSeed}-softGlow`} x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation={compact ? 10 : 14} />
+            <feGaussianBlur stdDeviation={compact ? 10 : 15} />
           </filter>
-          <radialGradient id={`${gradientSeed}-coreFill`} cx="50%" cy="46%" r="62%">
+          <filter id={`${gradientSeed}-particleGlow`} x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation={compact ? 7 : 11} />
+          </filter>
+          <radialGradient id={`${gradientSeed}-coreFill`} cx="50%" cy="46%" r="64%">
             <stop offset="0%" stopColor={rgba(CHALK, 0.94)} />
-            <stop offset="26%" stopColor={rgba(coreGlow, 0.86)} />
-            <stop offset="68%" stopColor={rgba(coreGlow, 0.22)} />
-            <stop offset="100%" stopColor="rgba(3,7,16,0.04)" />
+            <stop offset="22%" stopColor={rgba(coreGlow, 0.9)} />
+            <stop offset="62%" stopColor={rgba(coreGlow, 0.28)} />
+            <stop offset="100%" stopColor="rgba(3,7,16,0.02)" />
           </radialGradient>
-          <radialGradient id={`${gradientSeed}-particleFill`} cx="50%" cy="50%" r="60%">
+          <radialGradient id={`${gradientSeed}-particleFill`} cx="42%" cy="40%" r="70%">
             <stop offset="0%" stopColor={rgba(CHALK, 1)} />
-            <stop offset="34%" stopColor={rgba(particleGlow, 0.98)} />
+            <stop offset="24%" stopColor={rgba(CHALK, 0.96)} />
+            <stop offset="56%" stopColor={rgba(particleGlow, 0.98)} />
             <stop offset="100%" stopColor={rgba(particleGlow, 0.18)} />
           </radialGradient>
         </defs>
 
-        <g opacity={compact ? 0.38 : 0.54}>
-          <circle cx={center} cy={center} r={maxRadius * 0.96} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
-          <circle cx={center} cy={center} r={maxRadius * 0.72} fill="none" stroke="rgba(255,255,255,0.045)" strokeWidth={1} />
-          <circle cx={center} cy={center} r={maxRadius * 0.48} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
-        </g>
+        <path
+          d={`M ${size * 0.1} ${size * 0.2} Q ${size * 0.18} ${size * 0.15} ${size * 0.26} ${size * 0.22}`}
+          fill="none"
+          stroke={rgba(COOL_BLUE, 0.18)}
+          strokeWidth={compact ? 1.1 : 1.6}
+          strokeLinecap="round"
+        />
+        <path
+          d={`M ${size * 0.78} ${size * 0.82} Q ${size * 0.88} ${size * 0.76} ${size * 0.92} ${size * 0.86}`}
+          fill="none"
+          stroke={rgba(HOT_AMBER, 0.16)}
+          strokeWidth={compact ? 1.1 : 1.6}
+          strokeLinecap="round"
+        />
 
         <circle
           cx={center}
           cy={center}
-          r={coreRadius * 2.4}
-          fill={rgba(coreGlow, 0.18 + yieldValue * 0.18)}
+          r={coreRadius * lerp(2.9, 4.3, mass + riskHeat * 0.18)}
+          fill={rgba(coreGlow, 0.12 + mass * 0.12 + riskHeat * 0.06)}
           filter={`url(#${gradientSeed}-softGlow)`}
+        />
+        <circle
+          cx={center}
+          cy={center}
+          r={coreRadius * (1.55 + yieldValue * 0.5)}
+          fill="none"
+          stroke={rgba(coreGlow, 0.4 + mass * 0.1)}
+          strokeWidth={compact ? 1.1 : 1.6}
+          strokeDasharray={compact ? '8 6' : '12 7'}
         />
         <circle cx={center} cy={center} r={coreRadius} fill={`url(#${gradientSeed}-coreFill)`} />
         <circle
@@ -429,39 +477,60 @@ export default function SystemProfileBlob({
           cy={center}
           r={coreRadius + 5}
           fill="none"
-          stroke={rgba(coreGlow, 0.76)}
-          strokeWidth={compact ? 1.4 : 1.8}
-          strokeDasharray={compact ? '9 6' : '14 8'}
-        />
-        <path
-          d={buildOrbitPath({
-            center,
-            radiusX: coreRadius * 1.45,
-            radiusY: coreRadius * 1.28,
-            irregularity: 0.08 + yieldValue * 0.06,
-            pull: 0.16 + yieldValue * 0.18,
-            time: clock.time * 0.8,
-            seed: 3.1,
-          })}
-          fill="none"
-          stroke={rgba(coreGlow, 0.42)}
-          strokeWidth={compact ? 1.1 : 1.5}
-          strokeDasharray={compact ? '8 5' : '11 6'}
+          stroke={rgba(coreGlow, 0.72)}
+          strokeWidth={compact ? 1.3 : 1.8}
+          strokeDasharray={compact ? '10 7' : '14 9'}
         />
 
         {orbitPaths.map((path, index) => (
           <path
-            key={`orbit-${index}`}
+            key={`orbit-layer-${index}`}
             d={path}
             fill="none"
-            stroke={rgba(orbitGlow, index === 0 ? 0.88 : 0.48 - index * 0.08)}
-            strokeWidth={compact ? (index === 0 ? 2.1 : 1.15) : index === 0 ? 2.8 : 1.35}
-            strokeDasharray={index === 0 ? orbitDasharray : compact ? '7 6' : '11 9'}
+            stroke={rgba(orbitGlow, index === 0 ? 0.9 : index === 1 ? 0.42 : 0.24)}
+            strokeWidth={compact ? (index === 0 ? 2.2 : 1.1) : index === 0 ? 3 : 1.35}
+            strokeDasharray={index === 0 ? orbitDasharray : fractureDasharray}
+            strokeDashoffset={index === 0 ? clock.time * angularSpeed * -14 : clock.time * (6 + index * 3)}
             filter={index === 0 ? `url(#${gradientSeed}-glow)` : undefined}
+            strokeLinecap="round"
           />
         ))}
 
-        {trail.map((point, index) => (
+        {orbitBrokenness > 0.34 ? (
+          <path
+            d={orbitPaths[0] ?? ''}
+            fill="none"
+            stroke={rgba(hotGlow, 0.42)}
+            strokeWidth={compact ? 1.3 : 1.9}
+            strokeDasharray={compact ? '4 18' : '5 24'}
+            strokeDashoffset={clock.time * 16}
+            strokeLinecap="round"
+          />
+        ) : null}
+
+        {trailPath ? (
+          <>
+            <path
+              d={trailPath}
+              fill="none"
+              stroke={rgba(particleGlow, 0.28 + trailStrength * 0.32)}
+              strokeWidth={compact ? 5 : 7.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              filter={`url(#${gradientSeed}-particleGlow)`}
+            />
+            <path
+              d={trailPath}
+              fill="none"
+              stroke={rgba(particleGlow, 0.62)}
+              strokeWidth={compact ? 1.6 : 2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </>
+        ) : null}
+
+        {trailPoints.map((point, index) => (
           <circle
             key={`trail-${index}`}
             cx={point.x}
@@ -479,14 +548,29 @@ export default function SystemProfileBlob({
             x2={spark.x2}
             y2={spark.y2}
             stroke={rgba(hotGlow, spark.opacity)}
-            strokeWidth={1.25}
+            strokeWidth={1.2}
             strokeLinecap="round"
           />
         ))}
 
-        <circle cx={particle.x} cy={particle.y} r={compact ? 12 : 16} fill={rgba(particleGlow, 0.22)} filter={`url(#${gradientSeed}-softGlow)`} />
-        <circle cx={particle.x} cy={particle.y} r={compact ? 6.2 : 8.2} fill={`url(#${gradientSeed}-particleFill)`} />
-        <circle cx={particle.x} cy={particle.y} r={compact ? 2.6 : 3.2} fill={rgba(CHALK, 0.98)} />
+        <circle
+          cx={particle.x}
+          cy={particle.y}
+          r={particleHaloRadius}
+          fill={rgba(particleGlow, 0.16 + trailStrength * 0.1)}
+          filter={`url(#${gradientSeed}-particleGlow)`}
+        />
+        <circle
+          cx={particle.x}
+          cy={particle.y}
+          r={particleShockRadius}
+          fill="none"
+          stroke={rgba(particleGlow, 0.38 + momentum * 0.18)}
+          strokeWidth={compact ? 1.1 : 1.5}
+          strokeDasharray={compact ? '5 7' : '7 10'}
+        />
+        <circle cx={particle.x} cy={particle.y} r={particleCoreRadius} fill={`url(#${gradientSeed}-particleFill)`} />
+        <circle cx={particle.x} cy={particle.y} r={particleCoreRadius * 0.34} fill={rgba(CHALK, 0.98)} />
 
         {!compact ? (
           <g
@@ -497,53 +581,40 @@ export default function SystemProfileBlob({
             <text x={24} y={64} fontSize="18" fill={rgba(CHALK, 0.92)}>
               real signal
             </text>
-            <path d={`M 30 70 Q 46 78 74 74`} fill="none" stroke={rgba(HOT_AMBER, 0.85)} strokeWidth={2} strokeLinecap="round" />
+            <path
+              d={`M 30 70 Q 46 78 76 74`}
+              fill="none"
+              stroke={rgba(HOT_AMBER, 0.85)}
+              strokeWidth={2}
+              strokeLinecap="round"
+            />
 
-            <text x={size - 122} y={76} fontSize="16" fill={rgba(coolGlow, 0.92)}>
-              {motionText}
+            <text x={size - 132} y={82} fontSize="16" fill={rgba(particleGlow, 0.96)}>
+              {actionText}
             </text>
-            <text x={size - 124} y={94} fontSize="12" fill="rgba(245,247,255,0.64)">
-              momentum {Math.round(momentum * 100)}
-            </text>
-            <path d={`M ${size - 150} 102 Q ${size - 132} 112 ${size - 120} 128`} fill="none" stroke={rgba(coolGlow, 0.54)} strokeWidth={1.6} strokeLinecap="round" />
+            <path
+              d={`M ${size - 140} 90 Q ${size - 108} 102 ${particle.x.toFixed(1)} ${(particle.y - 8).toFixed(1)}`}
+              fill="none"
+              stroke={rgba(particleGlow, 0.54)}
+              strokeWidth={1.6}
+              strokeLinecap="round"
+            />
 
-            <text x={size - 126} y={center + 10} fontSize="16" fill={rgba(hotGlow, 0.94)}>
-              {heatText}
-            </text>
-            <text x={size - 126} y={center + 28} fontSize="12" fill="rgba(245,247,255,0.64)">
-              risk heat
-            </text>
-            <path d={`M ${size - 128} ${center + 34} Q ${size - 106} ${center + 38} ${particle.x.toFixed(1)} ${(particle.y + 8).toFixed(1)}`} fill="none" stroke={rgba(hotGlow, 0.58)} strokeWidth={1.6} strokeLinecap="round" />
-
-            <text x={26} y={size - 52} fontSize="16" fill={rgba(COOL_GREEN, 0.94)}>
-              {pullText}
-            </text>
-            <text x={26} y={size - 34} fontSize="12" fill="rgba(245,247,255,0.64)">
-              yield gravity
-            </text>
-            <path d={`M 88 ${size - 58} Q 116 ${size - 72} ${center - 12} ${center + coreRadius + 12}`} fill="none" stroke={rgba(COOL_GREEN, 0.54)} strokeWidth={1.6} strokeLinecap="round" />
-
-            <text x={size - 152} y={size - 54} fontSize="16" fill={rgba(CHALK, 0.9)}>
+            <text x={size - 148} y={size - 56} fontSize="16" fill={rgba(coreGlow, 0.92)}>
               {massText}
             </text>
-            <text x={size - 152} y={size - 36} fontSize="12" fill="rgba(245,247,255,0.64)">
-              mass / liquidity
-            </text>
-            <path d={`M ${size - 132} ${size - 60} Q ${size - 116} ${size - 84} ${center + 10} ${center + 18}`} fill="none" stroke={rgba(CHALK, 0.42)} strokeWidth={1.6} strokeLinecap="round" />
-
-            <text x={28} y={center - 20} fontSize="15" fill={rgba(orbitGlow, 0.88)}>
-              {orbitText}
-            </text>
-            <text x={28} y={center - 2} fontSize="12" fill="rgba(245,247,255,0.64)">
-              trend path
-            </text>
-
-            <text x={30} y={center + 94} fontSize="15" fill={rgba(CHALK, 0.76)}>
-              {smoothText}
-            </text>
-            <text x={30} y={center + 112} fontSize="12" fill="rgba(245,247,255,0.64)">
-              stability
-            </text>
+            {marketCapLabel ? (
+              <text x={size - 146} y={size - 36} fontSize="12" fill="rgba(245,247,255,0.62)">
+                {marketCapLabel}
+              </text>
+            ) : null}
+            <path
+              d={`M ${size - 138} ${size - 62} Q ${size - 104} ${size - 90} ${center + 8} ${center + 18}`}
+              fill="none"
+              stroke={rgba(coreGlow, 0.48)}
+              strokeWidth={1.6}
+              strokeLinecap="round"
+            />
           </g>
         ) : null}
       </svg>

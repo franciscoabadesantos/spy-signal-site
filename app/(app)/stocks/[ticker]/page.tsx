@@ -441,10 +441,10 @@ function dimensionDescriptor(label: SystemProfileBlobDimension['label'], score: 
     return 'Slow / fading'
   }
   if (label === 'Risk') {
-    if (score >= 76) return 'Cool / controlled'
-    if (score >= 58) return 'Warm / moderate'
-    if (score >= 40) return 'Hot / elevated'
-    return 'Danger / unstable'
+    if (score >= 76) return 'Tight / cool'
+    if (score >= 58) return 'Held / moderate'
+    if (score >= 40) return 'Loose / pressured'
+    return 'Broken / exposed'
   }
   if (label === 'Yield') {
     if (score >= 74) return 'Strong inward pull'
@@ -457,15 +457,9 @@ function dimensionDescriptor(label: SystemProfileBlobDimension['label'], score: 
   return 'Jitter / fragile'
 }
 
-function marketMassDescriptor(marketCap: number | null | undefined): string {
-  if (marketCap === null || marketCap === undefined || !Number.isFinite(marketCap) || marketCap <= 0) {
-    return 'Mass proxy unavailable'
-  }
-  if (marketCap >= 500_000_000_000) return 'Mega-cap / heavy core'
-  if (marketCap >= 50_000_000_000) return 'Large-cap / anchored body'
-  if (marketCap >= 10_000_000_000) return 'Mid-cap / balanced body'
-  if (marketCap >= 2_000_000_000) return 'Small-cap / lighter body'
-  return 'Micro-cap / fragile body'
+function dimensionDisplayLabel(label: SystemProfileBlobDimension['label']): string {
+  if (label === 'Risk') return 'Risk control'
+  return label
 }
 
 function dimensionDotClass(label: SystemProfileBlobDimension['label']): string {
@@ -765,7 +759,6 @@ export default async function TickerPage({
     marketCapNumeric !== null
       ? formatCompactNumber(marketCapNumeric, { currency: true })
       : marketQuote?.marketCapText ?? '—'
-  const marketMassSummary = marketMassDescriptor(marketCapNumeric)
   const quickStats = [
     { label: 'Market Cap', value: hasFundamentals ? marketCapValue : 'Not available' },
     {
@@ -1198,15 +1191,6 @@ export default async function TickerPage({
                     marketCap={marketCapNumeric}
                     marketCapLabel={marketCapValue !== '—' && marketCapValue !== 'N/A' ? marketCapValue : null}
                   />
-                  <div className="mt-3 flex items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-white/10 bg-black/30 px-3 py-2">
-                    <div>
-                      <div className="text-micro uppercase tracking-[0.24em] text-[rgba(183,255,81,0.76)]">
-                        Mass Proxy
-                      </div>
-                      <div className="text-label-md text-content-primary">{marketMassSummary}</div>
-                    </div>
-                    <div className="text-data-sm numeric-tabular text-content-primary">{marketCapValue}</div>
-                  </div>
                 </div>
                 <div className="flex flex-col justify-center gap-2">
                   {scoreDimensions.map((dimension) => (
@@ -1216,7 +1200,7 @@ export default async function TickerPage({
                     >
                       <div className="inline-flex items-center gap-2">
                         <span className={`h-2.5 w-2.5 rounded-full ${dimensionDotClass(dimension.label)}`} />
-                        <span className="text-label-md text-content-primary">{dimension.label}</span>
+                        <span className="text-label-md text-content-primary">{dimensionDisplayLabel(dimension.label)}</span>
                       </div>
                       <div className="text-right">
                         <div className="text-data-sm numeric-tabular text-content-primary">{Math.round(dimension.score)}</div>
