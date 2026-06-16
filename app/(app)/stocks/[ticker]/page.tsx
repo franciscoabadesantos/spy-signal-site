@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { Newspaper } from 'lucide-react'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
+import EmptyState from '@/components/ui/EmptyState'
 import { buttonClass } from '@/components/ui/Button'
 import StatRowCard from '@/components/ui/StatRowCard'
 import InsightCard from '@/components/page/InsightCard'
@@ -31,17 +31,14 @@ import {
 import { getViewerUserId } from '@/lib/auth'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
-import { getSignalHistoryForTicker } from '@/lib/signals'
+import { getSignalHistoryForTicker, getScreenerSignals } from '@/lib/signals'
 import type { Signal } from '@/lib/types'
 import {
   getStockQuote,
   getHistoricalData,
-  getTickerFundamentals,
-  getTickerNews,
   getRelatedTickers,
   getTickerCorrelationNetwork,
   type PricePoint,
-  type TickerFundamentals,
 } from '@/lib/finance'
 import {
   getTickerPageSummary,
@@ -154,25 +151,6 @@ function formatTimeAgo(value: string | null): string {
 
   const days = Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)))
   return `${days}d ago`
-}
-
-function getSourceIconUrl(articleUrl: string): string | null {
-  try {
-    const host = new URL(articleUrl).hostname
-    if (!host) return null
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`
-  } catch {
-    return null
-  }
-}
-
-function getNewsIconUrl(item: { sourceUrl: string | null; url: string }): string | null {
-  return getSourceIconUrl(item.sourceUrl || item.url)
-}
-
-function calcWeightBarWidth(value: number | null, maxValue: number): number {
-  if (value === null || !Number.isFinite(value) || maxValue <= 0) return 0
-  return Math.max(0, Math.min(100, (value / maxValue) * 100))
 }
 
 function formatConviction(value: number | null): string {
@@ -325,12 +303,12 @@ function parsePercentString(value: string | null): number | null {
 function buildScoreDimensions({
   historicalData,
   recentSignals,
-  fundamentals,
+  dividendYield,
   hasFundamentals,
 }: {
   historicalData: PricePoint[]
   recentSignals: Signal[]
-  fundamentals: TickerFundamentals
+  dividendYield: string | null
   hasFundamentals: boolean
 }): SystemProfileBlobDimension[] {
   const latestPoint = historicalData[historicalData.length - 1]
@@ -353,13 +331,13 @@ function buildScoreDimensions({
     recentReturns.length > 10 ? stdDev(recentReturns) * Math.sqrt(252) : null
   const riskScore = annualizedVol === null ? 48 : clampScore(100 - annualizedVol * 240)
 
-  const yieldPct = parsePercentString(fundamentals.dividendYield)
+  const yieldPct = parsePercentString(dividendYield)
   const yieldScore = !hasFundamentals ? 34 : yieldPct === null ? 42 : clampScore(yieldPct * 14)
   const yieldHint =
     !hasFundamentals
       ? 'Fundamentals coverage is not available for this ticker yet.'
       : yieldPct === null
-      ? 'Placeholder-derived until yield feed is available for this ticker.'
+      ? 'Yield is not available from canonical backend data for this ticker.'
       : `Forward yield ${yieldPct.toFixed(2)}%.`
 
   const stabilityWindow = recentSignals.slice(0, 90)
@@ -607,7 +585,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
-  const quote = await getStockQuote(ticker)
+  const quote = await getStockQuote(ticker).catch(() => null)
   const name = quote?.name || ticker
 
   return {
@@ -649,23 +627,36 @@ export default async function TickerPage({
     : '/sign-up?redirect_url=/stocks/' + ticker
 
   const relatedTickerSymbols = getRelatedTickers(ticker)
-  const [
-    tickerSummary,
-    fallbackQuote,
-    historicalData,
-    recentSignals,
-    fundamentals,
-    newsItems,
-    relatedQuotes,
-    correlationNetwork,
-  ] = await Promise.all([
-    getTickerPageSummary(ticker),
-    getStockQuote(ticker),
-    getHistoricalData(ticker, 0),
-    getSignalHistoryForTicker(ticker, 180, { allowSyntheticFallback: false }),
-    getTickerFundamentals(ticker),
-    getTickerNews(ticker, 5),
-    Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
+  let tickerSummary: Awaited<ReturnType<typeof getTickerPageSummary>>
+  let fallbackQuote: Awaited<ReturnType<typeof getStockQuote>>
+  let historicalData: Awaited<ReturnType<typeof getHistoricalData>>
+  let recentSignals: Awaited<ReturnType<typeof getSignalHistoryForTicker>>
+  let latestScreenerRows: Awaited<ReturnType<typeof getScreenerSignals>>['rows']
+
+  try {
+    ;[tickerSummary, fallbackQuote, historicalData, recentSignals, latestScreenerRows] = await Promise.all([
+      getTickerPageSummary(ticker),
+      getStockQuote(ticker),
+      getHistoricalData(ticker, 0),
+      getSignalHistoryForTicker(ticker, 180),
+      getScreenerSignals({ tickers: [ticker], limit: 1 }).then((result) => result.rows),
+    ])
+  } catch {
+    return (
+      <EmptyState
+        title="Ticker data is temporarily unavailable"
+        description="The frontend could not load summary, history, or signal data from finance-backend for this ticker."
+        action={
+          <Link href={`/stocks/${ticker}`} className={buttonClass({ variant: 'secondary' })}>
+            Retry
+          </Link>
+        }
+      />
+    )
+  }
+
+  const [relatedQuotesResult, correlationNetworkResult] = await Promise.allSettled([
+    Promise.allSettled(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
     getTickerCorrelationNetwork(ticker, { maxPeers: 10, lookbackDays: 504, minOverlapDays: 90 }),
   ])
 
@@ -679,26 +670,47 @@ export default async function TickerPage({
   const quote = fallbackQuote
   const displayName = marketQuote?.name ?? quote?.name ?? ticker
 
-  const isInWatchlist = viewerUserId ? await isTickerInWatchlist(viewerUserId, ticker) : false
-  const latest = recentSignals[0] ?? null
+  const isInWatchlist = viewerUserId ? await isTickerInWatchlist(viewerUserId, ticker).catch(() => false) : false
+  const latestHistorySignal = recentSignals[0] ?? null
+  const latestScreenerSignal = latestScreenerRows[0] ?? null
+  const latest =
+    latestScreenerSignal && latestScreenerSignal.signalDate
+      ? {
+          direction: latestScreenerSignal.direction,
+          prob_side: latestScreenerSignal.conviction,
+          prediction_horizon: latestScreenerSignal.predictionHorizon ?? 20,
+          signal_date: latestScreenerSignal.signalDate,
+        }
+      : latestHistorySignal
   const hasMarketData = coverage.hasMarketData
   const hasFundamentals = coverage.hasFundamentals
   const hasEarnings = coverage.hasEarnings
-  const hasSignals = coverage.hasSignals || recentSignals.length > 0
+  const hasSignals = coverage.hasSignals || recentSignals.length > 0 || latestScreenerSignal !== null
   const signalMarkers = recentSignals.length > 0 ? buildChartSignalMarkers(recentSignals) : []
-  const holdingsPreview = hasFundamentals ? (fundamentals.holdings ?? []).slice(0, 8) : []
-  const maxHoldingPreviewWeight = holdingsPreview.reduce((max, holding) => {
-    const weight = holding.weightPercent
-    if (weight === null || !Number.isFinite(weight)) return max
-    return Math.max(max, weight)
-  }, 0)
   const insightStats = computeInsightStats(recentSignals)
   const signalSummaryContext = computeSignalSummaryContext(recentSignals)
 
+  const relatedQuotes =
+    relatedQuotesResult.status === 'fulfilled'
+      ? relatedQuotesResult.value.map((result) => (result.status === 'fulfilled' ? result.value : null))
+      : []
   const relatedAssets = relatedTickerSymbols
     .map((symbol, index) => ({ symbol, quote: relatedQuotes[index] ?? null }))
     .filter((item) => item.quote !== null)
-  const correlationSummary = correlationSummaryLine(ticker, correlationNetwork.peers)
+  const correlationNetwork =
+    correlationNetworkResult.status === 'fulfilled'
+      ? correlationNetworkResult.value
+      : {
+          ticker,
+          name: displayName,
+          asOf: historicalData[historicalData.length - 1]?.date ?? null,
+          sampleSize: historicalData.length,
+          peers: [],
+        }
+  const correlationSummary =
+    correlationNetworkResult.status === 'fulfilled'
+      ? correlationSummaryLine(ticker, correlationNetwork.peers)
+      : 'Correlation data is not currently available from the canonical backend history set.'
   const compositionCounts = recentSignals.reduce(
     (acc, signal) => {
       if (signal.direction === 'bullish') acc.bullish += 1
@@ -799,7 +811,8 @@ export default async function TickerPage({
   const scoreDimensions = buildScoreDimensions({
     historicalData,
     recentSignals,
-    fundamentals,
+    dividendYield:
+      findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('yield')) ?? null,
     hasFundamentals,
   })
   const profileInterpretation = buildSystemProfileInterpretation(scoreDimensions)
@@ -904,15 +917,15 @@ export default async function TickerPage({
         </div>
       </PageSection>
       <PageSection
-        title="Fundamentals"
-        description="Summary metrics and latest fundamentals rows from Data Ops."
+        title="Fundamental Summary"
+        description="Summary-level metrics from canonical ticker summary data. This surface does not represent full financial statements."
       >
         <Card className="section-gap" padding="lg">
           {!hasFundamentals ? (
-            <p className="text-body">Fundamentals not available yet for this ticker.</p>
+            <p className="text-body">Canonical summary metrics are not available yet for this ticker.</p>
           ) : fundamentalsSummaryRows.every((row) => row.value === '—') &&
             latestFundamentalsRows.length === 0 ? (
-            <p className="text-body">Fundamentals coverage is enabled, but values have not been published yet.</p>
+            <p className="text-body">Canonical summary coverage is enabled, but no summary values have been published yet.</p>
           ) : (
             <div className="section-gap">
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -1194,7 +1207,7 @@ export default async function TickerPage({
 
               <Card className="section-gap emphasis-secondary">
                 <h3 className="text-card-title text-content-primary">Use this in your model</h3>
-                <p className="text-body">Save to watchlist, inspect financials, or compare nearby assets for validation.</p>
+                <p className="text-body">Save to watchlist, inspect summary fundamentals, or compare nearby assets for validation.</p>
                 <div className="flex flex-wrap gap-2">
                   <Link
                     href={`/models/new?ticker=${encodeURIComponent(ticker)}&from=stock_page`}
@@ -1203,7 +1216,7 @@ export default async function TickerPage({
                     Build model from this stock
                   </Link>
                   <Link href={`/stocks/${ticker}/financials/fund-profile`} className={buttonClass({ variant: 'secondary' })}>
-                    View Financials
+                    View Financial Summary
                   </Link>
                   <Link href={`/stocks/${ticker}/signal-history`} className={buttonClass({ variant: 'ghost' })}>
                     Signal History
@@ -1221,12 +1234,7 @@ export default async function TickerPage({
               predictionHorizon: latest?.prediction_horizon ?? null,
               signalDate: latest?.signal_date ?? new Date().toISOString(),
             }}
-            news={newsItems.map((item) => ({
-              title: item.title,
-              publisher: item.publisher,
-              publishedAt: item.publishedAt,
-              url: item.url,
-            }))}
+            news={[]}
             isPro={viewerAccess.isPro}
             providerEnabled={aiAnalystEnabled}
             upgradeHref={upgradeHref}
@@ -1238,122 +1246,54 @@ export default async function TickerPage({
 
       <PageSection
         title="Details"
-        description="Fundamentals, holdings, recent news, and peer context for deeper research."
+        description="Summary-backed fundamentals and peer context, with unavailable surfaces called out explicitly."
       >
         <div className="emphasis-tertiary">
           <p className="text-body">
-            Move from signal interpretation into supporting company, portfolio, and market context.
+            Full statements, holdings, dividends, distributions, and news remain hidden until canonical backend coverage is available.
           </p>
         </div>
       </PageSection>
 
-      <PageSection id="profile" title="About" description="Company / fund profile and strategy context.">
+      <PageSection id="profile" title="Profile Status" description="Current canonical availability of company or fund profile text.">
         <Card>
           <p className="text-body leading-7 text-base">
-            {!hasFundamentals
-              ? 'Fundamentals profile information is not available for this ticker yet.'
-              : (fundamentals.about ||
-                `The ${displayName} provides exposure to highly liquid market segments. This page combines live model context with supporting fundamentals so you can evaluate stance changes in context.`)}
+            Profile text is not available from canonical backend data yet for this ticker.
           </p>
         </Card>
       </PageSection>
 
       <PageSection
         id="top-holdings"
-        title="Top Holdings Preview"
-        description="Largest disclosed positions by portfolio weight."
+        title="Holdings Coverage Status"
+        description="Current availability of canonical holdings data for this asset."
         action={
           <Link href={`/stocks/${ticker}/holdings-dividends`} className={buttonClass({ variant: 'secondary' })}>
-            View full holdings
+            Open status page
           </Link>
         }
       >
         <Card>
-          {holdingsPreview.length === 0 ? (
-            <p className="text-body">Holdings data is not currently available for this ticker.</p>
-          ) : (
-            <div className="space-y-2">
-              {holdingsPreview.map((holding, i) => {
-                const weightLabel = holding.weightPercent === null ? '—' : `${holding.weightPercent.toFixed(2)}%`
-                const barWidth = calcWeightBarWidth(holding.weightPercent, maxHoldingPreviewWeight)
-
-                return (
-                  <div key={`${holding.symbol}-${i}`} className="surface-tertiary p-3">
-                    <div className="text-body-sm mb-2 flex items-center justify-between gap-3">
-                      <div className="text-label-md text-content-primary">
-                        {holding.symbol}
-                        <span className="ml-2 text-content-muted">{holding.name}</span>
-                      </div>
-                      <div className="text-data-sm numeric-tabular text-content-secondary">{weightLabel}</div>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-surface-hover">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${barWidth}%` }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          <p className="text-body">
+            Canonical holdings data is not available from finance-backend yet for this ticker.
+          </p>
         </Card>
       </PageSection>
 
       <PageSection id="latest-news" title="Latest News" description="Recent headlines for this asset.">
-        <div className="grid grid-cols-1 gap-3">
-          {newsItems.length === 0 ? (
-            <Card>
-              <p className="text-body">No recent news available for this ticker.</p>
-            </Card>
-          ) : (
-            newsItems.map((item) => {
-              const sourceIconUrl = getNewsIconUrl(item)
-              return (
-                <a
-                  key={item.id}
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="state-interactive block"
-                >
-                  <Card className="hover:border-primary/40 hover:bg-surface-hover" padding="md">
-                    <div className="grid grid-cols-[88px_1fr] gap-3">
-                      <div className="h-[64px] w-[88px] overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface-elevated">
-                        {item.imageUrl ? (
-                          <div
-                            className="h-full w-full bg-cover bg-center bg-no-repeat"
-                            style={{ backgroundImage: `url(${item.imageUrl})` }}
-                          />
-                        ) : sourceIconUrl ? (
-                          <div
-                            className="h-full w-full bg-center bg-no-repeat bg-contain"
-                            style={{ backgroundImage: `url(${sourceIconUrl})` }}
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-content-muted">
-                            <Newspaper className="h-4 w-4" />
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-label-lg text-content-primary line-clamp-2">
-                          {item.title}
-                        </div>
-                        <div className="text-body mt-1">{item.publisher} · <span className="numeric-tabular">{formatTimeAgo(item.publishedAt)}</span></div>
-                      </div>
-                    </div>
-                  </Card>
-                </a>
-              )
-            })
-          )}
-        </div>
+        <Card>
+          <p className="text-body">
+            Canonical news coverage is not available from finance-backend yet for this ticker.
+          </p>
+        </Card>
       </PageSection>
 
       <PageSection title="Related Research Actions" description="Move from overview into detailed datasets and history.">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           {[
             {
-              title: 'Financials',
-              body: 'Explore profile, portfolio, distributions, and risk sections.',
+              title: 'Financial Summary',
+              body: 'Review summary-only fundamentals and the current canonical coverage status.',
               href: `/stocks/${ticker}/financials/fund-profile`,
             },
             {
@@ -1362,8 +1302,8 @@ export default async function TickerPage({
               href: `/stocks/${ticker}/signal-history`,
             },
             {
-              title: 'Holdings & Dividends',
-              body: 'Review allocations, sector exposure, and dividend fields.',
+              title: 'Holdings / Dividend Status',
+              body: 'See which holdings and dividend surfaces are still unavailable from canonical backend data.',
               href: `/stocks/${ticker}/holdings-dividends`,
             },
           ].map((item) => (

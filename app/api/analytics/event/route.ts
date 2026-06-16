@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { backendBaseUrl, backendHeaders } from '@/lib/backend'
 
 type AnalyticsEventBody = {
   event_name?: string
@@ -34,25 +35,6 @@ function safeIsoTimestamp(value: unknown): string {
   const parsed = new Date(value)
   if (!Number.isFinite(parsed.getTime())) return new Date().toISOString()
   return parsed.toISOString()
-}
-
-function backendBaseUrl(): string {
-  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
-  return raw.trim().replace(/\/+$/, '')
-}
-
-function backendHeaders(): HeadersInit {
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-    accept: 'application/json',
-  }
-  const secret = (
-    process.env.BACKEND_SHARED_SECRET ||
-    process.env.FINANCE_BACKEND_SHARED_SECRET ||
-    ''
-  ).trim()
-  if (secret) headers['x-backend-shared-secret'] = secret
-  return headers
 }
 
 function errorMessage(error: unknown): string {
@@ -94,7 +76,7 @@ export async function POST(request: Request) {
     }
     const upstream = await fetch(`${base}/site/analytics/events`, {
       method: 'POST',
-      headers: backendHeaders(),
+      headers: backendHeaders({ includeContentType: true }),
       body: JSON.stringify(insertPayload),
       cache: 'no-store',
     })

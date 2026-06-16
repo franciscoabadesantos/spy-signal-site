@@ -73,12 +73,31 @@ export default async function DashboardPage() {
     )
   }
 
-  const tickers = await getUserWatchlistTickers(userId)
-  const [{ rows }, lastFlipByTicker, recentAiRuns] = await Promise.all([
-    getScreenerSignals({ tickers, limit: 500 }),
-    getLastFlipDatesByTicker(tickers),
-    getRecentAiResearchRuns({ userId, limit: 6 }),
-  ])
+  let tickers: string[] = []
+  let rows: Awaited<ReturnType<typeof getScreenerSignals>>['rows'] = []
+  let lastFlipByTicker: Record<string, string | null> = {}
+  let recentAiRuns: Awaited<ReturnType<typeof getRecentAiResearchRuns>> = []
+
+  try {
+    tickers = await getUserWatchlistTickers(userId)
+    ;[{ rows }, lastFlipByTicker, recentAiRuns] = await Promise.all([
+      getScreenerSignals({ tickers, limit: 500 }),
+      getLastFlipDatesByTicker(tickers),
+      getRecentAiResearchRuns({ userId, limit: 6 }),
+    ])
+  } catch {
+    return (
+      <EmptyState
+        title="Dashboard data is temporarily unavailable"
+        description="The frontend could not load watchlist or signal data from finance-backend."
+        action={
+          <Link href="/dashboard" className={buttonClass({ variant: 'secondary' })}>
+            Retry
+          </Link>
+        }
+      />
+    )
+  }
 
   const rowByTicker = new Map(rows.map((row) => [row.ticker, row]))
   const watchlistRows = tickers.map((ticker) => {
@@ -170,12 +189,16 @@ export default async function DashboardPage() {
                       </TableCell>
                       <TableCell className="text-data-sm numeric-tabular">{formatPrice(row?.price ?? null)}</TableCell>
                       <TableCell>
-                        <SignalBlock
-                          direction={direction ?? 'neutral'}
-                          conviction={row?.conviction ?? null}
-                          compact
-                          showLabel={false}
-                        />
+                        {direction ? (
+                          <SignalBlock
+                            direction={direction}
+                            conviction={row?.conviction ?? null}
+                            compact
+                            showLabel={false}
+                          />
+                        ) : (
+                          <span className="text-caption text-content-muted">Unavailable</span>
+                        )}
                       </TableCell>
                       <TableCell muted className="numeric-tabular">{formatConviction(row?.conviction ?? null)}</TableCell>
                       <TableCell muted className="numeric-tabular">{formatDate(lastFlippedDate)}</TableCell>

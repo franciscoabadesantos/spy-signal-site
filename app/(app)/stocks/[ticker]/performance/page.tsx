@@ -1,5 +1,6 @@
 import PerformanceTickerAutocomplete from '@/components/PerformanceTickerAutocomplete'
 import Card from '@/components/ui/Card'
+import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
 import MetricGrid from '@/components/page/MetricGrid'
 import InsightCard from '@/components/page/InsightCard'
@@ -16,7 +17,7 @@ import {
   TableRow,
   TableShell,
 } from '@/components/ui/DataTable'
-import { getStockQuote } from '@/lib/finance'
+import { getHistoricalData, getStockQuote } from '@/lib/finance'
 import { getSignalHistoryForTicker, getScreenerSignals } from '@/lib/signals'
 import type { Signal } from '@/lib/types'
 
@@ -117,11 +118,26 @@ export default async function PerformancePage({
   const resolvedParams = await params
   const ticker = normalizeTicker(resolvedParams.ticker)
 
-  const [signals, quote, screener] = await Promise.all([
-    getSignalHistoryForTicker(ticker, 365, { allowSyntheticFallback: false }),
-    getStockQuote(ticker),
-    getScreenerSignals({ sortBy: 'conviction', limit: 20 }),
-  ])
+  let signals: Signal[] = []
+  let quote: Awaited<ReturnType<typeof getStockQuote>> = null
+  let screener: Awaited<ReturnType<typeof getScreenerSignals>>
+  let historicalData: Awaited<ReturnType<typeof getHistoricalData>> = []
+
+  try {
+    ;[signals, quote, screener, historicalData] = await Promise.all([
+      getSignalHistoryForTicker(ticker, 365),
+      getStockQuote(ticker),
+      getScreenerSignals({ sortBy: 'conviction', limit: 20 }),
+      getHistoricalData(ticker, 365),
+    ])
+  } catch {
+    return (
+      <EmptyState
+        title="Performance data is temporarily unavailable"
+        description="The frontend could not load price history or signal history from finance-backend for this ticker."
+      />
+    )
+  }
 
   const metrics = computeSignalMetrics(signals)
   const quickTickers = [...new Set(screener.rows.map((row) => row.ticker))].slice(0, 10)
@@ -249,8 +265,13 @@ export default async function PerformancePage({
         )}
 
         <Card className="text-micro mt-6 p-3 leading-6 text-content-muted">
-          This page reports model output behavior only. It does not include trade execution, slippage, or fees and is not investment advice.
+          This page reports model output behavior from real backend signal rows and price history. It does not include trade execution, slippage, or fees and is not investment advice.
         </Card>
+        {historicalData.length === 0 ? (
+          <Card className="text-micro p-3 leading-6 text-content-muted">
+            Canonical price history is not available for this ticker right now, so performance interpretation is limited to signal rows.
+          </Card>
+        ) : null}
       </div>
     </div>
   )

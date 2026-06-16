@@ -1,135 +1,33 @@
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Card from '@/components/ui/Card'
+import EmptyState from '@/components/ui/EmptyState'
 import MetricGrid from '@/components/page/MetricGrid'
 import StatRowCard from '@/components/ui/StatRowCard'
-import PortfolioFlowSankey, {
-  type PortfolioFlowLinkDatum,
-  type PortfolioFlowNodeDatum,
-} from '@/components/PortfolioFlowSankey'
-import { getStockQuote, getTickerFundamentals } from '@/lib/finance'
+import { getStockQuote } from '@/lib/finance'
+import { getTickerPageSummary } from '@/lib/ticker-data'
 
 export const dynamic = 'force-dynamic'
 
-function formatWeight(value: number | null): string {
-  if (value === null) return '—'
-  return `${value.toFixed(2)}%`
-}
-
-function calcWeightBarWidth(value: number | null, maxValue: number): number {
-  if (value === null || !Number.isFinite(value) || maxValue <= 0) return 0
-  return Math.max(0, Math.min(100, (value / maxValue) * 100))
-}
-
-type PortfolioFlowData = {
-  totalWeight: number
-  topHoldingsWeight: number
-  data: {
-    nodes: PortfolioFlowNodeDatum[]
-    links: PortfolioFlowLinkDatum[]
-  }
-}
-
-function roundWeight(value: number): number {
-  return Number(value.toFixed(2))
-}
-
-function buildPortfolioFlowData(
-  sectorRows: Awaited<ReturnType<typeof getTickerFundamentals>>['sectorWeights'],
-  holdingsRows: Awaited<ReturnType<typeof getTickerFundamentals>>['holdings']
-): PortfolioFlowData | null {
-  const validSectors = sectorRows
-    .filter((row) => row.weightPercent !== null && Number.isFinite(row.weightPercent))
-    .map((row) => ({
-      name: row.sector,
-      value: row.weightPercent as number,
-    }))
-    .sort((a, b) => b.value - a.value)
-
-  const validHoldings = holdingsRows
-    .filter((row) => row.weightPercent !== null && Number.isFinite(row.weightPercent))
-    .map((row) => ({
-      name: row.symbol,
-      value: row.weightPercent as number,
-    }))
-    .sort((a, b) => b.value - a.value)
-
-  if (validSectors.length < 2 || validHoldings.length === 0) return null
-
-  const totalWeight = roundWeight(validSectors.reduce((sum, row) => sum + row.value, 0))
-  if (totalWeight <= 0) return null
-
-  const sectorBuckets = validSectors.slice(0, 5)
-  const sectorShownWeight = sectorBuckets.reduce((sum, row) => sum + row.value, 0)
-  const residualSectorWeight = roundWeight(Math.max(0, totalWeight - sectorShownWeight))
-  if (residualSectorWeight >= 0.5) {
-    sectorBuckets.push({
-      name: 'Other Sectors',
-      value: residualSectorWeight,
-    })
-  }
-
-  const holdingBuckets = validHoldings.slice(0, 6)
-  const topHoldingsWeight = roundWeight(holdingBuckets.reduce((sum, row) => sum + row.value, 0))
-  const residualHoldingsWeight = roundWeight(Math.max(0, totalWeight - topHoldingsWeight))
-  if (residualHoldingsWeight >= 0.5) {
-    holdingBuckets.push({
-      name: 'Other Holdings',
-      value: residualHoldingsWeight,
-    })
-  }
-
-  const nodes: PortfolioFlowNodeDatum[] = []
-  const links: PortfolioFlowLinkDatum[] = []
-
-  for (const sector of sectorBuckets) {
-    nodes.push({
-      name: sector.name,
-      value: sector.value,
-      valueLabel: `${sector.value.toFixed(2)}%`,
-      tone: sector.name === 'Other Sectors' ? 'other' : 'sector',
-    })
-  }
-
-  const portfolioIndex = nodes.length
-  nodes.push({
-    name: 'Portfolio',
-    value: totalWeight,
-    valueLabel: `${totalWeight.toFixed(2)}% allocated`,
-    tone: 'portfolio',
+function formatCalendarDate(value: string | null): string {
+  if (!value) return '—'
+  const parsed = Date.parse(value)
+  if (!Number.isFinite(parsed)) return '—'
+  return new Date(parsed).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   })
+}
 
-  for (let index = 0; index < sectorBuckets.length; index += 1) {
-    links.push({
-      source: index,
-      target: portfolioIndex,
-      value: roundWeight(sectorBuckets[index].value),
-    })
-  }
-
-  for (const holding of holdingBuckets) {
-    const holdingIndex = nodes.length
-    nodes.push({
-      name: holding.name,
-      value: holding.value,
-      valueLabel: `${holding.value.toFixed(2)}%`,
-      tone: holding.name === 'Other Holdings' ? 'other' : 'holding',
-    })
-    links.push({
-      source: portfolioIndex,
-      target: holdingIndex,
-      value: roundWeight(holding.value),
-    })
-  }
-
-  return {
-    totalWeight,
-    topHoldingsWeight,
-    data: {
-      nodes,
-      links,
-    },
-  }
+function formatCompactNumber(value: number | null, options?: { currency?: boolean }): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  const formatter = new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 2,
+  })
+  const formatted = formatter.format(value)
+  return options?.currency ? `$${formatted}` : formatted
 }
 
 export async function generateMetadata({
@@ -139,12 +37,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
-  const quote = await getStockQuote(ticker)
+  const quote = await getStockQuote(ticker).catch(() => null)
   const name = quote?.name || ticker
 
   return {
-    title: `${ticker} Holdings, Dividends & Sector Weights - Longbrunch`,
-    description: `Explore top holdings, sector exposure, and dividend metrics for ${name} (${ticker}) on Longbrunch.`,
+    title: `${ticker} Holdings / Dividend Status - Longbrunch`,
+    description: `Coverage status for holdings and dividend data for ${name} (${ticker}), with only summary-level fundamentals shown when available.`,
   }
 }
 
@@ -155,21 +53,18 @@ export default async function HoldingsAndDividendsPage({
 }) {
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
-  const fundamentals = await getTickerFundamentals(ticker)
 
-  const snapshotRows = fundamentals.snapshot ?? []
-  const holdingsRows = fundamentals.holdings ?? []
-  const sectorRows = fundamentals.sectorWeights ?? []
-  const portfolioFlow = buildPortfolioFlowData(sectorRows, holdingsRows)
-
-  const maxHoldingWeight = holdingsRows.reduce((max, row) => {
-    if (row.weightPercent === null || !Number.isFinite(row.weightPercent)) return max
-    return Math.max(max, row.weightPercent)
-  }, 0)
-  const maxSectorWeight = sectorRows.reduce((max, row) => {
-    if (row.weightPercent === null || !Number.isFinite(row.weightPercent)) return max
-    return Math.max(max, row.weightPercent)
-  }, 0)
+  let summary: Awaited<ReturnType<typeof getTickerPageSummary>>
+  try {
+    summary = await getTickerPageSummary(ticker)
+  } catch {
+    return (
+      <EmptyState
+        title="Summary data is temporarily unavailable"
+        description="The frontend could not load canonical summary data from finance-backend for this ticker."
+      />
+    )
+  }
 
   return (
     <>
@@ -178,109 +73,78 @@ export default async function HoldingsAndDividendsPage({
           { label: 'Home', href: '/' },
           { label: 'Stocks', href: '/screener' },
           { label: ticker, href: `/stocks/${ticker}` },
-          { label: 'Holdings & Dividends' },
+          { label: 'Holdings / Dividend Status' },
         ]}
       />
       <div className="section-gap">
         <MetricGrid
           columns={4}
           items={[
-            { label: 'Total Holdings', value: <span className="numeric-tabular">{holdingsRows.length.toString()}</span> },
-            { label: 'Sectors', value: <span className="numeric-tabular">{sectorRows.length.toString()}</span> },
-            { label: 'Dividend Yield', value: <span className="numeric-tabular">{fundamentals.dividendYield || '—'}</span> },
-            { label: 'Payout Ratio', value: <span className="numeric-tabular">{fundamentals.payoutRatio || '—'}</span> },
+            {
+              label: 'Market Cap',
+              value: formatCompactNumber(summary.fundamentalsSummary?.marketCap ?? null, { currency: true }),
+            },
+            {
+              label: 'Latest Revenue',
+              value: formatCompactNumber(summary.fundamentalsSummary?.latestRevenue ?? null, { currency: true }),
+            },
+            {
+              label: 'Latest EPS',
+              value:
+                summary.fundamentalsSummary?.latestEps !== null &&
+                summary.fundamentalsSummary?.latestEps !== undefined
+                  ? summary.fundamentalsSummary.latestEps.toFixed(2)
+                  : '—',
+            },
+            {
+              label: 'Next Earnings',
+              value: formatCalendarDate(summary.nextEarnings?.earningsDate ?? null),
+            },
           ]}
         />
 
-        {portfolioFlow ? (
-          <PortfolioFlowSankey
-            title="Portfolio Flow Map"
-            subtitle="Sector exposure flowing into total allocation and then into largest disclosed holdings."
-            totalWeight={portfolioFlow.totalWeight}
-            topHoldingsWeight={portfolioFlow.topHoldingsWeight}
-            data={portfolioFlow.data}
-          />
-        ) : null}
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="section-gap" padding="lg">
-            <h2 className="text-section-title text-content-primary">Top Holdings</h2>
-            {holdingsRows.length === 0 ? (
-              <p className="text-body">No holdings data is currently available for this ticker.</p>
-            ) : (
-              <div className="max-h-[560px] space-y-2 overflow-auto">
-                {holdingsRows.map((holding) => {
-                  const barWidth = calcWeightBarWidth(holding.weightPercent, maxHoldingWeight)
-                  return (
-                    <div key={`${holding.symbol}-${holding.name}`} className="rounded-[var(--radius-lg)] border border-border p-3">
-                      <div className="text-body-sm mb-1.5 flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <span className="text-label-lg text-content-primary">{holding.symbol}</span>
-                          <span className="ml-2 text-content-muted">{holding.name}</span>
-                        </div>
-                        <span className="text-data-sm numeric-tabular text-content-secondary">
-                          {formatWeight(holding.weightPercent)}
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--neutral-200)]">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${barWidth}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
-
-          <Card className="section-gap" padding="lg">
-            <h2 className="text-section-title text-content-primary">Sector Exposure</h2>
-            {sectorRows.length === 0 ? (
-              <p className="text-body">No sector allocation data is currently available for this ticker.</p>
-            ) : (
-              <div className="max-h-[560px] space-y-2 overflow-auto">
-                {sectorRows.map((sector) => {
-                  const barWidth = calcWeightBarWidth(sector.weightPercent, maxSectorWeight)
-                  return (
-                    <div key={sector.sector} className="rounded-[var(--radius-lg)] border border-border p-3">
-                      <div className="text-body-sm mb-1.5 flex items-center justify-between gap-4">
-                        <span className="text-content-secondary">{sector.sector}</span>
-                        <span className="text-data-sm numeric-tabular text-content-secondary">
-                          {formatWeight(sector.weightPercent)}
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--neutral-200)]">
-                        <div className="h-full rounded-full bg-[var(--neutral-700)]" style={{ width: `${barWidth}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
-        </div>
+        <EmptyState
+          title="Canonical holdings and dividend data are not available yet"
+          description="This page does not show synthetic holdings, sector weights, dividends, or distributions. It remains a status surface until finance-backend exposes a proven canonical dataset."
+        />
 
         <Card className="section-gap" padding="lg">
-          <h3 className="text-card-title text-content-primary">Dividend Snapshot</h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatRowCard label="Annual Dividend" value={fundamentals.dividendRate || '—'} />
-            <StatRowCard label="Dividend Yield" value={fundamentals.dividendYield || '—'} />
-            <StatRowCard label="Ex-Dividend Date" value={fundamentals.exDividendDate || '—'} />
-            <StatRowCard label="Payout Ratio" value={fundamentals.payoutRatio || '—'} />
-          </div>
-          <p className="text-body">
-            ETF holdings and dividend fields vary by instrument and provider coverage. Blank values indicate no published value from the source.
+          <h3 className="text-card-title text-content-primary">Summary metrics currently available</h3>
+          <p className="mt-2 text-body text-content-secondary">
+            These cards come from the ticker summary endpoint and do not imply live holdings, sector, or dividend datasets.
           </p>
-        </Card>
-
-        <Card>
-          <h3 className="text-card-title text-content-primary">Snapshot Fields</h3>
-          <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-            {snapshotRows.map((row) => (
-              <div key={row.label} className="flex items-center justify-between rounded-[var(--radius-md)] border border-border px-3 py-2 text-body-sm">
-                <span className="text-content-muted">{row.label}</span>
-                <span className="text-data-sm numeric-tabular text-content-primary">{row.value}</span>
-              </div>
-            ))}
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatRowCard
+              label="Trailing P/E"
+              value={
+                summary.fundamentalsSummary?.trailingPe !== null &&
+                summary.fundamentalsSummary?.trailingPe !== undefined
+                  ? summary.fundamentalsSummary.trailingPe.toFixed(2)
+                  : '—'
+              }
+            />
+            <StatRowCard
+              label="Revenue Growth YoY"
+              value={
+                summary.fundamentalsSummary?.revenueGrowthYoy !== null &&
+                summary.fundamentalsSummary?.revenueGrowthYoy !== undefined
+                  ? `${(summary.fundamentalsSummary.revenueGrowthYoy * 100).toFixed(2)}%`
+                  : '—'
+              }
+            />
+            <StatRowCard
+              label="Earnings Growth YoY"
+              value={
+                summary.fundamentalsSummary?.earningsGrowthYoy !== null &&
+                summary.fundamentalsSummary?.earningsGrowthYoy !== undefined
+                  ? `${(summary.fundamentalsSummary.earningsGrowthYoy * 100).toFixed(2)}%`
+                  : '—'
+              }
+            />
+            <StatRowCard
+              label="Latest Period End"
+              value={formatCalendarDate(summary.fundamentalsSummary?.periodEnd ?? null)}
+            />
           </div>
         </Card>
       </div>

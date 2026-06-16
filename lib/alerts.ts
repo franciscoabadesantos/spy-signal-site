@@ -1,4 +1,5 @@
 import { clerkClient } from '@clerk/nextjs/server'
+import { fetchBackendJson } from '@/lib/backend'
 import type { SignalFlipEvent } from '@/lib/signals'
 
 type AlertRecipient = {
@@ -7,38 +8,16 @@ type AlertRecipient = {
   firstName: string | null
 }
 
-function backendBaseUrl(): string {
-  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
-  return raw.trim().replace(/\/+$/, '')
-}
-
-function backendHeaders(): HeadersInit {
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-    accept: 'application/json',
-  }
-  const secret = (
-    process.env.BACKEND_SHARED_SECRET ||
-    process.env.FINANCE_BACKEND_SHARED_SECRET ||
-    ''
-  ).trim()
-  if (secret) headers['x-backend-shared-secret'] = secret
-  return headers
-}
-
 async function backendJson<T>(path: string, init?: RequestInit): Promise<T | null> {
-  const base = backendBaseUrl()
-  if (!base) return null
-  const response = await fetch(`${base}${path}`, {
-    cache: 'no-store',
-    ...init,
-    headers: {
-      ...backendHeaders(),
-      ...(init?.headers ?? {}),
-    },
-  }).catch(() => null)
-  if (!response || !response.ok) return null
-  return (await response.json().catch(() => null)) as T | null
+  try {
+    return await fetchBackendJson<T>(path, {
+      context: `backend.alerts${path}`,
+      init,
+      allowEmptyBody: true,
+    })
+  } catch {
+    return null
+  }
 }
 
 function directionLabel(direction: 'bullish' | 'neutral' | 'bearish'): string {

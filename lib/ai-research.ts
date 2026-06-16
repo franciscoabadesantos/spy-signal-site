@@ -1,3 +1,5 @@
+import { fetchBackendJson } from './backend'
+
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
 type ResearchRunStatus = 'started' | 'completed' | 'failed'
 
@@ -63,65 +65,41 @@ export type AiResearchRun = {
   completedAt: string | null
 }
 
-function backendBaseUrl(): string {
-  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
-  return raw.trim().replace(/\/+$/, '')
-}
-
-function backendHeaders(): HeadersInit {
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-    accept: 'application/json',
-  }
-  const secret = (
-    process.env.BACKEND_SHARED_SECRET ||
-    process.env.FINANCE_BACKEND_SHARED_SECRET ||
-    ''
-  ).trim()
-  if (secret) headers['x-backend-shared-secret'] = secret
-  return headers
-}
-
-async function backendJson<T>(path: string, init?: RequestInit): Promise<T | null> {
-  const base = backendBaseUrl()
-  if (!base) return null
-  const response = await fetch(`${base}${path}`, {
-    cache: 'no-store',
-    ...init,
-    headers: {
-      ...backendHeaders(),
-      ...(init?.headers ?? {}),
-    },
-  }).catch(() => null)
-  if (!response || !response.ok) return null
-  return (await response.json().catch(() => null)) as T | null
-}
-
 function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase()
 }
 
 export async function createAiResearchRun(input: CreateAiResearchRunInput): Promise<number | null> {
-  const payload = await backendJson<{ runId?: number | null }>('/site/ai-research/runs', {
-    method: 'POST',
-    body: JSON.stringify(input),
+  const payload = await fetchBackendJson<{ runId?: number | null }>('/site/ai-research/runs', {
+    context: 'backend.site.ai_research.create',
+    init: {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
   })
   return typeof payload?.runId === 'number' ? payload.runId : null
 }
 
 export async function finalizeAiResearchRun(input: FinalizeAiResearchRunInput): Promise<void> {
-  await backendJson(`/site/ai-research/runs/${input.runId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
+  await fetchBackendJson(`/site/ai-research/runs/${input.runId}`, {
+    context: 'backend.site.ai_research.finalize',
+    allowEmptyBody: true,
+    init: {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
   })
 }
 
 export async function recordAiResearchFeedback(
   input: RecordAiResearchFeedbackInput
 ): Promise<{ ok: boolean; error?: string }> {
-  const payload = await backendJson<{ ok?: boolean; error?: string }>('/site/ai-research/feedback', {
-    method: 'POST',
-    body: JSON.stringify(input),
+  const payload = await fetchBackendJson<{ ok?: boolean; error?: string }>('/site/ai-research/feedback', {
+    context: 'backend.site.ai_research.feedback',
+    init: {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
   })
   if (!payload?.ok) return { ok: false, error: payload?.error || 'Failed to record feedback.' }
   return { ok: true }
@@ -135,7 +113,9 @@ export async function getRecentAiResearchRuns(
   params.set('user_id', input.userId)
   if (input.ticker) params.set('ticker', normalizeTicker(input.ticker))
   params.set('limit', String(Math.max(1, Math.min(input.limit ?? 5, 20))))
-  const payload = await backendJson<{ runs?: AiResearchRun[] }>(`/site/ai-research/runs?${params.toString()}`)
+  const payload = await fetchBackendJson<{ runs?: AiResearchRun[] }>(`/site/ai-research/runs?${params.toString()}`, {
+    context: 'backend.site.ai_research.recent_runs',
+  })
   return Array.isArray(payload?.runs) ? payload!.runs : []
 }
 
@@ -143,8 +123,9 @@ export async function getAiResearchRunById(
   input: GetAiResearchRunByIdInput
 ): Promise<AiResearchRun | null> {
   if (!input.userId) return null
-  const payload = await backendJson<{ run?: AiResearchRun | null }>(
-    `/site/ai-research/runs/${input.runId}?user_id=${encodeURIComponent(input.userId)}`
+  const payload = await fetchBackendJson<{ run?: AiResearchRun | null }>(
+    `/site/ai-research/runs/${input.runId}?user_id=${encodeURIComponent(input.userId)}`,
+    { context: 'backend.site.ai_research.run_detail' }
   )
   return payload?.run ?? null
 }

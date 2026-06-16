@@ -28,7 +28,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Ticker is required.' }, { status: 400 })
   }
 
-  const result = await addTickerToWatchlist(userId, ticker)
+  let result
+  try {
+    result = await addTickerToWatchlist(userId, ticker)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to add ticker.' },
+      { status: 502 }
+    )
+  }
   if (!result.ok) {
     return NextResponse.json({ error: result.error || 'Failed to add ticker.' }, { status: 500 })
   }
@@ -54,7 +62,15 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Ticker is required.' }, { status: 400 })
   }
 
-  const result = await removeTickerFromWatchlist(userId, ticker)
+  let result
+  try {
+    result = await removeTickerFromWatchlist(userId, ticker)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to remove ticker.' },
+      { status: 502 }
+    )
+  }
   if (!result.ok) {
     return NextResponse.json({ error: result.error || 'Failed to remove ticker.' }, { status: 500 })
   }

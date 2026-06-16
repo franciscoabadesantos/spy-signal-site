@@ -303,6 +303,7 @@ export default function ModelDetailClient({
   const [model, setModel] = useState<ModelRecord | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isRerunning, setIsRerunning] = useState(false)
+  const [messageTone, setMessageTone] = useState<'success' | 'error'>('success')
   const viewedModelRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -927,11 +928,18 @@ export default function ModelDetailClient({
                 onClick={async () => {
                   if (isRerunning) return
                   setIsRerunning(true)
-                  const rerun = await rerunModelValidation(model.id)
-                  setIsRerunning(false)
-                  if (!rerun) return
-                  setModel(rerun)
-                  setMessage('Validation rerun complete.')
+                  try {
+                    const rerun = await rerunModelValidation(model.id)
+                    if (!rerun) return
+                    setModel(rerun)
+                    setMessageTone('success')
+                    setMessage('Validation rerun complete.')
+                  } catch (error) {
+                    setMessageTone('error')
+                    setMessage(error instanceof Error ? error.message : 'Validation rerun failed.')
+                  } finally {
+                    setIsRerunning(false)
+                  }
                 }}
                 disabled={isRerunning}
               >
@@ -999,7 +1007,11 @@ export default function ModelDetailClient({
           }
         />
 
-        {message ? <div className="text-body-sm signal-bullish">{message}</div> : null}
+        {message ? (
+          <div className={`text-body-sm ${messageTone === 'success' ? 'signal-bullish' : 'signal-bearish'}`}>
+            {message}
+          </div>
+        ) : null}
         <DismissibleLocalHint
           storageKey="spy_signal_onboarding_loop_hint_dismissed_v1"
           text="Start here: Explore a model → tweak it → compare results"

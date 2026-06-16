@@ -104,16 +104,10 @@ async function requestHistoricalValidation(
 }
 
 export async function createValidatedModel(input: ModelDraftInput): Promise<ModelRecord> {
-  let model: ModelRecord
-  if (input.universe === 'single-stock' && input.ticker) {
-    try {
-      model = await requestHistoricalValidation(input)
-    } catch {
-      model = buildModelRecord(input, { status: 'validated' })
-    }
-  } else {
-    model = buildModelRecord(input, { status: 'validated' })
-  }
+  const model =
+    input.universe === 'single-stock' && input.ticker
+      ? await requestHistoricalValidation(input)
+      : buildModelRecord(input, { status: 'validated' })
   upsertModel(model)
   return model
 }
@@ -136,27 +130,17 @@ export async function rerunModelValidation(id: string): Promise<ModelRecord | nu
     variationLabel: current.variationLabel,
   }
 
-  let rerun: ModelRecord
-  if (input.universe === 'single-stock' && input.ticker) {
-    try {
-      rerun = await requestHistoricalValidation(input, {
-        id: current.id,
-        createdAt: current.createdAt,
-      })
-    } catch {
-      rerun = buildModelRecord(input, {
-        id: current.id,
-        createdAt: current.createdAt,
-        status: 'validated',
-      })
-    }
-  } else {
-    rerun = buildModelRecord(input, {
-      id: current.id,
-      createdAt: current.createdAt,
-      status: 'validated',
-    })
-  }
+  const rerun =
+    input.universe === 'single-stock' && input.ticker
+      ? await requestHistoricalValidation(input, {
+          id: current.id,
+          createdAt: current.createdAt,
+        })
+      : buildModelRecord(input, {
+          id: current.id,
+          createdAt: current.createdAt,
+          status: 'validated',
+        })
   upsertModel(rerun)
   return rerun
 }

@@ -1,4 +1,5 @@
 import { unstable_cache } from 'next/cache'
+import { fetchBackendJson } from './backend'
 
 const YAHOO_API_BASE = 'https://query1.finance.yahoo.com'
 const YAHOO_SUMMARY_API_BASE = 'https://query2.finance.yahoo.com'
@@ -238,32 +239,6 @@ class YahooAuthError extends Error {
 
 function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase()
-}
-
-function backendBaseUrl(): string {
-  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
-  return raw.trim().replace(/\/+$/, '')
-}
-
-function backendHeaders(): HeadersInit {
-  const headers: Record<string, string> = {
-    accept: 'application/json',
-  }
-  const secret = (
-    process.env.BACKEND_SHARED_SECRET ||
-    process.env.FINANCE_BACKEND_SHARED_SECRET ||
-    ''
-  ).trim()
-  if (secret) headers['x-backend-shared-secret'] = secret
-  return headers
-}
-
-async function backendJson<T>(path: string): Promise<T | null> {
-  const base = backendBaseUrl()
-  if (!base) return null
-  const response = await fetch(`${base}${path}`, { cache: 'no-store', headers: backendHeaders() }).catch(() => null)
-  if (!response || !response.ok) return null
-  return (await response.json().catch(() => null)) as T | null
 }
 
 const RELATED_TICKER_MAP: Record<string, string[]> = {
@@ -1825,7 +1800,7 @@ async function fetchLiveFundamentalsWithFallback(
 
 async function loadQuote(tickerRaw: string): Promise<StockQuote | null> {
   const ticker = normalizeTicker(tickerRaw)
-  const payload = await backendJson<{
+  const payload = await fetchBackendJson<{
     ticker: string
     quote?: {
       ticker?: string
@@ -1835,7 +1810,9 @@ async function loadQuote(tickerRaw: string): Promise<StockQuote | null> {
       changePercent?: number | null
       marketCapText?: string | null
     } | null
-  }>(`/tickers/${encodeURIComponent(ticker)}/summary`)
+  }>(`/tickers/${encodeURIComponent(ticker)}/summary`, {
+    context: 'backend.tickers.summary.quote',
+  })
   const quote = payload?.quote
   if (!quote || typeof quote !== 'object') return null
   const price = typeof quote.price === 'number' ? quote.price : null
@@ -1853,8 +1830,9 @@ async function loadQuote(tickerRaw: string): Promise<StockQuote | null> {
 async function loadHistorical(tickerRaw: string, periodDays: number): Promise<PricePoint[]> {
   const ticker = normalizeTicker(tickerRaw)
   const safeDays = Number.isFinite(periodDays) && periodDays > 0 ? Math.max(30, Math.min(periodDays, 3650)) : 0
-  const payload = await backendJson<Array<{ date?: string; close?: number }>>(
-    `/tickers/${encodeURIComponent(ticker)}/history?period_days=${safeDays}`
+  const payload = await fetchBackendJson<Array<{ date?: string; close?: number }>>(
+    `/tickers/${encodeURIComponent(ticker)}/history?period_days=${safeDays}`,
+    { context: 'backend.tickers.history' }
   )
   if (!Array.isArray(payload)) return []
   return payload
@@ -1869,11 +1847,16 @@ async function loadHistorical(tickerRaw: string, periodDays: number): Promise<Pr
 
 async function loadTickerFundamentals(tickerRaw: string): Promise<TickerFundamentals> {
   const ticker = normalizeTicker(tickerRaw)
-  const payload = await backendJson<{
+  const payload = await fetchBackendJson<{
     ticker: string
     quote?: { name?: string | null; marketCapText?: string | null } | null
     latestFundamentals?: Array<{ metricLabel?: string | null; valueDisplay?: string | null; valueNumber?: number | null }>
-  }>(`/tickers/${encodeURIComponent(ticker)}/summary`)
+  }>(`/tickers/${encodeURIComponent(ticker)}/summary`, {
+    context: 'backend.tickers.summary.fundamentals',
+  })
+  if (!payload || typeof payload !== 'object') {
+    return emptyFundamentals()
+  }
 
   const rows = Array.isArray(payload?.latestFundamentals) ? payload!.latestFundamentals : []
   const financialRows: TickerFinancialRow[] = rows
@@ -1891,7 +1874,7 @@ async function loadTickerFundamentals(tickerRaw: string): Promise<TickerFundamen
 
   const marketCapText = typeof payload?.quote?.marketCapText === 'string' ? payload.quote.marketCapText : null
   return {
-    about: `The ${ticker} provides exposure to highly liquid market segments. This page combines live model context with supporting fundamentals so you can evaluate stance changes in context.`,
+    about: null,
     marketCap: marketCapText || null,
     snapshot: financialRows.slice(0, 10),
     holdings: [],
@@ -1900,7 +1883,7 @@ async function loadTickerFundamentals(tickerRaw: string): Promise<TickerFundamen
     dividendYield: null,
     exDividendDate: null,
     payoutRatio: null,
-    profile: financialRows,
+    profile: [],
     portfolio: [],
     distributions: [],
     risk: [],
@@ -2042,7 +2025,12 @@ export async function getTickerCorrelationNetwork(
 
   const peerRows = await Promise.all(
     candidateTickers.map(async (peerTicker): Promise<CorrelationNetworkPeer | null> => {
-      const peerHistory = await getHistoricalData(peerTicker, lookbackDays)
+      let peerHistory: PricePoint[]
+      try {
+        peerHistory = await getHistoricalData(peerTicker, lookbackDays)
+      } catch {
+        return null
+      }
       const peerReturns = buildDailyReturnsByDate(peerHistory)
       if (peerReturns.size < minOverlapDays) return null
 

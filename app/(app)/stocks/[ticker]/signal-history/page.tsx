@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
+import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
 import { buttonClass } from '@/components/ui/Button'
 import ActionBar from '@/components/page/ActionBar'
@@ -112,7 +113,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
-  const quote = await getStockQuote(ticker)
+  const quote = await getStockQuote(ticker).catch(() => null)
   const name = quote?.name || ticker
 
   return {
@@ -129,7 +130,22 @@ export default async function SignalHistoryPage({
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
   const viewer = await getViewerAccess()
-  const signals = await getSignalHistoryForTicker(ticker, 250, { allowSyntheticFallback: false })
+  let signals: Awaited<ReturnType<typeof getSignalHistoryForTicker>> = []
+  try {
+    signals = await getSignalHistoryForTicker(ticker, 250)
+  } catch {
+    return (
+      <EmptyState
+        title="Signal history is temporarily unavailable"
+        description="The frontend could not load signal history from finance-backend for this ticker."
+        action={
+          <Link href={`/stocks/${ticker}/signal-history`} className={buttonClass({ variant: 'secondary' })}>
+            Retry
+          </Link>
+        }
+      />
+    )
+  }
 
   const canExport = viewer.isPro && signals.length > 0
   const upgradeUrl = getStripeUpgradeUrl(viewer.userId)
@@ -180,7 +196,7 @@ export default async function SignalHistoryPage({
               </span>
             )}
             <Link href={`/stocks/${ticker}/financials/fund-profile`} className={buttonClass({ variant: 'ghost' })}>
-              View Financials
+              View Financial Summary
             </Link>
           </div>
         </ActionBar>

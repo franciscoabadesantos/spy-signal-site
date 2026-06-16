@@ -292,6 +292,7 @@ export default function ModelBuilderClient({
   const [variationLabel, setVariationLabel] = useState<string | null>(seedDraft?.variationLabel ?? null)
   const [isSaving, setIsSaving] = useState(false)
   const [runStageIndex, setRunStageIndex] = useState<number | null>(null)
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   const scopeReady = modelName.trim().length >= 3 && (universe !== 'single-stock' || ticker.trim().length > 0)
   const logicReady = conditions.length > 0 && conditions.every((condition) => Number.isFinite(condition.value))
@@ -438,6 +439,7 @@ export default function ModelBuilderClient({
     if (!scopeReady || isSaving) return
     setIsSaving(true)
     setRunStageIndex(null)
+    setValidationError(null)
     const model = saveDraftModel(draftInput)
     trackEvent('create_model', {
       model_id: model.id,
@@ -452,27 +454,34 @@ export default function ModelBuilderClient({
   const handleRunValidation = async () => {
     if (!allReady || isSaving) return
     setIsSaving(true)
-    for (let index = 0; index < VALIDATION_RUN_STAGES.length; index += 1) {
-      setRunStageIndex(index)
-      await wait(360)
+    setValidationError(null)
+    try {
+      for (let index = 0; index < VALIDATION_RUN_STAGES.length; index += 1) {
+        setRunStageIndex(index)
+        await wait(360)
+      }
+      const model = await createValidatedModel(draftInput)
+      const isSample = isSampleDraft(draftInput) || model.id === SAMPLE_MODEL_ID
+      trackEvent('run_validation', {
+        model_id: model.id,
+        is_sample: isSample,
+        condition_count: draftInput.conditions.length,
+        has_changes: hasChanges,
+        entry_source: modelResultEntrySource,
+      })
+      trackEvent('create_model', {
+        model_id: model.id,
+        is_sample: isSample,
+        status: 'validated',
+        condition_count: draftInput.conditions.length,
+        entry_source: modelResultEntrySource,
+      })
+      router.push(`/models/${model.id}?from=${encodeURIComponent(modelResultEntrySource)}`)
+    } catch (error) {
+      setValidationError(error instanceof Error ? error.message : 'Validation failed.')
+      setIsSaving(false)
+      setRunStageIndex(null)
     }
-    const model = await createValidatedModel(draftInput)
-    const isSample = isSampleDraft(draftInput) || model.id === SAMPLE_MODEL_ID
-    trackEvent('run_validation', {
-      model_id: model.id,
-      is_sample: isSample,
-      condition_count: draftInput.conditions.length,
-      has_changes: hasChanges,
-      entry_source: modelResultEntrySource,
-    })
-    trackEvent('create_model', {
-      model_id: model.id,
-      is_sample: isSample,
-      status: 'validated',
-      condition_count: draftInput.conditions.length,
-      entry_source: modelResultEntrySource,
-    })
-    router.push(`/models/${model.id}?from=${encodeURIComponent(modelResultEntrySource)}`)
   }
 
   return (
@@ -486,6 +495,12 @@ export default function ModelBuilderClient({
             </Link>
           }
         />
+
+        {validationError ? (
+          <Card className="border-[var(--bear-200)] bg-[var(--bearish-tint)]">
+            <p className="text-body-sm signal-bearish">{validationError}</p>
+          </Card>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_350px]">
           <div className="section-gap">

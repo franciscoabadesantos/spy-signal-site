@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
+import EmptyState from '@/components/ui/EmptyState'
 import { buttonClass } from '@/components/ui/Button'
 import { getViewerUserId } from '@/lib/auth'
 import { getAiResearchRunById } from '@/lib/ai-research'
@@ -52,7 +53,22 @@ export default async function AiResearchRunDetailPage({
 
   if (!runId || !userId) notFound()
 
-  const run = await getAiResearchRunById({ userId, runId })
+  let run
+  try {
+    run = await getAiResearchRunById({ userId, runId })
+  } catch {
+    return (
+      <EmptyState
+        title="AI research run is temporarily unavailable"
+        description="The frontend could not load this saved run from finance-backend."
+        action={
+          <Link href="/dashboard" className={buttonClass({ variant: 'secondary' })}>
+            Return to Dashboard
+          </Link>
+        }
+      />
+    )
+  }
   if (!run) notFound()
 
   return (

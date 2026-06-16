@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { fetchBackendJson } from '@/lib/backend'
 
 export const revalidate = 3600
 
@@ -8,9 +9,6 @@ type TickerSignal = {
 }
 
 const SITEMAP_SOURCE_TIMEOUT_MS = 4000
-const SITEMAP_TOTAL_TIMEOUT_MS = 10000
-
-const FALLBACK_TICKERS = ['SPY', 'QQQ', 'DIA', 'AAPL', 'MSFT', 'NVDA', 'TSLA']
 
 function normalizeBaseUrl(value: string | undefined): string {
   const fallback = 'https://spy-signal-site.vercel.app'
@@ -43,56 +41,36 @@ function readTicker(row: Record<string, unknown>): string | null {
   return candidate ?? null
 }
 
-function backendBaseUrl(): string {
-  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
-  return raw.trim().replace(/\/+$/, '')
-}
-
 async function readTickerSignalsFromBackend(): Promise<TickerSignal[]> {
-  const base = backendBaseUrl()
-  if (!base) return []
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), SITEMAP_SOURCE_TIMEOUT_MS)
-  const response = await fetch(`${base}/screener/signals?limit=500`, {
-    cache: 'no-store',
-    headers: {
-      accept: 'application/json',
-    },
-    signal: controller.signal,
-  }).catch(() => null)
-  clearTimeout(timeout)
-  if (!response || !response.ok) return []
-
-  const data = (await response.json().catch(() => [])) as Array<Record<string, unknown>>
-  if (!Array.isArray(data) || data.length === 0) return []
-
-  return data
-    .map((row) => {
-      const ticker = readTicker(row)
-      if (!ticker) return null
-      return {
-        ticker,
-        signalDate: readString(row.signalDate),
-      }
+  try {
+    const data = await fetchBackendJson<unknown>('/screener/signals?limit=500', {
+      context: 'backend.sitemap.screener_signals',
+      timeoutMs: SITEMAP_SOURCE_TIMEOUT_MS,
     })
-    .filter((row): row is TickerSignal => row !== null)
+    if (!Array.isArray(data) || data.length === 0) return []
+
+    return data
+      .map((row) => {
+        if (!row || typeof row !== 'object') return null
+        const typedRow = row as Record<string, unknown>
+        const ticker = readTicker(typedRow)
+        if (!ticker) return null
+        return {
+          ticker,
+          signalDate:
+            readString(typedRow.signalDate) ??
+            readString(typedRow.signal_date) ??
+            readString(typedRow.as_of_date),
+        }
+      })
+      .filter((row): row is TickerSignal => row !== null)
+  } catch {
+    return []
+  }
 }
 
 async function readTickerSignals(): Promise<TickerSignal[]> {
-  const fallbackRows = FALLBACK_TICKERS.map((ticker) => ({ ticker, signalDate: null }))
-
-  const read = (async (): Promise<TickerSignal[]> => {
-    const rows = await readTickerSignalsFromBackend()
-    if (rows.length > 0) return rows
-    return fallbackRows
-  })()
-
-  const timeout = new Promise<TickerSignal[]>((resolve) =>
-    setTimeout(() => resolve(fallbackRows), SITEMAP_TOTAL_TIMEOUT_MS)
-  )
-
-  return Promise.race([read, timeout])
+  return readTickerSignalsFromBackend()
 }
 
 function toDate(value: string | null): Date | undefined {

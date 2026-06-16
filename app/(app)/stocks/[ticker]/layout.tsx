@@ -1,7 +1,7 @@
 import StockHeader from '@/components/page/StockHeader'
 import StockTabsAuto from '@/components/stocks/StockTabsAuto'
 import { getStockQuote } from '@/lib/finance'
-import { getSignalHistoryForTicker } from '@/lib/signals'
+import { getScreenerSignals } from '@/lib/signals'
 
 type StockTickerLayoutProps = {
   children: React.ReactNode
@@ -12,12 +12,16 @@ export default async function StockTickerLayout({ children, params }: StockTicke
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
 
-  const [quote, signals] = await Promise.all([
-    getStockQuote(ticker),
-    getSignalHistoryForTicker(ticker, 1, { allowSyntheticFallback: false }),
-  ])
+  let quote = null
+  let latestSignal: Awaited<ReturnType<typeof getScreenerSignals>>['rows'][number] | null = null
 
-  const latestSignal = signals[0] ?? null
+  const [quoteResult, screenerResult] = await Promise.allSettled([
+    getStockQuote(ticker),
+    getScreenerSignals({ tickers: [ticker], limit: 1 }),
+  ])
+  quote = quoteResult.status === 'fulfilled' ? quoteResult.value : null
+  latestSignal = screenerResult.status === 'fulfilled' ? screenerResult.value.rows[0] ?? null : null
+
   const signalTone =
     latestSignal?.direction === 'bullish'
       ? 'bullish'
@@ -43,7 +47,11 @@ export default async function StockTickerLayout({ children, params }: StockTicke
               }
             : undefined
         }
-        subtitle="Research-ready snapshot with model context and supporting market data."
+        subtitle={
+          quote
+            ? 'Research-ready snapshot with model context and supporting market data.'
+            : 'Market data is temporarily unavailable from finance-backend.'
+        }
       />
       <StockTabsAuto ticker={ticker} />
       <div>{children}</div>

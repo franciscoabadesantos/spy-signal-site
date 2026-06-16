@@ -5,8 +5,8 @@ export type StockTabKey = 'overview' | 'financials' | 'holdings-dividends' | 'si
 export function stockTabItems(ticker: string): TabItem[] {
   return [
     { key: 'overview', label: 'Overview', href: `/stocks/${ticker}` },
-    { key: 'financials', label: 'Financials', href: `/stocks/${ticker}/financials/fund-profile` },
-    { key: 'holdings-dividends', label: 'Holdings & Dividends', href: `/stocks/${ticker}/holdings-dividends` },
+    { key: 'financials', label: 'Financial Summary', href: `/stocks/${ticker}/financials/fund-profile` },
+    { key: 'holdings-dividends', label: 'Holdings / Dividend Status', href: `/stocks/${ticker}/holdings-dividends` },
     { key: 'signal-history', label: 'Signal History', href: `/stocks/${ticker}/signal-history` },
     { key: 'performance', label: 'Performance', href: `/stocks/${ticker}/performance` },
   ]

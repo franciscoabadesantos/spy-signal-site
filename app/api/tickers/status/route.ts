@@ -1,20 +1,5 @@
 import { NextResponse } from 'next/server'
-
-function backendBaseUrl(): string {
-  const raw = process.env.FINANCE_BACKEND_URL || process.env.NEXT_PUBLIC_FINANCE_BACKEND_URL || ''
-  return raw.trim().replace(/\/+$/, '')
-}
-
-function backendHeaders(): HeadersInit {
-  const headers: Record<string, string> = {}
-  const secret = (
-    process.env.BACKEND_SHARED_SECRET
-    || process.env.FINANCE_BACKEND_SHARED_SECRET
-    || ''
-  ).trim()
-  if (secret) headers['x-backend-shared-secret'] = secret
-  return headers
-}
+import { backendBaseUrl, backendHeaders } from '@/lib/backend'
 
 function normalizeTicker(raw: string): string {
   return raw.trim().toUpperCase()
