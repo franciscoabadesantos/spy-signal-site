@@ -168,6 +168,23 @@ function formatCompactNumber(value: number | null, options?: { currency?: boolea
   return options?.currency ? `$${formatted}` : formatted
 }
 
+function parseCompactCurrencyNumber(value: string | null): number | null {
+  if (!value) return null
+  const normalized = value.replace(/\$/g, '').replace(/,/g, '').trim()
+  const match = normalized.match(/^(-?\d+(?:\.\d+)?)([KMBT])?$/i)
+  if (!match) return null
+
+  const numeric = Number(match[1])
+  if (!Number.isFinite(numeric)) return null
+
+  const suffix = match[2]?.toUpperCase()
+  if (suffix === 'T') return numeric * 1_000_000_000_000
+  if (suffix === 'B') return numeric * 1_000_000_000
+  if (suffix === 'M') return numeric * 1_000_000
+  if (suffix === 'K') return numeric * 1_000
+  return numeric
+}
+
 function asPercent(value: number | null): number | null {
   if (value === null || !Number.isFinite(value)) return null
   if (Math.abs(value) <= 1.5) return value * 100
@@ -413,31 +430,42 @@ function buildSystemProfileInterpretation(dimensions: SystemProfileBlobDimension
 
 function dimensionDescriptor(label: SystemProfileBlobDimension['label'], score: number): string {
   if (label === 'Trend') {
-    if (score >= 78) return 'Very strong'
-    if (score >= 60) return 'Strong'
-    if (score >= 42) return 'Mixed'
-    return 'Weak'
+    if (score >= 78) return 'Wide / committed orbit'
+    if (score >= 60) return 'Held / constructive orbit'
+    if (score >= 42) return 'Tight / mixed orbit'
+    return 'Collapsed / weak orbit'
   }
   if (label === 'Momentum') {
-    if (score >= 74) return 'Strong'
-    if (score >= 52) return 'Mixed'
-    return 'Soft'
+    if (score >= 74) return 'Fast / charged'
+    if (score >= 52) return 'Active / building'
+    return 'Slow / fading'
   }
   if (label === 'Risk') {
-    if (score >= 76) return 'Controlled'
-    if (score >= 58) return 'Moderate'
-    if (score >= 40) return 'Elevated'
-    return 'High'
+    if (score >= 76) return 'Cool / controlled'
+    if (score >= 58) return 'Warm / moderate'
+    if (score >= 40) return 'Hot / elevated'
+    return 'Danger / unstable'
   }
   if (label === 'Yield') {
-    if (score >= 74) return 'Strong'
-    if (score >= 56) return 'Moderate'
-    if (score >= 38) return 'Low'
-    return 'Minimal'
+    if (score >= 74) return 'Strong inward pull'
+    if (score >= 56) return 'Firm gravity'
+    if (score >= 38) return 'Loose gravity'
+    return 'Weak pull'
   }
-  if (score >= 72) return 'Strong'
-  if (score >= 52) return 'Mixed'
-  return 'Weak'
+  if (score >= 72) return 'Smooth / reliable'
+  if (score >= 52) return 'Some wobble'
+  return 'Jitter / fragile'
+}
+
+function marketMassDescriptor(marketCap: number | null | undefined): string {
+  if (marketCap === null || marketCap === undefined || !Number.isFinite(marketCap) || marketCap <= 0) {
+    return 'Mass proxy unavailable'
+  }
+  if (marketCap >= 500_000_000_000) return 'Mega-cap / heavy core'
+  if (marketCap >= 50_000_000_000) return 'Large-cap / anchored body'
+  if (marketCap >= 10_000_000_000) return 'Mid-cap / balanced body'
+  if (marketCap >= 2_000_000_000) return 'Small-cap / lighter body'
+  return 'Micro-cap / fragile body'
 }
 
 function dimensionDotClass(label: SystemProfileBlobDimension['label']): string {
@@ -732,10 +760,12 @@ export default async function TickerPage({
     peers: correlationNetwork.peers,
   })
 
+  const marketCapNumeric = fundamentalsSummary?.marketCap ?? parseCompactCurrencyNumber(marketQuote?.marketCapText ?? null)
   const marketCapValue =
-    fundamentalsSummary?.marketCap !== null && fundamentalsSummary?.marketCap !== undefined
-      ? formatCompactNumber(fundamentalsSummary.marketCap, { currency: true })
+    marketCapNumeric !== null
+      ? formatCompactNumber(marketCapNumeric, { currency: true })
       : marketQuote?.marketCapText ?? '—'
+  const marketMassSummary = marketMassDescriptor(marketCapNumeric)
   const quickStats = [
     { label: 'Market Cap', value: hasFundamentals ? marketCapValue : 'Not available' },
     {
@@ -1162,8 +1192,21 @@ export default async function TickerPage({
               </div>
               <p className="text-body mt-2 line-clamp-2">{profileInterpretation}</p>
               <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[45%_55%] lg:items-stretch">
-                <div className="mx-auto flex aspect-square w-full max-w-[380px] items-center justify-center rounded-[var(--radius-xl)] border border-border bg-[radial-gradient(circle,var(--brand-electric-glow)_0%,rgba(129,140,248,0.05)_42%,transparent_72%)] p-5">
-                  <SystemProfileBlob dimensions={scoreDimensions} />
+                <div className="mx-auto w-full max-w-[420px]">
+                  <SystemProfileBlob
+                    dimensions={scoreDimensions}
+                    marketCap={marketCapNumeric}
+                    marketCapLabel={marketCapValue !== '—' && marketCapValue !== 'N/A' ? marketCapValue : null}
+                  />
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-white/10 bg-black/30 px-3 py-2">
+                    <div>
+                      <div className="text-micro uppercase tracking-[0.24em] text-[rgba(183,255,81,0.76)]">
+                        Mass Proxy
+                      </div>
+                      <div className="text-label-md text-content-primary">{marketMassSummary}</div>
+                    </div>
+                    <div className="text-data-sm numeric-tabular text-content-primary">{marketCapValue}</div>
+                  </div>
                 </div>
                 <div className="flex flex-col justify-center gap-2">
                   {scoreDimensions.map((dimension) => (

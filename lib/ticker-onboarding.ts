@@ -74,7 +74,7 @@ export async function ensureTickerOnboarding(ticker: string, exchange?: string |
   try {
     await requestTickerOnboarding(symbol, exchange)
     await fetchTickerOnboardingStatus(symbol, exchange)
-  } catch (error) {
-    console.warn(`Ticker onboarding failed for ${symbol}:`, error)
+  } catch {
+    // Ticker onboarding is a best-effort backend hint and should not interrupt navigation.
   }
 }

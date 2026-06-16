@@ -80,6 +80,20 @@ export async function POST(request: Request) {
       body: JSON.stringify(insertPayload),
       cache: 'no-store',
     })
+
+    if (upstream.status === 404 || upstream.status === 405) {
+      return new NextResponse(null, { status: 204 })
+    }
+
+    if (!upstream.ok) {
+      console.warn('[analytics] upstream rejected event', {
+        event_name: eventName,
+        pathname,
+        status: upstream.status,
+      })
+      return new NextResponse(null, { status: 204 })
+    }
+
     const text = await upstream.text()
     const contentType = upstream.headers.get('content-type') || 'application/json'
     return new NextResponse(text, { status: upstream.status, headers: { 'content-type': contentType } })
@@ -91,9 +105,6 @@ export async function POST(request: Request) {
       session_id: sessionId,
       error: detail,
     })
-    return NextResponse.json(
-      { ok: false, stored: 'none', error: 'supabase_insert_exception', detail },
-      { status: 500 }
-    )
+    return new NextResponse(null, { status: 204 })
   }
 }

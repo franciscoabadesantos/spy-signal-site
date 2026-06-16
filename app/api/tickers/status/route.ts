@@ -14,10 +14,10 @@ export async function GET(request: Request) {
   try {
     const base = backendBaseUrl()
     if (!base) {
-      return NextResponse.json({ error: 'BACKEND_BASE_URL is not configured.' }, { status: 500 })
+      return NextResponse.json({ status: 'backend_unconfigured' })
     }
     if (!config.hasBackendSharedSecret) {
-      return NextResponse.json({ error: 'BACKEND_SHARED_SECRET is not configured.' }, { status: 500 })
+      return NextResponse.json({ status: 'backend_unconfigured' })
     }
 
     const { searchParams } = new URL(request.url)
@@ -46,8 +46,16 @@ export async function GET(request: Request) {
 
     console.info('[api/tickers/status] upstream status', { status: upstream.status })
 
+    if (upstream.status === 404 || upstream.status === 405) {
+      return NextResponse.json({ status: 'unsupported_by_backend' })
+    }
+
     const text = await upstream.text()
     const contentType = upstream.headers.get('content-type') || 'application/json'
+    if (!upstream.ok) {
+      return NextResponse.json({ status: 'backend_unavailable' })
+    }
+
     return new NextResponse(text, { status: upstream.status, headers: { 'content-type': contentType } })
   } catch (error) {
     console.error('[api/tickers/status] proxy failed', {
@@ -55,12 +63,6 @@ export async function GET(request: Request) {
       hasBackendSharedSecret: config.hasBackendSharedSecret,
       message: error instanceof Error ? error.message : 'Unknown proxy error',
     })
-    return NextResponse.json(
-      {
-        error: 'BACKEND_PROXY_FAILED',
-        message: 'The site could not reach finance-backend for ticker status.',
-      },
-      { status: 502 }
-    )
+    return NextResponse.json({ status: 'backend_unreachable' })
   }
 }

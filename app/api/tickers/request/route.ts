@@ -14,10 +14,16 @@ export async function POST(request: Request) {
   try {
     const base = backendBaseUrl()
     if (!base) {
-      return NextResponse.json({ error: 'BACKEND_BASE_URL is not configured.' }, { status: 500 })
+      return NextResponse.json(
+        { ok: false, queued: false, status: 'backend_unconfigured' },
+        { status: 202 }
+      )
     }
     if (!config.hasBackendSharedSecret) {
-      return NextResponse.json({ error: 'BACKEND_SHARED_SECRET is not configured.' }, { status: 500 })
+      return NextResponse.json(
+        { ok: false, queued: false, status: 'backend_unconfigured' },
+        { status: 202 }
+      )
     }
 
     const body = (await request.json().catch(() => null)) as
@@ -48,8 +54,22 @@ export async function POST(request: Request) {
 
     console.info('[api/tickers/request] upstream status', { status: upstream.status })
 
+    if (upstream.status === 404 || upstream.status === 405) {
+      return NextResponse.json(
+        { ok: false, queued: false, status: 'unsupported_by_backend' },
+        { status: 202 }
+      )
+    }
+
     const text = await upstream.text()
     const contentType = upstream.headers.get('content-type') || 'application/json'
+    if (!upstream.ok) {
+      return NextResponse.json(
+        { ok: false, queued: false, status: 'backend_unavailable' },
+        { status: 202 }
+      )
+    }
+
     return new NextResponse(text, { status: upstream.status, headers: { 'content-type': contentType } })
   } catch (error) {
     console.error('[api/tickers/request] proxy failed', {
@@ -57,12 +77,6 @@ export async function POST(request: Request) {
       hasBackendSharedSecret: config.hasBackendSharedSecret,
       message: error instanceof Error ? error.message : 'Unknown proxy error',
     })
-    return NextResponse.json(
-      {
-        error: 'BACKEND_PROXY_FAILED',
-        message: 'The site could not reach finance-backend for ticker requests.',
-      },
-      { status: 502 }
-    )
+    return NextResponse.json({ ok: false, queued: false, status: 'backend_unreachable' }, { status: 202 })
   }
 }
