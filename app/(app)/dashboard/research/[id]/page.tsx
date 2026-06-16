@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import { buttonClass } from '@/components/ui/Button'
+import RetryButton from '@/components/ui/RetryButton'
 import { getViewerUserId } from '@/lib/auth'
 import { getAiResearchRunById } from '@/lib/ai-research'
 
@@ -62,9 +63,12 @@ export default async function AiResearchRunDetailPage({
         title="AI research run is temporarily unavailable"
         description="The frontend could not load this saved run from finance-backend."
         action={
-          <Link href="/dashboard" className={buttonClass({ variant: 'secondary' })}>
-            Return to Dashboard
-          </Link>
+          <div className="flex flex-col items-center gap-3 sm:flex-row">
+            <RetryButton>Retry</RetryButton>
+            <Link href="/dashboard" className={buttonClass({ variant: 'ghost' })}>
+              Return to Dashboard
+            </Link>
+          </div>
         }
       />
     )

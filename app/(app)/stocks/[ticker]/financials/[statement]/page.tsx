@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
+import RetryButton from '@/components/ui/RetryButton'
 import FilterChip from '@/components/ui/FilterChip'
 import MetricGrid from '@/components/page/MetricGrid'
 import {
@@ -100,6 +101,7 @@ export default async function FinancialStatementPage({
       <EmptyState
         title="Financial summary is temporarily unavailable"
         description="The frontend could not load canonical summary data from finance-backend for this ticker."
+        action={<RetryButton>Retry</RetryButton>}
       />
     )
   }

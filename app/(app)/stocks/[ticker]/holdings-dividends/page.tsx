@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
+import RetryButton from '@/components/ui/RetryButton'
 import MetricGrid from '@/components/page/MetricGrid'
 import StatRowCard from '@/components/ui/StatRowCard'
 import { getStockQuote } from '@/lib/finance'
@@ -62,6 +63,7 @@ export default async function HoldingsAndDividendsPage({
       <EmptyState
         title="Summary data is temporarily unavailable"
         description="The frontend could not load canonical summary data from finance-backend for this ticker."
+        action={<RetryButton>Retry</RetryButton>}
       />
     )
   }

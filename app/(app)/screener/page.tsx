@@ -14,6 +14,7 @@ import SignalBlock from '@/components/ui/SignalBlock'
 import PremiumPreviewCallout from '@/components/ui/PremiumPreviewCallout'
 import PageHeader from '@/components/ui/PageHeader'
 import { buttonClass } from '@/components/ui/Button'
+import RetryButton from '@/components/ui/RetryButton'
 import { cn } from '@/lib/utils'
 import {
   TableBase,
@@ -283,11 +284,7 @@ export default async function ScreenerPage({
           <EmptyState
             title="Screener data is temporarily unavailable"
             description="The frontend could not load live signal rows from finance-backend. Try again shortly."
-            action={
-              <Link href="/screener" className={buttonClass({ variant: 'secondary' })}>
-                Retry
-              </Link>
-            }
+            action={<RetryButton>Retry</RetryButton>}
           />
         ) : (
           <>

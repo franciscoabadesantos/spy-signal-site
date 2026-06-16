@@ -4,6 +4,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
 import MetricGrid from '@/components/page/MetricGrid'
 import { buttonClass } from '@/components/ui/Button'
+import RetryButton from '@/components/ui/RetryButton'
 import SignalBlock from '@/components/ui/SignalBlock'
 import {
   TableBase,
@@ -90,11 +91,7 @@ export default async function DashboardPage() {
       <EmptyState
         title="Dashboard data is temporarily unavailable"
         description="The frontend could not load watchlist or signal data from finance-backend."
-        action={
-          <Link href="/dashboard" className={buttonClass({ variant: 'secondary' })}>
-            Retry
-          </Link>
-        }
+        action={<RetryButton>Retry</RetryButton>}
       />
     )
   }

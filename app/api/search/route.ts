@@ -1,82 +1,75 @@
 import { NextResponse } from 'next/server'
+import { getScreenerSignalsSafe } from '@/lib/signals'
+import {
+  filterTemplateTickerResults,
+  getTemplateFeaturedTickerResults,
+  mapScreenerRowsToTickerSearchResults,
+  normalizeTickerSearchQuery,
+  type TickerSearchResponse,
+} from '@/lib/ticker-search'
 
-type YahooSearchQuote = {
-  symbol?: string
-  shortname?: string
-  longname?: string
-  exchange?: string
-  exchDisp?: string
-  quoteType?: string
-}
+export const dynamic = 'force-dynamic'
 
-type YahooSearchResponse = {
-  quotes?: YahooSearchQuote[]
-}
-
-type SearchResult = {
-  symbol: string
-  name: string
-  exchange: string | null
-}
-
-const SUPPORTED_TYPES = new Set(['EQUITY', 'ETF', 'MUTUALFUND', 'INDEX'])
-
-function isTradableSymbol(symbol: string): boolean {
-  return /^[A-Z][A-Z0-9.\-]{0,9}$/.test(symbol)
+function json(payload: TickerSearchResponse) {
+  return NextResponse.json(payload)
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const q = (searchParams.get('q') || '').trim()
+  const query = normalizeTickerSearchQuery(searchParams.get('q') || '')
 
-  if (!q) {
-    return NextResponse.json({ results: [] as SearchResult[] })
+  if (!query) {
+    try {
+      const featured = await getScreenerSignalsSafe(
+        {
+          limit: 8,
+          sortBy: 'conviction',
+        },
+        { timeoutMs: 3500 }
+      )
+
+      return json({
+        featured: mapScreenerRowsToTickerSearchResults(featured.rows).slice(0, 8),
+        fallbackUsed: false,
+        query,
+        results: [],
+        source: 'backend',
+      })
+    } catch {
+      return json({
+        featured: getTemplateFeaturedTickerResults(8),
+        fallbackUsed: true,
+        query,
+        results: [],
+        source: 'template',
+      })
+    }
   }
 
-  const url = new URL('https://query2.finance.yahoo.com/v1/finance/search')
-  url.searchParams.set('q', q)
-  url.searchParams.set('quotesCount', '8')
-  url.searchParams.set('newsCount', '0')
-  url.searchParams.set('enableFuzzyQuery', 'false')
-
   try {
-    const response = await fetch(url.toString(), {
-      headers: {
-        Accept: 'application/json,text/plain,*/*',
-        'User-Agent':
-          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    const results = await getScreenerSignalsSafe(
+      {
+        limit: 8,
+        sortBy: 'conviction',
+        textQuery: query,
       },
-      next: { revalidate: 900 },
+      { timeoutMs: 3500 }
+    )
+
+    return json({
+      featured: [],
+      fallbackUsed: false,
+      query,
+      results: mapScreenerRowsToTickerSearchResults(results.rows).slice(0, 8),
+      source: 'backend',
     })
-
-    if (!response.ok) {
-      return NextResponse.json({ results: [] as SearchResult[] })
-    }
-
-    const payload = (await response.json()) as YahooSearchResponse
-    const quotes = Array.isArray(payload.quotes) ? payload.quotes : []
-
-    const results: SearchResult[] = quotes
-      .filter((quote) => {
-        const symbol = (quote.symbol || '').trim().toUpperCase()
-        if (!symbol || !isTradableSymbol(symbol)) return false
-        if (quote.quoteType && !SUPPORTED_TYPES.has(quote.quoteType)) return false
-        return true
-      })
-      .map((quote) => {
-        const symbol = (quote.symbol || '').trim().toUpperCase()
-        const name = (quote.shortname || quote.longname || symbol).trim()
-        const exchange = (quote.exchDisp || quote.exchange || '').trim() || null
-        return {
-          symbol,
-          name,
-          exchange,
-        }
-      })
-      .slice(0, 8)
-
-    return NextResponse.json({ results })
   } catch {
-    return NextResponse.json({ results: [] as SearchResult[] })
+    return json({
+      featured: [],
+      fallbackUsed: true,
+      query,
+      results: filterTemplateTickerResults(query, 8),
+      source: 'template',
+    })
   }
 }

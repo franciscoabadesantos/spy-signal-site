@@ -2,6 +2,7 @@ import PerformanceTickerAutocomplete from '@/components/PerformanceTickerAutocom
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
+import RetryButton from '@/components/ui/RetryButton'
 import MetricGrid from '@/components/page/MetricGrid'
 import InsightCard from '@/components/page/InsightCard'
 import FilterChip from '@/components/ui/FilterChip'
@@ -135,6 +136,7 @@ export default async function PerformancePage({
       <EmptyState
         title="Performance data is temporarily unavailable"
         description="The frontend could not load price history or signal history from finance-backend for this ticker."
+        action={<RetryButton>Retry</RetryButton>}
       />
     )
   }

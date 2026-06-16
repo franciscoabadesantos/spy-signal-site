@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
 import { buttonClass } from '@/components/ui/Button'
+import RetryButton from '@/components/ui/RetryButton'
 import ActionBar from '@/components/page/ActionBar'
 import MetricGrid from '@/components/page/MetricGrid'
 import StatRowCard from '@/components/ui/StatRowCard'
@@ -138,11 +139,7 @@ export default async function SignalHistoryPage({
       <EmptyState
         title="Signal history is temporarily unavailable"
         description="The frontend could not load signal history from finance-backend for this ticker."
-        action={
-          <Link href={`/stocks/${ticker}/signal-history`} className={buttonClass({ variant: 'secondary' })}>
-            Retry
-          </Link>
-        }
+        action={<RetryButton>Retry</RetryButton>}
       />
     )
   }

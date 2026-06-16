@@ -6,6 +6,7 @@ import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import { buttonClass } from '@/components/ui/Button'
+import RetryButton from '@/components/ui/RetryButton'
 import StatRowCard from '@/components/ui/StatRowCard'
 import InsightCard from '@/components/page/InsightCard'
 import PageSection from '@/components/page/PageSection'
@@ -668,11 +669,7 @@ export default async function TickerPage({
       <EmptyState
         title="Ticker data is temporarily unavailable"
         description="The frontend could not load summary, history, or signal data from finance-backend for this ticker."
-        action={
-          <Link href={`/stocks/${ticker}`} className={buttonClass({ variant: 'secondary' })}>
-            Retry
-          </Link>
-        }
+        action={<RetryButton>Retry</RetryButton>}
       />
     )
   }
