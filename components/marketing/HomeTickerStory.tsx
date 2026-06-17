@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { forwardRef, useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { Activity } from 'lucide-react'
 import { GlassPanel } from '@/components/marketing/site-chrome'
 import { cn } from '@/lib/utils'
@@ -112,11 +112,11 @@ const desktopCollapsedLayout: LayoutPoint[] = [
 ]
 
 const desktopLayout: LayoutPoint[] = [
-  { x: -278, y: 86, rotate: -4 },
-  { x: 0, y: 112, rotate: -1 },
-  { x: 278, y: 86, rotate: 4 },
-  { x: -138, y: 250, rotate: 2 },
-  { x: 138, y: 246, rotate: -2 },
+  { x: -278, y: 50, rotate: -4 },
+  { x: 0, y: 76, rotate: -1 },
+  { x: 278, y: 50, rotate: 4 },
+  { x: -138, y: 205, rotate: 2 },
+  { x: 138, y: 202, rotate: -2 },
 ]
 
 const mobileLayout: LayoutPoint[] = [
@@ -128,9 +128,11 @@ const mobileLayout: LayoutPoint[] = [
 ]
 
 const TRANSFORM_ACTIVATION_OFFSET = 460
-const TRANSFORM_DURATION_RATIO = 0.68
-const DESKTOP_CAPTURE_START = 0.1
-const MOBILE_CAPTURE_START = 0.12
+const TRANSFORM_DURATION_RATIO = 0.84
+const DESKTOP_CAPTURE_START = 0.04
+const MOBILE_CAPTURE_START = 0.06
+const compactSurfaceClassName =
+  'relative overflow-hidden rounded-[1.1rem] border border-white/30 bg-white/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_8px_24px_rgba(20,33,51,0.04)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_10px_28px_rgba(0,0,0,0.18)]'
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -225,10 +227,10 @@ function captureDesktopFrame({
 
       return {
         center: itemCenter,
-        sourceHeight: Math.round(itemRect.height),
-        sourceWidth: Math.round(itemRect.width),
-        sourceX: Math.round(itemRect.left - viewportRect.left),
-        sourceY: Math.round(itemRect.top - viewportRect.top),
+        sourceHeight: itemRect.height,
+        sourceWidth: itemRect.width,
+        sourceX: itemRect.left - viewportRect.left,
+        sourceY: itemRect.top - viewportRect.top,
         symbol: tickerCards[index % tickerCards.length].symbol,
         trackIndex: index,
       }
@@ -271,7 +273,7 @@ function captureDesktopFrame({
   return {
     mode: 'desktop',
     sources: sources as CapturedTickerSource[],
-    viewportWidth: Math.round(viewportRect.width),
+    viewportWidth: viewportRect.width,
   }
 }
 
@@ -295,10 +297,10 @@ function captureMobileFrame({
       const itemRect = node.getBoundingClientRect()
 
       return {
-        sourceHeight: Math.round(itemRect.height),
-        sourceWidth: Math.round(itemRect.width),
-        sourceX: Math.round(itemRect.left - viewportRect.left),
-        sourceY: Math.round(itemRect.top - viewportRect.top),
+        sourceHeight: itemRect.height,
+        sourceWidth: itemRect.width,
+        sourceX: itemRect.left - viewportRect.left,
+        sourceY: itemRect.top - viewportRect.top,
       }
     })
 
@@ -309,7 +311,7 @@ function captureMobileFrame({
   return {
     mode: 'mobile',
     sources: sources as CapturedTickerSource[],
-    viewportWidth: Math.round(viewportRect.width),
+    viewportWidth: viewportRect.width,
   }
 }
 
@@ -317,23 +319,72 @@ function CompactTickerRow({
   item,
   className,
   textOpacity = 1,
+  rowRole,
 }: {
   item: TickerCardData
   className?: string
   textOpacity?: number
+  rowRole?: 'source' | 'shell'
 }) {
   return (
     <div
-      className={cn('flex w-full items-center gap-3 whitespace-nowrap', className)}
+      className={cn('flex w-full items-center gap-3 whitespace-nowrap text-[0.8rem] leading-none', className)}
+      data-compact-row={rowRole}
+      data-compact-symbol={item.symbol}
       style={{ opacity: textOpacity }}
     >
-      <span className="size-2 rounded-full bg-[#0757ff] shadow-[0_0_16px_rgba(7,87,255,0.85)]" />
-      <span className="font-semibold tracking-[0.16em] text-slate-950 dark:text-white">{item.symbol}</span>
-      <span className="text-slate-500 dark:text-white/52">{item.price}</span>
-      <span className={item.moveClassName}>{item.move}</span>
+      <span
+        className="size-2 rounded-full bg-[#0757ff] shadow-[0_0_16px_rgba(7,87,255,0.85)]"
+        data-compact-part="dot"
+      />
+      <span className="font-semibold tracking-[0.16em] text-slate-950 dark:text-white" data-compact-part="symbol">
+        {item.symbol}
+      </span>
+      <span className="text-slate-500 dark:text-white/52" data-compact-part="price">
+        {item.price}
+      </span>
+      <span className={item.moveClassName} data-compact-part="move">
+        {item.move}
+      </span>
     </div>
   )
 }
+
+const CompactTickerSurface = forwardRef<HTMLDivElement, {
+  item: TickerCardData
+  rowRole: 'source' | 'shell'
+  textOpacity?: number
+  className?: string
+  rowClassName?: string
+  style?: CSSProperties
+  highlightOpacity?: number
+  paddingClassName?: string
+}>(function CompactTickerSurface({
+  item,
+  rowRole,
+  textOpacity = 1,
+  className,
+  rowClassName,
+  style,
+  highlightOpacity = 0.38,
+  paddingClassName = 'px-4 py-2',
+}, ref) {
+  return (
+    <div ref={ref} className={cn(compactSurfaceClassName, paddingClassName, className)} style={style}>
+      <div
+        className="absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_60%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.02)_60%)]"
+        style={{ opacity: highlightOpacity }}
+        aria-hidden="true"
+      />
+      <CompactTickerRow
+        item={item}
+        className={cn('relative z-10 justify-start', rowClassName)}
+        textOpacity={textOpacity}
+        rowRole={rowRole}
+      />
+    </div>
+  )
+})
 
 function TransformingTickerCard({
   item,
@@ -353,36 +404,45 @@ function TransformingTickerCard({
   zIndex: number
 }) {
   const tone = toneClasses(item.tone)
-  const freeze = easeInOut(rangeProgress(progress, 0.1, 0.3))
-  const travel = easeInOut(rangeProgress(progress, 0.3, 0.82))
-  const expandWidth = easeInOut(rangeProgress(progress, 0.45, 0.82))
-  const expandHeight = easeOutCubic(rangeProgress(progress, 0.45, 0.85))
-  const primaryDetails = easeInOut(rangeProgress(progress, 0.46, 0.72))
-  const secondaryDetails = easeInOut(rangeProgress(progress, 0.72, 1))
-  const rotation = easeInOut(rangeProgress(progress, 0.54, 0.9))
-  const detachLift = easeOutCubic(rangeProgress(progress, 0.3, 0.52))
+  const freeze = easeInOut(rangeProgress(progress, 0.01, 0.08))
+  const detach = easeOutCubic(rangeProgress(progress, 0.03, 0.16))
+  const travel = easeInOut(rangeProgress(progress, 0.05, 0.76))
+  const expandWidth = easeInOut(rangeProgress(progress, 0.08, 0.52))
+  const expandHeight = easeOutCubic(rangeProgress(progress, 0.06, 0.6))
+  const primaryDetails = easeInOut(rangeProgress(progress, 0.12, 0.4))
+  const secondaryDetails = easeInOut(rangeProgress(progress, 0.36, 0.68))
+  const settle = easeInOut(rangeProgress(progress, 0.58, 0.92))
+  const rotation = easeInOut(rangeProgress(progress, 0.3, 0.74))
+  const bandSettle = easeInOut(rangeProgress(progress, 0.24, 0.58))
 
-  const expandedWidth = isMobile ? 272 : 288
-  const expandedHeight = isMobile ? 264 : 304
+  const expandedWidth = isMobile ? 272 : 286
+  const expandedHeight = isMobile ? 272 : 286
   const width = lerp(source.sourceWidth, expandedWidth, expandWidth)
   const height = lerp(source.sourceHeight, expandedHeight, expandHeight)
   const sourceCenterX = source.sourceX + source.sourceWidth / 2
   const centerX = lerp(sourceCenterX, viewportWidth / 2 + target.x, travel)
-  const left = centerX - width / 2
-  const top = lerp(source.sourceY, source.sourceY + target.y, travel) - lerp(0, 10, detachLift * (1 - primaryDetails))
-  const shellRadius = lerp(Math.min(source.sourceHeight / 2 + 4, 24), 28, expandWidth)
-  const compactOpacity = clamp(1 - rangeProgress(progress, 0.72, 0.9), 0, 1)
-  const shellScale = lerp(1, 1.028, freeze * (1 - expandWidth))
-  const pieceShadow = easeInOut(rangeProgress(progress, 0.32, 0.62))
-  const cardShadow = easeInOut(rangeProgress(progress, 0.58, 0.92))
+  const currentLeft = centerX - width / 2
+  const currentTop = lerp(source.sourceY, source.sourceY + target.y, travel) + lerp(0, isMobile ? 8 : 10, detach * (1 - travel))
+  const shellRadius = lerp(Math.min(source.sourceHeight / 2 + 4, 24), 30, expandHeight)
+  const shellScale = lerp(1, 1.012, easeInOut(rangeProgress(progress, 0.2, 0.44)) * (1 - expandWidth))
+  const pieceShadow = easeInOut(rangeProgress(progress, 0.1, 0.38))
+  const cardShadow = easeInOut(rangeProgress(progress, 0.44, 0.86))
+  const bandInsetX = lerp(0, isMobile ? 10 : 14, bandSettle)
+  const bandTop = lerp(0, isMobile ? 10 : 12, bandSettle)
+  const bandHeight = lerp(source.sourceHeight, isMobile ? 44 : 46, bandSettle)
+  const bandRadius = lerp(Math.min(source.sourceHeight / 2 + 4, 24), 18, bandSettle)
+  const bandOpacity = lerp(1, 0.92, settle)
+  const bodySideInset = lerp(12, isMobile ? 16 : 18, settle)
+  const bodyTop = bandTop + bandHeight + lerp(12, 16, primaryDetails)
+  const bodyOpacity = lerp(0.06, 1, expandHeight)
 
   return (
     <div
       className="pointer-events-none absolute top-0 will-change-transform"
       style={{
-        left: `${left}px`,
-        top: `${top}px`,
-        transform: `rotate(${lerp(0, target.rotate, rotation)}deg)`,
+        left: `${source.sourceX}px`,
+        top: `${source.sourceY}px`,
+        transform: `translate3d(${currentLeft - source.sourceX}px, ${currentTop - source.sourceY}px, 0) rotate(${lerp(0, target.rotate, rotation)}deg)`,
         zIndex,
       }}
     >
@@ -402,40 +462,62 @@ function TransformingTickerCard({
         <GlassPanel className="relative h-full overflow-hidden border-white/60 bg-white/[0.86] p-0 shadow-none dark:border-white/16 dark:bg-[#08111d]/86">
           <div
             className={`absolute inset-0 ${tone.accent}`}
-            style={{ opacity: lerp(0.06, 0.5, expandHeight) }}
+            style={{ opacity: lerp(0.06, 0.54, expandHeight) }}
             aria-hidden="true"
           />
           <div
             className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.28),transparent_56%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.1),transparent_56%)]"
-            style={{ opacity: lerp(0.4, 0.9, freeze) }}
+            style={{ opacity: lerp(0.32, 0.9, freeze) }}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.36),transparent_48%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_48%)]"
+            style={{ opacity: bodyOpacity }}
             aria-hidden="true"
           />
 
           <div
-            className="absolute inset-x-0 top-0 z-10 flex px-4"
+            className="absolute z-10"
             style={{
-              height: `${Math.max(source.sourceHeight + 10, 42)}px`,
-              opacity: compactOpacity,
-              alignItems: 'center',
-              transform: `translate3d(${lerp(0, -10, primaryDetails)}px, ${lerp(0, Math.min(height * 0.22, 42), primaryDetails)}px, 0)`,
+              left: `${bandInsetX}px`,
+              right: `${bandInsetX}px`,
+              top: `${bandTop}px`,
+              opacity: bandOpacity,
             }}
           >
-            <CompactTickerRow item={item} className="justify-start text-[0.8rem]" />
+            <CompactTickerSurface
+              item={item}
+              rowRole="shell"
+              className="h-full"
+              highlightOpacity={lerp(0.5, 0.78, settle)}
+              paddingClassName={isMobile ? 'px-3.5 py-2.5' : 'px-4 py-2'}
+              style={{
+                height: `${bandHeight}px`,
+                borderRadius: `${bandRadius}px`,
+              }}
+            />
           </div>
 
-          <div className="relative z-10 h-full p-5">
+          <div
+            className="absolute inset-x-0 bottom-0 z-10"
+            style={{
+              top: `${bodyTop}px`,
+              left: `${bodySideInset}px`,
+              right: `${bodySideInset}px`,
+            }}
+          >
             <div
               className="flex items-start justify-between gap-3"
               style={{
                 opacity: primaryDetails,
-                transform: `translate3d(0, ${lerp(20, 0, primaryDetails)}px, 0)`,
+                transform: `translate3d(0, ${lerp(18, 0, primaryDetails)}px, 0)`,
               }}
             >
               <div>
-                <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/42">
-                  {item.symbol}
+                <div className="text-[1.35rem] font-semibold leading-tight text-slate-950 dark:text-white">{item.name}</div>
+                <div className="mt-1 text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/42">
+                  Market posture
                 </div>
-                <div className="mt-2 text-xl font-semibold text-slate-950 dark:text-white">{item.name}</div>
               </div>
               <div className={`rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] ${tone.chip}`}>
                 {item.posture}
@@ -443,10 +525,10 @@ function TransformingTickerCard({
             </div>
 
             <div
-              className="mt-5 flex items-end justify-between gap-3"
+              className="mt-4 flex items-end justify-between gap-3"
               style={{
                 opacity: primaryDetails,
-                transform: `translate3d(0, ${lerp(28, 0, primaryDetails)}px, 0)`,
+                transform: `translate3d(0, ${lerp(22, 0, primaryDetails)}px, 0)`,
               }}
             >
               <div>
@@ -467,7 +549,7 @@ function TransformingTickerCard({
             </div>
 
             <p
-              className="mt-5 text-sm leading-6 text-slate-600 dark:text-white/62"
+              className="mt-4 text-sm leading-6 text-slate-600 dark:text-white/62"
               style={{
                 opacity: secondaryDetails,
                 transform: `translate3d(0, ${lerp(12, 0, secondaryDetails)}px, 0)`,
@@ -477,7 +559,7 @@ function TransformingTickerCard({
             </p>
 
             <div
-              className="mt-5 flex flex-wrap gap-2"
+              className="mt-4 flex flex-wrap gap-2"
               style={{
                 opacity: secondaryDetails,
                 transform: `translate3d(0, ${lerp(12, 0, secondaryDetails)}px, 0)`,
@@ -547,9 +629,6 @@ function DesktopSourceRail({
             return (
               <div
                 key={`${item.symbol}-${index}`}
-                ref={(node) => {
-                  itemRefs.current[index] = node
-                }}
                 className="relative shrink-0"
               >
                 {index > 0 ? (
@@ -559,29 +638,23 @@ function DesktopSourceRail({
                   />
                 ) : null}
 
-                <div
-                  className={cn(
-                    'relative overflow-hidden rounded-[1.1rem] border px-4 py-2',
-                    'border-white/30 bg-white/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_8px_24px_rgba(20,33,51,0.04)]',
-                    'dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_10px_28px_rgba(0,0,0,0.18)]'
-                  )}
+                <CompactTickerSurface
+                  item={item}
+                  rowRole="source"
+                  className="relative"
+                  highlightOpacity={isSelected ? lerp(0.45, 0.92, focusProgress) : 0.38}
                   style={{
+                    height: `${isSelected ? 42 : 40}px`,
                     opacity: isHidden ? lerp(0.92, 0.36, slotProgress) : 1,
-                    transform: isSelected ? `scale(${lerp(1, 1.025, focusProgress * (1 - slotProgress))})` : 'scale(1)',
+                    transform: isSelected
+                      ? `translate3d(0, ${lerp(0, 6, focusProgress * (1 - slotProgress))}px, 0) scale(${lerp(1, 1.02, focusProgress * (1 - slotProgress))})`
+                      : 'translate3d(0, 0, 0) scale(1)',
                   }}
-                >
-                  <div
-                    className="absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_60%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.02)_60%)]"
-                    style={{ opacity: isSelected ? lerp(0.45, 0.9, focusProgress) : 0.38 }}
-                    aria-hidden="true"
-                  />
-
-                  <CompactTickerRow
-                    item={item}
-                    textOpacity={isHidden ? selectedTextOpacity : 1}
-                    className="relative z-10 justify-start text-[0.78rem]"
-                  />
-                </div>
+                  ref={(node) => {
+                    itemRefs.current[index] = node
+                  }}
+                  textOpacity={isHidden ? selectedTextOpacity : 1}
+                />
               </div>
             )
           })}
@@ -624,28 +697,22 @@ function MobileSourceRail({
           const isHidden = hiddenIndexes.has(index)
 
           return (
-            <div
+            <CompactTickerSurface
+              item={item}
+              rowRole="source"
               key={item.symbol}
               ref={(node) => {
                 itemRefs.current[index] = node
               }}
-              className="relative overflow-hidden rounded-[1.1rem] border border-white/30 bg-white/[0.14] px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_8px_24px_rgba(20,33,51,0.04)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_10px_28px_rgba(0,0,0,0.18)]"
+              className="relative"
+              paddingClassName="px-3.5 py-2.5"
+              highlightOpacity={lerp(0.42, 0.8, focusProgress)}
               style={{
                 opacity: isHidden ? lerp(0.92, 0.3, slotProgress) : 1,
-                transform: `scale(${lerp(1, 1.02, focusProgress * (1 - slotProgress))})`,
+                transform: `translate3d(0, ${lerp(0, 5, focusProgress * (1 - slotProgress))}px, 0) scale(${lerp(1, 1.018, focusProgress * (1 - slotProgress))})`,
               }}
-            >
-              <div
-                className="absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.34),rgba(255,255,255,0.08)_60%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.02)_60%)]"
-                style={{ opacity: lerp(0.42, 0.78, focusProgress) }}
-                aria-hidden="true"
-              />
-              <CompactTickerRow
-                item={item}
-                textOpacity={isHidden ? selectedTextOpacity : 1}
-                className="relative z-10 justify-center text-sm"
-              />
-            </div>
+              textOpacity={isHidden ? selectedTextOpacity : 1}
+            />
           )
         })}
       </div>
@@ -668,11 +735,21 @@ export default function HomeTickerStory() {
   const desktopTrackViewportRef = useRef<HTMLDivElement | null>(null)
   const desktopItemRefs = useRef<Array<HTMLDivElement | null>>([])
   const mobileItemRefs = useRef<Array<HTMLDivElement | null>>([])
-  const [progress, setProgress] = useState(0)
+  const [displayProgress, setDisplayProgress] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
   const [viewportWidth, setViewportWidth] = useState(1280)
   const [reducedMotion, setReducedMotion] = useState(false)
   const [capturedFrame, setCapturedFrame] = useState<CapturedFrame | null>(null)
+  const captureKeyRef = useRef<string | null>(null)
+  const capturedFrameRef = useRef<CapturedFrame | null>(null)
+  const targetProgressRef = useRef(0)
+  const displayProgressRef = useRef(0)
+  const mobileModeRef = useRef(false)
+  const viewportWidthRef = useRef(1280)
+
+  useEffect(() => {
+    capturedFrameRef.current = capturedFrame
+  }, [capturedFrame])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -680,8 +757,22 @@ export default function HomeTickerStory() {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
     const syncReducedMotion = () => {
       setReducedMotion(media.matches)
-      setViewportWidth(window.innerWidth)
-      setIsMobile(window.innerWidth < 1024)
+      const nextWidth = window.innerWidth
+      const nextIsMobile = nextWidth < 1024
+      const nextProgress = media.matches ? 1 : 0
+      targetProgressRef.current = nextProgress
+      displayProgressRef.current = nextProgress
+      setDisplayProgress(nextProgress)
+      if (viewportWidthRef.current !== nextWidth) {
+        viewportWidthRef.current = nextWidth
+        setViewportWidth(nextWidth)
+      }
+      if (mobileModeRef.current !== nextIsMobile) {
+        mobileModeRef.current = nextIsMobile
+        setIsMobile(nextIsMobile)
+      }
+      captureKeyRef.current = null
+      setCapturedFrame(null)
     }
 
     syncReducedMotion()
@@ -718,13 +809,44 @@ export default function HomeTickerStory() {
         const transformDuration = Math.max(total * TRANSFORM_DURATION_RATIO, 1)
         const nextProgress = clamp(traveled / transformDuration, 0, 1)
         const captureStart = nextIsMobile ? MOBILE_CAPTURE_START : DESKTOP_CAPTURE_START
+        const nextViewportWidth = viewportRect.width
+        const nextCaptureKey = `${nextIsMobile ? 'mobile' : 'desktop'}:${Math.round(nextViewportWidth)}`
 
-        setProgress(nextProgress)
-        setIsMobile(nextIsMobile)
-        setViewportWidth(Math.round(viewportRect.width))
+        targetProgressRef.current = nextProgress
 
-        if (nextProgress < captureStart) {
+        if (mobileModeRef.current !== nextIsMobile) {
+          mobileModeRef.current = nextIsMobile
+          setIsMobile(nextIsMobile)
+          captureKeyRef.current = null
           setCapturedFrame(null)
+        }
+
+        if (Math.abs(viewportWidthRef.current - nextViewportWidth) > 0.5) {
+          viewportWidthRef.current = nextViewportWidth
+          setViewportWidth(nextViewportWidth)
+        }
+
+        if (nextProgress < 0.02) {
+          captureKeyRef.current = null
+          setCapturedFrame(null)
+          return
+        }
+
+        const captureKeyChanged = captureKeyRef.current !== nextCaptureKey
+        if (captureKeyChanged) {
+          captureKeyRef.current = nextCaptureKey
+          setCapturedFrame(null)
+        }
+
+        if (nextProgress < captureStart) return
+
+        const currentCapturedFrame = capturedFrameRef.current
+
+        if (
+          currentCapturedFrame &&
+          !captureKeyChanged &&
+          currentCapturedFrame.mode === (nextIsMobile ? 'mobile' : 'desktop')
+        ) {
           return
         }
 
@@ -740,30 +862,10 @@ export default function HomeTickerStory() {
             })
 
         if (!nextFrame) {
-          setCapturedFrame((current) => (current?.mode === (nextIsMobile ? 'mobile' : 'desktop') ? current : null))
           return
         }
 
-        setCapturedFrame((current) => {
-          if (
-            current &&
-            current.mode === nextFrame.mode &&
-            current.viewportWidth === nextFrame.viewportWidth &&
-            current.sources.length === nextFrame.sources.length &&
-            current.sources.every(
-              (source, index) =>
-                source.sourceX === nextFrame.sources[index]?.sourceX &&
-                source.sourceY === nextFrame.sources[index]?.sourceY &&
-                source.sourceWidth === nextFrame.sources[index]?.sourceWidth &&
-                source.sourceHeight === nextFrame.sources[index]?.sourceHeight &&
-                source.trackIndex === nextFrame.sources[index]?.trackIndex
-            )
-          ) {
-            return current
-          }
-
-          return nextFrame
-        })
+        setCapturedFrame(nextFrame)
       })
     }
 
@@ -778,27 +880,63 @@ export default function HomeTickerStory() {
     }
   }, [reducedMotion])
 
-  const effectiveProgress = reducedMotion ? 1 : progress
-  const desktopFocus = easeInOut(rangeProgress(effectiveProgress, 0.1, 0.3))
-  const mobileFocus = easeInOut(rangeProgress(effectiveProgress, 0.12, 0.28))
-  const slotProgress = easeInOut(rangeProgress(effectiveProgress, 0.3, 0.56))
-  const selectedRailTextOpacity = lerp(1, 0.16, easeInOut(rangeProgress(effectiveProgress, 0.42, 0.72)))
-  const railOpacity = reducedMotion ? 0 : lerp(1, 0.14, easeOutCubic(rangeProgress(effectiveProgress, 0.36, 0.76)))
+  useEffect(() => {
+    if (reducedMotion) return
+
+    let rafId = 0
+    let lastTime = 0
+
+    const tick = (time: number) => {
+      if (!lastTime) lastTime = time
+      const dt = Math.min(time - lastTime, 64)
+      lastTime = time
+
+      const current = displayProgressRef.current
+      const target = targetProgressRef.current
+      const smoothing = 1 - Math.exp(-dt / 42)
+      const next = Math.abs(target - current) < 0.001 ? target : lerp(current, target, smoothing)
+
+      if (Math.abs(next - current) > 0.0005) {
+        displayProgressRef.current = next
+        setDisplayProgress(next)
+      } else if (current !== target) {
+        displayProgressRef.current = target
+        setDisplayProgress(target)
+      }
+
+      rafId = window.requestAnimationFrame(tick)
+    }
+
+    rafId = window.requestAnimationFrame(tick)
+
+    return () => {
+      window.cancelAnimationFrame(rafId)
+    }
+  }, [reducedMotion])
+
+  const effectiveProgress = reducedMotion ? 1 : displayProgress
+  const desktopFocus = easeInOut(rangeProgress(effectiveProgress, 0.01, 0.08))
+  const mobileFocus = easeInOut(rangeProgress(effectiveProgress, 0.02, 0.1))
+  const slotProgress = easeInOut(rangeProgress(effectiveProgress, 0.03, 0.14))
+  const selectedRailTextOpacity = clamp(1 - rangeProgress(effectiveProgress, 0.04, 0.14), 0, 1)
+  const railOpacity = reducedMotion ? 0 : lerp(1, 0.12, easeOutCubic(rangeProgress(effectiveProgress, 0.04, 0.5)))
   const layout = isMobile ? mobileLayout : desktopLayout
   const captureStart = isMobile ? MOBILE_CAPTURE_START : DESKTOP_CAPTURE_START
   const fallbackSources = isMobile
     ? buildMobileFallbackSources(viewportWidth)
     : buildDesktopFallbackSources(viewportWidth)
+  const currentMode = isMobile ? 'mobile' : 'desktop'
+  const hasCapturedSourceFrame = capturedFrame?.mode === currentMode
   const sourceFrame =
-    capturedFrame?.mode === (isMobile ? 'mobile' : 'desktop')
+    hasCapturedSourceFrame
       ? capturedFrame
       : {
-          mode: isMobile ? 'mobile' : 'desktop',
+          mode: currentMode,
           sources: fallbackSources,
           viewportWidth,
         }
-  const shellsActive = reducedMotion || effectiveProgress >= captureStart
-  const slotCutoverActive = reducedMotion || effectiveProgress >= 0.3
+  const shellsActive = reducedMotion || hasCapturedSourceFrame || effectiveProgress >= captureStart
+  const slotCutoverActive = reducedMotion || effectiveProgress >= 0.08
   const activeTrackIndexes = new Set(
     !isMobile && capturedFrame?.mode === 'desktop'
       ? capturedFrame.sources.map((source) => source.trackIndex).filter((value): value is number => typeof value === 'number')
@@ -845,7 +983,7 @@ export default function HomeTickerStory() {
   return (
     <section
       ref={sectionRef}
-      className="relative h-[200vh] bg-transparent text-slate-950 dark:text-white md:h-[190vh]"
+      className="relative h-[168vh] bg-transparent text-slate-950 dark:text-white md:h-[168vh]"
     >
       <div
         ref={viewportRef}
