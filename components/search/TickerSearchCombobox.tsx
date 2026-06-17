@@ -211,9 +211,9 @@ export default function TickerSearchCombobox({
   const [tickerIndex, setTickerIndex] = useState<CachedTickerIndex | null>(memoryTickerIndex)
   const [recentTickers, setRecentTickers] = useState<string[]>([])
   const [isOpen, setIsOpen] = useState(false)
-  const [isFocused, setIsFocused] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [hasAttemptedIndexLoad, setHasAttemptedIndexLoad] = useState(Boolean(memoryTickerIndex))
+  const [hasLoadedIndexOnce, setHasLoadedIndexOnce] = useState(Boolean(memoryTickerIndex?.items.length))
+  const [loadAttemptToken, setLoadAttemptToken] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const normalizedSearch = normalizeTickerSearchQuery(search)
@@ -232,6 +232,9 @@ export default function TickerSearchCombobox({
     if (cached) {
       memoryTickerIndex = cached
       setTickerIndex(cached)
+      if (cached.items.length > 0) {
+        setHasLoadedIndexOnce(true)
+      }
     }
   }, [])
 
@@ -253,7 +256,7 @@ export default function TickerSearchCombobox({
   }, [])
 
   useEffect(() => {
-    if (!isFocused || hasAttemptedIndexLoad) return
+    if (loadAttemptToken === 0) return
 
     const controller = new AbortController()
     const cached = memoryTickerIndex ?? readSessionTickerIndex()
@@ -262,22 +265,28 @@ export default function TickerSearchCombobox({
       setTickerIndex(cached)
     }
 
-    setHasAttemptedIndexLoad(true)
     setIsLoading(true)
 
     void (async () => {
       try {
         const next = await loadTickerIndex(controller.signal)
-        if (next) setTickerIndex(next)
+        if (next) {
+          setTickerIndex(next)
+          setHasLoadedIndexOnce(next.items.length > 0)
+          return
+        }
+
+        setHasLoadedIndexOnce(Boolean(cached?.items.length))
       } catch {
         if (!cached) setTickerIndex(null)
+        setHasLoadedIndexOnce(Boolean(cached?.items.length))
       } finally {
         setIsLoading(false)
       }
     })()
 
     return () => controller.abort()
-  }, [hasAttemptedIndexLoad, isFocused])
+  }, [loadAttemptToken])
 
   useEffect(() => {
     setHighlightedIndex(-1)
@@ -411,6 +420,24 @@ export default function TickerSearchCombobox({
   const shouldShowDropdown =
     isOpen && (sections.length > 0 || isLoading || normalizedSearch.length > 0)
 
+  function queueTickerIndexLoad() {
+    const cached = memoryTickerIndex ?? tickerIndex ?? readSessionTickerIndex()
+    if (cached && cached !== tickerIndex) {
+      memoryTickerIndex = cached
+      setTickerIndex(cached)
+      if (cached.items.length > 0) {
+        setHasLoadedIndexOnce(true)
+      }
+    }
+
+    const hasUsableIndex = Boolean(cached?.items.length)
+
+    if (hasUsableIndex && hasLoadedIndexOnce) return
+    if (isLoading) return
+
+    setLoadAttemptToken((value) => value + 1)
+  }
+
   function pushRecentTicker(ticker: string) {
     const symbol = ticker.trim().toUpperCase()
     if (!symbol) return
@@ -424,6 +451,15 @@ export default function TickerSearchCombobox({
       }
       return next
     })
+  }
+
+  function handleSearchChange(nextValue: string) {
+    setSearch(nextValue)
+    setIsOpen(true)
+
+    if (nextValue.trim().length > 0) {
+      queueTickerIndexLoad()
+    }
   }
 
   function navigateToTicker(tickerRaw: string, exchange?: string | null) {
@@ -552,15 +588,14 @@ export default function TickerSearchCombobox({
       <Input
         type="text"
         value={search}
-        onChange={(event) => setSearch(event.target.value)}
+        onChange={(event) => handleSearchChange(event.target.value)}
         onKeyDown={onKeyDown}
         onFocus={() => {
-          setIsFocused(true)
           setIsOpen(true)
+          queueTickerIndexLoad()
         }}
         onBlur={() => {
           blurTimeoutRef.current = setTimeout(() => {
-            setIsFocused(false)
             setIsOpen(false)
           }, 120)
         }}
