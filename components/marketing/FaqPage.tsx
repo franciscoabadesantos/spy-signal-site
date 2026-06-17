@@ -2,24 +2,24 @@ import { CircleHighlight, GlassPanel, HandScript, MarketingPageOutro, MarketingP
 
 const faqItems = [
   {
-    question: 'When does the signal update?',
-    answer: 'The core promise is a weekly signal delivered before the market opens so the decision happens ahead of the week, not in reaction to it.',
+    question: 'What is included in membership?',
+    answer: 'Membership covers the signal workspace, markets and ticker coverage, screener and watchlist access, research context, alerts, and signal history views.',
   },
   {
-    question: 'What does the signal actually tell me?',
-    answer: 'It gives you the weekly stance, confidence, and the supporting tape so you can understand the context around the call.',
+    question: 'Do I need an account first?',
+    answer: 'Yes. If you are not signed in, the current flow starts with account creation before you continue into the workspace.',
   },
   {
     question: 'Is this for intraday trading?',
-    answer: 'No. The product identity is deliberately slower and more disciplined than an intraday alert service.',
+    answer: 'No. The product is built around signal monitoring, market context, watchlists, and research workflows rather than a chatty intraday feed.',
   },
   {
-    question: 'Does the site still link back to the app?',
-    answer: 'Yes. The refreshed marketing pages keep the routes wired into the existing screener, sign-in, and sign-up flows.',
+    question: 'What happens after signup?',
+    answer: 'After sign-up you continue into the product workspace. Upgrade or paid access only follows the live billing path when that path is configured for your account.',
   },
   {
-    question: 'Why move the homepage links off anchors?',
-    answer: 'Because the frontpage is now the teaser. Each primary topic has its own route so the site reads like a full product, not a single scrolling page.',
+    question: 'Can I review history and research inside the product?',
+    answer: 'Yes. The product includes signal history views, ticker-level context, and saved research surfaces inside the workspace.',
   },
 ] as const
 
@@ -30,15 +30,15 @@ export default function FaqPage() {
       eyebrow="FAQ"
       title={
         <>
-          The quick answers
+          Straight answers
           <br />
-          should live on their
+          before you start
           <br />
-          <span className="text-[#0757ff]">own page too.</span>
+          <span className="text-[#0757ff]">membership.</span>
         </>
       }
-      description="This page replaces the old anchor-only FAQ behavior and carries the same voice, links, and visual identity as the rest of the refreshed marketing site."
-      primaryCta={{ label: 'Join the lounge', href: '/sign-up' }}
+      description="Review the basics on cadence, deliverables, workflow, and product fit before you create an account."
+      primaryCta={{ label: 'Start membership', href: '/sign-up' }}
       secondaryCta={{ label: 'See pricing', href: '/pricing' }}
       heroAside={
         <GlassPanel className="p-7">
@@ -57,7 +57,7 @@ export default function FaqPage() {
         <SectionHeading
           eyebrow="Answers"
           title="The essentials before someone commits."
-          body="The content is straightforward, but the page now belongs to the same brand system as the new frontpage."
+          body="The focus is simple: what the product delivers, how often it updates, and who it is built for."
         />
         <div className="mt-10 space-y-4">
           {faqItems.map((item) => (

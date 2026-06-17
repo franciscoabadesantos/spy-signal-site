@@ -28,6 +28,7 @@ export const sharedHeaderOffsetClass = 'pt-[100px] md:pt-[72px]'
 export const sharedHeaderSpacerClass = 'h-[100px] md:h-[72px]'
 
 type PageLink = {
+  openInNewTab?: boolean
   label: string
   href: string
 }
@@ -39,6 +40,7 @@ type PageShellProps = {
   description: string
   primaryCta?: PageLink
   secondaryCta?: PageLink
+  heroAccent?: ReactNode | false
   note?: string
   heroAside?: ReactNode
   children: ReactNode
@@ -153,12 +155,14 @@ export function SectionHeading({
   body,
   href,
   label = 'Go deeper',
+  accent,
 }: {
   eyebrow: string
   title: string
   body?: string
   href?: string
   label?: string
+  accent?: ReactNode | false
 }) {
   return (
     <div className="max-w-3xl">
@@ -166,9 +170,13 @@ export function SectionHeading({
         {eyebrow}
       </p>
       <h2 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">{title}</h2>
-      <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-        Signal before the open.
-      </HandScript>
+      {accent === false ? null : accent ? (
+        accent
+      ) : (
+        <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
+          Signal before the open.
+        </HandScript>
+      )}
       {body ? <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600 dark:text-white/62">{body}</p> : null}
       {href ? (
         <Link
@@ -208,7 +216,7 @@ export function MarketingHeader({ activeHref }: { activeHref?: string }) {
               )}
             >
               <span className="relative z-10 transition duration-200 group-hover:-rotate-[2deg] group-hover:scale-[1.04]">
-                Join the lounge
+                Start membership
               </span>
               <span className="pointer-events-none absolute inset-x-2 bottom-0 h-px origin-left scale-x-0 bg-current/70 transition duration-300 group-hover:scale-x-100" />
             </Link>
@@ -230,6 +238,7 @@ export function MarketingPageShell({
   description,
   primaryCta,
   secondaryCta,
+  heroAccent,
   note,
   heroAside,
   children,
@@ -250,16 +259,22 @@ export function MarketingPageShell({
           <h1 className="mt-5 text-[clamp(2.7rem,6vw,5rem)] font-black leading-[0.98] tracking-tight">
             {title}
           </h1>
-          <CircleHighlight tone="blue" className="mt-6">
-            <HandScript className="text-[2.6rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-              Signal before the open.
-            </HandScript>
-          </CircleHighlight>
+          {heroAccent === false ? null : heroAccent ? (
+            heroAccent
+          ) : (
+            <CircleHighlight tone="blue" className="mt-6">
+              <HandScript className="text-[2.6rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
+                Signal before the open.
+              </HandScript>
+            </CircleHighlight>
+          )}
           <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-700 dark:text-white/68">{description}</p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
             {primaryCta ? (
               <Link
                 href={primaryCta.href}
+                target={primaryCta.openInNewTab ? '_blank' : undefined}
+                rel={primaryCta.openInNewTab ? 'noopener noreferrer' : undefined}
                 className="inline-flex h-[52px] items-center justify-center gap-3 rounded-xl bg-[#0757ff] px-6 font-semibold text-white shadow-[0_0_36px_rgba(7,87,255,0.28)] transition duration-200 ease-out hover:-translate-y-1 hover:bg-[#1a66ff]"
               >
                 {primaryCta.label} <ArrowRight className="size-5" />
@@ -268,6 +283,8 @@ export function MarketingPageShell({
             {secondaryCta ? (
               <Link
                 href={secondaryCta.href}
+                target={secondaryCta.openInNewTab ? '_blank' : undefined}
+                rel={secondaryCta.openInNewTab ? 'noopener noreferrer' : undefined}
                 className="inline-flex h-[52px] items-center justify-center border-b-2 border-slate-950/16 px-1 text-base text-slate-950 transition hover:border-[#0757ff]/28 hover:text-[#0757ff] dark:border-[#f8f200] dark:text-white dark:hover:text-[#fff4c8]"
               >
                 {secondaryCta.label}
@@ -290,14 +307,14 @@ export function MarketingPageOutro() {
       <GlassPanel className="mx-auto grid max-w-[1280px] gap-6 bg-[radial-gradient(circle_at_80%_0%,rgba(7,87,255,0.14),transparent_32%)] p-8 md:grid-cols-[1fr_auto] md:items-center">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">
-            Weekly access
+            Membership
           </p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">Signal before the open.</h2>
+          <h2 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">Signals, research, and alerts in one workspace.</h2>
           <HandScript className="mt-3 block text-[2.2rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-            Simple pricing. Real edge.
+            Open the workspace.
           </HandScript>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-white/62">
-            {BRAND_NAME} keeps the decision simple: read the tape, take the weekly view, avoid the noise.
+            {BRAND_NAME} keeps the workflow focused: review signals, follow the market context, and keep research and watchlists in one place.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -305,7 +322,7 @@ export function MarketingPageOutro() {
             href="/sign-up"
             className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-[#03050b]"
           >
-            Join the lounge
+            Start membership
           </Link>
           <Link
             href="/screener"

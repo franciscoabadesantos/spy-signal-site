@@ -4,7 +4,7 @@ import PricingPage from '@/components/marketing/PricingPage'
 
 export const metadata: Metadata = {
   title: 'Pricing | Longbrunch',
-  description: 'Simple pricing for full access to the Longbrunch weekly workflow.',
+  description: 'Pricing for access to the Longbrunch signal workspace, markets coverage, research, watchlists, and alerts.',
 }
 
 export default function Pricing() {
