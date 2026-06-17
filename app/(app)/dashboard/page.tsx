@@ -6,38 +6,12 @@ import MetricGrid from '@/components/page/MetricGrid'
 import { buttonClass } from '@/components/ui/Button'
 import RetryButton from '@/components/ui/RetryButton'
 import SignalBlock from '@/components/ui/SignalBlock'
-import {
-  TableBase,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-  TableShell,
-} from '@/components/ui/DataTable'
+import WatchlistTable from '@/components/dashboard/WatchlistTable'
 import { getViewerUserId } from '@/lib/auth'
-import { getUserWatchlistTickers } from '@/lib/watchlist'
-import { getLastFlipDatesByTicker, getScreenerSignals } from '@/lib/signals'
-import { getRecentAiResearchRuns } from '@/lib/ai-research'
+import { getWatchlistWorkspace } from '@/lib/watchlist-workspace'
 import RecentAiResearchRuns from '@/components/RecentAiResearchRuns'
 
 export const dynamic = 'force-dynamic'
-
-function formatConviction(value: number | null): string {
-  if (value === null) return '—'
-  return `${(value * 100).toFixed(0)}%`
-}
-
-function formatPrice(value: number | null): string {
-  if (value === null) return '—'
-  return `$${value.toFixed(2)}`
-}
-
-function formatPct(value: number | null): string {
-  if (value === null) return '—'
-  const sign = value >= 0 ? '+' : ''
-  return `${sign}${value.toFixed(2)}%`
-}
 
 function formatDate(value: string | null): string {
   if (!value) return '—'
@@ -48,11 +22,15 @@ function formatDate(value: string | null): string {
   })
 }
 
-function isWithinDays(value: string | null, days: number): boolean {
-  if (!value) return false
+function formatConviction(value: number | null): string {
+  if (value === null) return '—'
+  return `${Math.round(value * 100)}%`
+}
+
+function timestampOrZero(value: string | null): number {
+  if (!value) return 0
   const parsed = Date.parse(value)
-  if (!Number.isFinite(parsed)) return false
-  return Date.now() - parsed <= days * 24 * 60 * 60 * 1000
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 export default async function DashboardPage() {
@@ -62,8 +40,8 @@ export default async function DashboardPage() {
     return (
       <>
         <EmptyState
-          title="Watchlist is for signed-in users"
-          description="Sign in to create a personalized watchlist and track live model signals daily."
+          title="Today is for signed-in users"
+          description="Sign in to open your daily signal workspace and track the assets you already care about."
           action={
             <Link href="/" className={buttonClass({ variant: 'primary' })}>
               Return Home
@@ -74,62 +52,47 @@ export default async function DashboardPage() {
     )
   }
 
-  let tickers: string[] = []
-  let rows: Awaited<ReturnType<typeof getScreenerSignals>>['rows'] = []
-  let lastFlipByTicker: Record<string, string | null> = {}
-  let recentAiRuns: Awaited<ReturnType<typeof getRecentAiResearchRuns>> = []
+  let workspace: Awaited<ReturnType<typeof getWatchlistWorkspace>>
 
   try {
-    tickers = await getUserWatchlistTickers(userId)
-    ;[{ rows }, lastFlipByTicker, recentAiRuns] = await Promise.all([
-      getScreenerSignals({ tickers, limit: 500 }),
-      getLastFlipDatesByTicker(tickers),
-      getRecentAiResearchRuns({ userId, limit: 6 }),
-    ])
+    workspace = await getWatchlistWorkspace(userId)
   } catch {
     return (
       <EmptyState
-        title="Dashboard data is temporarily unavailable"
-        description="The frontend could not load watchlist or signal data from finance-backend."
+        title="Today is temporarily unavailable"
+        description="The frontend could not load your daily watchlist and signal snapshot from finance-backend."
         action={<RetryButton>Retry</RetryButton>}
       />
     )
   }
 
-  const rowByTicker = new Map(rows.map((row) => [row.ticker, row]))
-  const watchlistRows = tickers.map((ticker) => {
-    const row = rowByTicker.get(ticker)
-    const direction = row?.direction ?? null
-    const lastFlippedDate = lastFlipByTicker[ticker] ?? row?.signalDate ?? null
+  const {
+    tickers,
+    watchlistRows,
+    recentAiRuns,
+    avgConviction,
+    bullishCount,
+    flipsLast30d,
+    topConvictionRow,
+    latestFlipRow,
+  } = workspace
 
-    return {
-      ticker,
-      row,
-      direction,
-      lastFlippedDate,
-    }
-  })
-
-  const convictionRows = watchlistRows
-    .map((entry) => entry.row?.conviction ?? null)
-    .filter((value): value is number => value !== null && Number.isFinite(value))
-
-  const avgConviction =
-    convictionRows.length > 0
-      ? convictionRows.reduce((sum, value) => sum + value, 0) / convictionRows.length
-      : null
-
-  const bullishCount = watchlistRows.filter((entry) => entry.direction === 'bullish').length
-  const flipsLast30d = watchlistRows.filter((entry) => isWithinDays(entry.lastFlippedDate, 30)).length
+  const snapshotRows = [...watchlistRows]
+    .sort((left, right) => {
+      const convictionDelta = (right.row?.conviction ?? -1) - (left.row?.conviction ?? -1)
+      if (convictionDelta !== 0) return convictionDelta
+      return timestampOrZero(right.lastFlippedDate) - timestampOrZero(left.lastFlippedDate)
+    })
+    .slice(0, 5)
 
   return (
     <div className="section-gap">
         <PageHeader
-          title="Dashboard"
-          subtitle="Track live model stance, conviction, and flip cadence for the assets you follow."
+          title="Today"
+          subtitle="Open with the signals, flips, and names on your watchlist that deserve attention right now."
           action={
             <Link href="/screener" className={buttonClass({ variant: 'secondary' })}>
-              Add More Assets
+              Browse Signals
             </Link>
           }
         />
@@ -138,10 +101,10 @@ export default async function DashboardPage() {
           <Card className="surface-primary">
             <h2 className="text-section-title mb-2 text-content-primary">Your watchlist is empty</h2>
             <p className="text-body mb-5">
-              Visit any ticker page and click Add to Watchlist to start building your personalized workspace.
+              Visit any ticker page and click Add to Watchlist to start building your daily tape.
             </p>
             <Link href="/stocks/SPY" className={buttonClass({ variant: 'primary' })}>
-              Explore SPY
+              Open SPY
             </Link>
           </Card>
         ) : (
@@ -153,73 +116,87 @@ export default async function DashboardPage() {
                 { label: 'Bullish Signals', value: bullishCount.toString() },
                 {
                   label: 'Avg Conviction',
-                  value: avgConviction === null ? '—' : `${Math.round(avgConviction * 100)}%`,
+                  value: formatConviction(avgConviction),
                 },
                 { label: 'Flips (30d)', value: flipsLast30d.toString() },
               ]}
             />
 
-            <TableShell>
-              <TableBase className="whitespace-nowrap">
-                <TableHead sticky>
-                  <tr>
-                    <TableHeaderCell sortable sortDirection="asc">Ticker</TableHeaderCell>
-                    <TableHeaderCell>Current Price</TableHeaderCell>
-                    <TableHeaderCell>Live Signal</TableHeaderCell>
-                    <TableHeaderCell>Conviction</TableHeaderCell>
-                    <TableHeaderCell>Last Flipped Date</TableHeaderCell>
-                    <TableHeaderCell>% Chg</TableHeaderCell>
-                  </tr>
-                </TableHead>
-                <TableBody>
-                  {watchlistRows.map(({ ticker, row, direction, lastFlippedDate }, index) => (
-                    <TableRow key={ticker} index={index}>
-                      <TableCell className="text-label-lg">
-                        <Link href={`/stocks/${ticker}`} className="text-accent-text hover:underline">
-                          {ticker}
-                        </Link>
-                        {row?.name ? (
-                          <div className="text-caption max-w-[220px] truncate text-content-muted">
-                            {row.name}
-                          </div>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="text-data-sm numeric-tabular">{formatPrice(row?.price ?? null)}</TableCell>
-                      <TableCell>
-                        {direction ? (
-                          <SignalBlock
-                            direction={direction}
-                            conviction={row?.conviction ?? null}
-                            compact
-                            showLabel={false}
-                          />
-                        ) : (
-                          <span className="text-caption text-content-muted">Unavailable</span>
-                        )}
-                      </TableCell>
-                      <TableCell muted className="numeric-tabular">{formatConviction(row?.conviction ?? null)}</TableCell>
-                      <TableCell muted className="numeric-tabular">{formatDate(lastFlippedDate)}</TableCell>
-                      <TableCell
-                        className={
-                          (row?.changePercent ?? null) === null
-                            ? 'text-content-muted'
-                            : (row?.changePercent ?? 0) >= 0
-                              ? 'signal-bullish'
-                              : 'signal-bearish'
-                        }
-                      >
-                        {formatPct(row?.changePercent ?? null)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </TableBase>
-            </TableShell>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card className="space-y-4">
+                <div>
+                  <p className="text-caption uppercase tracking-[0.18em] text-content-muted">Strongest signal</p>
+                  <h2 className="text-card-title mt-2 text-content-primary">
+                    {topConvictionRow ? topConvictionRow.ticker : 'No clear leader'}
+                  </h2>
+                  <p className="text-body mt-2">
+                    {topConvictionRow?.row?.name ?? 'No live conviction leader is available yet.'}
+                  </p>
+                </div>
+                {topConvictionRow?.direction ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <SignalBlock
+                      direction={topConvictionRow.direction}
+                      conviction={topConvictionRow.row?.conviction ?? null}
+                      compact
+                      showLabel={false}
+                    />
+                    <span className="text-body-sm text-content-muted">
+                      Conviction {formatConviction(topConvictionRow.row?.conviction ?? null)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-body-sm text-content-muted">No live signal is available for this slot.</p>
+                )}
+              </Card>
+
+              <Card className="space-y-4">
+                <div>
+                  <p className="text-caption uppercase tracking-[0.18em] text-content-muted">Latest change</p>
+                  <h2 className="text-card-title mt-2 text-content-primary">
+                    {latestFlipRow ? latestFlipRow.ticker : 'No recent flips'}
+                  </h2>
+                  <p className="text-body mt-2">
+                    {latestFlipRow
+                      ? `Last changed on ${formatDate(latestFlipRow.lastFlippedDate)}.`
+                      : 'Your watchlist has not logged a recent signal change yet.'}
+                  </p>
+                </div>
+                {latestFlipRow?.direction ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <SignalBlock
+                      direction={latestFlipRow.direction}
+                      conviction={latestFlipRow.row?.conviction ?? null}
+                      compact
+                      showLabel={false}
+                    />
+                    <span className="text-body-sm text-content-muted">
+                      Last changed {formatDate(latestFlipRow.lastFlippedDate)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-body-sm text-content-muted">Nothing changed recently.</p>
+                )}
+              </Card>
+            </div>
+
+            <div className="section-gap">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-card-title text-content-primary">Watchlist snapshot</h2>
+                  <p className="text-body mt-1">The five names with the clearest current signal on your list.</p>
+                </div>
+                <Link href="/dashboard/watchlist" className={buttonClass({ variant: 'ghost', size: 'sm' })}>
+                  Open full watchlist
+                </Link>
+              </div>
+              <WatchlistTable rows={snapshotRows} />
+            </div>
 
             <div className="section-gap">
               <div>
                 <h2 className="text-card-title text-content-primary">Recent AI Research</h2>
-                <p className="text-body mt-1">Secondary context from your latest AI runs.</p>
+                <p className="text-body mt-1">Secondary context from the runs you saved most recently.</p>
               </div>
               <RecentAiResearchRuns
                 title="Saved Runs"

@@ -113,7 +113,7 @@ export default async function FinancialStatementPage({
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Stocks', href: '/screener' },
+          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
           { label: 'Financial Summary', href: `/stocks/${ticker}/financials/fund-profile` },
           { label: statementMeta.title },

@@ -73,7 +73,7 @@ export default async function HoldingsAndDividendsPage({
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Stocks', href: '/screener' },
+          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
           { label: 'Holdings / Dividend Status' },
         ]}

@@ -33,7 +33,7 @@ export default function WatchlistButton({
 
   const onClick = async () => {
     if (!signedIn) {
-      setError('Sign in to save this ticker to your dashboard watchlist.')
+      setError('Sign in to save this ticker to your watchlist.')
       return
     }
 

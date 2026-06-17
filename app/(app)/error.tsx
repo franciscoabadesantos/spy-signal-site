@@ -16,7 +16,7 @@ export default function AppError({
       title="App data is temporarily unavailable"
       description="This screen could not finish loading. Retry will re-fetch the latest data for this app section."
       homeHref="/screener"
-      homeLabel="Open Screener"
+      homeLabel="Open Signals"
     />
   )
 }

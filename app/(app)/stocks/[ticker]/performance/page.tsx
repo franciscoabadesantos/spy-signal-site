@@ -149,7 +149,7 @@ export default async function PerformancePage({
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Stocks', href: '/screener' },
+          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
           { label: 'Performance' },
         ]}

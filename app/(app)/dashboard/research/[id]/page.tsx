@@ -66,7 +66,7 @@ export default async function AiResearchRunDetailPage({
           <div className="flex flex-col items-center gap-3 sm:flex-row">
             <RetryButton>Retry</RetryButton>
             <Link href="/dashboard" className={buttonClass({ variant: 'ghost' })}>
-              Return to Dashboard
+              Return to Today
             </Link>
           </div>
         }
@@ -80,7 +80,7 @@ export default async function AiResearchRunDetailPage({
         <Breadcrumbs
           items={[
             { label: 'Home', href: '/' },
-            { label: 'Dashboard', href: '/dashboard' },
+            { label: 'Today', href: '/dashboard' },
             { label: 'Research', href: '/dashboard/research' },
             { label: `Run #${run.id}` },
           ]}

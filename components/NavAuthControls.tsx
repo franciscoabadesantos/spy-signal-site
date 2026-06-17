@@ -28,7 +28,7 @@ export default function NavAuthControls() {
         Live tape.
       </HandScript>
       <Link href="/dashboard" className={`${buttonClass({ variant: 'ghost', size: 'sm' })} hidden lg:inline-flex`}>
-        Lounge
+        Today
       </Link>
       <div className="rounded-full border border-slate-950/8 bg-white/78 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_24px_rgba(20,33,51,0.06)] backdrop-blur-xl dark:border-white/12 dark:bg-white/[0.05] dark:shadow-none">
         <UserButton />

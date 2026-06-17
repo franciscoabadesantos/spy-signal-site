@@ -153,7 +153,7 @@ export default async function SignalHistoryPage({
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Stocks', href: '/screener' },
+          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
           { label: 'Signal History' },
         ]}

@@ -848,7 +848,7 @@ export default async function TickerPage({
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Stocks', href: '/screener' },
+          { label: 'Markets', href: '/markets' },
           { label: ticker },
         ]}
       />
