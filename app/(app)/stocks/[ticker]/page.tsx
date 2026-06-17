@@ -612,7 +612,7 @@ export async function generateMetadata({
   const name = quote?.name || ticker
 
   return {
-    title: `${ticker} Stock Price, Target, Signals & Overview - Longbrunch`,
+    title: `${ticker} Markets Signal, Research & Overview - Longbrunch`,
     description: `Real-time price, algorithmic trading signals, and predictive data for ${name} (${ticker}). View conviction scores, performance, and key statistics.`,
   }
 }
@@ -641,7 +641,7 @@ export default async function TickerPage({
   const stockEntrySource = stockEntrySourceFromContext(sourceContext)
   const modelTag = sourceContext === 'model' && modelName ? `From Model: ${modelName}` : null
   const screenerTag =
-    sourceContext === 'screener' && screenerSignal ? `From Screener: ${screenerSignal}` : null
+    sourceContext === 'screener' && screenerSignal ? `From Signals: ${screenerSignal}` : null
   const viewerAccess = await getViewerAccess()
   const viewerUserId = viewerAccess.userId ?? (await getViewerUserId())
   const aiAnalystEnabled = Boolean(process.env.PERPLEXITY_API_KEY?.trim())

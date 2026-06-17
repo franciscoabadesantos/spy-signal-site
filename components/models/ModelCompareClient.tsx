@@ -585,11 +585,11 @@ export default function ModelCompareClient({
   return (
     <div className="container-lg section-gap">
         <PageHeader
-          title="Compare models"
+          title="Compare in Model Lab"
           subtitle="Review two model versions side by side and inspect the tradeoffs."
           action={
             <Link href="/models" className={buttonClass({ variant: 'ghost' })}>
-              Back to models
+              Back to Model Lab
             </Link>
           }
         />
