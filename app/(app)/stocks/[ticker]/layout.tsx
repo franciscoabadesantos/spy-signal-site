@@ -30,7 +30,7 @@ export default async function StockTickerLayout({ children, params }: StockTicke
         : 'neutral'
 
   return (
-    <div className="container-lg py-6 pb-20 section-gap">
+    <div className="container-lg space-y-4 py-5 pb-16 md:space-y-5">
       <StockHeader
         ticker={quote?.ticker || ticker}
         companyName={quote?.name}
@@ -49,7 +49,7 @@ export default async function StockTickerLayout({ children, params }: StockTicke
         }
         subtitle={
           quote
-            ? 'Research-ready snapshot with model context and supporting market data.'
+            ? 'Price, regime, and supporting market context.'
             : 'Market data is temporarily unavailable from finance-backend.'
         }
       />

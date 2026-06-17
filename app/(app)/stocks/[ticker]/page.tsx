@@ -8,7 +8,6 @@ import EmptyState from '@/components/ui/EmptyState'
 import { buttonClass } from '@/components/ui/Button'
 import RetryButton from '@/components/ui/RetryButton'
 import StatRowCard from '@/components/ui/StatRowCard'
-import InsightCard from '@/components/page/InsightCard'
 import PageSection from '@/components/page/PageSection'
 import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
 import StockChartPanel from '@/components/StockChartPanel'
@@ -135,25 +134,6 @@ function buildChartSignalMarkers(signals: Signal[]): ChartSignalMarker[] {
   return markers
 }
 
-function formatTimeAgo(value: string | null): string {
-  if (!value) return 'Recent'
-  const ts = Date.parse(value)
-  if (!Number.isFinite(ts)) return 'Recent'
-
-  const diffMs = Date.now() - ts
-  if (diffMs < 60 * 60 * 1000) {
-    const mins = Math.max(1, Math.floor(diffMs / (60 * 1000)))
-    return `${mins}m ago`
-  }
-  if (diffMs < 24 * 60 * 60 * 1000) {
-    const hours = Math.max(1, Math.floor(diffMs / (60 * 60 * 1000)))
-    return `${hours}h ago`
-  }
-
-  const days = Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)))
-  return `${days}d ago`
-}
-
 function formatConviction(value: number | null): string {
   if (value === null) return '—'
   return `${Math.round(value * 100)}%`
@@ -216,6 +196,12 @@ function coverageBadge(available: boolean): { text: string; variant: 'success' |
     : { text: 'Unavailable', variant: 'warning' }
 }
 
+function formatPlainPercent(value: number | null): string {
+  const pct = asPercent(value)
+  if (pct === null) return '—'
+  return `${Math.abs(pct).toFixed(2)}%`
+}
+
 function findLatestFundamentalValue(
   rows: LatestFundamentalsRow[],
   matcher: (metric: string) => boolean
@@ -223,6 +209,47 @@ function findLatestFundamentalValue(
   const row = rows.find((item) => matcher(item.metric.toLowerCase()))
   if (!row) return null
   return row.valueDisplay ?? (row.valueNumber !== null ? row.valueNumber.toLocaleString() : null)
+}
+
+function findLatestFundamentalRow(
+  rows: LatestFundamentalsRow[],
+  matcher: (value: string) => boolean
+): LatestFundamentalsRow | null {
+  return (
+    rows.find((item) => matcher(`${item.metric.toLowerCase()} ${item.metricLabel.toLowerCase()}`)) ?? null
+  )
+}
+
+function latestFundamentalDisplayValue(row: LatestFundamentalsRow | null): string | null {
+  if (!row) return null
+  return row.valueDisplay ?? (row.valueNumber !== null ? row.valueNumber.toLocaleString() : null)
+}
+
+function looksLikeEtfAsset({
+  ticker,
+  displayName,
+  latestFundamentals,
+}: {
+  ticker: string
+  displayName: string
+  latestFundamentals: LatestFundamentalsRow[]
+}): boolean {
+  const etfTickers = new Set(['SPY', 'QQQ', 'DIA', 'IWM', 'VOO', 'IVV', 'VTI', 'XLK', 'XLF', 'XLE'])
+  if (etfTickers.has(ticker)) return true
+
+  if (
+    /\b(etf|trust|fund|portfolio|index|spdr|ishares|vanguard|invesco|proshares|direxion|ark)\b/i.test(
+      displayName
+    )
+  ) {
+    return true
+  }
+
+  return latestFundamentals.some((row) =>
+    /(expense|holdings|assets|inception|turnover|distribution|fund family|portfolio p\/e)/i.test(
+      `${row.metricLabel} ${row.metric}`
+    )
+  )
 }
 
 function computeInsightStats(signals: Signal[]) {
@@ -756,23 +783,11 @@ export default async function TickerPage({
     marketCapNumeric !== null
       ? formatCompactNumber(marketCapNumeric, { currency: true })
       : marketQuote?.marketCapText ?? '—'
-  const quickStats = [
-    { label: 'Market Cap', value: hasFundamentals ? marketCapValue : 'Not available' },
-    {
-      label: '1M Return',
-      value: hasMarketData ? formatSignedPercent(marketStats?.return1m ?? null) : 'Not available',
-    },
-    {
-      label: '1Y Return',
-      value: hasMarketData ? formatSignedPercent(marketStats?.return1y ?? null) : 'Not available',
-    },
-    {
-      label: 'Next Earnings',
-      value: hasEarnings
-        ? formatCalendarDate(nextEarnings?.earningsDate ?? earningsHistory[0]?.earningsDate ?? null)
-        : 'Not available',
-    },
-  ]
+  const isEtf = looksLikeEtfAsset({
+    ticker,
+    displayName,
+    latestFundamentals,
+  })
   const fundamentalsSummaryRows = [
     {
       label: 'Latest Revenue',
@@ -842,9 +857,88 @@ export default async function TickerPage({
       : 0
   const profileBadge = profileStateBadge(overallSystemScore)
   const recentFlipRatePct = Math.round(recentFlipRate(recentSignals, 30) * 100)
+  const performanceStats = [
+    { label: '1D', value: hasMarketData ? formatSignedPercent(marketStats?.return1d ?? null) : '—' },
+    { label: '1M', value: hasMarketData ? formatSignedPercent(marketStats?.return1m ?? null) : '—' },
+    { label: '3M', value: hasMarketData ? formatSignedPercent(marketStats?.return3m ?? null) : '—' },
+    { label: '1Y', value: hasMarketData ? formatSignedPercent(marketStats?.return1y ?? null) : '—' },
+    { label: '30D Vol', value: hasMarketData ? formatPlainPercent(marketStats?.vol30dPct ?? null) : '—' },
+    {
+      label: 'From 52W High',
+      value: hasMarketData ? formatSignedPercent(marketStats?.distanceFrom52wHighPct ?? null) : '—',
+    },
+    {
+      label: 'From 52W Low',
+      value: hasMarketData ? formatSignedPercent(marketStats?.distanceFrom52wLowPct ?? null) : '—',
+    },
+    { label: 'Market Cap', value: hasFundamentals ? marketCapValue : '—' },
+  ]
+  const etfSnapshotRows = [
+    {
+      label: 'Assets',
+      value:
+        latestFundamentalDisplayValue(
+          findLatestFundamentalRow(
+            latestFundamentalsRows,
+            (metric) => metric.includes('assets') || metric.includes('aum')
+          )
+        ) ?? marketCapValue,
+    },
+    {
+      label: 'Expense Ratio',
+      value:
+        latestFundamentalDisplayValue(
+          findLatestFundamentalRow(latestFundamentalsRows, (metric) => metric.includes('expense ratio'))
+        ) ?? '—',
+    },
+    {
+      label: 'Dividend Yield',
+      value:
+        latestFundamentalDisplayValue(
+          findLatestFundamentalRow(latestFundamentalsRows, (metric) => metric.includes('yield'))
+        ) ?? '—',
+    },
+    {
+      label: 'Holdings',
+      value:
+        latestFundamentalDisplayValue(
+          findLatestFundamentalRow(latestFundamentalsRows, (metric) => metric.includes('holding'))
+        ) ?? '—',
+    },
+    {
+      label: 'Portfolio P/E',
+      value:
+        latestFundamentalDisplayValue(
+          findLatestFundamentalRow(
+            latestFundamentalsRows,
+            (metric) => metric.includes('portfolio p/e') || metric.includes('pe')
+          )
+        ) ?? '—',
+    },
+    {
+      label: 'Inception',
+      value:
+        latestFundamentalDisplayValue(
+          findLatestFundamentalRow(
+            latestFundamentalsRows,
+            (metric) => metric.includes('inception') || metric.includes('period end')
+          )
+        ) ?? '—',
+    },
+  ].filter((row) => row.value !== '—')
+  const equitySnapshotRows = fundamentalsSummaryRows.filter((row) => row.value !== '—')
+  const prioritySnapshotRows = (isEtf ? etfSnapshotRows : equitySnapshotRows).slice(0, 6)
+  const hasDetailedFundamentalTable = latestFundamentalsRows.length > 0
+  const showEarningsPreview = !isEtf && hasEarnings && (nextEarnings !== null || earningsHistoryRows.length > 0)
+  const coverageStatuses = [
+    { label: 'Market', badge: marketCoverageBadge },
+    { label: 'Signals', badge: signalsCoverageBadge },
+    { label: 'Fundamentals', badge: fundamentalsCoverageBadge },
+    { label: 'Earnings', badge: earningsCoverageBadge },
+  ]
 
   return (
-    <>
+    <div className="space-y-8 md:space-y-10">
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
@@ -852,22 +946,16 @@ export default async function TickerPage({
           { label: ticker },
         ]}
       />
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {modelTag ? <Badge variant="neutral">{modelTag}</Badge> : null}
           {screenerTag ? <Badge variant="neutral">{screenerTag}</Badge> : null}
-          <Badge variant={marketCoverageBadge.variant}>
-            Market {marketCoverageBadge.text}
-          </Badge>
-          <Badge variant={fundamentalsCoverageBadge.variant}>
-            Fundamentals {fundamentalsCoverageBadge.text}
-          </Badge>
-          <Badge variant={earningsCoverageBadge.variant}>
-            Earnings {earningsCoverageBadge.text}
-          </Badge>
-          <Badge variant={signalsCoverageBadge.variant}>
-            Signals {signalsCoverageBadge.text}
-          </Badge>
+          {coverageStatuses.map((status) => (
+            <Badge key={status.label} variant={status.badge.variant}>
+              {status.label} {status.badge.text}
+            </Badge>
+          ))}
+          {isEtf ? <Badge variant="neutral">ETF View</Badge> : null}
         </div>
         <WatchlistButton
           ticker={ticker}
@@ -884,77 +972,259 @@ export default async function TickerPage({
           has_model_context: Boolean(modelTag),
         }}
       />
-      <PageSection
-        title="Market Snapshot"
-        description="Latest quote and market stats sourced from Data Ops coverage-aware surfaces."
-      >
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_1fr]">
-          <Card className="section-gap" padding="lg">
-            <h3 className="text-card-title text-content-primary">Quote</h3>
-            {hasMarketData && marketQuote && marketQuote.price !== null ? (
-              <div>
-                <div className="text-body text-content-secondary">{displayName}</div>
-                <div className="mt-2 text-display-md numeric-tabular leading-none text-content-primary">
-                  ${marketQuote.price.toFixed(2)}
-                </div>
-                <div
-                  className={`mt-2 text-data-sm numeric-tabular ${
-                    (marketQuote.change ?? 0) >= 0 ? 'signal-bullish' : 'signal-bearish'
-                  }`}
-                >
-                  {(marketQuote.change ?? 0) >= 0 ? '+' : ''}
-                  {(marketQuote.change ?? 0).toFixed(2)} ({formatSignedPercent(marketQuote.changePercent)})
-                </div>
-                <div className="mt-2 text-caption text-content-muted">
-                  {marketQuote.asOf ? `Updated ${formatTimeAgo(marketQuote.asOf)}` : 'Latest available quote'}
-                </div>
-              </div>
-            ) : (
-              <p className="text-body">Market data is not available for this ticker yet.</p>
-            )}
+      <PageSection className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+          <Card className="emphasis-secondary" padding="sm">
+            <StockChartPanel data={historicalData} signalMarkers={signalMarkers} />
           </Card>
-          <Card className="section-gap" padding="lg">
-            <h3 className="text-card-title text-content-primary">Stats</h3>
-            {hasMarketData ? (
-              <div className="grid grid-cols-2 gap-3">
-                <StatRowCard label="1D Return" value={formatSignedPercent(marketStats?.return1d ?? null)} />
-                <StatRowCard label="1M Return" value={formatSignedPercent(marketStats?.return1m ?? null)} />
-                <StatRowCard label="3M Return" value={formatSignedPercent(marketStats?.return3m ?? null)} />
-                <StatRowCard label="1Y Return" value={formatSignedPercent(marketStats?.return1y ?? null)} />
-                <StatRowCard
-                  label="From 52W High"
-                  value={formatSignedPercent(marketStats?.distanceFrom52wHighPct ?? null)}
-                />
-                <StatRowCard
-                  label="From 52W Low"
-                  value={formatSignedPercent(marketStats?.distanceFrom52wLowPct ?? null)}
-                />
-              </div>
-            ) : (
-              <p className="text-body">Market stats are not available for this ticker yet.</p>
-            )}
-          </Card>
+          <StockInsightSummary
+            ticker={ticker}
+            price={marketQuote?.price ?? quote?.price ?? null}
+            dailyMoveAmount={marketQuote?.change ?? quote?.change ?? null}
+            dailyMovePercent={marketQuote?.changePercent ?? quote?.changePercent ?? null}
+            updatedAt={marketQuote?.asOf ?? null}
+            direction={latest?.direction ?? null}
+            conviction={latest?.prob_side ?? null}
+            horizonDays={latest?.prediction_horizon ?? null}
+            biasLabel={compositionInsights.biasLabel}
+            overviewSummary={overviewSummary}
+            flipRatePct={recentFlipRatePct}
+            activeSignalsPct={compositionInsights.activePct}
+            profileState={profileBadge}
+          />
         </div>
-      </PageSection>
-      <PageSection
-        title="Fundamental Summary"
-        description="Summary-level metrics from canonical ticker summary data. This surface does not represent full financial statements."
-      >
-        <Card className="section-gap" padding="lg">
-          {!hasFundamentals ? (
-            <p className="text-body">Canonical summary metrics are not available yet for this ticker.</p>
-          ) : fundamentalsSummaryRows.every((row) => row.value === '—') &&
-            latestFundamentalsRows.length === 0 ? (
-            <p className="text-body">Canonical summary coverage is enabled, but no summary values have been published yet.</p>
-          ) : (
-            <div className="section-gap">
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                {fundamentalsSummaryRows.map((row) => (
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+          <Card className="space-y-4" padding="sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-filter-label">Key Performance</div>
+                <h2 className="text-card-title text-content-primary">What matters most right now</h2>
+              </div>
+              {latest?.signal_date ? (
+                <Badge variant="neutral">Signal {formatCalendarDate(latest.signal_date)}</Badge>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {performanceStats.map((stat) => (
+                <StatRowCard key={stat.label} label={stat.label} value={stat.value} />
+              ))}
+            </div>
+          </Card>
+
+          <Card className="space-y-4" padding="sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-filter-label">{isEtf ? 'ETF Stats' : 'Fundamental Snapshot'}</div>
+                <h2 className="text-card-title text-content-primary">
+                  {isEtf ? 'Exposure-ready overview' : 'Core business snapshot'}
+                </h2>
+              </div>
+              {showEarningsPreview && nextEarnings?.earningsDate ? (
+                <Badge variant="neutral">Next earnings {formatCalendarDate(nextEarnings.earningsDate)}</Badge>
+              ) : null}
+            </div>
+
+            {prioritySnapshotRows.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                {prioritySnapshotRows.map((row) => (
                   <StatRowCard key={row.label} label={row.label} value={row.value} />
                 ))}
               </div>
+            ) : (
+              <p className="text-body">
+                {isEtf
+                  ? 'ETF-specific breakdown rows are not in canonical summary coverage yet.'
+                  : 'Summary fundamentals are not in canonical coverage yet.'}
+              </p>
+            )}
 
-              {latestFundamentalsRows.length > 0 ? (
+            {showEarningsPreview && nextEarnings ? (
+              <div className="grid grid-cols-2 gap-2 border-t border-border/70 pt-3">
+                <StatRowCard label="Earnings Date" value={formatCalendarDate(nextEarnings.earningsDate)} />
+                <StatRowCard label="Time" value={nextEarnings.earningsTime ?? '—'} />
+                <StatRowCard
+                  label="EPS Estimate"
+                  value={nextEarnings.epsEstimate === null ? '—' : nextEarnings.epsEstimate.toFixed(2)}
+                />
+                <StatRowCard
+                  label="Revenue Estimate"
+                  value={formatCompactNumber(nextEarnings.revenueEstimate, { currency: true })}
+                />
+              </div>
+            ) : null}
+          </Card>
+        </div>
+      </PageSection>
+
+      <PageSection title="Signal Context" className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <Card
+            className="space-y-4 border-primary/20 bg-[radial-gradient(circle_at_top_left,var(--bullish-tint),transparent_72%)]"
+            padding="sm"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-card-title text-content-primary">Regime behavior</h3>
+              <span className="text-caption text-content-muted">Last {recentSignals.length || 0} signals</span>
+            </div>
+            <SignalFlowStream
+              signals={recentSignals.map((signal) => ({
+                signal_date: signal.signal_date,
+                direction: signal.direction,
+                prob_side: signal.prob_side,
+              }))}
+            />
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4">
+            <Card className="space-y-4" padding="sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-card-title text-content-primary">Signal composition</h3>
+                <div className="flex items-center gap-2">
+                  <Badge variant="neutral">{compositionInsights.biasLabel}</Badge>
+                  <span className="text-caption text-content-muted">Active {compositionInsights.activePct}%</span>
+                </div>
+              </div>
+              <SignalDistributionBubbleCluster
+                bullishCount={compositionCounts.bullish}
+                neutralCount={compositionCounts.neutral}
+                bearishCount={compositionCounts.bearish}
+                mode="compact"
+                showSummaryLine={false}
+                showCount={false}
+                showRoleInside
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <StatRowCard label="Avg Conviction" value={formatConviction(insightStats.avgConviction)} />
+                <StatRowCard label="Signal Flips" value={insightStats.flips} />
+                <StatRowCard
+                  label="Bullish Share"
+                  value={insightStats.bullishShare === null ? '—' : `${Math.round(insightStats.bullishShare * 100)}%`}
+                />
+              </div>
+            </Card>
+
+            <Card className="space-y-3" padding="sm">
+              <h3 className="text-card-title text-content-primary">Peer correlation</h3>
+              <p className="text-body">{correlationSummary}</p>
+              <CorrelationNetwork
+                centerTicker={ticker}
+                centerName={displayName}
+                peers={correlationNetwork.peers}
+              />
+            </Card>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <Card className="emphasis-secondary" padding="sm">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-card-title text-content-primary">System Profile</h3>
+              <div className="surface-tertiary inline-flex items-center gap-3 px-3 py-2">
+                <div className="leading-none text-content-primary">
+                  <span className="text-data-lg numeric-tabular">{overallSystemScore}</span>
+                  <span className="ml-1 text-caption numeric-tabular text-content-muted">/ 100</span>
+                </div>
+                <Badge variant={profileBadge.variant}>{profileBadge.label}</Badge>
+              </div>
+            </div>
+            <p className="mt-2 text-body line-clamp-2">{profileInterpretation}</p>
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[45%_55%] lg:items-stretch">
+              <div className="mx-auto w-full max-w-[420px]">
+                <SystemProfileBlob
+                  dimensions={scoreDimensions}
+                  marketCap={marketCapNumeric}
+                  marketCapLabel={marketCapValue !== '—' && marketCapValue !== 'N/A' ? marketCapValue : null}
+                />
+              </div>
+              <div className="flex flex-col justify-center gap-2">
+                {scoreDimensions.map((dimension) => (
+                  <div
+                    key={dimension.label}
+                    className="surface-tertiary flex items-center justify-between px-3 py-2"
+                  >
+                    <div className="inline-flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${dimensionDotClass(dimension.label)}`} />
+                      <span className="text-label-md text-content-primary">
+                        {dimensionDisplayLabel(dimension.label)}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-data-sm numeric-tabular text-content-primary">
+                        {Math.round(dimension.score)}
+                      </div>
+                      <div className="text-micro text-content-muted">
+                        {dimensionDescriptor(dimension.label, dimension.score)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          <div className="space-y-4">
+            {latest ? (
+              <PremiumSignalWidget
+                ticker={ticker}
+                direction={latest.direction}
+                conviction={latest.prob_side}
+                horizon={latest.prediction_horizon}
+                signalDate={latest.signal_date}
+                recentDirectionShare={signalSummaryContext.recentDirectionShare}
+                recentFlipRate={signalSummaryContext.recentFlipRate}
+              />
+            ) : (
+              <Card className="surface-primary space-y-3" padding="sm">
+                <h3 className="text-heading-sm text-content-primary">Signal Summary</h3>
+                <p className="text-body">Signals are not available for this ticker right now.</p>
+              </Card>
+            )}
+
+            <Card className="space-y-3" padding="sm">
+              <h3 className="text-card-title text-content-primary">Research actions</h3>
+              <p className="text-body">
+                Move directly from the overview into model building, signal review, or deeper summary data.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/models/new?ticker=${encodeURIComponent(ticker)}&from=stock_page`}
+                  className={buttonClass({ variant: 'primary' })}
+                >
+                  Build model
+                </Link>
+                <Link
+                  href={`/stocks/${ticker}/signal-history`}
+                  className={buttonClass({ variant: 'secondary' })}
+                >
+                  Signal history
+                </Link>
+                <Link
+                  href={`/stocks/${ticker}/financials/fund-profile`}
+                  className={buttonClass({ variant: 'ghost' })}
+                >
+                  Financial summary
+                </Link>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </PageSection>
+
+      {(hasDetailedFundamentalTable || showEarningsPreview) ? (
+        <PageSection
+          title={isEtf ? 'Additional ETF Data' : 'Fundamentals and Earnings'}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+            {hasDetailedFundamentalTable ? (
+              <Card className="space-y-4" padding="sm">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-card-title text-content-primary">Canonical summary metrics</h3>
+                  <Badge variant={fundamentalsCoverageBadge.variant}>
+                    Fundamentals {fundamentalsCoverageBadge.text}
+                  </Badge>
+                </div>
                 <TableShell>
                   <TableBase>
                     <TableHead>
@@ -980,371 +1250,80 @@ export default async function TickerPage({
                     </TableBody>
                   </TableBase>
                 </TableShell>
-              ) : null}
-            </div>
-          )}
-        </Card>
-      </PageSection>
-      <PageSection
-        title="Earnings"
-        description="Next event plus recent reported history, when earnings coverage is available."
-      >
-        <div className="section-gap">
-          <Card className="section-gap" padding="lg">
-            <h3 className="text-card-title text-content-primary">Next Earnings</h3>
-            {!hasEarnings ? (
-              <p className="text-body">No earnings data available for this ticker.</p>
-            ) : nextEarnings ? (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatRowCard label="Date" value={formatCalendarDate(nextEarnings.earningsDate)} />
-                <StatRowCard label="Time" value={nextEarnings.earningsTime ?? '—'} />
-                <StatRowCard
-                  label="EPS Estimate"
-                  value={nextEarnings.epsEstimate === null ? '—' : nextEarnings.epsEstimate.toFixed(2)}
-                />
-                <StatRowCard
-                  label="Revenue Estimate"
-                  value={formatCompactNumber(nextEarnings.revenueEstimate, { currency: true })}
-                />
-              </div>
-            ) : (
-              <p className="text-body">Next earnings date is not published yet.</p>
-            )}
-          </Card>
-          <Card className="section-gap" padding="lg">
-            <h3 className="text-card-title text-content-primary">Recent Earnings History</h3>
-            {!hasEarnings ? (
-              <p className="text-body">No earnings history available for this ticker.</p>
-            ) : (
-              <TableShell>
-                <TableBase>
-                  <TableHead>
-                    <tr>
-                      <TableHeaderCell>Date</TableHeaderCell>
-                      <TableHeaderCell>Period</TableHeaderCell>
-                      <TableHeaderCell>EPS</TableHeaderCell>
-                      <TableHeaderCell>EPS Est.</TableHeaderCell>
-                      <TableHeaderCell>EPS Surprise</TableHeaderCell>
-                    </tr>
-                  </TableHead>
-                  <TableBody>
-                    {earningsHistoryRows.length === 0 ? (
-                      <TableEmptyRow
-                        colSpan={5}
-                        title="No earnings history published yet."
-                        description="Try again when the next filings are processed."
-                      />
-                    ) : (
-                      earningsHistoryRows.map((row, index) => (
-                        <TableRow key={`${row.earningsDate ?? 'row'}-${index}`} index={index}>
-                          <TableCell className="numeric-tabular">
-                            {formatCalendarDate(row.earningsDate)}
-                          </TableCell>
-                          <TableCell>{row.fiscalPeriod ?? '—'}</TableCell>
-                          <TableCell className="numeric-tabular">
-                            {row.epsActual === null ? '—' : row.epsActual.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="numeric-tabular">
-                            {row.epsEstimate === null ? '—' : row.epsEstimate.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="numeric-tabular">
-                            {formatSignedPercent(row.epsSurprisePct)}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </TableBase>
-              </TableShell>
-            )}
-          </Card>
-        </div>
-      </PageSection>
-      <PageSection
-        title="Insight Summary"
-        description="Current state, conviction context, and signal timing before drilling into deeper behavior."
-      >
-        <div className="section-gap">
-          <StockInsightSummary
-            ticker={ticker}
-            direction={latest?.direction ?? null}
-            conviction={latest?.prob_side ?? null}
-            horizonDays={latest?.prediction_horizon ?? null}
-            biasLabel={compositionInsights.biasLabel}
-            overviewSummary={overviewSummary}
-            flipRatePct={recentFlipRatePct}
-            activeSignalsPct={compositionInsights.activePct}
-            profileState={profileBadge}
-          />
-
-          <Card className="emphasis-secondary h-[560px]" padding="lg">
-            <StockChartPanel data={historicalData} signalMarkers={signalMarkers} />
-          </Card>
-
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {quickStats.map((stat) => (
-              <StatRowCard key={stat.label} label={stat.label} value={stat.value} />
-            ))}
-          </div>
-        </div>
-      </PageSection>
-
-      <PageSection
-        title="Behavior"
-        description="How regime state, signal composition, and peer correlation interact."
-        className="rounded-[var(--radius-xl)] border border-border bg-[radial-gradient(circle_at_top_left,var(--neutral-tint),transparent_70%)] p-5"
-      >
-        <p className="text-body-sm rounded-[var(--radius-lg)] border border-border bg-surface-elevated px-3 py-2">
-          {overviewSummary}
-        </p>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
-          <Card className="section-gap border-primary/20 bg-[radial-gradient(circle_at_top_left,var(--bullish-tint),transparent_72%)] lg:min-h-[520px]" padding="lg">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-card-title text-content-primary">Regime behavior</h3>
-                <span className="text-caption text-content-muted">
-                  Last {recentSignals.length || 0} signals
-                </span>
-              </div>
-            <SignalFlowStream
-              signals={recentSignals.map((signal) => ({
-                signal_date: signal.signal_date,
-                direction: signal.direction,
-                prob_side: signal.prob_side,
-              }))}
-            />
-          </Card>
-
-          <div className="grid grid-cols-1 gap-4">
-            <Card className="section-gap" padding="lg">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-card-title text-content-primary">Signal composition</h3>
-                <div className="flex items-center gap-2">
-                  <Badge variant="neutral">{compositionInsights.biasLabel}</Badge>
-                  <span className="text-caption text-content-muted">
-                    Active {compositionInsights.activePct}%
-                  </span>
-                </div>
-              </div>
-              <SignalDistributionBubbleCluster
-                bullishCount={compositionCounts.bullish}
-                neutralCount={compositionCounts.neutral}
-                bearishCount={compositionCounts.bearish}
-                mode="compact"
-                showSummaryLine={false}
-                showCount={false}
-                showRoleInside
-              />
-            </Card>
-
-            <Card className="section-gap" padding="lg">
-              <h3 className="text-card-title text-content-primary">Correlation network</h3>
-              <p className="text-body">{correlationSummary}</p>
-              <CorrelationNetwork
-                centerTicker={ticker}
-                centerName={displayName}
-                peers={correlationNetwork.peers}
-              />
-            </Card>
-          </div>
-        </div>
-      </PageSection>
-
-      <PageSection
-        title="Validation"
-        description="Pressure-test the active signal with system profile quality, signal metrics, and AI-assisted context."
-      >
-        <div className="section-gap">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <InsightCard title="Average Conviction" description="Recent 90-signal average">
-              <div className="text-metric text-content-primary">{formatConviction(insightStats.avgConviction)}</div>
-            </InsightCard>
-            <InsightCard title="Signal Flips" description="Direction changes in recent history">
-              <div className="text-metric text-content-primary">{insightStats.flips}</div>
-            </InsightCard>
-            <InsightCard title="Bullish Share" description="Portion of recent signals that were bullish">
-              <div className="text-metric text-content-primary">
-                {insightStats.bullishShare === null ? '—' : `${Math.round(insightStats.bullishShare * 100)}%`}
-              </div>
-            </InsightCard>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr]">
-            <Card className="emphasis-secondary" padding="lg">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-card-title text-content-primary">System Profile</h3>
-                <div className="surface-tertiary glow-key inline-flex items-center gap-3 px-3 py-2">
-                  <div className="leading-none text-content-primary">
-                    <span className="text-data-lg numeric-tabular">{overallSystemScore}</span>
-                    <span className="text-caption numeric-tabular ml-1 text-content-muted">/ 100</span>
-                  </div>
-                  <Badge variant={profileBadge.variant}>{profileBadge.label}</Badge>
-                </div>
-              </div>
-              <p className="text-body mt-2 line-clamp-2">{profileInterpretation}</p>
-              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[45%_55%] lg:items-stretch">
-                <div className="mx-auto w-full max-w-[420px]">
-                  <SystemProfileBlob
-                    dimensions={scoreDimensions}
-                    marketCap={marketCapNumeric}
-                    marketCapLabel={marketCapValue !== '—' && marketCapValue !== 'N/A' ? marketCapValue : null}
-                  />
-                </div>
-                <div className="flex flex-col justify-center gap-2">
-                  {scoreDimensions.map((dimension) => (
-                    <div
-                      key={dimension.label}
-                      className="surface-tertiary flex items-center justify-between px-3 py-2"
-                    >
-                      <div className="inline-flex items-center gap-2">
-                        <span className={`h-2.5 w-2.5 rounded-full ${dimensionDotClass(dimension.label)}`} />
-                        <span className="text-label-md text-content-primary">{dimensionDisplayLabel(dimension.label)}</span>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-data-sm numeric-tabular text-content-primary">{Math.round(dimension.score)}</div>
-                        <div className="text-micro text-content-muted">
-                          {dimensionDescriptor(dimension.label, dimension.score)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-
-            <div className="section-gap">
-              {latest ? (
-                <PremiumSignalWidget
-                  ticker={ticker}
-                  direction={latest.direction}
-                  conviction={latest.prob_side}
-                  horizon={latest.prediction_horizon}
-                  signalDate={latest.signal_date}
-                  recentDirectionShare={signalSummaryContext.recentDirectionShare}
-                  recentFlipRate={signalSummaryContext.recentFlipRate}
-                />
-              ) : (
-                <Card className="section-gap surface-primary">
-                  <h3 className="text-heading-sm text-content-primary">Signal Summary</h3>
-                  <p className="text-body mt-2">Signals are not available for this ticker right now.</p>
-                </Card>
-              )}
-
-              <Card className="section-gap emphasis-secondary">
-                <h3 className="text-card-title text-content-primary">Use this in your model</h3>
-                <p className="text-body">Save to watchlist, inspect summary fundamentals, or compare nearby assets for validation.</p>
-                <div className="flex flex-wrap gap-2">
-                  <Link
-                    href={`/models/new?ticker=${encodeURIComponent(ticker)}&from=stock_page`}
-                    className={buttonClass({ variant: 'primary' })}
-                  >
-                    Build model from this stock
-                  </Link>
-                  <Link href={`/stocks/${ticker}/financials/fund-profile`} className={buttonClass({ variant: 'secondary' })}>
-                    View Financial Summary
-                  </Link>
-                  <Link href={`/stocks/${ticker}/signal-history`} className={buttonClass({ variant: 'ghost' })}>
-                    Signal History
-                  </Link>
-                </div>
               </Card>
-            </div>
+            ) : null}
+
+            {showEarningsPreview ? (
+              <Card className="space-y-4" padding="sm">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-card-title text-content-primary">Earnings</h3>
+                  <Badge variant={earningsCoverageBadge.variant}>
+                    Earnings {earningsCoverageBadge.text}
+                  </Badge>
+                </div>
+                {nextEarnings ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <StatRowCard label="Date" value={formatCalendarDate(nextEarnings.earningsDate)} />
+                    <StatRowCard label="Time" value={nextEarnings.earningsTime ?? '—'} />
+                    <StatRowCard
+                      label="EPS Estimate"
+                      value={nextEarnings.epsEstimate === null ? '—' : nextEarnings.epsEstimate.toFixed(2)}
+                    />
+                    <StatRowCard
+                      label="Revenue Estimate"
+                      value={formatCompactNumber(nextEarnings.revenueEstimate, { currency: true })}
+                    />
+                  </div>
+                ) : null}
+                <TableShell>
+                  <TableBase>
+                    <TableHead>
+                      <tr>
+                        <TableHeaderCell>Date</TableHeaderCell>
+                        <TableHeaderCell>Period</TableHeaderCell>
+                        <TableHeaderCell>EPS</TableHeaderCell>
+                        <TableHeaderCell>EPS Est.</TableHeaderCell>
+                        <TableHeaderCell>EPS Surprise</TableHeaderCell>
+                      </tr>
+                    </TableHead>
+                    <TableBody>
+                      {earningsHistoryRows.length === 0 ? (
+                        <TableEmptyRow
+                          colSpan={5}
+                          title="No earnings history published yet."
+                          description="Try again when the next filings are processed."
+                        />
+                      ) : (
+                        earningsHistoryRows.map((row, index) => (
+                          <TableRow key={`${row.earningsDate ?? 'row'}-${index}`} index={index}>
+                            <TableCell className="numeric-tabular">
+                              {formatCalendarDate(row.earningsDate)}
+                            </TableCell>
+                            <TableCell>{row.fiscalPeriod ?? '—'}</TableCell>
+                            <TableCell className="numeric-tabular">
+                              {row.epsActual === null ? '—' : row.epsActual.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="numeric-tabular">
+                              {row.epsEstimate === null ? '—' : row.epsEstimate.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="numeric-tabular">
+                              {formatSignedPercent(row.epsSurprisePct)}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </TableBase>
+                </TableShell>
+              </Card>
+            ) : null}
           </div>
+        </PageSection>
+      ) : null}
 
-          <AiAnalystPanel
-            ticker={ticker}
-            signal={{
-              direction: latest?.direction ?? 'neutral',
-              conviction: latest?.prob_side ?? null,
-              predictionHorizon: latest?.prediction_horizon ?? null,
-              signalDate: latest?.signal_date ?? new Date().toISOString(),
-            }}
-            news={[]}
-            isPro={viewerAccess.isPro}
-            providerEnabled={aiAnalystEnabled}
-            upgradeHref={upgradeHref}
-            initialQuestion={initialAiQuestion}
-            initialPromptLabel={initialAiPromptLabel}
-          />
-        </div>
-      </PageSection>
-
-      <PageSection
-        title="Details"
-        description="Summary-backed fundamentals and peer context, with unavailable surfaces called out explicitly."
-      >
-        <div className="emphasis-tertiary">
-          <p className="text-body">
-            Full statements, holdings, dividends, distributions, and news remain hidden until canonical backend coverage is available.
-          </p>
-        </div>
-      </PageSection>
-
-      <PageSection id="profile" title="Profile Status" description="Current canonical availability of company or fund profile text.">
-        <Card>
-          <p className="text-body leading-7 text-base">
-            Profile text is not available from canonical backend data yet for this ticker.
-          </p>
-        </Card>
-      </PageSection>
-
-      <PageSection
-        id="top-holdings"
-        title="Holdings Coverage Status"
-        description="Current availability of canonical holdings data for this asset."
-        action={
-          <Link href={`/stocks/${ticker}/holdings-dividends`} className={buttonClass({ variant: 'secondary' })}>
-            Open status page
-          </Link>
-        }
-      >
-        <Card>
-          <p className="text-body">
-            Canonical holdings data is not available from finance-backend yet for this ticker.
-          </p>
-        </Card>
-      </PageSection>
-
-      <PageSection id="latest-news" title="Latest News" description="Recent headlines for this asset.">
-        <Card>
-          <p className="text-body">
-            Canonical news coverage is not available from finance-backend yet for this ticker.
-          </p>
-        </Card>
-      </PageSection>
-
-      <PageSection title="Related Research Actions" description="Move from overview into detailed datasets and history.">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {[
-            {
-              title: 'Financial Summary',
-              body: 'Review summary-only fundamentals and the current canonical coverage status.',
-              href: `/stocks/${ticker}/financials/fund-profile`,
-            },
-            {
-              title: 'Signal History',
-              body: 'Inspect daily stance changes, conviction, and episode outcomes.',
-              href: `/stocks/${ticker}/signal-history`,
-            },
-            {
-              title: 'Holdings / Dividend Status',
-              body: 'See which holdings and dividend surfaces are still unavailable from canonical backend data.',
-              href: `/stocks/${ticker}/holdings-dividends`,
-            },
-          ].map((item) => (
-            <Card key={item.href} className="section-gap">
-              <h3 className="text-card-title text-content-primary">{item.title}</h3>
-              <p className="text-body">{item.body}</p>
-              <Link href={item.href} className={buttonClass({ variant: 'secondary' })}>
-                Open
-              </Link>
-            </Card>
-          ))}
-        </div>
-      </PageSection>
-
-      <PageSection title="Similar Assets" description="Peer tickers for adjacent research.">
+      <PageSection title="Related Assets" className="space-y-4">
         {relatedAssets.length === 0 ? (
-          <Card>
+          <Card padding="sm">
             <p className="text-body">No peer assets available right now.</p>
           </Card>
         ) : (
@@ -1356,7 +1335,7 @@ export default async function TickerPage({
 
               return (
                 <Link key={asset.symbol} href={`/stocks/${asset.symbol}`} className="block">
-                  <Card className="hover:border-primary/40 hover:bg-surface-hover">
+                  <Card className="hover:border-primary/40 hover:bg-surface-hover" padding="sm">
                     <div className="text-heading-sm text-content-primary">{asset.symbol}</div>
                     <div className="text-body mt-1 truncate">{peerQuote?.name ?? asset.symbol}</div>
                     <div className="text-data-lg numeric-tabular mt-3 text-content-primary">
@@ -1372,6 +1351,48 @@ export default async function TickerPage({
           </div>
         )}
       </PageSection>
-    </>
+
+      <PageSection className="space-y-4">
+        <AiAnalystPanel
+          ticker={ticker}
+          signal={{
+            direction: latest?.direction ?? 'neutral',
+            conviction: latest?.prob_side ?? null,
+            predictionHorizon: latest?.prediction_horizon ?? null,
+            signalDate: latest?.signal_date ?? new Date().toISOString(),
+          }}
+          news={[]}
+          isPro={viewerAccess.isPro}
+          providerEnabled={aiAnalystEnabled}
+          upgradeHref={upgradeHref}
+          initialQuestion={initialAiQuestion}
+          initialPromptLabel={initialAiPromptLabel}
+        />
+
+        <Card className="space-y-4" padding="sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-filter-label">Coverage and Links</div>
+              <h2 className="text-card-title text-content-primary">Lower-priority data surfaces</h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={fundamentalsCoverageBadge.variant}>Fundamentals {fundamentalsCoverageBadge.text}</Badge>
+              <Badge variant={earningsCoverageBadge.variant}>Earnings {earningsCoverageBadge.text}</Badge>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/stocks/${ticker}/financials/fund-profile`} className={buttonClass({ variant: 'secondary' })}>
+              Financial summary
+            </Link>
+            <Link href={`/stocks/${ticker}/holdings-dividends`} className={buttonClass({ variant: 'secondary' })}>
+              Holdings / dividends
+            </Link>
+            <Link href={`/stocks/${ticker}/signal-history`} className={buttonClass({ variant: 'ghost' })}>
+              Full signal history
+            </Link>
+          </div>
+        </Card>
+      </PageSection>
+    </div>
   )
 }
