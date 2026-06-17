@@ -316,16 +316,16 @@ function captureMobileFrame({
 function CompactTickerRow({
   item,
   className,
-  hideText = false,
+  textOpacity = 1,
 }: {
   item: TickerCardData
   className?: string
-  hideText?: boolean
+  textOpacity?: number
 }) {
   return (
     <div
       className={cn('flex w-full items-center gap-3 whitespace-nowrap', className)}
-      style={{ opacity: hideText ? 0 : 1 }}
+      style={{ opacity: textOpacity }}
     >
       <span className="size-2 rounded-full bg-[#0757ff] shadow-[0_0_16px_rgba(7,87,255,0.85)]" />
       <span className="font-semibold tracking-[0.16em] text-slate-950 dark:text-white">{item.symbol}</span>
@@ -357,10 +357,10 @@ function TransformingTickerCard({
   const travel = easeInOut(rangeProgress(progress, 0.3, 0.82))
   const expandWidth = easeInOut(rangeProgress(progress, 0.45, 0.82))
   const expandHeight = easeOutCubic(rangeProgress(progress, 0.45, 0.85))
-  const details = easeInOut(rangeProgress(progress, 0.7, 1))
+  const primaryDetails = easeInOut(rangeProgress(progress, 0.46, 0.72))
+  const secondaryDetails = easeInOut(rangeProgress(progress, 0.72, 1))
   const rotation = easeInOut(rangeProgress(progress, 0.54, 0.9))
   const detachLift = easeOutCubic(rangeProgress(progress, 0.3, 0.52))
-  const settle = easeOutCubic(rangeProgress(progress, 0.76, 1))
 
   const expandedWidth = isMobile ? 272 : 288
   const expandedHeight = isMobile ? 264 : 304
@@ -369,10 +369,9 @@ function TransformingTickerCard({
   const sourceCenterX = source.sourceX + source.sourceWidth / 2
   const centerX = lerp(sourceCenterX, viewportWidth / 2 + target.x, travel)
   const left = centerX - width / 2
-  const top = lerp(source.sourceY, source.sourceY + target.y, travel) - lerp(0, 10, detachLift * (1 - details))
+  const top = lerp(source.sourceY, source.sourceY + target.y, travel) - lerp(0, 10, detachLift * (1 - primaryDetails))
   const shellRadius = lerp(Math.min(source.sourceHeight / 2 + 4, 24), 28, expandWidth)
-  const compactOpacity = clamp(1 - rangeProgress(progress, 0.58, 0.8), 0, 1)
-  const detailOpacity = details
+  const compactOpacity = clamp(1 - rangeProgress(progress, 0.72, 0.9), 0, 1)
   const shellScale = lerp(1, 1.028, freeze * (1 - expandWidth))
   const pieceShadow = easeInOut(rangeProgress(progress, 0.32, 0.62))
   const cardShadow = easeInOut(rangeProgress(progress, 0.58, 0.92))
@@ -413,23 +412,25 @@ function TransformingTickerCard({
           />
 
           <div
-            className="absolute inset-0 flex items-center justify-center px-4"
+            className="absolute inset-x-0 top-0 z-10 flex px-4"
             style={{
+              height: `${Math.max(source.sourceHeight + 10, 42)}px`,
               opacity: compactOpacity,
-              transform: `translate3d(0, ${lerp(0, -12, expandHeight)}px, 0)`,
+              alignItems: 'center',
+              transform: `translate3d(${lerp(0, -10, primaryDetails)}px, ${lerp(0, Math.min(height * 0.22, 42), primaryDetails)}px, 0)`,
             }}
           >
-            <CompactTickerRow item={item} className="justify-center text-[0.8rem]" />
+            <CompactTickerRow item={item} className="justify-start text-[0.8rem]" />
           </div>
 
-          <div
-            className="relative z-10 h-full p-5"
-            style={{
-              opacity: detailOpacity,
-              transform: `translate3d(0, ${lerp(20, 0, settle)}px, 0)`,
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
+          <div className="relative z-10 h-full p-5">
+            <div
+              className="flex items-start justify-between gap-3"
+              style={{
+                opacity: primaryDetails,
+                transform: `translate3d(0, ${lerp(20, 0, primaryDetails)}px, 0)`,
+              }}
+            >
               <div>
                 <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/42">
                   {item.symbol}
@@ -441,7 +442,13 @@ function TransformingTickerCard({
               </div>
             </div>
 
-            <div className="mt-5 flex items-end justify-between gap-3">
+            <div
+              className="mt-5 flex items-end justify-between gap-3"
+              style={{
+                opacity: primaryDetails,
+                transform: `translate3d(0, ${lerp(28, 0, primaryDetails)}px, 0)`,
+              }}
+            >
               <div>
                 <div className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">{item.price}</div>
                 <div className={`mt-1 text-sm font-semibold ${item.moveClassName}`}>{item.move}</div>
@@ -462,8 +469,8 @@ function TransformingTickerCard({
             <p
               className="mt-5 text-sm leading-6 text-slate-600 dark:text-white/62"
               style={{
-                opacity: detailOpacity,
-                transform: `translate3d(0, ${lerp(12, 0, detailOpacity)}px, 0)`,
+                opacity: secondaryDetails,
+                transform: `translate3d(0, ${lerp(12, 0, secondaryDetails)}px, 0)`,
               }}
             >
               {item.read}
@@ -472,8 +479,8 @@ function TransformingTickerCard({
             <div
               className="mt-5 flex flex-wrap gap-2"
               style={{
-                opacity: detailOpacity,
-                transform: `translate3d(0, ${lerp(12, 0, detailOpacity)}px, 0)`,
+                opacity: secondaryDetails,
+                transform: `translate3d(0, ${lerp(12, 0, secondaryDetails)}px, 0)`,
               }}
             >
               {item.chips.map((chip) => (
@@ -500,6 +507,7 @@ function DesktopSourceRail({
   hiddenTrackIndexes,
   selectedTrackIndexes,
   focusProgress,
+  selectedTextOpacity,
   slotProgress,
 }: {
   opacity: number
@@ -509,6 +517,7 @@ function DesktopSourceRail({
   hiddenTrackIndexes: Set<number>
   selectedTrackIndexes: Set<number>
   focusProgress: number
+  selectedTextOpacity: number
   slotProgress: number
 }) {
   return (
@@ -569,7 +578,7 @@ function DesktopSourceRail({
 
                   <CompactTickerRow
                     item={item}
-                    hideText={isHidden}
+                    textOpacity={isHidden ? selectedTextOpacity : 1}
                     className="relative z-10 justify-start text-[0.78rem]"
                   />
                 </div>
@@ -592,12 +601,14 @@ function MobileSourceRail({
   itemRefs,
   hiddenIndexes,
   focusProgress,
+  selectedTextOpacity,
   slotProgress,
 }: {
   opacity: number
   itemRefs: RefObject<Array<HTMLDivElement | null>>
   hiddenIndexes: Set<number>
   focusProgress: number
+  selectedTextOpacity: number
   slotProgress: number
 }) {
   return (
@@ -629,7 +640,11 @@ function MobileSourceRail({
                 style={{ opacity: lerp(0.42, 0.78, focusProgress) }}
                 aria-hidden="true"
               />
-              <CompactTickerRow item={item} hideText={isHidden} className="relative z-10 justify-center text-sm" />
+              <CompactTickerRow
+                item={item}
+                textOpacity={isHidden ? selectedTextOpacity : 1}
+                className="relative z-10 justify-center text-sm"
+              />
             </div>
           )
         })}
@@ -767,6 +782,7 @@ export default function HomeTickerStory() {
   const desktopFocus = easeInOut(rangeProgress(effectiveProgress, 0.1, 0.3))
   const mobileFocus = easeInOut(rangeProgress(effectiveProgress, 0.12, 0.28))
   const slotProgress = easeInOut(rangeProgress(effectiveProgress, 0.3, 0.56))
+  const selectedRailTextOpacity = lerp(1, 0.16, easeInOut(rangeProgress(effectiveProgress, 0.42, 0.72)))
   const railOpacity = reducedMotion ? 0 : lerp(1, 0.14, easeOutCubic(rangeProgress(effectiveProgress, 0.36, 0.76)))
   const layout = isMobile ? mobileLayout : desktopLayout
   const captureStart = isMobile ? MOBILE_CAPTURE_START : DESKTOP_CAPTURE_START
@@ -845,6 +861,7 @@ export default function HomeTickerStory() {
           hiddenTrackIndexes={hiddenDesktopTrackIndexes}
           selectedTrackIndexes={activeTrackIndexes}
           focusProgress={desktopFocus}
+          selectedTextOpacity={selectedRailTextOpacity}
           slotProgress={slotProgress}
         />
 
@@ -853,6 +870,7 @@ export default function HomeTickerStory() {
           itemRefs={mobileItemRefs}
           hiddenIndexes={hiddenMobileIndexes}
           focusProgress={mobileFocus}
+          selectedTextOpacity={selectedRailTextOpacity}
           slotProgress={slotProgress}
         />
 
