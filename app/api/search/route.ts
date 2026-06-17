@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { BackendDataError, fetchBackendJson } from '@/lib/backend'
 import { getScreenerSignalsSafe } from '@/lib/signals'
 import {
-  filterTemplateTickerResults,
   getTemplateFeaturedTickerResults,
   isTickerLikeQuery,
   mapScreenerRowsToTickerSearchResults,
@@ -30,15 +29,16 @@ type YahooSearchResponse = {
 type SearchCandidate = {
   exchange: string | null
   name: string
+  rank: number
   symbol: string
 }
 
 type BackendSummarySearchPayload = {
+  ticker?: string | null
   quote?: {
     name?: string | null
     ticker?: string | null
   } | null
-  ticker?: string | null
 }
 
 const SUPPORTED_TYPES = new Set(['EQUITY', 'ETF', 'MUTUALFUND', 'INDEX'])
@@ -58,12 +58,34 @@ function normalizeCandidate(candidate: SearchCandidate): SearchCandidate {
   }
 }
 
+function rankSearchResult(result: TickerSearchResult, query: string, candidateRank: number): number {
+  const upperQuery = query.toUpperCase()
+  const lowerQuery = query.toLowerCase()
+  const symbol = result.symbol.toUpperCase()
+  const name = result.name.toLowerCase()
+
+  let score = 0
+
+  if (symbol === upperQuery) score += 600
+  else if (symbol.startsWith(upperQuery)) score += 260
+  else if (symbol.includes(upperQuery)) score += 120
+
+  if (name === lowerQuery) score += 360
+  else if (name.startsWith(lowerQuery)) score += 210
+  else if (name.includes(lowerQuery)) score += 90
+
+  if (result.convictionPct !== null) score += Math.min(result.convictionPct, 100) / 2
+  score += Math.max(0, 40 - candidateRank)
+
+  return score
+}
+
 async function searchYahooCandidates(query: string): Promise<SearchCandidate[]> {
   const url = new URL('https://query2.finance.yahoo.com/v1/finance/search')
   url.searchParams.set('q', query)
-  url.searchParams.set('quotesCount', '12')
+  url.searchParams.set('quotesCount', '16')
   url.searchParams.set('newsCount', '0')
-  url.searchParams.set('enableFuzzyQuery', 'false')
+  url.searchParams.set('enableFuzzyQuery', 'true')
 
   const response = await fetch(url.toString(), {
     headers: {
@@ -88,17 +110,19 @@ async function searchYahooCandidates(query: string): Promise<SearchCandidate[]> 
       if (quote.quoteType && !SUPPORTED_TYPES.has(quote.quoteType)) return false
       return true
     })
-    .map((quote) =>
+    .map((quote, index) =>
       normalizeCandidate({
         symbol: (quote.symbol || '').trim().toUpperCase(),
         name: (quote.shortname || quote.longname || quote.symbol || '').trim(),
         exchange: (quote.exchDisp || quote.exchange || '').trim() || null,
+        rank: index,
       })
     )
 }
 
 async function resolveBackendCandidate(candidate: SearchCandidate): Promise<{
   failed: boolean
+  rank: number
   result: TickerSearchResult | null
 }> {
   try {
@@ -111,22 +135,27 @@ async function resolveBackendCandidate(candidate: SearchCandidate): Promise<{
     )
 
     if (!payload || typeof payload !== 'object') {
-      return { failed: false, result: null }
+      return { failed: false, rank: candidate.rank, result: null }
     }
 
+    const backendTicker =
+      (typeof payload.quote?.ticker === 'string' && payload.quote.ticker.trim().toUpperCase()) ||
+      (typeof payload.ticker === 'string' && payload.ticker.trim().toUpperCase()) ||
+      candidate.symbol
     const backendName =
       (typeof payload.quote?.name === 'string' && payload.quote.name.trim()) ||
-      (typeof payload.quote?.ticker === 'string' && payload.quote.ticker.trim()) ||
-      (typeof payload.ticker === 'string' && payload.ticker.trim()) ||
+      backendTicker ||
       candidate.name ||
       candidate.symbol
 
     return {
       failed: false,
+      rank: candidate.rank,
       result: {
-        symbol: candidate.symbol,
+        symbol: backendTicker,
         name: backendName,
         exchange: candidate.exchange,
+        hasSignals: false,
         convictionPct: null,
         tone: null,
         signalDate: null,
@@ -134,10 +163,10 @@ async function resolveBackendCandidate(candidate: SearchCandidate): Promise<{
     }
   } catch (error) {
     if (error instanceof BackendDataError && (error.status === 404 || error.status === 422)) {
-      return { failed: false, result: null }
+      return { failed: false, rank: candidate.rank, result: null }
     }
 
-    return { failed: true, result: null }
+    return { failed: true, rank: candidate.rank, result: null }
   }
 }
 
@@ -161,6 +190,7 @@ async function enrichWithSignals(results: TickerSearchResult[]): Promise<TickerS
       if (!signal) return result
       return {
         ...result,
+        hasSignals: true,
         convictionPct: signal.convictionPct,
         tone: signal.tone,
         signalDate: signal.signalDate,
@@ -198,7 +228,7 @@ export async function GET(request: Request) {
         fallbackUsed: true,
         query,
         results: [],
-        source: 'template',
+        source: 'fallback',
       })
     }
   }
@@ -211,6 +241,7 @@ export async function GET(request: Request) {
           symbol: query,
           name: query.toUpperCase(),
           exchange: null,
+          rank: -1,
         })
       )
     }
@@ -227,31 +258,59 @@ export async function GET(request: Request) {
         symbol: candidate.symbol,
         name: candidate.name,
         exchange: candidate.exchange,
+        hasSignals: false,
         convictionPct: null,
         tone: null,
         signalDate: null,
       }))
-    )
-      .slice(0, 10)
-      .map((candidate) => ({
-        symbol: candidate.symbol,
-        name: candidate.name,
-        exchange: candidate.exchange,
-      }))
+    ).slice(0, 12)
 
-    const resolved = await Promise.all(dedupedCandidates.map((candidate) => resolveBackendCandidate(candidate)))
-    const hasInfraFailure = resolved.some((item) => item.failed)
-    const matched = resolved
-      .flatMap((item) => (item.result ? [item.result] : []))
-      .slice(0, 8)
-    if (matched.length === 0 && (hasInfraFailure || yahooFailed)) {
-      throw new Error('search discovery failed')
+    const candidateMeta = new Map<string, SearchCandidate>()
+    for (const candidate of candidates) {
+      if (!candidateMeta.has(candidate.symbol)) {
+        candidateMeta.set(candidate.symbol, candidate)
+      }
     }
-    const results = await enrichWithSignals(matched)
+    const resolved = await Promise.all(
+      dedupedCandidates.map((candidate) =>
+        resolveBackendCandidate(
+          candidateMeta.get(candidate.symbol) ?? {
+            symbol: candidate.symbol,
+            name: candidate.name,
+            exchange: candidate.exchange,
+            rank: Number.MAX_SAFE_INTEGER,
+          }
+        )
+      )
+    )
+    const hasInfraFailure = resolved.some((item) => item.failed)
+    const matched = resolved.flatMap((item) =>
+      item.result
+        ? [
+            {
+              rank: item.rank,
+              result: item.result,
+            },
+          ]
+        : []
+    )
+    const enriched = await enrichWithSignals(matched.map((item) => item.result))
+    const enrichedBySymbol = new Map(enriched.map((item) => [item.symbol, item]))
+    const rankBySymbol = new Map(matched.map((item) => [item.result.symbol, item.rank]))
+    const results = matched
+      .map((item) => enrichedBySymbol.get(item.result.symbol) ?? item.result)
+      .sort((a, b) => {
+        const candidateA = rankBySymbol.get(a.symbol) ?? Number.MAX_SAFE_INTEGER
+        const candidateB = rankBySymbol.get(b.symbol) ?? Number.MAX_SAFE_INTEGER
+        const scoreDelta = rankSearchResult(b, query, candidateB) - rankSearchResult(a, query, candidateA)
+        if (scoreDelta !== 0) return scoreDelta
+        return candidateA - candidateB
+      })
+      .slice(0, 8)
 
     return json({
       featured: [],
-      fallbackUsed: false,
+      fallbackUsed: hasInfraFailure || yahooFailed,
       query,
       results,
       source: 'backend',
@@ -261,8 +320,8 @@ export async function GET(request: Request) {
       featured: [],
       fallbackUsed: true,
       query,
-      results: filterTemplateTickerResults(query, 8),
-      source: 'template',
+      results: [],
+      source: 'fallback',
     })
   }
 }
