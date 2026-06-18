@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import SystemProfileBlob from '@/components/page/SystemProfileBlob'
 import SignalBlock from '@/components/ui/SignalBlock'
 import {
   TableBase,
@@ -9,6 +10,7 @@ import {
   TableRow,
   TableShell,
 } from '@/components/ui/DataTable'
+import { buildMiniOrbitDimensions } from '@/lib/signalOrbit'
 import type { WatchlistWorkspaceRow } from '@/lib/watchlist-workspace'
 
 function formatConviction(value: number | null): string {
@@ -58,14 +60,29 @@ export default function WatchlistTable({ rows }: WatchlistTableProps) {
           {rows.map(({ ticker, row, direction, lastFlippedDate }, index) => (
             <TableRow key={ticker} index={index}>
               <TableCell className="text-label-lg">
-                <Link href={`/stocks/${ticker}`} className="text-accent-text hover:underline">
-                  {ticker}
-                </Link>
-                {row?.name ? (
-                  <div className="text-caption max-w-[220px] truncate text-content-muted">
-                    {row.name}
+                <div className="flex items-center gap-3">
+                  <div className="shrink-0">
+                    <SystemProfileBlob
+                      dimensions={buildMiniOrbitDimensions({
+                        direction: direction ?? null,
+                        conviction: row?.conviction ?? null,
+                        changePercent: row?.changePercent ?? null,
+                        horizon: row?.predictionHorizon ?? null,
+                      })}
+                      mini
+                    />
                   </div>
-                ) : null}
+                  <div className="min-w-0">
+                    <Link href={`/stocks/${ticker}`} className="text-accent-text hover:underline">
+                      {ticker}
+                    </Link>
+                    {row?.name ? (
+                      <div className="text-caption max-w-[220px] truncate text-content-muted">
+                        {row.name}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </TableCell>
               <TableCell className="text-data-sm numeric-tabular">{formatPrice(row?.price ?? null)}</TableCell>
               <TableCell>

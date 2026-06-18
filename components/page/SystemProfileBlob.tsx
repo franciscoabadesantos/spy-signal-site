@@ -13,6 +13,7 @@ type SystemProfileBlobProps = {
   dimensions: SystemProfileBlobDimension[]
   className?: string
   compact?: boolean
+  mini?: boolean
   marketCap?: number | null
   marketCapLabel?: string | null
 }
@@ -218,6 +219,7 @@ export default function SystemProfileBlob({
   dimensions,
   className,
   compact = false,
+  mini = false,
   marketCap = null,
   marketCapLabel = null,
 }: SystemProfileBlobProps) {
@@ -272,15 +274,16 @@ export default function SystemProfileBlob({
   const microBurst = clamp01(instability * (1 - mass * 0.72))
   const cleanEnergy = clamp01(momentum * 0.44 + trend * 0.24 + stability * 0.32)
 
-  const size = compact ? 264 : 420
+  const size = mini ? 80 : compact ? 264 : 420
   const center = size / 2
-  const maxRadius = compact ? 92 : 154
+  const maxRadius = mini ? 28 : compact ? 92 : 154
   const orbitRadiusX = lerp(maxRadius * 0.34, maxRadius * 0.9, trend) * clock.intro
   const orbitRadiusY = orbitRadiusX * lerp(0.76, 0.96, 1 - yieldValue * 0.18) * lerp(1.04, 0.82, yieldValue)
-  const coreRadius = lerp(compact ? 16 : 20, compact ? 32 : 45, mass)
+  const coreRadius = lerp(mini ? 6.5 : compact ? 16 : 20, mini ? 11.5 : compact ? 32 : 45, mass)
   const pull = lerp(0.06, 0.34, clamp01(yieldValue * 0.78 + mass * 0.22))
   const irregularity = lerp(0.03, 0.56, clamp01(microBurst * 0.82 + instability * 0.18))
-  const angularSpeed = lerp(0.54, 2.45, momentum) * lerp(1.08, 0.58, mass)
+  const angularSpeed =
+    lerp(0.54, 2.45, momentum) * lerp(1.08, 0.58, mass) * (mini ? 0.5 : 1)
   const orbitBrokenness = clamp01(instability * 0.82 - heavyContainment * 0.18 + riskHeat * 0.14)
   const trailStrength = clamp01(momentum * 0.44 + riskHeat * 0.28 + microBurst * 0.48)
 
@@ -324,8 +327,9 @@ export default function SystemProfileBlob({
     })
   )
 
-  const trailPoints = Array.from({ length: compact ? 16 : 24 }, (_, index) => {
-    const progress = index / (compact ? 16 : 24)
+  const trailPointCount = mini ? 0 : compact ? 16 : 24
+  const trailPoints = Array.from({ length: trailPointCount }, (_, index) => {
+    const progress = index / trailPointCount
     const angle = baseAngle - progress * lerp(1.1, 2.9, trailStrength)
     const point = orbitPoint({
       angle,
@@ -348,7 +352,7 @@ export default function SystemProfileBlob({
   })
   const trailPath = smoothOpenPath(trailPoints.slice(0, compact ? 10 : 14))
 
-  const sparkCount = compact
+  const sparkCount = compact || mini
     ? 0
     : Math.round(
         lerp(0, 12, clamp01(microBurst * 0.9 + riskHeat * 0.22 + orbitBrokenness * 0.28 - 0.26))
@@ -385,13 +389,15 @@ export default function SystemProfileBlob({
     <div
       className={cn(
         'relative mx-auto aspect-square w-full overflow-hidden rounded-[28px] border border-white/10',
-        compact ? 'max-w-[240px]' : 'max-w-[420px]',
+        mini ? 'max-w-[80px] rounded-[12px]' : compact ? 'max-w-[240px]' : 'max-w-[420px]',
         className
       )}
       style={{
         background:
           'radial-gradient(circle at 50% 44%, rgba(183,255,81,0.05), transparent 14%), radial-gradient(circle at 56% 52%, rgba(55,130,255,0.14), transparent 36%), linear-gradient(180deg, rgba(5,8,14,0.98), rgba(2,4,11,0.98) 58%, rgba(0,0,0,0.98))',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 80px rgba(0,0,0,0.28)',
+        boxShadow: mini
+          ? 'inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 20px rgba(0,0,0,0.22)'
+          : 'inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 80px rgba(0,0,0,0.28)',
       }}
     >
       <div
@@ -404,7 +410,7 @@ export default function SystemProfileBlob({
           maskImage: 'radial-gradient(circle at 50% 50%, black, transparent 82%)',
         }}
       />
-      {!compact ? (
+      {!compact && !mini ? (
         <div className="pointer-events-none absolute left-4 top-3 z-10 text-[12px] uppercase tracking-[0.32em] text-white/55">
           <span className="font-semibold text-[rgba(183,255,81,0.92)]">lb/</span> signal orbit
         </div>
@@ -572,7 +578,7 @@ export default function SystemProfileBlob({
         <circle cx={particle.x} cy={particle.y} r={particleCoreRadius} fill={`url(#${gradientSeed}-particleFill)`} />
         <circle cx={particle.x} cy={particle.y} r={particleCoreRadius * 0.34} fill={rgba(CHALK, 0.98)} />
 
-        {!compact ? (
+        {!compact && !mini ? (
           <g
             fontFamily='"Bradley Hand", "Comic Sans MS", cursive'
             fill="rgba(245,247,255,0.88)"

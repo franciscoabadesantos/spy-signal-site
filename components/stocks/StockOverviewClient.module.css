@@ -5,12 +5,6 @@
   color: var(--color-text-primary);
 }
 
-.utilityBar {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 .zone {
   background: var(--color-bg);
   border: 1px solid var(--color-border);
@@ -55,9 +49,9 @@
   text-overflow: ellipsis;
 }
 
-.pill,
 .exchangeBadge,
-.regimeBadge {
+.regimeBadge,
+.signalDateBadge {
   display: inline-flex;
   align-items: center;
   border-radius: var(--radius-pill);
@@ -75,7 +69,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 16px;
+  gap: 14px;
   margin-top: 8px;
 }
 
@@ -109,6 +103,13 @@
   font-size: 12px;
   padding: 3px 10px;
   border: 1px solid transparent;
+}
+
+.signalDateBadge {
+  background: #1f2937;
+  color: #9ca3af;
+  font-size: 12px;
+  padding: 3px 10px;
 }
 
 .regimeBullish {
@@ -251,15 +252,31 @@
   text-transform: uppercase;
 }
 
-.gaugeGrid {
+.signalSplit {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(280px, 0.4fr) minmax(0, 0.6fr);
   gap: 16px;
+  align-items: start;
+}
+
+.signalLeft {
+  display: grid;
+  gap: 12px;
+}
+
+.signalRight {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.signalDivider {
+  border-top: 1px solid var(--color-border);
 }
 
 .gaugePanel {
-  min-height: 160px;
-  padding: 14px;
+  min-height: 126px;
+  padding: 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg);
@@ -268,11 +285,11 @@
 .gaugeSvg {
   display: block;
   width: 100%;
-  height: 96px;
+  height: 84px;
 }
 
 .gaugeLabel {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 12px;
   color: var(--color-text-muted);
   text-align: center;
@@ -312,13 +329,6 @@
   color: var(--color-neutral);
 }
 
-.signalTables {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-
 .signalTableCard {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -352,9 +362,9 @@
   grid-template-columns: minmax(0, 1fr) 72px 72px;
   gap: 8px;
   align-items: center;
-  min-height: 32px;
+  min-height: 28px;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .signalTableRow:nth-child(odd) {
@@ -384,85 +394,112 @@
   font-weight: 600;
 }
 
-.deepDiveZone {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.zone3Grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
 }
 
-.collapsible {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  box-shadow: var(--shadow-card);
+.fullWidth {
+  grid-column: 1 / -1;
 }
 
-.collapsibleTrigger {
+.dashboardCard {
+  padding: 16px;
+}
+
+.cardHeader {
   display: flex;
-  width: 100%;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
+  margin-bottom: 12px;
 }
 
-.collapsibleTitle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.cardTitle {
   font-size: 18px;
   line-height: 1.2;
+  font-weight: 600;
   color: var(--color-text-primary);
 }
 
-.collapsibleHint {
+.cardHint {
+  margin-top: 4px;
   font-size: 12px;
   color: var(--color-text-hint);
-}
-
-.chevron {
-  color: var(--color-text-muted);
-  transition: transform 0.3s ease;
-}
-
-.chevronOpen {
-  transform: rotate(90deg);
-}
-
-.collapsibleBody {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease;
-}
-
-.collapsibleBodyOpen {
-  max-height: 2000px;
-}
-
-.collapsibleContent {
-  padding: 0 16px 16px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
 }
 
 .regimeChart {
   height: 160px;
   width: 100%;
-  margin-top: 4px;
 }
 
-.deepText {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--color-text-secondary);
+.orbitWrap {
+  position: relative;
+}
+
+.orbitVisual {
+  max-width: 380px;
+}
+
+.orbitTooltip {
+  position: absolute;
+  z-index: 2;
+  width: 160px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(13, 17, 23, 0.92);
+  padding: 10px;
+  font-size: 12px;
+  color: #e5e7eb;
+  pointer-events: none;
+}
+
+.orbitTooltipTitle {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+.orbitTooltipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.orbitStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.orbitStat {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--color-surface);
+}
+
+.orbitStatLabel {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-hint);
+}
+
+.orbitStatValue {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 .peerTableWrap {
   max-height: 240px;
   overflow: auto;
+  margin-top: 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
@@ -490,83 +527,6 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   z-index: 1;
-}
-
-.peerCorrelationCell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.peerBarTrack {
-  width: 96px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--color-border-light);
-  overflow: hidden;
-}
-
-.peerBarFill {
-  height: 100%;
-  border-radius: inherit;
-}
-
-.profileGrid {
-  display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-  max-height: 200px;
-}
-
-.profileDonut {
-  position: relative;
-  width: 180px;
-  height: 180px;
-  border-radius: 50%;
-}
-
-.profileDonutInner {
-  position: absolute;
-  inset: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--color-bg);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.profileLegend {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 12px;
-}
-
-.profileLegendItem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.legendSwatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex: 0 0 10px;
-}
-
-.emptyState {
-  padding: 14px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  font-size: 13px;
-  color: var(--color-text-muted);
 }
 
 .fundDetails {
@@ -624,12 +584,6 @@
   color: var(--color-text-primary);
 }
 
-.footnote {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--color-text-hint);
-}
-
 .actionsRow {
   display: flex;
   flex-wrap: wrap;
@@ -656,33 +610,29 @@
   color: var(--color-accent);
 }
 
-.metaBlock {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.metaPill {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
+.emptyState {
+  padding: 14px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
-  padding: 4px 10px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-muted);
-}
-
-.divider {
-  margin: 12px 0 0;
-  border-top: 1px solid var(--color-border-light);
 }
 
 @media (max-width: 768px) {
   .heroZone,
-  .signalZone {
+  .signalZone,
+  .dashboardCard {
     padding: 16px;
+  }
+
+  .signalSplit,
+  .zone3Grid {
+    grid-template-columns: 1fr;
+  }
+
+  .orbitVisual {
+    max-width: 100%;
   }
 
   .statCell {
@@ -693,23 +643,6 @@
 
   .statCell:nth-child(4n + 1) {
     border-left: 0;
-  }
-
-  .gaugeGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .signalTables {
-    grid-template-columns: 1fr;
-  }
-
-  .profileGrid {
-    grid-template-columns: 1fr;
-    max-height: none;
-  }
-
-  .fundDetails {
-    grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
   }
 }
 
@@ -740,11 +673,6 @@
     border-top: 1px solid var(--color-border-light);
   }
 
-  .peerTable th,
-  .peerTable td {
-    padding: 9px 10px;
-  }
-
   .fundDetails {
     grid-template-columns: 1fr;
   }
@@ -755,7 +683,7 @@
     padding-bottom: 10px;
   }
 
-  .profileLegend {
-    grid-template-columns: 1fr;
+  .orbitStats {
+    grid-template-columns: 1fr 1fr;
   }
 }

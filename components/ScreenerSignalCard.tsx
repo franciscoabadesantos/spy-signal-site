@@ -1,7 +1,9 @@
 import TrackedLink from '@/components/analytics/TrackedLink'
+import SystemProfileBlob from '@/components/page/SystemProfileBlob'
 import Card from '@/components/ui/Card'
 import SignalBlock from '@/components/ui/SignalBlock'
-import { convictionPercent, shortSignalHeadline } from '@/lib/signalSummary'
+import { buildMiniOrbitDimensions } from '@/lib/signalOrbit'
+import { shortSignalHeadline } from '@/lib/signalSummary'
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
 
@@ -48,23 +50,14 @@ function stockHref(ticker: string, signal: string): string {
   return `/stocks/${ticker}?${params.toString()}`
 }
 
-function miniProfileBars(row: ScreenerSignalCardProps['row']): number[] {
-  const conviction = convictionPercent(row.conviction) ?? 38
-  const moveMag = Math.min(8, Math.abs(row.changePercent ?? 0))
-  const horizonTarget = row.predictionHorizon ?? 20
-  const horizonScore = Math.max(28, 100 - Math.abs(horizonTarget - 20) * 2.1)
-  const trendBase = row.direction === 'bullish' ? 58 : row.direction === 'bearish' ? 44 : 50
-  const trend = Math.max(22, Math.min(96, trendBase + conviction * 0.32))
-  const momentum = Math.max(22, Math.min(96, conviction * 0.88 + moveMag * 4.4))
-  const risk = Math.max(22, Math.min(96, 68 - moveMag * 4.6))
-  const yieldScore = Math.max(22, Math.min(96, 34 + conviction * 0.26))
-  const stability = Math.max(22, Math.min(96, conviction * 0.8 - moveMag * 3.7 + horizonScore * 0.08))
-  return [trend, momentum, risk, yieldScore, stability].map((value) => Math.round(value))
-}
-
 export default function ScreenerSignalCard({ row }: ScreenerSignalCardProps) {
   const shortHeadline = shortSignalHeadline(row.direction, row.conviction)
-  const profileBars = miniProfileBars(row)
+  const orbitDimensions = buildMiniOrbitDimensions({
+    direction: row.direction,
+    conviction: row.conviction,
+    changePercent: row.changePercent,
+    horizon: row.predictionHorizon,
+  })
 
   return (
     <TrackedLink
@@ -132,15 +125,14 @@ export default function ScreenerSignalCard({ row }: ScreenerSignalCardProps) {
         </div>
 
         <div className="mt-4 border-t border-border pt-3">
-          <div className="text-filter-label">System Profile</div>
-          <div className="mt-2 flex h-8 items-end gap-1">
-            {profileBars.map((score, index) => (
-              <span
-                key={`${row.ticker}-profile-${index}`}
-                className="w-1.5 rounded-t-sm bg-primary/75"
-                style={{ height: `${Math.max(4, Math.round(score * 0.3))}px` }}
-              />
-            ))}
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-filter-label">System Profile</div>
+              <div className="text-caption mt-1 text-content-muted">Mini orbit view</div>
+            </div>
+            <div className="shrink-0">
+              <SystemProfileBlob dimensions={orbitDimensions} mini />
+            </div>
           </div>
         </div>
 

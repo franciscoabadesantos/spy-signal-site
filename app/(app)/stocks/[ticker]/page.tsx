@@ -18,6 +18,11 @@ import {
   getTickerPageSummary,
   type LatestFundamentalsRow,
 } from '@/lib/ticker-data'
+import {
+  buildOrbitDimensionsFromHistory,
+  buildOrbitTelemetry,
+  trendAgeFromSignals,
+} from '@/lib/signalOrbit'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 
 export const dynamic = 'force-dynamic'
@@ -325,6 +330,19 @@ export default async function TickerPage({
       .filter((row) => !duplicateLabels.has(normalizeFundDetailLabel(row.label)))
   ).slice(0, 18)
 
+  const orbitDimensions = buildOrbitDimensionsFromHistory({
+    historicalData,
+    recentSignals,
+    dividendYield: dividendYield === '—' ? null : dividendYield,
+    hasFundamentals: latestFundamentals.length > 0 || fundamentalsSummary !== null,
+  })
+  const orbitTelemetry = buildOrbitTelemetry({
+    dimensions: orbitDimensions,
+    conviction: latestSignal?.conviction ?? null,
+    direction: latestSignal?.direction ?? null,
+    trendAge: trendAgeFromSignals(recentSignals, latestSignal?.direction ?? null),
+  })
+
   return (
     <div className="space-y-4 md:space-y-5">
       <TrackEventOnMount
@@ -363,9 +381,9 @@ export default async function TickerPage({
           ticker: peer.ticker,
           name: peer.name,
           correlation: peer.correlation,
+          absCorrelation: peer.absCorrelation,
           sector: peer.sector,
         }))}
-        sectorSlices={[]}
         fundDetails={fundDetails}
         relatedAssets={relatedAssets}
         regimeSignals={recentSignals.map((signal) => ({
@@ -373,6 +391,10 @@ export default async function TickerPage({
           direction: signal.direction,
           prob_side: signal.prob_side,
         }))}
+        orbitDimensions={orbitDimensions}
+        orbitTelemetry={orbitTelemetry}
+        marketCap={marketCapNumeric}
+        marketCapLabel={marketCapValue !== '—' ? marketCapValue : null}
         showCopilot
         copilot={{
           isPro: viewerAccess.isPro,

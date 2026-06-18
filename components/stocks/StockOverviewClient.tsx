@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
+import CorrelationNetwork from '@/components/CorrelationNetwork'
+import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
 import ChartContainer from '@/components/charts/ChartContainer'
 import type { PricePoint } from '@/lib/finance'
+import type { SignalOrbitTelemetry } from '@/lib/signalOrbit'
 import {
   buildTechnicalSummary,
   type TechnicalAction,
@@ -27,6 +29,7 @@ type OverviewPeer = {
   ticker: string
   name: string | null
   correlation: number
+  absCorrelation: number
   sector: string | null
 }
 
@@ -42,12 +45,6 @@ type OverviewFundDetail = {
   value: string
 }
 
-type OverviewSectorSlice = {
-  label: string
-  value: number
-  color: string
-}
-
 type OverviewSignal = {
   direction: SignalDirection
   conviction: number | null
@@ -61,6 +58,11 @@ type OverviewRegimePoint = {
   prob_side: number | null
 }
 
+type OrbitTooltipState = {
+  x: number
+  y: number
+}
+
 type StockOverviewClientProps = {
   ticker: string
   displayName: string
@@ -72,10 +74,13 @@ type StockOverviewClientProps = {
   historicalData: PricePoint[]
   statStrip: OverviewStat[]
   peers: OverviewPeer[]
-  sectorSlices: OverviewSectorSlice[]
   fundDetails: OverviewFundDetail[]
   relatedAssets: OverviewRelatedAsset[]
   regimeSignals: OverviewRegimePoint[]
+  orbitDimensions: SystemProfileBlobDimension[]
+  orbitTelemetry: SignalOrbitTelemetry
+  marketCap: number | null
+  marketCapLabel: string | null
   showCopilot: boolean
   copilot: {
     isPro: boolean
@@ -88,13 +93,6 @@ type StockOverviewClientProps = {
 
 const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y']
 const SIGNAL_TIMEFRAMES: TechnicalTimeframe[] = ['1m', '5m', '15m', '30m', '1h', '2h', '4h', '1D', '1W', '1M']
-type DeepDiveSectionId =
-  | 'regime-history'
-  | 'peer-correlation'
-  | 'sector-profile'
-  | 'fund-details'
-  | 'related-assets'
-  | 'research-copilot'
 
 function formatPrice(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—'
@@ -176,31 +174,6 @@ function filterChartData(data: PricePoint[], timeframe: ChartTimeframe): PricePo
   return filtered.length >= 2 ? filtered : data
 }
 
-function buildDonutStyle(slices: OverviewSectorSlice[]): string {
-  if (slices.length === 0) {
-    return 'conic-gradient(#e5e7eb 0deg 360deg)'
-  }
-
-  let cursor = 0
-  const parts = slices.map((slice) => {
-    const start = cursor
-    const end = cursor + slice.value * 3.6
-    cursor = end
-    return `${slice.color} ${start}deg ${end}deg`
-  })
-
-  if (cursor < 360) {
-    parts.push(`#e5e7eb ${cursor}deg 360deg`)
-  }
-  return `conic-gradient(${parts.join(', ')})`
-}
-
-function correlationDirection(value: number): string {
-  if (value >= 0.75) return 'High'
-  if (value >= 0.5) return 'Moderate'
-  return 'Low'
-}
-
 function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
   const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180
   return {
@@ -214,6 +187,18 @@ function describeArc(centerX: number, centerY: number, radius: number, startAngl
   const end = polarToCartesian(centerX, centerY, radius, startAngle)
   const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1'
   return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`
+}
+
+function correlationDirection(value: number): string {
+  if (value >= 0) return 'Positive'
+  return 'Negative'
+}
+
+function correlationStrength(value: number): string {
+  const magnitude = Math.abs(value)
+  if (magnitude >= 0.75) return 'Strong'
+  if (magnitude >= 0.5) return 'Moderate'
+  return 'Weak'
 }
 
 function Gauge({
@@ -279,11 +264,7 @@ function HeroPriceChart({
     <ChartContainer className={styles.heroChart} loadingText="Loading chart...">
       {({ width, height }) => {
         if (data.length === 0) {
-          return (
-            <div className={styles.emptyState}>
-              Historical price data is unavailable.
-            </div>
-          )
+          return <div className={styles.emptyState}>Historical price data is unavailable.</div>
         }
 
         const padding = { top: 12, right: 52, bottom: 22, left: 6 }
@@ -397,10 +378,7 @@ function HeroPriceChart({
             </svg>
 
             {hoverPoint ? (
-              <div
-                className={styles.chartTooltip}
-                style={{ left: tooltipLeft, top: 10 }}
-              >
+              <div className={styles.chartTooltip} style={{ left: tooltipLeft, top: 10 }}>
                 <div>{formatPrice(hoverPoint.close)}</div>
                 <div className={styles.chartTooltipSubtle}>{formatDate(hoverPoint.date)}</div>
               </div>
@@ -459,7 +437,7 @@ function RegimeHistoryChart({
           return <div className={styles.emptyState}>Regime history is not available yet.</div>
         }
 
-        const padding = { top: 12, right: 12, bottom: 22, left: 12 }
+        const padding = { top: 12, right: 32, bottom: 24, left: 32 }
         const innerWidth = Math.max(1, width - padding.left - padding.right)
         const innerHeight = Math.max(1, height - padding.top - padding.bottom)
         const directionY = (direction: SignalDirection) => {
@@ -538,36 +516,83 @@ function RegimeHistoryChart({
   )
 }
 
-function CollapsibleSection({
-  id,
-  title,
-  hint,
-  open,
-  onToggle,
-  children,
+function OrbitPanel({
+  dimensions,
+  telemetry,
+  marketCap,
+  marketCapLabel,
 }: {
-  id: DeepDiveSectionId
-  title: string
-  hint: string
-  open: boolean
-  onToggle: () => void
-  children: React.ReactNode
+  dimensions: SystemProfileBlobDimension[]
+  telemetry: SignalOrbitTelemetry
+  marketCap: number | null
+  marketCapLabel: string | null
 }) {
+  const [tooltip, setTooltip] = useState<OrbitTooltipState | null>(null)
+
   return (
-    <section className={styles.collapsible}>
-      <button type="button" className={styles.collapsibleTrigger} onClick={onToggle} aria-expanded={open} aria-controls={id}>
-        <div>
-          <div className={styles.collapsibleTitle}>
-            <ChevronRight className={cn(styles.chevron, open ? styles.chevronOpen : undefined)} size={16} />
-            <span>{title}</span>
+    <div
+      className={styles.orbitWrap}
+      onMouseMove={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        setTooltip({
+          x: Math.min(rect.width - 172, Math.max(10, event.clientX - rect.left + 12)),
+          y: Math.min(rect.height - 126, Math.max(10, event.clientY - rect.top + 12)),
+        })
+      }}
+      onMouseLeave={() => setTooltip(null)}
+    >
+      <SystemProfileBlob
+        dimensions={dimensions}
+        marketCap={marketCap}
+        marketCapLabel={marketCapLabel}
+        className={styles.orbitVisual}
+      />
+
+      {tooltip ? (
+        <div className={styles.orbitTooltip} style={{ left: tooltip.x, top: tooltip.y }}>
+          <div className={styles.orbitTooltipTitle}>Orbit inputs</div>
+          <div className={styles.orbitTooltipRow}>
+            <span>Momentum</span>
+            <strong>{telemetry.momentum}</strong>
           </div>
-          <div className={styles.collapsibleHint}>{hint}</div>
+          <div className={styles.orbitTooltipRow}>
+            <span>Risk</span>
+            <strong>{telemetry.risk}</strong>
+          </div>
+          <div className={styles.orbitTooltipRow}>
+            <span>Conviction</span>
+            <strong>{telemetry.conviction}</strong>
+          </div>
+          <div className={styles.orbitTooltipRow}>
+            <span>Direction</span>
+            <strong>{telemetry.direction}</strong>
+          </div>
+          <div className={styles.orbitTooltipRow}>
+            <span>Trend age</span>
+            <strong>{telemetry.trendAge}d</strong>
+          </div>
         </div>
-      </button>
-      <div id={id} className={cn(styles.collapsibleBody, open ? styles.collapsibleBodyOpen : undefined)}>
-        <div className={styles.collapsibleContent}>{children}</div>
+      ) : null}
+
+      <div className={styles.orbitStats}>
+        <div className={styles.orbitStat}>
+          <span className={styles.orbitStatLabel}>Momentum</span>
+          <span className={styles.orbitStatValue}>{telemetry.momentum}</span>
+        </div>
+        <div className={styles.orbitStat}>
+          <span className={styles.orbitStatLabel}>Risk</span>
+          <span className={styles.orbitStatValue}>{telemetry.risk}</span>
+        </div>
+        <div className={styles.orbitStat}>
+          <span className={styles.orbitStatLabel}>Conviction</span>
+          <span className={styles.orbitStatValue}>{telemetry.conviction}</span>
+        </div>
+        <div className={styles.orbitStat}>
+          <span className={styles.orbitStatLabel}>Trend age</span>
+          <span className={styles.orbitStatValue}>{telemetry.trendAge}d</span>
+        </div>
       </div>
-    </section>
+    </div>
   )
 }
 
@@ -582,23 +607,18 @@ export default function StockOverviewClient({
   historicalData,
   statStrip,
   peers,
-  sectorSlices,
   fundDetails,
   relatedAssets,
   regimeSignals,
+  orbitDimensions,
+  orbitTelemetry,
+  marketCap,
+  marketCapLabel,
   showCopilot,
   copilot,
 }: StockOverviewClientProps) {
   const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1Y')
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
-  const [openSections, setOpenSections] = useState<Record<DeepDiveSectionId, boolean>>({
-    'regime-history': false,
-    'peer-correlation': false,
-    'sector-profile': false,
-    'fund-details': false,
-    'related-assets': false,
-    'research-copilot': false,
-  })
 
   const filteredChartData = useMemo(() => filterChartData(historicalData, heroTimeframe), [historicalData, heroTimeframe])
   const technicalSummary = useMemo(
@@ -613,13 +633,6 @@ export default function StockOverviewClient({
         ? styles.regimeBearish
         : styles.regimeNeutral
 
-  const toggleSection = (key: DeepDiveSectionId) => {
-    setOpenSections((current) => ({
-      ...current,
-      [key]: !current[key],
-    }))
-  }
-
   return (
     <div className={styles.page}>
       <section className={cn(styles.zone, styles.heroZone)}>
@@ -629,11 +642,6 @@ export default function StockOverviewClient({
             <span className={styles.name}>{displayName}</span>
             <span className={styles.exchangeBadge}>{assetBadgeLabel}</span>
           </div>
-          <div className={styles.metaBlock}>
-            {latestSignal?.signalDate ? (
-              <span className={styles.metaPill}>Signal {formatDate(latestSignal.signalDate)}</span>
-            ) : null}
-          </div>
         </div>
 
         <div className={styles.priceBlock}>
@@ -641,6 +649,9 @@ export default function StockOverviewClient({
           <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>{formatSignedDelta(dailyMoveAmount)}</div>
           <div className={cn(styles.delta, directionToneClass(dailyMovePercent))}>({formatCompactPercent(dailyMovePercent)})</div>
           <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal?.direction ?? null)}</span>
+          {latestSignal?.signalDate ? (
+            <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
+          ) : null}
         </div>
 
         <div className={styles.heroChartWrap}>
@@ -688,139 +699,107 @@ export default function StockOverviewClient({
           </div>
         </div>
 
-        <div className={styles.gaugeGrid}>
-          <Gauge
-            title="Summary"
-            position={technicalSummary.gauges.summary.position}
-            verdict={technicalSummary.gauges.summary.verdict}
-            verdictAction={technicalSummary.gauges.summary.verdictAction}
-            counts={technicalSummary.gauges.summary.counts}
-          />
-          <Gauge
-            title="Oscillators"
-            position={technicalSummary.gauges.oscillators.position}
-            verdict={technicalSummary.gauges.oscillators.verdict}
-            verdictAction={technicalSummary.gauges.oscillators.verdictAction}
-            counts={technicalSummary.gauges.oscillators.counts}
-          />
-          <Gauge
-            title="Moving Averages"
-            position={technicalSummary.gauges.movingAverages.position}
-            verdict={technicalSummary.gauges.movingAverages.verdict}
-            verdictAction={technicalSummary.gauges.movingAverages.verdictAction}
-            counts={technicalSummary.gauges.movingAverages.counts}
-          />
-        </div>
-
-        <div className={styles.signalTables}>
-          <SignalTable title="Oscillators" rows={technicalSummary.oscillatorRows} />
-          <SignalTable title="Moving Averages" rows={technicalSummary.movingAverageRows} />
+        <div className={styles.signalSplit}>
+          <div className={styles.signalLeft}>
+            <Gauge
+              title="Summary"
+              position={technicalSummary.gauges.summary.position}
+              verdict={technicalSummary.gauges.summary.verdict}
+              verdictAction={technicalSummary.gauges.summary.verdictAction}
+              counts={technicalSummary.gauges.summary.counts}
+            />
+            <Gauge
+              title="Oscillators"
+              position={technicalSummary.gauges.oscillators.position}
+              verdict={technicalSummary.gauges.oscillators.verdict}
+              verdictAction={technicalSummary.gauges.oscillators.verdictAction}
+              counts={technicalSummary.gauges.oscillators.counts}
+            />
+            <Gauge
+              title="Moving Averages"
+              position={technicalSummary.gauges.movingAverages.position}
+              verdict={technicalSummary.gauges.movingAverages.verdict}
+              verdictAction={technicalSummary.gauges.movingAverages.verdictAction}
+              counts={technicalSummary.gauges.movingAverages.counts}
+            />
+          </div>
+          <div className={styles.signalRight}>
+            <SignalTable title="Oscillators" rows={technicalSummary.oscillatorRows} />
+            <div className={styles.signalDivider} />
+            <SignalTable title="Moving Averages" rows={technicalSummary.movingAverageRows} />
+          </div>
         </div>
       </section>
 
-      <section className={styles.deepDiveZone}>
-        <CollapsibleSection
-          id="regime-history"
-          title="Regime history"
-          hint="Signal state evolution over time"
-          open={openSections['regime-history']}
-          onToggle={() => toggleSection('regime-history')}
-        >
-          <RegimeHistoryChart signals={regimeSignals} />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          id="peer-correlation"
-          title="Peer correlation"
-          hint="Compact peer scan ranked by correlation"
-          open={openSections['peer-correlation']}
-          onToggle={() => toggleSection('peer-correlation')}
-        >
-          {peers.length === 0 ? (
-            <div className={styles.emptyState}>Peer correlation data is unavailable right now.</div>
-          ) : (
-            <div className={styles.peerTableWrap}>
-              <table className={styles.peerTable}>
-                <thead>
-                  <tr>
-                    <th>Peer</th>
-                    <th>Name</th>
-                    <th>Correlation</th>
-                    <th>Direction</th>
+      <section className={styles.zone3Grid}>
+        <article className={cn(styles.zone, styles.dashboardCard)}>
+          <div className={styles.cardHeader}>
+            <div>
+              <div className={styles.cardTitle}>Peer web</div>
+              <div className={styles.cardHint}>Interactive correlation map with numeric scan below</div>
+            </div>
+          </div>
+          <CorrelationNetwork centerTicker={ticker} centerName={displayName} peers={peers} />
+          <div className={styles.peerTableWrap}>
+            <table className={styles.peerTable}>
+              <thead>
+                <tr>
+                  <th>Peer ticker</th>
+                  <th>Name</th>
+                  <th>Correlation</th>
+                  <th>Direction</th>
+                </tr>
+              </thead>
+              <tbody>
+                {peers.map((peer) => (
+                  <tr key={peer.ticker}>
+                    <td>
+                      <Link href={`/stocks/${peer.ticker}`} className={styles.chipTicker}>
+                        {peer.ticker}
+                      </Link>
+                    </td>
+                    <td>{peer.name ?? 'Related asset'}</td>
+                    <td>{peer.correlation.toFixed(2)} · {correlationStrength(peer.correlation)}</td>
+                    <td>{correlationDirection(peer.correlation)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {peers.map((peer) => (
-                    <tr key={peer.ticker}>
-                      <td>
-                        <Link href={`/stocks/${peer.ticker}`} className={styles.chipTicker}>
-                          {peer.ticker}
-                        </Link>
-                      </td>
-                      <td>{peer.name ?? 'Related asset'}</td>
-                      <td>
-                        <div className={styles.peerCorrelationCell}>
-                          <div className={styles.peerBarTrack}>
-                            <div
-                              className={styles.peerBarFill}
-                              style={{
-                                width: `${Math.round(Math.abs(peer.correlation) * 100)}%`,
-                                background: peer.correlation >= 0 ? '#16a34a' : '#dc2626',
-                              }}
-                            />
-                          </div>
-                          <span>{peer.correlation.toFixed(2)}</span>
-                        </div>
-                      </td>
-                      <td>{correlationDirection(Math.abs(peer.correlation))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          id="sector-profile"
-          title="Sector profile"
-          hint="Allocation view"
-          open={openSections['sector-profile']}
-          onToggle={() => toggleSection('sector-profile')}
-        >
-          {sectorSlices.length === 0 ? (
-            <div className={styles.emptyState}>
-              Canonical sector allocation data is not exposed by the current backend summary.
-            </div>
-          ) : (
-            <div className={styles.profileGrid}>
-              <div
-                className={styles.profileDonut}
-                style={{ backgroundImage: buildDonutStyle(sectorSlices) }}
-                aria-hidden="true"
-              >
-                <div className={styles.profileDonutInner}>100%</div>
-              </div>
-              <div className={styles.profileLegend}>
-                {sectorSlices.map((slice) => (
-                  <div key={slice.label} className={styles.profileLegendItem}>
-                    <span className={styles.legendSwatch} style={{ backgroundColor: slice.color }} />
-                    <span>{slice.label}</span>
-                    <span>{slice.value.toFixed(1)}%</span>
-                  </div>
                 ))}
-              </div>
-            </div>
-          )}
-        </CollapsibleSection>
+              </tbody>
+            </table>
+          </div>
+        </article>
 
-        <CollapsibleSection
-          id="fund-details"
-          title="Fund details"
-          hint="Canonical backend fundamentals"
-          open={openSections['fund-details']}
-          onToggle={() => toggleSection('fund-details')}
-        >
+        <article className={cn(styles.zone, styles.dashboardCard)}>
+          <div className={styles.cardHeader}>
+            <div>
+              <div className={styles.cardTitle}>Orbital risk sphere</div>
+              <div className={styles.cardHint}>Momentum, risk, conviction, direction, and trend age in one visual</div>
+            </div>
+          </div>
+          <OrbitPanel
+            dimensions={orbitDimensions}
+            telemetry={orbitTelemetry}
+            marketCap={marketCap}
+            marketCapLabel={marketCapLabel}
+          />
+        </article>
+
+        <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
+          <div className={styles.cardHeader}>
+            <div>
+              <div className={styles.cardTitle}>Regime history</div>
+              <div className={styles.cardHint}>Visible state changes over time</div>
+            </div>
+          </div>
+          <RegimeHistoryChart signals={regimeSignals} />
+        </article>
+
+        <article className={cn(styles.zone, styles.dashboardCard)}>
+          <div className={styles.cardHeader}>
+            <div>
+              <div className={styles.cardTitle}>Fund details</div>
+              <div className={styles.cardHint}>Canonical backend fundamentals</div>
+            </div>
+          </div>
           {fundDetails.length === 0 ? (
             <div className={styles.emptyState}>No additional fund detail rows are available for this asset.</div>
           ) : (
@@ -835,7 +814,7 @@ export default function StockOverviewClient({
           )}
           <div className={styles.actionsRow}>
             <Link href={`/stocks/${ticker}/financials/fund-profile`} className={styles.actionLink}>
-              Financial summary
+              Financial data
             </Link>
             <Link href={`/stocks/${ticker}/holdings-dividends`} className={styles.actionLink}>
               Holdings / dividends
@@ -844,15 +823,15 @@ export default function StockOverviewClient({
               Full signal history
             </Link>
           </div>
-        </CollapsibleSection>
+        </article>
 
-        <CollapsibleSection
-          id="related-assets"
-          title="Related assets"
-          hint="Compact peer shortcuts"
-          open={openSections['related-assets']}
-          onToggle={() => toggleSection('related-assets')}
-        >
+        <article className={cn(styles.zone, styles.dashboardCard)}>
+          <div className={styles.cardHeader}>
+            <div>
+              <div className={styles.cardTitle}>Related assets</div>
+              <div className={styles.cardHint}>Compact peer shortcuts</div>
+            </div>
+          </div>
           {relatedAssets.length === 0 ? (
             <div className={styles.emptyState}>No related assets are available right now.</div>
           ) : (
@@ -861,23 +840,21 @@ export default function StockOverviewClient({
                 <Link key={asset.symbol} href={`/stocks/${asset.symbol}`} className={styles.relatedChip}>
                   <span className={styles.chipTicker}>{asset.symbol}</span>
                   <span>{formatPrice(asset.price)}</span>
-                  <span className={directionToneClass(asset.changePercent)}>
-                    {formatCompactPercent(asset.changePercent)}
-                  </span>
+                  <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span>
                 </Link>
               ))}
             </div>
           )}
-        </CollapsibleSection>
+        </article>
 
         {showCopilot ? (
-          <CollapsibleSection
-            id="research-copilot"
-            title="Research copilot"
-            hint="Prompt-driven AI follow-up"
-            open={openSections['research-copilot']}
-            onToggle={() => toggleSection('research-copilot')}
-          >
+          <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
+            <div className={styles.cardHeader}>
+              <div>
+                <div className={styles.cardTitle}>Research copilot</div>
+                <div className={styles.cardHint}>Prompt-driven AI follow-up</div>
+              </div>
+            </div>
             <AiAnalystPanel
               ticker={ticker}
               signal={{
@@ -894,7 +871,7 @@ export default function StockOverviewClient({
               initialPromptLabel={copilot.initialPromptLabel}
               compact
             />
-          </CollapsibleSection>
+          </article>
         ) : null}
       </section>
     </div>

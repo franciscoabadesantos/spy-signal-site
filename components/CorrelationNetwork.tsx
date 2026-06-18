@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { CorrelationNetworkPeer } from '@/lib/finance'
-import { ChartTooltipCard, useChartPalette } from '@/components/charts/ChartContainer'
+import { ChartTooltipCard } from '@/components/charts/ChartContainer'
 
 type CorrelationNetworkProps = {
   centerTicker: string
@@ -17,6 +17,9 @@ type LayoutNode = CorrelationNetworkPeer & {
   radius: number
   edgeOpacity: number
   edgeWidth: number
+  edgeColor: string
+  ringColor: string
+  fillColor: string
 }
 
 type HoverTooltipState = {
@@ -29,38 +32,10 @@ const HEIGHT = 420
 const CENTER_X = WIDTH / 2
 const CENTER_Y = HEIGHT / 2
 
-const SECTOR_SWATCH: Record<string, string> = {
-  Technology: '#0A99FF',
-  Semiconductors: '#36B3FF',
-  'Communication Services': '#73CBFF',
-  Financials: '#12B76A',
-  Energy: '#D99A0B',
-  'Consumer Discretionary': '#64768A',
-  'Health Care': '#67DEAB',
-  'Broad Market ETF': '#8799AB',
-  'Growth ETF': '#A8E0FF',
-  'Dow ETF': '#9DECC9',
-  'Small Cap ETF': '#FFCB47',
-  'Total Market ETF': '#ACBCCB',
-  'Technology ETF': '#0A4A85',
-  'Financials ETF': '#0E9F5B',
-  'Energy ETF': '#B87E09',
-}
-
 function correlationDescriptor(absCorrelation: number): 'high' | 'moderate' | 'low' {
   if (absCorrelation >= 0.75) return 'high'
   if (absCorrelation >= 0.5) return 'moderate'
   return 'low'
-}
-
-function withAlpha(hex: string, alpha: number): string {
-  const normalized = hex.replace('#', '')
-  if (normalized.length !== 6) return hex
-  const r = Number.parseInt(normalized.slice(0, 2), 16)
-  const g = Number.parseInt(normalized.slice(2, 4), 16)
-  const b = Number.parseInt(normalized.slice(4, 6), 16)
-  if (![r, g, b].every(Number.isFinite)) return hex
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -74,9 +49,18 @@ function ringRadius(absCorrelation: number): number {
   return maxRadius - normalized * (maxRadius - minRadius)
 }
 
-function colorForSector(sector: string | null): string {
-  if (!sector) return '#ACBCCB'
-  return SECTOR_SWATCH[sector] ?? '#ACBCCB'
+function edgeColorForCorrelation(correlation: number): string {
+  return correlation >= 0 ? 'rgba(59, 130, 246, 0.6)' : 'rgba(239, 68, 68, 0.6)'
+}
+
+function ringColorForCorrelation(correlation: number): string {
+  return correlation >= 0 ? '#60a5fa' : '#f87171'
+}
+
+function fillColorForCorrelation(correlation: number): string {
+  if (correlation >= 0.15) return '#1e3a5f'
+  if (correlation <= -0.15) return '#3f1e1e'
+  return '#1e1e2e'
 }
 
 function computeNodeLayout(peers: CorrelationNetworkPeer[]): LayoutNode[] {
@@ -92,9 +76,9 @@ function computeNodeLayout(peers: CorrelationNetworkPeer[]): LayoutNode[] {
     const r = ringRadius(peer.absCorrelation)
     const x = CENTER_X + Math.cos(angle) * r
     const y = CENTER_Y + Math.sin(angle) * r
-    const nodeRadius = 16 + peer.absCorrelation * 8
-    const edgeOpacity = 0.2 + peer.absCorrelation * 0.34
-    const edgeWidth = 0.9 + peer.absCorrelation * 2.8
+    const nodeRadius = 20
+    const edgeOpacity = 0.3 + peer.absCorrelation * 0.7
+    const edgeWidth = Math.max(1, peer.absCorrelation * 6)
 
     return {
       ...peer,
@@ -103,6 +87,9 @@ function computeNodeLayout(peers: CorrelationNetworkPeer[]): LayoutNode[] {
       radius: nodeRadius,
       edgeOpacity,
       edgeWidth,
+      edgeColor: edgeColorForCorrelation(peer.correlation),
+      ringColor: ringColorForCorrelation(peer.correlation),
+      fillColor: fillColorForCorrelation(peer.correlation),
     }
   })
 }
@@ -112,7 +99,6 @@ export default function CorrelationNetwork({
   centerName,
   peers,
 }: CorrelationNetworkProps) {
-  const palette = useChartPalette()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [hoveredTicker, setHoveredTicker] = useState<string | null>(null)
   const [tooltipState, setTooltipState] = useState<HoverTooltipState | null>(null)
@@ -131,10 +117,11 @@ export default function CorrelationNetwork({
 
   return (
     <div className="space-y-3">
-      <div ref={containerRef} className="relative overflow-hidden rounded-2xl border border-border bg-surface-card p-4">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-[360px] w-full" role="img" aria-label="Correlation network">
+      <div ref={containerRef} className="relative overflow-hidden rounded-xl border border-[#d1d5db] bg-[#f8fafc] p-4">
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-[380px] w-full" role="img" aria-label="Correlation network">
           {layoutNodes.map((node) => {
             const isHovered = hoveredTicker === node.ticker
+            const hasActiveHover = hoveredTicker !== null
             return (
               <line
                 key={`edge-${node.ticker}`}
@@ -142,14 +129,8 @@ export default function CorrelationNetwork({
                 y1={CENTER_Y}
                 x2={node.x}
                 y2={node.y}
-                stroke={isHovered ? palette.primary : palette.neutral}
-                strokeOpacity={
-                  isHovered
-                    ? (palette.isDark ? 0.82 : 0.92)
-                    : palette.isDark
-                      ? Math.max(0.24, node.edgeOpacity)
-                      : node.edgeOpacity
-                }
+                stroke={node.edgeColor}
+                strokeOpacity={hasActiveHover ? (isHovered ? 1 : 0.1) : node.edgeOpacity}
                 strokeWidth={isHovered ? node.edgeWidth + 1 : node.edgeWidth}
               />
             )
@@ -158,36 +139,23 @@ export default function CorrelationNetwork({
           <circle
             cx={CENTER_X}
             cy={CENTER_Y}
-            r={34}
-            fill={palette.primary}
-            fillOpacity={palette.isDark ? 0.14 : 0.18}
-            stroke={withAlpha(palette.primary, palette.isDark ? 0.88 : 1)}
-            strokeWidth={2.4}
+            r={28}
+            fill="#111827"
+            stroke="#2563eb"
+            strokeWidth={2}
           />
           <text
             x={CENTER_X}
-            y={CENTER_Y - 2}
+            y={CENTER_Y + 5}
             textAnchor="middle"
-            className="text-[16px] font-semibold"
-            fill={palette.text}
+            className="text-[14px] font-semibold"
+            fill="#f9fafb"
           >
             {centerTicker}
-          </text>
-          <text
-            x={CENTER_X}
-            y={CENTER_Y + 14}
-            textAnchor="middle"
-            className="text-[11px]"
-            fill={palette.textMuted}
-          >
-            anchor
           </text>
 
           {layoutNodes.map((node) => {
             const isHovered = hoveredTicker === node.ticker
-            const swatch = colorForSector(node.sector)
-            const nodeFill = withAlpha(swatch, palette.isDark ? (isHovered ? 0.3 : 0.2) : isHovered ? 0.36 : 0.2)
-            const nodeStroke = withAlpha(swatch, palette.isDark ? (isHovered ? 0.88 : 0.72) : isHovered ? 1 : 0.86)
             return (
               <a
                 key={node.ticker}
@@ -218,16 +186,16 @@ export default function CorrelationNetwork({
                   cx={node.x}
                   cy={node.y}
                   r={isHovered ? node.radius + 2 : node.radius}
-                  fill={nodeFill}
-                  stroke={nodeStroke}
-                  strokeWidth={isHovered ? 2.4 : 1.6}
+                  fill={node.fillColor}
+                  stroke={node.ringColor}
+                  strokeWidth={2}
                 />
                 <text
                   x={node.x}
                   y={node.y + 4}
                   textAnchor="middle"
                   className={cn('text-[11px] font-semibold', isHovered ? 'text-[12px]' : undefined)}
-                  fill={palette.text}
+                  fill="#f9fafb"
                 >
                   {node.ticker}
                 </text>
@@ -246,17 +214,17 @@ export default function CorrelationNetwork({
               rows={[
                 {
                   label: 'Correlation',
-                  value: `${(hoveredNode.correlation * 100).toFixed(1)}%`,
-                  swatchColor: palette.primary,
+                  value: hoveredNode.correlation.toFixed(2),
+                  swatchColor: hoveredNode.correlation >= 0 ? '#60a5fa' : '#f87171',
                 },
                 {
                   label: 'Strength',
                   value:
                     correlationDescriptor(hoveredNode.absCorrelation) === 'high'
-                      ? 'High'
+                      ? 'Strong'
                       : correlationDescriptor(hoveredNode.absCorrelation) === 'moderate'
                         ? 'Moderate'
-                        : 'Low',
+                        : 'Weak',
                 },
                 ...(hoveredNode.sector ? [{ label: 'Sector', value: hoveredNode.sector }] : []),
               ]}
@@ -267,14 +235,18 @@ export default function CorrelationNetwork({
 
       <div
         className={cn(
-          'rounded-xl border border-border bg-surface-elevated px-3 py-2 text-xs text-content-secondary',
-          hoveredNode ? 'border-primary/40 text-content-primary' : undefined
+          'rounded-xl border border-[#d1d5db] bg-white px-3 py-2 text-xs text-content-secondary',
+          hoveredNode ? 'border-[#93c5fd] text-content-primary' : undefined
         )}
       >
         {hoveredNode ? (
           <span>
-            {hoveredNode.ticker} · {(hoveredNode.correlation * 100).toFixed(1)}% correlation ·{' '}
-            {correlationDescriptor(hoveredNode.absCorrelation)} correlation
+            {hoveredNode.ticker} · correlation {hoveredNode.correlation.toFixed(2)} ·{' '}
+            {correlationDescriptor(hoveredNode.absCorrelation) === 'high'
+              ? 'Strong'
+              : correlationDescriptor(hoveredNode.absCorrelation) === 'moderate'
+                ? 'Moderate'
+                : 'Weak'}
             {hoveredNode.sector ? ` · ${hoveredNode.sector}` : ''}
             {hoveredNode.name ? ` · ${hoveredNode.name}` : ''}
           </span>

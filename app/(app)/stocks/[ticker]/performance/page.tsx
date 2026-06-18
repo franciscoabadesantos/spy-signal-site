@@ -143,6 +143,7 @@ export default async function PerformancePage({
 
   const metrics = computeSignalMetrics(signals)
   const quickTickers = [...new Set(screener.rows.map((row) => row.ticker))].slice(0, 10)
+  const tableRows = metrics.ordered.filter((row) => row != null && row.signal_date != null).slice(0, 200)
 
   return (
     <div className="section-gap">
@@ -235,8 +236,8 @@ export default async function PerformancePage({
                   </tr>
                 </TableHead>
                 <TableBody>
-                  {metrics.ordered.slice(0, 200).map((row, index) => {
-                    const previous = metrics.ordered[index + 1]
+                  {tableRows.map((row, index) => {
+                    const previous = tableRows[index + 1]
                     const isFlip = Boolean(previous && previous.direction !== row.direction)
                     const previousLabel = previous ? directionTone(previous.direction).label : null
                     const tone = directionTone(row.direction)
