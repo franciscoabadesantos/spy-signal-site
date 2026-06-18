@@ -63,7 +63,9 @@ function formatSignedPercent(value: number | null): string {
   return `${sign}${scaled.toFixed(2)}%`
 }
 
-function formatFinancialValue(value: number): string {
+function formatFinancialValue(raw: number | string): string {
+  const value = typeof raw === 'string' ? Number.parseFloat(raw.replace(/,/g, '')) : raw
+  if (!Number.isFinite(value)) return String(raw)
   const abs = Math.abs(value)
   if (abs >= 1e12) return `$${(value / 1e12).toFixed(2)}T`
   if (abs >= 1e9) return `$${(value / 1e9).toFixed(2)}B`
@@ -90,26 +92,37 @@ function displayMetricLabel(label: string): string {
 }
 
 function formatFinancialMetricValue(label: string, valueDisplay: string | null, valueNumber: number | null): string {
-  if (valueNumber === null || !Number.isFinite(valueNumber)) return valueDisplay ?? '—'
+  const parsedDisplay =
+    valueDisplay && /^-?\d[\d,]*(\.\d+)?$/.test(valueDisplay.trim())
+      ? Number.parseFloat(valueDisplay.replace(/,/g, ''))
+      : null
+  const numericValue =
+    valueNumber !== null && Number.isFinite(valueNumber)
+      ? valueNumber
+      : parsedDisplay !== null && Number.isFinite(parsedDisplay)
+        ? parsedDisplay
+        : null
+
+  if (numericValue === null) return valueDisplay ?? '—'
 
   const normalized = label.toLowerCase()
   const isPercentMetric =
     /(yield|margin|growth|return|roe|roa|ratio|rate|percent|pct)/.test(normalized)
   const isCurrencyMetric =
-    /(market cap|revenue|sales|ebitda|cash|debt|assets|equity|income|flow|fcf|book value|enterprise value)/.test(
+    /(market cap|revenue|sales|ebitda|cash|debt|assets|equity|income|flow|fcf|book value|enterprise value|liabilit|profit)/.test(
       normalized
     )
 
   if (isPercentMetric) {
-    const scaled = Math.abs(valueNumber) <= 1.5 ? valueNumber * 100 : valueNumber
+    const scaled = Math.abs(numericValue) <= 1.5 ? numericValue * 100 : numericValue
     return `${scaled.toFixed(2)}%`
   }
 
   if (isCurrencyMetric) {
-    return Math.abs(valueNumber) < 1000 ? `$${valueNumber.toFixed(2)}` : formatFinancialValue(valueNumber)
+    return Math.abs(numericValue) < 1000 ? `$${numericValue.toFixed(2)}` : formatFinancialValue(numericValue)
   }
 
-  return valueNumber.toFixed(2)
+  return numericValue.toFixed(2)
 }
 
 export async function generateMetadata({
@@ -155,8 +168,10 @@ export default async function FinancialStatementPage({
   const rows = summary.latestFundamentals.filter(
     (row) =>
       row !== null &&
-      row.metric !== null &&
-      row.metricLabel !== null &&
+      typeof row.metric === 'string' &&
+      row.metric.trim().length > 0 &&
+      typeof row.metricLabel === 'string' &&
+      row.metricLabel.trim().length > 0 &&
       (row.valueDisplay !== null || row.valueNumber !== null)
   )
 

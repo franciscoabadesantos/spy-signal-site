@@ -148,7 +148,12 @@ export default async function SignalHistoryPage({
   const upgradeUrl = getStripeUpgradeUrl(viewer.userId)
   const summary = buildSummary(signals)
   const tableSignals = signals.filter(
-    (signal) => signal != null && signal.id != null && signal.signal_date != null
+    (signal) =>
+      signal != null &&
+      signal.id != null &&
+      signal.signal_date != null &&
+      typeof signal.direction === 'string' &&
+      signal.direction.trim().length > 0
   )
 
   return (

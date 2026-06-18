@@ -6,7 +6,7 @@ export default function StockPageTheme() {
   useEffect(() => {
     const root = document.documentElement
     const previousTheme = root.getAttribute('data-theme')
-    root.setAttribute('data-theme', 'light')
+    root.setAttribute('data-theme', 'dark')
 
     return () => {
       if (previousTheme) {

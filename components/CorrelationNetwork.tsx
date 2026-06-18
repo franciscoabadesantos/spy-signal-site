@@ -50,16 +50,22 @@ function ringRadius(absCorrelation: number): number {
 }
 
 function edgeColorForCorrelation(correlation: number): string {
-  return correlation >= 0 ? 'rgba(59, 130, 246, 0.6)' : 'rgba(239, 68, 68, 0.6)'
+  return correlation >= 0
+    ? `rgba(99, 179, 237, ${0.2 + Math.abs(correlation) * 0.8})`
+    : `rgba(252, 129, 129, ${0.2 + Math.abs(correlation) * 0.8})`
 }
 
 function ringColorForCorrelation(correlation: number): string {
-  return correlation >= 0 ? '#60a5fa' : '#f87171'
+  if (correlation > 0.7) return '#63b3ed'
+  if (correlation > 0.4) return '#4a90d9'
+  if (correlation < 0) return '#fc8181'
+  return '#4b5563'
 }
 
 function fillColorForCorrelation(correlation: number): string {
-  if (correlation >= 0.15) return '#1e3a5f'
-  if (correlation <= -0.15) return '#3f1e1e'
+  if (correlation > 0.7) return '#1e3a5f'
+  if (correlation > 0.4) return '#1a2a3f'
+  if (correlation < 0) return '#3f1e1e'
   return '#1e1e2e'
 }
 
@@ -76,9 +82,9 @@ function computeNodeLayout(peers: CorrelationNetworkPeer[]): LayoutNode[] {
     const r = ringRadius(peer.absCorrelation)
     const x = CENTER_X + Math.cos(angle) * r
     const y = CENTER_Y + Math.sin(angle) * r
-    const nodeRadius = 20
-    const edgeOpacity = 0.3 + peer.absCorrelation * 0.7
-    const edgeWidth = Math.max(1, peer.absCorrelation * 6)
+    const nodeRadius = 18
+    const edgeOpacity = 0.2 + peer.absCorrelation * 0.8
+    const edgeWidth = 0.5 + peer.absCorrelation * 5
 
     return {
       ...peer,
@@ -117,8 +123,11 @@ export default function CorrelationNetwork({
 
   return (
     <div className="space-y-3">
-      <div ref={containerRef} className="relative overflow-hidden rounded-xl border border-[#d1d5db] bg-[#f8fafc] p-4">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-[380px] w-full" role="img" aria-label="Correlation network">
+      <div
+        ref={containerRef}
+        className="relative overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[var(--bg-surface)] p-4"
+      >
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-[340px] w-full rounded-xl bg-[var(--bg-surface)]" role="img" aria-label="Correlation network">
           {layoutNodes.map((node) => {
             const isHovered = hoveredTicker === node.ticker
             const hasActiveHover = hoveredTicker !== null
@@ -139,9 +148,9 @@ export default function CorrelationNetwork({
           <circle
             cx={CENTER_X}
             cy={CENTER_Y}
-            r={28}
+            r={22}
             fill="#111827"
-            stroke="#2563eb"
+            stroke="#63b3ed"
             strokeWidth={2}
           />
           <text
@@ -215,8 +224,9 @@ export default function CorrelationNetwork({
                 {
                   label: 'Correlation',
                   value: hoveredNode.correlation.toFixed(2),
-                  swatchColor: hoveredNode.correlation >= 0 ? '#60a5fa' : '#f87171',
+                  swatchColor: hoveredNode.correlation >= 0 ? '#63b3ed' : '#fc8181',
                 },
+                { label: 'Direction', value: hoveredNode.correlation >= 0 ? 'Positive' : 'Negative' },
                 {
                   label: 'Strength',
                   value:
@@ -226,7 +236,6 @@ export default function CorrelationNetwork({
                         ? 'Moderate'
                         : 'Weak',
                 },
-                ...(hoveredNode.sector ? [{ label: 'Sector', value: hoveredNode.sector }] : []),
               ]}
             />
           </div>
@@ -235,8 +244,8 @@ export default function CorrelationNetwork({
 
       <div
         className={cn(
-          'rounded-xl border border-[#d1d5db] bg-white px-3 py-2 text-xs text-content-secondary',
-          hoveredNode ? 'border-[#93c5fd] text-content-primary' : undefined
+          'rounded-xl border border-[rgba(255,255,255,0.08)] bg-[var(--bg-surface-raised)] px-3 py-2 text-xs text-content-secondary',
+          hoveredNode ? 'border-[#63b3ed] text-content-primary' : undefined
         )}
       >
         {hoveredNode ? (

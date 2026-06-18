@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import SystemProfileBlob from '@/components/page/SystemProfileBlob'
+import OrbitMini from '@/components/stocks/OrbitMini'
 import SignalBlock from '@/components/ui/SignalBlock'
 import {
   TableBase,
@@ -62,14 +62,14 @@ export default function WatchlistTable({ rows }: WatchlistTableProps) {
               <TableCell className="text-label-lg">
                 <div className="flex items-center gap-3">
                   <div className="shrink-0">
-                    <SystemProfileBlob
+                    <OrbitMini
                       dimensions={buildMiniOrbitDimensions({
                         direction: direction ?? null,
                         conviction: row?.conviction ?? null,
                         changePercent: row?.changePercent ?? null,
                         horizon: row?.predictionHorizon ?? null,
                       })}
-                      mini
+                      size={80}
                     />
                   </div>
                   <div className="min-w-0">

@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
 import CorrelationNetwork from '@/components/CorrelationNetwork'
+import OrbitMini from '@/components/stocks/OrbitMini'
 import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
 import ChartContainer from '@/components/charts/ChartContainer'
 import type { PricePoint } from '@/lib/finance'
@@ -73,6 +74,7 @@ type StockOverviewClientProps = {
   latestSignal: OverviewSignal | null
   historicalData: PricePoint[]
   statStrip: OverviewStat[]
+  heroStats: OverviewStat[]
   peers: OverviewPeer[]
   fundDetails: OverviewFundDetail[]
   relatedAssets: OverviewRelatedAsset[]
@@ -230,11 +232,11 @@ function Gauge({
   return (
     <div className={styles.gaugePanel}>
       <svg viewBox="0 0 160 110" className={styles.gaugeSvg} aria-hidden="true">
-        <path d={describeArc(80, 90, 60, 180, 120)} fill="none" stroke="#dc2626" strokeWidth="8" strokeLinecap="round" />
-        <path d={describeArc(80, 90, 60, 120, 60)} fill="none" stroke="#6b7280" strokeWidth="8" strokeLinecap="round" />
-        <path d={describeArc(80, 90, 60, 60, 0)} fill="none" stroke="#16a34a" strokeWidth="8" strokeLinecap="round" />
-        <line x1={centerX} y1={centerY} x2={needleX} y2={needleY} stroke="#111827" strokeWidth="2" strokeLinecap="round" />
-        <circle cx={centerX} cy={centerY} r="4.5" fill="#111827" />
+        <path d={describeArc(80, 90, 60, 180, 120)} fill="none" stroke="var(--color-negative)" strokeWidth="8" strokeLinecap="round" />
+        <path d={describeArc(80, 90, 60, 120, 60)} fill="none" stroke="var(--color-neutral)" strokeWidth="8" strokeLinecap="round" />
+        <path d={describeArc(80, 90, 60, 60, 0)} fill="none" stroke="var(--color-positive)" strokeWidth="8" strokeLinecap="round" />
+        <line x1={centerX} y1={centerY} x2={needleX} y2={needleY} stroke="var(--text-primary)" strokeWidth="2" strokeLinecap="round" />
+        <circle cx={centerX} cy={centerY} r="4.5" fill="var(--text-primary)" />
       </svg>
       <div className={styles.gaugeLabel}>{title}</div>
       <div className={cn(styles.gaugeVerdict, actionTone(verdictAction))}>{verdict}</div>
@@ -255,13 +257,15 @@ function Gauge({
 
 function HeroPriceChart({
   data,
+  className,
 }: {
   data: PricePoint[]
+  className?: string
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
 
   return (
-    <ChartContainer className={styles.heroChart} loadingText="Loading chart...">
+    <ChartContainer className={cn(styles.heroChart, className)} loadingText="Loading chart...">
       {({ width, height }) => {
         if (data.length === 0) {
           return <div className={styles.emptyState}>Historical price data is unavailable.</div>
@@ -305,14 +309,14 @@ function HeroPriceChart({
                     y1={y}
                     x2={padding.left + innerWidth}
                     y2={y}
-                    stroke="rgba(0,0,0,0.04)"
+                    stroke="var(--color-border-light)"
                     strokeWidth="1"
                   />
                 )
               })}
 
-              <path d={areaPath} fill="rgba(37, 99, 235, 0.06)" />
-              <path d={linePath} fill="none" stroke="#2563eb" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={areaPath} fill="var(--color-accent-light)" />
+              <path d={linePath} fill="none" stroke="var(--color-accent)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
 
               {hoverPoint ? (
                 <>
@@ -321,10 +325,10 @@ function HeroPriceChart({
                     y1={padding.top}
                     x2={hoverPoint.x}
                     y2={padding.top + innerHeight}
-                    stroke="rgba(17,24,39,0.18)"
+                    stroke="rgba(255,255,255,0.18)"
                     strokeDasharray="3 4"
                   />
-                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
+                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4" fill="var(--color-accent)" stroke="var(--bg-surface)" strokeWidth="2" />
                 </>
               ) : null}
 
@@ -338,7 +342,7 @@ function HeroPriceChart({
                     y={height - 4}
                     textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
                     fontSize="12"
-                    fill="#6b7280"
+                    fill="var(--color-text-muted)"
                   >
                     {formatDate(point.date, { month: 'short', day: 'numeric' })}
                   </text>
@@ -354,7 +358,7 @@ function HeroPriceChart({
                     y={y + 4}
                     textAnchor="end"
                     fontSize="12"
-                    fill="#6b7280"
+                    fill="var(--color-text-muted)"
                   >
                     ${tick.toFixed(0)}
                   </text>
@@ -596,6 +600,30 @@ function OrbitPanel({
   )
 }
 
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  return (
+    <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-label={title}>
+      <div className={styles.modalPanel}>
+        <div className={styles.modalHeader}>
+          <div className={styles.modalTitle}>{title}</div>
+          <button type="button" className={styles.modalClose} onClick={onClose} aria-label={`Close ${title}`}>
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export default function StockOverviewClient({
   ticker,
   displayName,
@@ -606,6 +634,7 @@ export default function StockOverviewClient({
   latestSignal,
   historicalData,
   statStrip,
+  heroStats,
   peers,
   fundDetails,
   relatedAssets,
@@ -619,6 +648,8 @@ export default function StockOverviewClient({
 }: StockOverviewClientProps) {
   const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1Y')
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
+  const [isOrbitModalOpen, setOrbitModalOpen] = useState(false)
+  const [isChartModalOpen, setChartModalOpen] = useState(false)
 
   const filteredChartData = useMemo(() => filterChartData(historicalData, heroTimeframe), [historicalData, heroTimeframe])
   const technicalSummary = useMemo(
@@ -648,37 +679,65 @@ export default function StockOverviewClient({
           <div className={styles.price}>{formatPrice(price)}</div>
           <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>{formatSignedDelta(dailyMoveAmount)}</div>
           <div className={cn(styles.delta, directionToneClass(dailyMovePercent))}>({formatCompactPercent(dailyMovePercent)})</div>
-          <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal?.direction ?? null)}</span>
-          {latestSignal?.signalDate ? (
-            <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
-          ) : null}
         </div>
 
-        <div className={styles.heroChartWrap}>
-          <div className={styles.sectionTabsRow}>
-            <div className={styles.tabStrip}>
-              {HERO_TIMEFRAMES.map((timeframe) => (
-                <button
-                  key={timeframe}
-                  type="button"
-                  className={cn(styles.tabButton, heroTimeframe === timeframe ? styles.tabButtonActive : undefined)}
-                  onClick={() => setHeroTimeframe(timeframe)}
-                >
-                  {timeframe}
-                </button>
-              ))}
+        <div className={styles.heroBody}>
+          <div className={styles.heroChartColumn}>
+            <div className={styles.chartToolbar}>
+              <div className={styles.tabStrip}>
+                {HERO_TIMEFRAMES.map((timeframe) => (
+                  <button
+                    key={timeframe}
+                    type="button"
+                    className={cn(styles.tabButton, heroTimeframe === timeframe ? styles.tabButtonActive : undefined)}
+                    onClick={() => setHeroTimeframe(timeframe)}
+                  >
+                    {timeframe}
+                  </button>
+                ))}
+              </div>
+              <button type="button" className={styles.chartExpandButton} onClick={() => setChartModalOpen(true)} aria-label="Expand chart">
+                ⤢
+              </button>
+            </div>
+            <div className={styles.heroChartWrap}>
+              <HeroPriceChart data={filteredChartData} />
             </div>
           </div>
-          <HeroPriceChart data={filteredChartData} />
-        </div>
 
-        <div className={styles.statStrip}>
-          {statStrip.map((stat) => (
-            <div key={stat.label} className={styles.statCell}>
-              <div className={styles.statLabel}>{stat.label}</div>
-              <div className={styles.statValue}>{stat.value}</div>
+          <aside className={styles.heroSidebar}>
+            <button type="button" className={styles.orbitMiniButton} onClick={() => setOrbitModalOpen(true)}>
+              <OrbitMini dimensions={orbitDimensions} size={160} className={styles.heroOrbitMini} />
+            </button>
+            <div className={styles.heroOrbitMetrics}>
+              <span className={styles.heroOrbitMetricChip}>Momentum {orbitTelemetry.momentum}</span>
+              <span className={styles.heroOrbitMetricChip}>Risk {orbitTelemetry.risk}</span>
+              <span className={styles.heroOrbitMetricChip}>Conviction {orbitTelemetry.conviction}</span>
             </div>
-          ))}
+            <div className={styles.keyStatsGrid}>
+              {heroStats.map((stat) => (
+                <div key={stat.label} className={styles.keyStatCell}>
+                  <div className={styles.keyStatLabel}>{stat.label}</div>
+                  <div className={styles.keyStatValue}>{stat.value}</div>
+                </div>
+              ))}
+            </div>
+            <div className={styles.heroBadgeRow}>
+              <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal?.direction ?? null)}</span>
+              {latestSignal?.signalDate ? (
+                <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
+              ) : null}
+            </div>
+          </aside>
+
+          <div className={styles.statStrip}>
+            {statStrip.map((stat) => (
+              <div key={stat.label} className={styles.statCell}>
+                <div className={styles.statLabel}>{stat.label}</div>
+                <div className={styles.statValue}>{stat.value}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -732,7 +791,7 @@ export default function StockOverviewClient({
       </section>
 
       <section className={styles.zone3Grid}>
-        <article className={cn(styles.zone, styles.dashboardCard)}>
+        <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
           <div className={styles.cardHeader}>
             <div>
               <div className={styles.cardTitle}>Peer web</div>
@@ -766,21 +825,6 @@ export default function StockOverviewClient({
               </tbody>
             </table>
           </div>
-        </article>
-
-        <article className={cn(styles.zone, styles.dashboardCard)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Orbital risk sphere</div>
-              <div className={styles.cardHint}>Momentum, risk, conviction, direction, and trend age in one visual</div>
-            </div>
-          </div>
-          <OrbitPanel
-            dimensions={orbitDimensions}
-            telemetry={orbitTelemetry}
-            marketCap={marketCap}
-            marketCapLabel={marketCapLabel}
-          />
         </article>
 
         <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
@@ -874,6 +918,28 @@ export default function StockOverviewClient({
           </article>
         ) : null}
       </section>
+
+      {isOrbitModalOpen ? (
+        <Modal title="Signal Orbit" onClose={() => setOrbitModalOpen(false)}>
+          <div className={styles.modalOrbitBody}>
+            <OrbitPanel
+              dimensions={orbitDimensions}
+              telemetry={orbitTelemetry}
+              marketCap={marketCap}
+              marketCapLabel={marketCapLabel}
+            />
+            <p className={styles.modalOrbitCopy}>
+              The orbit radius represents risk. Glow intensity represents conviction. Rotation speed reflects momentum, and the trail length reflects how long the current trend has held.
+            </p>
+          </div>
+        </Modal>
+      ) : null}
+
+      {isChartModalOpen ? (
+        <Modal title="Expanded Price Chart" onClose={() => setChartModalOpen(false)}>
+          <HeroPriceChart data={filteredChartData} className={styles.expandedChart} />
+        </Modal>
+      ) : null}
     </div>
   )
 }

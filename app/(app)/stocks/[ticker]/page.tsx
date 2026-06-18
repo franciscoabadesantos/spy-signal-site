@@ -299,6 +299,14 @@ export default async function TickerPage({
     findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('yield')) ?? '—'
   const volumeValue =
     findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('volume')) ?? '—'
+  const latestRevenueValue =
+    fundamentalsSummary?.latestRevenue !== null && fundamentalsSummary?.latestRevenue !== undefined
+      ? formatCompactCurrency(fundamentalsSummary.latestRevenue)
+      : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('revenue')) ?? '—')
+  const latestEpsValue =
+    fundamentalsSummary?.latestEps !== null && fundamentalsSummary?.latestEps !== undefined
+      ? fundamentalsSummary.latestEps.toFixed(2)
+      : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('eps')) ?? '—')
 
   const statStrip = [
     { label: 'Open', value: '—' },
@@ -309,6 +317,14 @@ export default async function TickerPage({
     { label: 'Market Cap', value: marketCapValue },
     { label: 'P/E', value: trailingPe },
     { label: 'Dividend Yield', value: dividendYield },
+  ]
+  const heroStats = [
+    { label: 'Market Cap', value: marketCapValue },
+    { label: 'P/E', value: trailingPe },
+    { label: 'Revenue', value: latestRevenueValue },
+    { label: 'EPS', value: latestEpsValue },
+    { label: '52W High', value: formatPrice(marketStats?.week52High ?? null) },
+    { label: 'Div Yield', value: dividendYield },
   ]
 
   const duplicateLabels = new Set(
@@ -377,6 +393,7 @@ export default async function TickerPage({
         latestSignal={latestSignal}
         historicalData={historicalData}
         statStrip={statStrip}
+        heroStats={heroStats}
         peers={correlationNetwork.peers.map((peer) => ({
           ticker: peer.ticker,
           name: peer.name,

@@ -1,5 +1,5 @@
 import TrackedLink from '@/components/analytics/TrackedLink'
-import SystemProfileBlob from '@/components/page/SystemProfileBlob'
+import OrbitMini from '@/components/stocks/OrbitMini'
 import Card from '@/components/ui/Card'
 import SignalBlock from '@/components/ui/SignalBlock'
 import { buildMiniOrbitDimensions } from '@/lib/signalOrbit'
@@ -131,7 +131,7 @@ export default function ScreenerSignalCard({ row }: ScreenerSignalCardProps) {
               <div className="text-caption mt-1 text-content-muted">Mini orbit view</div>
             </div>
             <div className="shrink-0">
-              <SystemProfileBlob dimensions={orbitDimensions} mini />
+              <OrbitMini dimensions={orbitDimensions} size={80} />
             </div>
           </div>
         </div>
