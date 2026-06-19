@@ -18,6 +18,7 @@ import {
   type TickerIndexItem,
   type TickerIndexPayload,
   type TickerSearchResult,
+  type TickerSearchResponse,
 } from '@/lib/ticker-search'
 import { cn } from '@/lib/utils'
 
@@ -217,6 +218,8 @@ export default function TickerSearchCombobox({
   const [hasLoadedIndexOnce, setHasLoadedIndexOnce] = useState(Boolean(memoryTickerIndex?.items.length))
   const [loadAttemptToken, setLoadAttemptToken] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const [remoteSuggestions, setRemoteSuggestions] = useState<DisplayItem[]>([])
+  const [isRemoteSearching, setIsRemoteSearching] = useState(false)
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const normalizedSearch = normalizeTickerSearchQuery(search)
 
@@ -313,6 +316,45 @@ export default function TickerSearchCombobox({
     }))
   }, [normalizedSearch, tickerIndex])
 
+  useEffect(() => {
+    const query = normalizedSearch
+    // Só recorremos à pesquisa remota quando o índice local não tem matches.
+    if (query.length === 0 || resultSuggestions.length > 0) {
+      setRemoteSuggestions([])
+      setIsRemoteSearching(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setIsRemoteSearching(true)
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+            signal: controller.signal,
+            cache: 'no-store',
+          })
+          if (!response.ok) throw new Error(`search failed (${response.status})`)
+          const payload = (await response.json()) as TickerSearchResponse
+          const items: DisplayItem[] = (payload.results ?? []).map((result) => ({
+            ...result,
+            displaySource: 'result' as const,
+          }))
+          setRemoteSuggestions(items)
+        } catch {
+          setRemoteSuggestions([])
+        } finally {
+          setIsRemoteSearching(false)
+        }
+      })()
+    }, 220)
+
+    return () => {
+      controller.abort()
+      clearTimeout(timer)
+    }
+  }, [normalizedSearch, resultSuggestions.length])
+
   const knownSuggestions = useMemo(() => {
     const items = new Map<string, TickerSearchResult>()
 
@@ -394,6 +436,11 @@ export default function TickerSearchCombobox({
           label: '',
           items: resultSuggestions,
         })
+      } else if (remoteSuggestions.length > 0) {
+        nextSections.push({
+          label: '',
+          items: remoteSuggestions,
+        })
       }
 
       return nextSections
@@ -415,12 +462,13 @@ export default function TickerSearchCombobox({
     manualSuggestion,
     normalizedSearch.length,
     recentSuggestions,
+    remoteSuggestions,
     resultSuggestions,
   ])
 
   const selectableItems = useMemo(() => sections.flatMap((section) => section.items), [sections])
   const shouldShowDropdown =
-    isOpen && (sections.length > 0 || isLoading || normalizedSearch.length > 0)
+    isOpen && (sections.length > 0 || isLoading || isRemoteSearching || normalizedSearch.length > 0)
 
   function queueTickerIndexLoad() {
     const cached = memoryTickerIndex ?? tickerIndex ?? readSessionTickerIndex()
@@ -476,12 +524,10 @@ export default function TickerSearchCombobox({
   }
 
   function submitSearch() {
-    if (resultSuggestions.length > 0) {
-      const firstResult = resultSuggestions[0]
-      if (firstResult) {
-        navigateToTicker(firstResult.symbol, firstResult.exchange)
-        return
-      }
+    const firstResult = resultSuggestions[0] ?? remoteSuggestions[0]
+    if (firstResult) {
+      navigateToTicker(firstResult.symbol, firstResult.exchange)
+      return
     }
 
     if (normalizedSearch && canDirectOpen) {
@@ -642,7 +688,7 @@ export default function TickerSearchCombobox({
         </button>
       ) : null}
 
-      {isLoading ? (
+      {isLoading || isRemoteSearching ? (
         <div
           className={cn(
             'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-content-muted',
@@ -686,7 +732,8 @@ export default function TickerSearchCombobox({
               )
             })}
 
-            {!isLoading && normalizedSearch.length > 0 && resultSuggestions.length === 0 ? (
+            {!isLoading && !isRemoteSearching && normalizedSearch.length > 0 &&
+            resultSuggestions.length === 0 && remoteSuggestions.length === 0 ? (
               <div className="border-t border-border/70 px-4 py-4">
                 <div className="text-body-sm text-content-primary">No exact match found.</div>
                 {canDirectOpen ? (
