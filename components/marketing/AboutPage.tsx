@@ -46,7 +46,7 @@ export default function AboutPage() {
           <span className="text-[#0757ff]">weekly read on SPY.</span>
         </>
       }
-      description="The about page now uses the same brand language as the homepage and the other marketing pages instead of the old green Northline styling."
+      description="Longbrunch exists for one kind of person: someone who wants a clear weekly read on SPY and a calm room to think it through — not another feed to keep up with."
       primaryCta={{ label: 'See how it works', href: '/how-it-works' }}
       secondaryCta={{ label: 'Read the method', href: '/method' }}
       heroAside={
@@ -96,9 +96,9 @@ export default function AboutPage() {
         <div className="mx-auto grid max-w-[1280px] gap-8 px-6 py-20 sm:px-10 lg:grid-cols-[0.9fr_1.1fr] lg:px-16">
           <div>
             <SectionHeading
-              eyebrow="Positioning"
-              title="Why the brand now feels more honest."
-              body="The new frontpage promises calm weekly execution. The rest of the site should reinforce that instead of looking like a different company."
+              eyebrow="The lounge"
+              title="A room, not a feed."
+              body="The lounge is a small group reading the same tape every week — structure, cadence, and a second opinion when you want one, without the noise of an endless timeline."
             />
             <HandScript className="mt-5 block text-[2.15rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
               One clean weekly read.

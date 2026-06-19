@@ -89,7 +89,7 @@ function Sections() {
         <CircleHighlight className="mt-4" tone="orange">
           <HandScript className="text-[2.5rem] leading-none text-[#ff8b2b]">Simple pricing. Real edge.</HandScript>
         </CircleHighlight>
-        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-white/62">Pricing now has its own page, and the homepage section acts as the teaser instead of the destination.</p>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-white/62">One room, one weekly signal, one price. Read the tape alongside people who take the same disciplined view of the week.</p>
         <Link href="/sign-up" className="mt-10 inline-flex h-14 items-center justify-center gap-3 rounded-full bg-slate-950 px-8 font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-[#03050b]">
           Join the lounge <ArrowRight className="size-5" />
         </Link>

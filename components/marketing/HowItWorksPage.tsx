@@ -48,7 +48,7 @@ export default function HowItWorksPage() {
           <span className="text-[#0757ff]">Start the week prepared.</span>
         </>
       }
-      description="This is now a real standalone page instead of a homepage anchor. It explains the product flow in the same language and visual system as the new frontpage."
+      description="One read before the open, then a calm week. Here is exactly how the signal comes together and how the lounge uses it."
       primaryCta={{ label: 'View current signal', href: '/screener' }}
       secondaryCta={{ label: 'Read the method', href: '/method' }}
       heroAside={

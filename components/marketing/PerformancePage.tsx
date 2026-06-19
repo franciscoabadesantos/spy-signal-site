@@ -77,7 +77,7 @@ export default function PerformancePage() {
         <SectionHeading
           eyebrow="Performance frame"
           title="A system should outperform by avoiding bad participation, not by forcing activity."
-          body="These numbers come from the older performance page, but the presentation now matches the frontpage identity."
+          body="The edge is not in trading more — it is in sitting out the weeks that punish everyone else. These numbers track that discipline over time."
         />
         <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {metrics.map((item) => (

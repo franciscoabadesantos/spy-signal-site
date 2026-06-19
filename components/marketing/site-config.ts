@@ -3,6 +3,9 @@ export const BRAND_NAME = 'Longbrunch'
 export const BRAND_DESCRIPTION =
   'AI-driven weekly SPY signals built for one clear decision before the open.'
 
+// Where "ask us anything" messages are sent. Change this to your real inbox.
+export const CONTACT_EMAIL = 'hello@longbrunch.com'
+
 export const MARKETING_NAV_ITEMS = [
   { label: 'How it works', href: '/how-it-works' },
   { label: 'Performance', href: '/performance' },
