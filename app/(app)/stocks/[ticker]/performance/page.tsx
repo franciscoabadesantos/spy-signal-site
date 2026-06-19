@@ -1,11 +1,9 @@
-import PerformanceTickerAutocomplete from '@/components/PerformanceTickerAutocomplete'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
 import RetryButton from '@/components/ui/RetryButton'
 import MetricGrid from '@/components/page/MetricGrid'
 import InsightCard from '@/components/page/InsightCard'
-import FilterChip from '@/components/ui/FilterChip'
 import StatRowCard from '@/components/ui/StatRowCard'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Badge from '@/components/ui/Badge'
@@ -19,7 +17,7 @@ import {
   TableShell,
 } from '@/components/ui/DataTable'
 import { getHistoricalData, getStockQuote } from '@/lib/finance'
-import { getSignalHistoryForTicker, getScreenerSignals } from '@/lib/signals'
+import { getSignalHistoryForTicker } from '@/lib/signals'
 import type { Signal } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -121,14 +119,12 @@ export default async function PerformancePage({
 
   let signals: Signal[] = []
   let quote: Awaited<ReturnType<typeof getStockQuote>> = null
-  let screener: Awaited<ReturnType<typeof getScreenerSignals>>
   let historicalData: Awaited<ReturnType<typeof getHistoricalData>> = []
 
   try {
-    ;[signals, quote, screener, historicalData] = await Promise.all([
+    ;[signals, quote, historicalData] = await Promise.all([
       getSignalHistoryForTicker(ticker, 365),
       getStockQuote(ticker),
-      getScreenerSignals({ sortBy: 'conviction', limit: 20 }),
       getHistoricalData(ticker, 365),
     ])
   } catch {
@@ -142,14 +138,22 @@ export default async function PerformancePage({
   }
 
   const metrics = computeSignalMetrics(signals)
-  const quickTickers = [...new Set(screener.rows.map((row) => row.ticker))].slice(0, 10)
+  const tableRows = metrics.ordered
+    .filter(
+      (row) =>
+        row != null &&
+        row.signal_date != null &&
+        typeof row.direction === 'string' &&
+        row.direction.trim().length > 0
+    )
+    .slice(0, 200)
 
   return (
     <div className="section-gap">
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Stocks', href: '/screener' },
+          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
           { label: 'Performance' },
         ]}
@@ -161,23 +165,6 @@ export default async function PerformancePage({
       />
 
       <div>
-        <div className="mb-5">
-          <PerformanceTickerAutocomplete initialTicker={ticker} />
-        </div>
-
-        {quickTickers.length > 0 && (
-          <div className="mb-6 flex flex-wrap gap-2">
-            {quickTickers.map((symbol) => (
-              <FilterChip
-                key={symbol}
-                label={symbol}
-                active={symbol === ticker}
-                href={`/stocks/${symbol}/performance`}
-              />
-            ))}
-          </div>
-        )}
-
         {metrics.totalSignals === 0 ? (
           <div className="text-body-sm py-10 text-content-muted">
             No signal history found for <span className="text-label-md text-content-primary">{ticker}</span>.
@@ -235,8 +222,8 @@ export default async function PerformancePage({
                   </tr>
                 </TableHead>
                 <TableBody>
-                  {metrics.ordered.slice(0, 200).map((row, index) => {
-                    const previous = metrics.ordered[index + 1]
+                  {tableRows.map((row, index) => {
+                    const previous = tableRows[index + 1]
                     const isFlip = Boolean(previous && previous.direction !== row.direction)
                     const previousLabel = previous ? directionTone(previous.direction).label : null
                     const tone = directionTone(row.direction)

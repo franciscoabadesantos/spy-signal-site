@@ -147,13 +147,21 @@ export default async function SignalHistoryPage({
   const canExport = viewer.isPro && signals.length > 0
   const upgradeUrl = getStripeUpgradeUrl(viewer.userId)
   const summary = buildSummary(signals)
+  const tableSignals = signals.filter(
+    (signal) =>
+      signal != null &&
+      signal.id != null &&
+      signal.signal_date != null &&
+      typeof signal.direction === 'string' &&
+      signal.direction.trim().length > 0
+  )
 
   return (
     <>
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Stocks', href: '/screener' },
+          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
           { label: 'Signal History' },
         ]}
@@ -289,10 +297,10 @@ export default async function SignalHistoryPage({
               </tr>
             </TableHead>
             <TableBody>
-              {signals.length === 0 ? (
+              {tableSignals.length === 0 ? (
                 <TableEmptyRow colSpan={6} title="No signal history is available for this ticker yet." />
               ) : (
-                signals.map((signal, index) => {
+                tableSignals.map((signal, index) => {
                   const badge = signalBadge(signal.direction)
                   const episodeReturn =
                     signal.live_episode_return_to_date ?? signal.live_flat_episode_spy_move_to_date

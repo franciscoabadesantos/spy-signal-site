@@ -253,12 +253,12 @@ export default async function ScreenerPage({
     <div className="container-lg">
       <div className="section-gap">
         <PageHeader
-          title="Signal Screener"
-          subtitle="Filter and discover proprietary signals across tracked assets."
+          title="Signals"
+          subtitle="Rank the strongest live signals, filter the tape, and drill into what changed."
           meta={
             <span className="inline-flex items-center gap-2">
               <Filter className="h-4 w-4 text-primary" />
-              Market Scanner
+              Live ranking
             </span>
           }
           action={
@@ -282,7 +282,7 @@ export default async function ScreenerPage({
 
         {rowsError ? (
           <EmptyState
-            title="Screener data is temporarily unavailable"
+            title="Signal data is temporarily unavailable"
             description="The frontend could not load live signal rows from finance-backend. Try again shortly."
             action={<RetryButton>Retry</RetryButton>}
           />
@@ -297,7 +297,7 @@ export default async function ScreenerPage({
             />
             <DismissibleLocalHint
               storageKey="spy_signal_onboarding_loop_hint_dismissed_v1"
-              text="Start here: Explore a model → tweak it → compare results"
+              text="Start here: rank the tape → open a ticker → add it to watchlist"
             />
 
             <div className="emphasis-secondary p-4">
@@ -404,8 +404,8 @@ export default async function ScreenerPage({
 
             {rows.length === 0 ? (
               <EmptyState
-                title="No screener rows found"
-                description="finance-backend returned no live signal rows for the current filters."
+                title="No signals found"
+                description="finance-backend returned no live rows for the current filters."
               />
             ) : (
               <>

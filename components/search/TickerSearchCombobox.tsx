@@ -3,8 +3,10 @@
 import { ArrowUpRight, History, Loader2, Radar, Search, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
+import OrbitMini from '@/components/stocks/OrbitMini'
 import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
+import { buildMiniOrbitDimensions } from '@/lib/signalOrbit'
 import { ensureTickerOnboarding } from '@/lib/ticker-onboarding'
 import {
   filterTickerIndexItems,
@@ -525,15 +527,6 @@ export default function TickerSearchCombobox({
   function renderSuggestion(item: DisplayItem, index: number, withBorder: boolean) {
     const labelText = sourceLabel(item)
     const subLabelText = rightSubLabel(item)
-    const Icon =
-      item.displaySource === 'manual'
-        ? ArrowUpRight
-        : item.displaySource === 'recent'
-          ? History
-          : item.displaySource === 'featured'
-            ? Sparkles
-            : Radar
-
     return (
       <li key={`${item.displaySource}-${item.symbol}-${index}`}>
         <button
@@ -541,15 +534,48 @@ export default function TickerSearchCombobox({
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => navigateToTicker(item.symbol, item.exchange)}
           className={cn(
-            'state-interactive grid w-full cursor-pointer grid-cols-[1.1rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset',
+            'state-interactive grid w-full cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset',
             withBorder ? 'border-b border-border' : '',
             index === highlightedIndex ? 'bg-surface-hover' : 'hover:bg-surface-elevated'
           )}
         >
-          <Icon className="h-4 w-4 text-content-muted" />
+          <div className="flex items-center justify-center">
+            <OrbitMini
+              size={40}
+              dimensions={buildMiniOrbitDimensions({
+                direction: item.tone,
+                conviction: item.convictionPct,
+                changePercent: null,
+                horizon: null,
+              })}
+            />
+          </div>
           <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
             <div className="text-data-sm numeric-tabular text-content-primary">{item.symbol}</div>
-            <div className="truncate text-body-sm text-content-secondary">{item.name}</div>
+            <div className="truncate text-body-sm text-content-secondary">
+              {item.name}
+              {item.displaySource === 'manual' ? (
+                <span className="ml-2 inline-flex items-center gap-1 text-content-muted">
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                  Direct
+                </span>
+              ) : item.displaySource === 'recent' ? (
+                <span className="ml-2 inline-flex items-center gap-1 text-content-muted">
+                  <History className="h-3.5 w-3.5" />
+                  Recent
+                </span>
+              ) : item.displaySource === 'featured' ? (
+                <span className="ml-2 inline-flex items-center gap-1 text-content-muted">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Tracked
+                </span>
+              ) : item.hasSignals ? (
+                <span className="ml-2 inline-flex items-center gap-1 text-content-muted">
+                  <Radar className="h-3.5 w-3.5" />
+                  Signal
+                </span>
+              ) : null}
+            </div>
           </div>
           <div className="shrink-0 text-right">
             {labelText ? (

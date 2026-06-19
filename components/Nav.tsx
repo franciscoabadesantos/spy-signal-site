@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import BrandHomeMenu from '@/components/BrandHomeMenu'
+import type { AppNavSection } from '@/components/app-nav'
 import {
   HandScript,
   sharedHeaderDesktopSearchClass,
@@ -13,7 +14,7 @@ import {
 } from '@/components/marketing/site-chrome'
 import HeaderSearch from '@/components/HeaderSearch'
 
-export type NavSection = 'stocks' | 'dashboard' | 'screener' | 'models' | 'performance' | 'methodology'
+export type NavSection = AppNavSection
 
 interface NavProps {
   active?: NavSection

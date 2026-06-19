@@ -48,7 +48,7 @@ export default function HowItWorksPage() {
           <span className="text-[#0757ff]">Start the week prepared.</span>
         </>
       }
-      description="One read before the open, then a calm week. Here is exactly how the signal comes together and how the lounge uses it."
+      description="Longbrunch turns a broad weekly market read into one SPY signal, supporting context, and a calmer execution workflow before the open."
       primaryCta={{ label: 'View current signal', href: '/screener' }}
       secondaryCta={{ label: 'Read the method', href: '/method' }}
       heroAside={
@@ -62,7 +62,7 @@ export default function HowItWorksPage() {
               Start the week prepared.
             </HandScript>
             <p className="mt-3 text-base leading-7 text-slate-600 dark:text-white/62">
-              The page should feel like the signal product itself: focused, tactile, and immediate.
+              The product is built to keep the weekly decision clear, documented, and easy to review.
             </p>
           </div>
           <ScribbleNote className="mt-6" tone="orange">
@@ -101,7 +101,7 @@ export default function HowItWorksPage() {
             <SectionHeading
               eyebrow="What you see"
               title="The interface is supposed to clarify the call, not compete with it."
-              body="That is why the refreshed pages lean on glass surfaces, stronger typography, and handwritten accents around the message."
+              body="The interface keeps the weekly signal, context, and next step visible without turning the workflow into a constant feed."
             />
             <CircleHighlight className="mt-5" tone="blue">
               <HandScript className="text-[2.1rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">Read. Decide. Move.</HandScript>

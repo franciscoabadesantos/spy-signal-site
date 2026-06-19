@@ -33,8 +33,8 @@ export default function ModelsHubClient() {
   return (
     <div className="container-md section-gap">
         <PageHeader
-          title="Models"
-          subtitle="Build, test, and compare your investing systems."
+          title="Model Lab"
+          subtitle="Build, test, and compare investing systems before they earn a place in your workflow."
           action={
             <Link href="/models/new" className={buttonClass({ variant: 'primary' })}>
               New model

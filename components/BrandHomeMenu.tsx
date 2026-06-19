@@ -6,49 +6,46 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import {
   BarChart3,
-  ChevronRight,
-  CircleHelp,
-  Compass,
+  Bookmark,
+  FlaskConical,
   Gauge,
   House,
   Layers3,
+  MessageSquareShare,
   type LucideIcon,
-  NotebookText,
   PanelsTopLeft,
+  CircleHelp,
+  NotebookText,
   ReceiptText,
+  Waypoints,
 } from 'lucide-react'
+import { appNavSectionFromPath, type AppNavSection } from '@/components/app-nav'
 import { cn } from '@/lib/utils'
 
-const MENU_GROUPS = [
-  {
-    label: 'Product',
-    icon: Layers3,
-    items: [
-      { label: 'Dashboard', href: '/dashboard', icon: PanelsTopLeft },
-      { label: 'Screener', href: '/screener', icon: Gauge },
-      { label: 'Models', href: '/models', icon: NotebookText },
-      { label: 'Stocks & ETFs', href: '/stocks', icon: BarChart3 },
-    ],
-  },
-  {
-    label: 'Explore',
-    icon: Compass,
-    items: [
-      { label: 'Home', href: '/', icon: House },
-      { label: 'How it works', href: '/how-it-works', icon: ChevronRight },
-      { label: 'Performance', href: '/performance', icon: BarChart3 },
-      { label: 'Method', href: '/method', icon: NotebookText },
-      { label: 'Pricing', href: '/pricing', icon: ReceiptText },
-      { label: 'FAQ', href: '/faq', icon: CircleHelp },
-    ],
-  },
-] as const
-
 type MenuItem = {
+  key: AppNavSection
   label: string
   href: string
   icon: LucideIcon
 }
+
+const PRIMARY_APP_ITEMS: readonly MenuItem[] = [
+  { key: 'today', label: 'Today', href: '/dashboard', icon: PanelsTopLeft },
+  { key: 'signals', label: 'Signals', href: '/screener', icon: Gauge },
+  { key: 'markets', label: 'Markets', href: '/markets', icon: BarChart3 },
+  { key: 'watchlist', label: 'Watchlist', href: '/dashboard/watchlist', icon: Bookmark },
+  { key: 'community', label: 'Community', href: '/community', icon: MessageSquareShare },
+  { key: 'model-lab', label: 'Model Lab', href: '/models', icon: FlaskConical },
+] as const
+
+const SECONDARY_LINKS = [
+  { label: 'Home', href: '/', icon: House },
+  { label: 'How it works', href: '/how-it-works', icon: Waypoints },
+  { label: 'Performance', href: '/performance', icon: BarChart3 },
+  { label: 'Method', href: '/method', icon: NotebookText },
+  { label: 'Pricing', href: '/pricing', icon: ReceiptText },
+  { label: 'FAQ', href: '/faq', icon: CircleHelp },
+] as const
 
 function subscribe() {
   return () => {}
@@ -58,8 +55,6 @@ function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/'
   return pathname === href || pathname.startsWith(`${href}/`)
 }
-
-type GroupKey = 'Product' | 'Explore'
 
 export default function BrandHomeMenu({
   className,
@@ -71,9 +66,9 @@ export default function BrandHomeMenu({
   menuShellClassName?: string
 }) {
   const pathname = usePathname()
+  const currentSection = appNavSectionFromPath(pathname)
   const mounted = useSyncExternalStore(subscribe, () => true, () => false)
   const [open, setOpen] = useState(false)
-  const [expandedGroup, setExpandedGroup] = useState<GroupKey | null>('Product')
   const rootRef = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
 
@@ -203,64 +198,73 @@ export default function BrandHomeMenu({
               )}
             >
               <div className="relative z-10 grid gap-1.5 px-2.5 py-2.5">
-                {MENU_GROUPS.map((group) => (
-                  <div
-                    key={group.label}
-                    className="ml-5 w-[calc(100%-1.4rem)] rounded-[18px] border border-slate-950/8 bg-white/88 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_18px_30px_rgba(20,33,51,0.08)] dark:border-white/10 dark:bg-[#04070d]/94 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_30px_rgba(0,0,0,0.2)]"
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExpandedGroup((current) =>
-                          current === group.label ? null : (group.label as GroupKey)
-                        )
-                      }
-                      className="grid w-full grid-cols-[1.25rem_minmax(0,1fr)_1px_0.8rem] items-center gap-3.5 rounded-[14px] px-3 py-2.5 text-left transition-colors hover:bg-slate-950/[0.04] dark:hover:bg-white/[0.05]"
-                    >
-                      <group.icon className="h-5 w-5 text-content-secondary" strokeWidth={2} />
-                      <span className="text-sm font-medium text-content-primary/88">{group.label}</span>
-                      <span aria-hidden="true" className="h-5 w-px bg-border/80" />
-                      <ChevronRight
-                        className={cn(
-                          'h-3.5 w-3.5 text-content-muted transition-transform duration-200',
-                          expandedGroup === group.label ? 'rotate-90' : ''
-                        )}
-                        strokeWidth={2.3}
-                      />
-                    </button>
-
-                    {expandedGroup === group.label ? (
-                      <div className="mt-1 space-y-1 border-t border-slate-950/8 pt-1.5 dark:border-white/10">
-                        {(group.items as readonly MenuItem[]).map((item) => {
-                          const active = isActive(pathname, item.href)
-                          const Icon = item.icon
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              onClick={() => setOpen(false)}
-                              className={cn(
-                                'grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-3.5 rounded-[14px] px-3 py-2.5 transition',
-                                active
-                                  ? 'bg-slate-950/[0.05] text-content-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:bg-white/[0.08] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                                  : 'text-content-secondary hover:bg-slate-950/[0.04] hover:text-content-primary dark:hover:bg-white/[0.05]'
-                              )}
-                            >
-                              <Icon
-                                className={cn(
-                                  'h-5 w-5 stroke-[2]',
-                                  active ? 'text-content-primary' : 'text-content-muted'
-                                )}
-                                strokeWidth={2}
-                              />
-                              <span className="text-sm font-medium">{item.label}</span>
-                            </Link>
-                          )
-                        })}
+                <div className="ml-5 w-[calc(100%-1.4rem)] rounded-[18px] border border-slate-950/8 bg-white/88 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_18px_30px_rgba(20,33,51,0.08)] dark:border-white/10 dark:bg-[#04070d]/94 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_30px_rgba(0,0,0,0.2)]">
+                  <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-3.5 rounded-[14px] px-3 py-2.5">
+                    <Layers3 className="h-5 w-5 text-content-secondary" strokeWidth={2} />
+                    <div>
+                      <div className="text-sm font-medium text-content-primary/88">App</div>
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-content-muted">
+                        Daily signal terminal
                       </div>
-                    ) : null}
+                    </div>
                   </div>
-                ))}
+
+                  <div className="mt-1 space-y-1 border-t border-slate-950/8 pt-1.5 dark:border-white/10">
+                    {PRIMARY_APP_ITEMS.map((item) => {
+                      const active = currentSection === item.key
+                      const Icon = item.icon
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          aria-current={active ? 'page' : undefined}
+                          onClick={() => setOpen(false)}
+                          className={cn(
+                            'grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-3.5 rounded-[14px] px-3 py-2.5 transition',
+                            active
+                              ? 'bg-slate-950/[0.05] text-content-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:bg-white/[0.08] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+                              : 'text-content-secondary hover:bg-slate-950/[0.04] hover:text-content-primary dark:hover:bg-white/[0.05]'
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              'h-5 w-5 stroke-[2]',
+                              active ? 'text-content-primary' : 'text-content-muted'
+                            )}
+                            strokeWidth={2}
+                          />
+                          <span className="text-sm font-medium">{item.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="ml-5 w-[calc(100%-1.4rem)] rounded-[18px] border border-slate-950/8 bg-white/84 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_18px_30px_rgba(20,33,51,0.05)] dark:border-white/10 dark:bg-[#04070d]/88 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_30px_rgba(0,0,0,0.18)]">
+                  <div className="px-1 text-[11px] uppercase tracking-[0.18em] text-content-muted">
+                    Learn
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {SECONDARY_LINKS.map((item) => {
+                      const active = isActive(pathname, item.href)
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setOpen(false)}
+                          className={cn(
+                            'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                            active
+                              ? 'border-slate-950/12 bg-slate-950/[0.05] text-content-primary dark:border-white/10 dark:bg-white/[0.08]'
+                              : 'border-slate-950/8 bg-white/70 text-content-secondary hover:text-content-primary dark:border-white/10 dark:bg-white/[0.04]'
+                          )}
+                        >
+                          {item.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
             </div>,
             document.body

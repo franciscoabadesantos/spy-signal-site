@@ -491,7 +491,7 @@ export default function ModelBuilderClient({
           subtitle="Create a simple system in three guided steps, then run validation."
           action={
             <Link href="/models" className={buttonClass({ variant: 'ghost' })}>
-              Back to models
+              Back to Model Lab
             </Link>
           }
         />

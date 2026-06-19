@@ -1,7 +1,7 @@
 export const BRAND_NAME = 'Longbrunch'
 
 export const BRAND_DESCRIPTION =
-  'AI-driven weekly SPY signals built for one clear decision before the open.'
+  'Market signals, research, watchlists, and alerts in one workspace.'
 
 // Where "ask us anything" messages are sent. Change this to your real inbox.
 export const CONTACT_EMAIL = 'hello@longbrunch.com'
@@ -16,20 +16,20 @@ export const MARKETING_NAV_ITEMS = [
 
 export const FOOTER_SECONDARY_LINKS = [
   { label: 'About', href: '/about' },
-  { label: 'Join the lounge', href: '/sign-up' },
+  { label: 'Start membership', href: '/sign-up' },
 ] as const
 
 export const HOMEPAGE_FAQ_ITEMS = [
   {
-    question: 'When is the signal sent?',
-    answer: 'Every Sunday before the market opens so the decision is made before the week begins.',
+    question: 'What is included in membership?',
+    answer: 'Membership covers the signal workspace, markets and ticker coverage, screener and watchlist access, research context, alerts, and signal history views.',
   },
   {
-    question: 'What does the signal show?',
-    answer: 'Direction, confidence, market bias, and the weekly tape behind the call.',
+    question: 'Do I create an account first?',
+    answer: 'Yes. If you are not signed in, the current access flow starts with account creation before you continue into the product workspace.',
   },
   {
-    question: 'Is this built for intraday trading?',
-    answer: 'No. The product is intentionally tuned for calm weekly execution rather than constant flipping.',
+    question: 'Is this an intraday alert service?',
+    answer: 'No. The product is built around signal monitoring, market context, watchlists, and research workflows rather than a chatty intraday feed.',
   },
 ] as const

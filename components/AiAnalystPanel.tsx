@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, Lock, Sparkles } from 'lucide-react'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
-import Input from '@/components/ui/Input'
 import FilterChip from '@/components/ui/FilterChip'
 import { buttonClass } from '@/components/ui/Button'
+import { cn } from '@/lib/utils'
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
 
@@ -35,6 +35,7 @@ type AiAnalystPanelProps = {
   upgradeHref: string | null
   initialQuestion?: string | null
   initialPromptLabel?: string | null
+  compact?: boolean
 }
 
 const PROMPT_PRESETS: PromptPreset[] = [
@@ -82,12 +83,20 @@ function signalVariant(direction: SignalDirection): 'success' | 'danger' | 'neut
   return 'neutral'
 }
 
-function LockedState({ ticker, upgradeHref }: { ticker: string; upgradeHref: string | null }) {
+function LockedState({
+  ticker,
+  upgradeHref,
+  compact = false,
+}: {
+  ticker: string
+  upgradeHref: string | null
+  compact?: boolean
+}) {
   const href = upgradeHref ?? '/pricing'
   const openUpgradeInNewTab = href.startsWith('http')
 
   return (
-    <Card className="space-y-6">
+    <Card className={compact ? 'space-y-4' : 'space-y-6'}>
       <div className="flex items-center justify-between">
         <div>
           <div className="text-filter-label">AI Analyst</div>
@@ -107,7 +116,7 @@ function LockedState({ ticker, upgradeHref }: { ticker: string; upgradeHref: str
         href={href}
         target={openUpgradeInNewTab ? '_blank' : undefined}
         rel={openUpgradeInNewTab ? 'noopener noreferrer' : undefined}
-        className={buttonClass({ variant: 'secondary' })}
+        className={cn(buttonClass({ variant: 'secondary' }), compact ? 'h-8 px-3 text-[12px]' : undefined)}
       >
         Upgrade to Pro
       </a>
@@ -115,9 +124,9 @@ function LockedState({ ticker, upgradeHref }: { ticker: string; upgradeHref: str
   )
 }
 
-function UnavailableState() {
+function UnavailableState({ compact = false }: { compact?: boolean }) {
   return (
-    <Card className="space-y-6">
+    <Card className={compact ? 'space-y-4' : 'space-y-6'}>
       <div className="text-filter-label">AI Analyst</div>
       <h3 className="text-heading-sm text-content-primary">Provider not enabled</h3>
       <p className="text-body-md text-content-secondary">
@@ -136,6 +145,7 @@ export default function AiAnalystPanel({
   upgradeHref,
   initialQuestion = null,
   initialPromptLabel = null,
+  compact = false,
 }: AiAnalystPanelProps) {
   const [analysis, setAnalysis] = useState('')
   const [citations, setCitations] = useState<string[]>([])
@@ -143,6 +153,7 @@ export default function AiAnalystPanel({
   const [error, setError] = useState<string | null>(null)
   const [selectedPromptId, setSelectedPromptId] = useState<string>(PROMPT_PRESETS[0].id)
   const [customQuestion, setCustomQuestion] = useState('')
+  const questionRef = useRef<HTMLTextAreaElement | null>(null)
 
   const signalSummary = useMemo(() => summarizeSignal(signal), [signal])
   const selectedPrompt = PROMPT_PRESETS.find((preset) => preset.id === selectedPromptId) ?? PROMPT_PRESETS[0]
@@ -158,6 +169,13 @@ export default function AiAnalystPanel({
     )
     if (matched) setSelectedPromptId(matched.id)
   }, [initialPromptLabel])
+
+  useEffect(() => {
+    const textarea = questionRef.current
+    if (!textarea) return
+    textarea.style.height = compact ? '80px' : '88px'
+    textarea.style.height = `${Math.max(textarea.scrollHeight, compact ? 80 : 88)}px`
+  }, [compact, customQuestion])
 
   const runAnalysis = async (question: string) => {
     setPending(true)
@@ -250,11 +268,11 @@ export default function AiAnalystPanel({
     }
   }
 
-  if (!isPro) return <LockedState ticker={ticker} upgradeHref={upgradeHref} />
-  if (!providerEnabled) return <UnavailableState />
+  if (!isPro) return <LockedState ticker={ticker} upgradeHref={upgradeHref} compact={compact} />
+  if (!providerEnabled) return <UnavailableState compact={compact} />
 
   return (
-    <Card className="space-y-6">
+    <Card className={compact ? 'space-y-4' : 'space-y-6'}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-filter-label">AI Analyst</div>
@@ -271,43 +289,51 @@ export default function AiAnalystPanel({
             label={preset.label}
             active={preset.id === selectedPromptId}
             onClick={() => setSelectedPromptId(preset.id)}
+            className={compact ? 'h-7 rounded-[6px] px-2.5 text-[12px]' : undefined}
           />
         ))}
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Input
+      <div className="flex flex-col gap-2">
+        <textarea
+          ref={questionRef}
           value={customQuestion}
           onChange={(event) => setCustomQuestion(event.target.value)}
           placeholder="Ask a follow-up question..."
+          rows={compact ? 3 : 4}
+          className={cn(
+            'w-full resize-none overflow-hidden rounded-[var(--radius-md)] border border-input bg-surface-card px-3 py-2.5 text-[13px] text-content-primary outline-none placeholder:text-content-muted focus-visible:border-primary/55 focus-visible:ring-2 focus-visible:ring-primary/30',
+            compact ? 'min-h-[80px]' : 'min-h-[88px]'
+          )}
         />
-        <button
-          type="button"
-          disabled={pending || customQuestion.trim().length === 0}
-          onClick={() => runAnalysis(customQuestion.trim())}
-          className={buttonClass({ variant: 'primary' })}
-        >
-          {pending ? 'Running...' : 'Run'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={pending || customQuestion.trim().length === 0}
+            onClick={() => runAnalysis(customQuestion.trim())}
+            className={cn(buttonClass({ variant: 'primary' }), compact ? 'h-8 px-3 text-[12px]' : undefined)}
+          >
+            {pending ? 'Running...' : 'Run'}
+          </button>
+          <button
+            type="button"
+            onClick={() => runAnalysis(selectedPrompt.prompt)}
+            disabled={pending}
+            className={cn(buttonClass({ variant: 'secondary' }), compact ? 'h-8 px-3 text-[12px]' : undefined)}
+          >
+            <span className="inline-flex items-center gap-2">
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Run selected prompt
+            </span>
+          </button>
+        </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => runAnalysis(selectedPrompt.prompt)}
-        disabled={pending}
-        className={buttonClass({ variant: 'secondary' })}
-      >
-        <span className="inline-flex items-center gap-2">
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          Run selected prompt
-        </span>
-      </button>
-
-      <div className="surface-tertiary rounded-[var(--radius-lg)] p-4 md:p-5">
+      <div className={cn('surface-tertiary rounded-[var(--radius-lg)] p-4 md:p-5', compact ? 'md:p-4' : undefined)}>
         {error ? (
           <p className="text-body-sm signal-bearish">{error}</p>
         ) : (
-          <pre className="min-h-[140px] whitespace-pre-wrap text-body-sm leading-6 text-content-secondary">
+          <pre className={cn('whitespace-pre-wrap text-body-sm leading-6 text-content-secondary', compact ? 'min-h-[120px]' : 'min-h-[140px]')}>
             {analysis || (pending ? 'Running live synthesis...' : 'Run a prompt to generate AI analysis.')}
           </pre>
         )}

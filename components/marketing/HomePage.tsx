@@ -58,7 +58,8 @@ function Hero() {
             <span className="block">the open<span className="text-[#0757ff]">.</span></span>
           </h1>
           <p className="mt-6 max-w-lg text-base leading-7 text-slate-700 dark:text-white md:text-lg">
-            AI-driven signals. One trade.<br />
+            AI-driven signals. One trade.
+            <br />
             Every Sunday before the market opens.
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -85,13 +86,16 @@ function Sections() {
 
       <section id="pricing" className="border-t border-slate-950/10 bg-[radial-gradient(circle_at_50%_0%,rgba(7,87,255,0.16),transparent_38%)] px-6 py-24 text-center dark:border-white/10 dark:bg-[radial-gradient(circle_at_50%_0%,rgba(7,87,255,0.22),transparent_38%)] sm:px-10">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">Pricing</p>
-        <h2 className="mx-auto mt-4 max-w-3xl text-4xl font-black tracking-tight md:text-6xl">Join the lounge before next Sunday.</h2>
+        <h2 className="mx-auto mt-4 max-w-3xl text-4xl font-black tracking-tight md:text-6xl">Signals, research, and alerts in one workspace.</h2>
         <CircleHighlight className="mt-4" tone="orange">
-          <HandScript className="text-[2.5rem] leading-none text-[#ff8b2b]">Simple pricing. Real edge.</HandScript>
+          <HandScript className="text-[2.5rem] leading-none text-[#ff8b2b]">Open the product workspace.</HandScript>
         </CircleHighlight>
-        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-white/62">One room, one weekly signal, one price. Read the tape alongside people who take the same disciplined view of the week.</p>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-white/62">
+          Access the signal workspace, markets and ticker pages, watchlists, research context, alerts, and the weekly
+          signal that sets the tone before Monday starts.
+        </p>
         <Link href="/sign-up" className="mt-10 inline-flex h-14 items-center justify-center gap-3 rounded-full bg-slate-950 px-8 font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-[#03050b]">
-          Join the lounge <ArrowRight className="size-5" />
+          Create account <ArrowRight className="size-5" />
         </Link>
         <div>
           <Link href="/pricing" className="mt-5 inline-flex items-center gap-3 text-sm font-semibold text-[#0757ff] dark:text-[#f8f200]">

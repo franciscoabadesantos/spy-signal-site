@@ -22,7 +22,7 @@ export default function ResearchShell({
 }: ResearchShellProps) {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Nav active="stocks" />
+      <Nav active="markets" />
       <main className={`container-lg ${sharedHeaderOffsetClass} pb-20 section-gap`}>
         {breadcrumbs}
         <StockHeader {...header} />

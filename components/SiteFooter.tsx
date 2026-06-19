@@ -49,10 +49,10 @@ export default function SiteFooter() {
               <span>longbrunch</span>
             </Link>
             <p className="mt-3 max-w-sm text-sm leading-6 text-slate-600 dark:text-white/58">
-              AI-driven weekly SPY signals built for one clear decision before the open.
+              Market signals, research, watchlists, and alerts in one workspace.
             </p>
             <p className={`${caveat.className} mt-4 text-3xl leading-none text-[#7d8cff]`}>
-              Signal before the open.
+              Open the workspace.
             </p>
           </div>
           <nav className="flex max-w-[34rem] flex-wrap gap-x-6 gap-y-3 text-sm text-slate-600 dark:text-white/72">

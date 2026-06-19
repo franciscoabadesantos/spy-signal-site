@@ -173,7 +173,7 @@ export default function StockChartPanel({
   signalMarkers?: StockChartSignalMarker[]
 }) {
   const palette = useChartPalette()
-  const [timeframe, setTimeframe] = useState<Timeframe>('6M')
+  const [timeframe, setTimeframe] = useState<Timeframe>('1Y')
   const [showRegimes, setShowRegimes] = useState(true)
   const [showSignalMarkers, setShowSignalMarkers] = useState(true)
 
@@ -202,19 +202,17 @@ export default function StockChartPanel({
   )
 
   return (
-    <div className="h-full space-y-5">
+    <div className="h-full space-y-3">
       <div className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="mb-1 inline-flex items-center gap-2">
               <span className="text-[11px] font-medium uppercase tracking-wide text-content-muted">
-                Chart Interpretation
+                Regime Chart
               </span>
               <Badge variant={interpretation.stateVariant}>{interpretation.stateLabel}</Badge>
             </div>
-            <p className="text-sm font-medium leading-snug text-content-primary">
-              {interpretation.sentence}
-            </p>
+            <p className="text-body-sm font-medium leading-snug text-content-primary">{interpretation.sentence}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -231,7 +229,7 @@ export default function StockChartPanel({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3">
           <div className="flex flex-wrap items-center gap-4 text-xs text-content-secondary">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: palette.primary }} />
@@ -251,19 +249,19 @@ export default function StockChartPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-          {TIMEFRAME_OPTIONS.map((option) => (
-            <FilterChip
-              key={option}
-              label={option}
-              active={option === timeframe}
-              onClick={() => setTimeframe(option)}
-            />
-          ))}
-        </div>
+            {TIMEFRAME_OPTIONS.map((option) => (
+              <FilterChip
+                key={option}
+                label={option}
+                active={option === timeframe}
+                onClick={() => setTimeframe(option)}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="h-[320px]">
+      <div className="h-[360px] md:h-[400px]">
         <StockChart
           data={filteredData}
           signalMarkers={filteredMarkers}

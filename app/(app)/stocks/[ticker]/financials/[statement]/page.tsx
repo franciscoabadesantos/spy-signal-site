@@ -4,7 +4,6 @@ import Breadcrumbs from '@/components/Breadcrumbs'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
-import FilterChip from '@/components/ui/FilterChip'
 import MetricGrid from '@/components/page/MetricGrid'
 import {
   TableBase,
@@ -64,6 +63,68 @@ function formatSignedPercent(value: number | null): string {
   return `${sign}${scaled.toFixed(2)}%`
 }
 
+function formatFinancialValue(raw: number | string): string {
+  const value = typeof raw === 'string' ? Number.parseFloat(raw.replace(/,/g, '')) : raw
+  if (!Number.isFinite(value)) return String(raw)
+  const abs = Math.abs(value)
+  if (abs >= 1e12) return `$${(value / 1e12).toFixed(2)}T`
+  if (abs >= 1e9) return `$${(value / 1e9).toFixed(2)}B`
+  if (abs >= 1e6) return `$${(value / 1e6).toFixed(2)}M`
+  if (abs >= 1e3) return `$${(value / 1e3).toFixed(2)}K`
+  return value.toFixed(2)
+}
+
+function normalizeMetricLabel(value: string): string {
+  const words = value
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+  return words.join(' ')
+}
+
+function displayMetricLabel(label: string): string {
+  const normalized = normalizeMetricLabel(label)
+  if (/^Trailing Pe$/i.test(normalized)) return 'Trailing P/E'
+  if (/^Ebitda$/i.test(normalized)) return 'EBITDA'
+  if (/^Eps$/i.test(normalized)) return 'EPS'
+  return normalized
+}
+
+function formatFinancialMetricValue(label: string, valueDisplay: string | null, valueNumber: number | null): string {
+  const parsedDisplay =
+    valueDisplay && /^-?\d[\d,]*(\.\d+)?$/.test(valueDisplay.trim())
+      ? Number.parseFloat(valueDisplay.replace(/,/g, ''))
+      : null
+  const numericValue =
+    valueNumber !== null && Number.isFinite(valueNumber)
+      ? valueNumber
+      : parsedDisplay !== null && Number.isFinite(parsedDisplay)
+        ? parsedDisplay
+        : null
+
+  if (numericValue === null) return valueDisplay ?? '—'
+
+  const normalized = label.toLowerCase()
+  const isPercentMetric =
+    /(yield|margin|growth|return|roe|roa|ratio|rate|percent|pct)/.test(normalized)
+  const isCurrencyMetric =
+    /(market cap|revenue|sales|ebitda|cash|debt|assets|equity|income|flow|fcf|book value|enterprise value|liabilit|profit)/.test(
+      normalized
+    )
+
+  if (isPercentMetric) {
+    const scaled = Math.abs(numericValue) <= 1.5 ? numericValue * 100 : numericValue
+    return `${scaled.toFixed(2)}%`
+  }
+
+  if (isCurrencyMetric) {
+    return Math.abs(numericValue) < 1000 ? `$${numericValue.toFixed(2)}` : formatFinancialValue(numericValue)
+  }
+
+  return numericValue.toFixed(2)
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -71,14 +132,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
-  const statementSlug = (LEGACY_SLUG_MAP[resolvedParams.statement] ?? resolvedParams.statement) as StatementSlug
-  const sectionName = STATEMENT_META[statementSlug]?.title ?? 'Financial Data'
   const quote = await getStockQuote(ticker).catch(() => null)
   const name = quote?.name || ticker
 
   return {
-    title: `${ticker} ${sectionName} - Longbrunch`,
-    description: `${sectionName} for ${name} (${ticker}), using only summary-level canonical data currently available from finance-backend.`,
+    title: `${ticker} Financial Data - Longbrunch`,
+    description: `Financial data for ${name} (${ticker}), using the summary-level canonical fundamentals currently available from finance-backend.`,
   }
 }
 
@@ -106,39 +165,35 @@ export default async function FinancialStatementPage({
     )
   }
 
-  const rows = summary.latestFundamentals.filter((row) => row.valueDisplay !== null || row.valueNumber !== null)
+  const rows = summary.latestFundamentals.filter(
+    (row) =>
+      row !== null &&
+      typeof row.metric === 'string' &&
+      row.metric.trim().length > 0 &&
+      typeof row.metricLabel === 'string' &&
+      row.metricLabel.trim().length > 0 &&
+      (row.valueDisplay !== null || row.valueNumber !== null)
+  )
 
   return (
     <>
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Stocks', href: '/screener' },
+          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
           { label: 'Financial Summary', href: `/stocks/${ticker}/financials/fund-profile` },
-          { label: statementMeta.title },
+          { label: 'Financial Data' },
         ]}
       />
       <div className="section-gap">
-        <Card>
-          <div className="text-filter-label mb-2">Summary View</div>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(STATEMENT_META).map(([slug, meta]) => (
-              <FilterChip
-                key={slug}
-                label={meta.title}
-                active={slug === statementSlug}
-                href={`/stocks/${ticker}/financials/${slug}`}
-              />
-            ))}
-          </div>
-        </Card>
-
         <MetricGrid
           columns={4}
           items={[
-            { label: 'Section', value: statementMeta.title },
-            { label: 'Latest Metrics', value: rows.length.toString() },
+            {
+              label: 'Market Cap',
+              value: formatCompactNumber(summary.fundamentalsSummary?.marketCap ?? null, { currency: true }),
+            },
             {
               label: 'Latest Revenue',
               value: formatCompactNumber(summary.fundamentalsSummary?.latestRevenue ?? null, { currency: true }),
@@ -151,21 +206,16 @@ export default async function FinancialStatementPage({
                   ? summary.fundamentalsSummary.latestEps.toFixed(2)
                   : '—',
             },
+            { label: 'Latest Period End', value: formatCalendarDate(summary.fundamentalsSummary?.periodEnd ?? null) },
           ]}
         />
 
         <Card className="section-gap" padding="lg">
-          <h2 className="text-section-title text-content-primary">Canonical Summary Coverage</h2>
-          <p className="mt-2 text-body text-content-secondary">
-            These cards reflect summary-level fundamentals only. Full statements or section-specific ledgers are not currently exposed on the canonical backend route.
+          <div className="text-filter-label">Financial Data</div>
+          <p className="mt-2 text-caption text-content-muted">
+            Full financial statements will be available as more data sources are connected.
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <div className="surface-tertiary p-3">
-              <div className="text-filter-label">Market Cap</div>
-              <div className="mt-1 text-data-sm text-content-primary">
-                {formatCompactNumber(summary.fundamentalsSummary?.marketCap ?? null, { currency: true })}
-              </div>
-            </div>
             <div className="surface-tertiary p-3">
               <div className="text-filter-label">Trailing P/E</div>
               <div className="mt-1 text-data-sm text-content-primary">
@@ -179,18 +229,15 @@ export default async function FinancialStatementPage({
               </div>
             </div>
             <div className="surface-tertiary p-3">
-              <div className="text-filter-label">Latest Period End</div>
-              <div className="mt-1 text-data-sm text-content-primary">
-                {formatCalendarDate(summary.fundamentalsSummary?.periodEnd ?? null)}
-              </div>
+              <div className="text-filter-label">Latest Metrics</div>
+              <div className="mt-1 text-data-sm text-content-primary">{rows.length}</div>
+            </div>
+            <div className="surface-tertiary p-3">
+              <div className="text-filter-label">Coverage View</div>
+              <div className="mt-1 text-data-sm text-content-primary">{statementMeta.title}</div>
             </div>
           </div>
         </Card>
-
-        <EmptyState
-          title={`${statementMeta.title} is not available from canonical backend data yet`}
-          description="This surface no longer shows pseudo-statements or synthetic section data. It will remain summary-only until finance-backend exposes a proven canonical dataset for this section."
-        />
 
         <TableShell contentClassName="max-h-[640px]">
           <TableBase className="whitespace-nowrap text-body-sm">
@@ -211,9 +258,9 @@ export default async function FinancialStatementPage({
               ) : (
                 rows.slice(0, 12).map((row, index) => (
                   <TableRow key={`${row.metric}-${index}`} index={index}>
-                    <TableCell>{row.metricLabel}</TableCell>
+                    <TableCell>{displayMetricLabel(row.metricLabel)}</TableCell>
                     <TableCell className="text-data-sm numeric-tabular text-content-primary">
-                      {row.valueDisplay ?? (row.valueNumber !== null ? row.valueNumber.toLocaleString() : '—')}
+                      {formatFinancialMetricValue(row.metricLabel, row.valueDisplay, row.valueNumber)}
                     </TableCell>
                     <TableCell muted className="numeric-tabular">
                       {formatCalendarDate(row.periodEnd)}

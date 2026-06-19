@@ -354,7 +354,7 @@ export default function ModelDetailClient({
           <p className="text-body">This model may be missing from local storage or was never created.</p>
           <div>
             <Link href="/models" className={buttonClass({ variant: 'primary' })}>
-              Back to models
+              Back to Model Lab
             </Link>
           </div>
         </Card>
@@ -904,7 +904,7 @@ export default function ModelDetailClient({
                   })
                 }
               >
-                Compare models
+                Compare in Model Lab
               </Link>
               {parentModel ? (
                 <Link

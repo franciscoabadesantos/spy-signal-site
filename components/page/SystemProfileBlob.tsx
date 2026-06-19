@@ -13,6 +13,8 @@ type SystemProfileBlobProps = {
   dimensions: SystemProfileBlobDimension[]
   className?: string
   compact?: boolean
+  mini?: boolean
+  size?: number
   marketCap?: number | null
   marketCapLabel?: string | null
 }
@@ -218,6 +220,8 @@ export default function SystemProfileBlob({
   dimensions,
   className,
   compact = false,
+  mini = false,
+  size,
   marketCap = null,
   marketCapLabel = null,
 }: SystemProfileBlobProps) {
@@ -272,15 +276,21 @@ export default function SystemProfileBlob({
   const microBurst = clamp01(instability * (1 - mass * 0.72))
   const cleanEnergy = clamp01(momentum * 0.44 + trend * 0.24 + stability * 0.32)
 
-  const size = compact ? 264 : 420
-  const center = size / 2
-  const maxRadius = compact ? 92 : 154
+  const resolvedSize = size ?? (mini ? 80 : compact ? 264 : 420)
+  const miniScale = mini ? resolvedSize / 80 : 1
+  const center = resolvedSize / 2
+  const maxRadius = mini ? 28 * miniScale : compact ? 92 : 154
   const orbitRadiusX = lerp(maxRadius * 0.34, maxRadius * 0.9, trend) * clock.intro
   const orbitRadiusY = orbitRadiusX * lerp(0.76, 0.96, 1 - yieldValue * 0.18) * lerp(1.04, 0.82, yieldValue)
-  const coreRadius = lerp(compact ? 16 : 20, compact ? 32 : 45, mass)
+  const coreRadius = lerp(
+    mini ? 6.5 * miniScale : compact ? 16 : 20,
+    mini ? 11.5 * miniScale : compact ? 32 : 45,
+    mass
+  )
   const pull = lerp(0.06, 0.34, clamp01(yieldValue * 0.78 + mass * 0.22))
   const irregularity = lerp(0.03, 0.56, clamp01(microBurst * 0.82 + instability * 0.18))
-  const angularSpeed = lerp(0.54, 2.45, momentum) * lerp(1.08, 0.58, mass)
+  const angularSpeed =
+    lerp(0.54, 2.45, momentum) * lerp(1.08, 0.58, mass) * (mini ? 0.5 : 1)
   const orbitBrokenness = clamp01(instability * 0.82 - heavyContainment * 0.18 + riskHeat * 0.14)
   const trailStrength = clamp01(momentum * 0.44 + riskHeat * 0.28 + microBurst * 0.48)
 
@@ -324,8 +334,9 @@ export default function SystemProfileBlob({
     })
   )
 
-  const trailPoints = Array.from({ length: compact ? 16 : 24 }, (_, index) => {
-    const progress = index / (compact ? 16 : 24)
+  const trailPointCount = mini ? 0 : compact ? 16 : 24
+  const trailPoints = Array.from({ length: trailPointCount }, (_, index) => {
+    const progress = index / trailPointCount
     const angle = baseAngle - progress * lerp(1.1, 2.9, trailStrength)
     const point = orbitPoint({
       angle,
@@ -348,7 +359,7 @@ export default function SystemProfileBlob({
   })
   const trailPath = smoothOpenPath(trailPoints.slice(0, compact ? 10 : 14))
 
-  const sparkCount = compact
+  const sparkCount = compact || mini
     ? 0
     : Math.round(
         lerp(0, 12, clamp01(microBurst * 0.9 + riskHeat * 0.22 + orbitBrokenness * 0.28 - 0.26))
@@ -369,7 +380,10 @@ export default function SystemProfileBlob({
   })
 
   const particlePulse = 1 + Math.sin(clock.time * (6.8 + momentum * 5.2)) * (0.05 + trailStrength * 0.08)
-  const particleCoreRadius = lerp(compact ? 5.2 : 7, compact ? 7.6 : 11.4, momentum) * lerp(0.88, 1.14, mass) * particlePulse
+  const particleCoreRadius =
+    lerp(mini ? 5.2 * miniScale : compact ? 5.2 : 7, mini ? 7.6 * miniScale : compact ? 7.6 : 11.4, momentum) *
+    lerp(0.88, 1.14, mass) *
+    particlePulse
   const particleHaloRadius = particleCoreRadius * lerp(2.4, 4.8, clamp01(trailStrength * 0.72 + microBurst * 0.28))
   const particleShockRadius = particleCoreRadius * lerp(1.45, 2.3, clamp01(momentum * 0.5 + riskHeat * 0.24 + microBurst * 0.26))
 
@@ -385,13 +399,17 @@ export default function SystemProfileBlob({
     <div
       className={cn(
         'relative mx-auto aspect-square w-full overflow-hidden rounded-[28px] border border-white/10',
-        compact ? 'max-w-[240px]' : 'max-w-[420px]',
+        mini ? 'rounded-[12px]' : compact ? 'max-w-[240px]' : undefined,
         className
       )}
       style={{
+        width: `${resolvedSize}px`,
+        maxWidth: '100%',
         background:
           'radial-gradient(circle at 50% 44%, rgba(183,255,81,0.05), transparent 14%), radial-gradient(circle at 56% 52%, rgba(55,130,255,0.14), transparent 36%), linear-gradient(180deg, rgba(5,8,14,0.98), rgba(2,4,11,0.98) 58%, rgba(0,0,0,0.98))',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 80px rgba(0,0,0,0.28)',
+        boxShadow: mini
+          ? 'inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 20px rgba(0,0,0,0.22)'
+          : 'inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 80px rgba(0,0,0,0.28)',
       }}
     >
       <div
@@ -404,14 +422,14 @@ export default function SystemProfileBlob({
           maskImage: 'radial-gradient(circle at 50% 50%, black, transparent 82%)',
         }}
       />
-      {!compact ? (
+      {!compact && !mini ? (
         <div className="pointer-events-none absolute left-4 top-3 z-10 text-[12px] uppercase tracking-[0.32em] text-white/55">
           <span className="font-semibold text-[rgba(183,255,81,0.92)]">lb/</span> signal orbit
         </div>
       ) : null}
 
       <svg
-        viewBox={`0 0 ${size} ${size}`}
+        viewBox={`0 0 ${resolvedSize} ${resolvedSize}`}
         className="relative z-[1] h-full w-full"
         role="img"
         aria-label="Animated signal orbit showing trend, momentum, risk control, yield, stability, and mass."
@@ -441,14 +459,14 @@ export default function SystemProfileBlob({
         </defs>
 
         <path
-          d={`M ${size * 0.1} ${size * 0.2} Q ${size * 0.18} ${size * 0.15} ${size * 0.26} ${size * 0.22}`}
+          d={`M ${resolvedSize * 0.1} ${resolvedSize * 0.2} Q ${resolvedSize * 0.18} ${resolvedSize * 0.15} ${resolvedSize * 0.26} ${resolvedSize * 0.22}`}
           fill="none"
           stroke={rgba(COOL_BLUE, 0.18)}
           strokeWidth={compact ? 1.1 : 1.6}
           strokeLinecap="round"
         />
         <path
-          d={`M ${size * 0.78} ${size * 0.82} Q ${size * 0.88} ${size * 0.76} ${size * 0.92} ${size * 0.86}`}
+          d={`M ${resolvedSize * 0.78} ${resolvedSize * 0.82} Q ${resolvedSize * 0.88} ${resolvedSize * 0.76} ${resolvedSize * 0.92} ${resolvedSize * 0.86}`}
           fill="none"
           stroke={rgba(HOT_AMBER, 0.16)}
           strokeWidth={compact ? 1.1 : 1.6}
@@ -572,7 +590,7 @@ export default function SystemProfileBlob({
         <circle cx={particle.x} cy={particle.y} r={particleCoreRadius} fill={`url(#${gradientSeed}-particleFill)`} />
         <circle cx={particle.x} cy={particle.y} r={particleCoreRadius * 0.34} fill={rgba(CHALK, 0.98)} />
 
-        {!compact ? (
+        {!compact && !mini ? (
           <g
             fontFamily='"Bradley Hand", "Comic Sans MS", cursive'
             fill="rgba(245,247,255,0.88)"
@@ -589,27 +607,27 @@ export default function SystemProfileBlob({
               strokeLinecap="round"
             />
 
-            <text x={size - 132} y={82} fontSize="16" fill={rgba(particleGlow, 0.96)}>
+            <text x={resolvedSize - 132} y={82} fontSize="16" fill={rgba(particleGlow, 0.96)}>
               {actionText}
             </text>
             <path
-              d={`M ${size - 140} 90 Q ${size - 108} 102 ${particle.x.toFixed(1)} ${(particle.y - 8).toFixed(1)}`}
+              d={`M ${resolvedSize - 140} 90 Q ${resolvedSize - 108} 102 ${particle.x.toFixed(1)} ${(particle.y - 8).toFixed(1)}`}
               fill="none"
               stroke={rgba(particleGlow, 0.54)}
               strokeWidth={1.6}
               strokeLinecap="round"
             />
 
-            <text x={size - 148} y={size - 56} fontSize="16" fill={rgba(coreGlow, 0.92)}>
+            <text x={resolvedSize - 148} y={resolvedSize - 56} fontSize="16" fill={rgba(coreGlow, 0.92)}>
               {massText}
             </text>
             {marketCapLabel ? (
-              <text x={size - 146} y={size - 36} fontSize="12" fill="rgba(245,247,255,0.62)">
+              <text x={resolvedSize - 146} y={resolvedSize - 36} fontSize="12" fill="rgba(245,247,255,0.62)">
                 {marketCapLabel}
               </text>
             ) : null}
             <path
-              d={`M ${size - 138} ${size - 62} Q ${size - 104} ${size - 90} ${center + 8} ${center + 18}`}
+              d={`M ${resolvedSize - 138} ${resolvedSize - 62} Q ${resolvedSize - 104} ${resolvedSize - 90} ${center + 8} ${center + 18}`}
               fill="none"
               stroke={rgba(coreGlow, 0.48)}
               strokeWidth={1.6}

@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
 import MetricGrid from '@/components/page/MetricGrid'
-import StatRowCard from '@/components/ui/StatRowCard'
-import { getStockQuote } from '@/lib/finance'
+import { getRelatedTickers, getStockQuote } from '@/lib/finance'
 import { getTickerPageSummary } from '@/lib/ticker-data'
 
 export const dynamic = 'force-dynamic'
@@ -29,6 +29,17 @@ function formatCompactNumber(value: number | null, options?: { currency?: boolea
   })
   const formatted = formatter.format(value)
   return options?.currency ? `$${formatted}` : formatted
+}
+
+function formatPrice(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return `$${value.toFixed(2)}`
+}
+
+function formatPct(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  const sign = value >= 0 ? '+' : ''
+  return `${sign}${value.toFixed(2)}%`
 }
 
 export async function generateMetadata({
@@ -68,12 +79,26 @@ export default async function HoldingsAndDividendsPage({
     )
   }
 
+  const relatedTickerSymbols = getRelatedTickers(ticker)
+  const relatedQuotes = await Promise.allSettled(relatedTickerSymbols.map((symbol) => getStockQuote(symbol)))
+  const relatedAssets = relatedTickerSymbols
+    .map((symbol, index) => {
+      const result = relatedQuotes[index]
+      if (!result || result.status !== 'fulfilled' || !result.value) return null
+      return {
+        ticker: symbol,
+        price: result.value.price ?? null,
+        changePercent: result.value.changePercent ?? null,
+      }
+    })
+    .filter((asset) => asset !== null)
+
   return (
     <>
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Stocks', href: '/screener' },
+          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
           { label: 'Holdings / Dividend Status' },
         ]}
@@ -105,48 +130,44 @@ export default async function HoldingsAndDividendsPage({
           ]}
         />
 
-        <EmptyState
-          title="Canonical holdings and dividend data are not available yet"
-          description="This page does not show synthetic holdings, sector weights, dividends, or distributions. It remains a status surface until finance-backend exposes a proven canonical dataset."
-        />
+        <Card className="section-gap" padding="lg">
+          <div className="text-filter-label">Coverage Status</div>
+          <p className="mt-2 text-caption text-content-muted">Holdings and dividend data is being added.</p>
+        </Card>
 
         <Card className="section-gap" padding="lg">
-          <h3 className="text-card-title text-content-primary">Summary metrics currently available</h3>
-          <p className="mt-2 text-body text-content-secondary">
-            These cards come from the ticker summary endpoint and do not imply live holdings, sector, or dividend datasets.
-          </p>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatRowCard
-              label="Trailing P/E"
-              value={
-                summary.fundamentalsSummary?.trailingPe !== null &&
-                summary.fundamentalsSummary?.trailingPe !== undefined
-                  ? summary.fundamentalsSummary.trailingPe.toFixed(2)
-                  : '—'
-              }
-            />
-            <StatRowCard
-              label="Revenue Growth YoY"
-              value={
-                summary.fundamentalsSummary?.revenueGrowthYoy !== null &&
-                summary.fundamentalsSummary?.revenueGrowthYoy !== undefined
-                  ? `${(summary.fundamentalsSummary.revenueGrowthYoy * 100).toFixed(2)}%`
-                  : '—'
-              }
-            />
-            <StatRowCard
-              label="Earnings Growth YoY"
-              value={
-                summary.fundamentalsSummary?.earningsGrowthYoy !== null &&
-                summary.fundamentalsSummary?.earningsGrowthYoy !== undefined
-                  ? `${(summary.fundamentalsSummary.earningsGrowthYoy * 100).toFixed(2)}%`
-                  : '—'
-              }
-            />
-            <StatRowCard
-              label="Latest Period End"
-              value={formatCalendarDate(summary.fundamentalsSummary?.periodEnd ?? null)}
-            />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-card-title text-content-primary">Related assets</h3>
+            <span className="text-caption text-content-muted">Quick context while holdings coverage is incomplete</span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {relatedAssets.length > 0 ? (
+              relatedAssets.map((asset) => (
+                <Link
+                  key={asset.ticker}
+                  href={`/stocks/${asset.ticker}`}
+                  className="inline-flex items-center gap-2 rounded-[8px] border border-border px-3 py-2 text-body-sm text-content-primary transition hover:bg-surface-hover"
+                >
+                  <span className="font-semibold">{asset.ticker}</span>
+                  <span className="numeric-tabular text-content-secondary">{formatPrice(asset.price)}</span>
+                  <span
+                    className={`numeric-tabular ${
+                      asset.changePercent === null
+                        ? 'text-content-muted'
+                        : asset.changePercent >= 0
+                          ? 'signal-bullish'
+                          : 'signal-bearish'
+                    }`}
+                  >
+                    {formatPct(asset.changePercent)}
+                  </span>
+                </Link>
+              ))
+            ) : (
+              <span className="text-body-sm text-content-muted">
+                Related assets are not available for this ticker yet.
+              </span>
+            )}
           </div>
         </Card>
       </div>

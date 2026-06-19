@@ -2,12 +2,13 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 type CardProps = React.HTMLAttributes<HTMLDivElement> & {
-  padding?: 'md' | 'lg' | 'none'
+  padding?: 'sm' | 'md' | 'lg' | 'none'
 }
 
 function paddingClass(padding: CardProps['padding']): string {
   if (padding === 'none') return ''
-  if (padding === 'lg') return 'p-7'
+  if (padding === 'sm') return 'p-4 md:p-5'
+  if (padding === 'lg') return 'p-6 md:p-7'
   return 'p-5'
 }
 
