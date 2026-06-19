@@ -13,7 +13,7 @@ import {
   getStockQuote,
   getTickerCorrelationNetwork,
 } from '@/lib/finance'
-import { getSignalHistoryForTicker, getScreenerSignals } from '@/lib/signals'
+import { getCachedLatestScreenerRow, getCachedSignalHistoryForTicker } from '@/lib/signals'
 import {
   getTickerPageSummary,
   type LatestFundamentalsRow,
@@ -195,18 +195,16 @@ export default async function TickerPage({
     : '/sign-up?redirect_url=/stocks/' + ticker
 
   let tickerSummary: Awaited<ReturnType<typeof getTickerPageSummary>>
-  let fallbackQuote: Awaited<ReturnType<typeof getStockQuote>>
   let historicalData: Awaited<ReturnType<typeof getHistoricalData>>
-  let recentSignals: Awaited<ReturnType<typeof getSignalHistoryForTicker>>
-  let latestScreenerRows: Awaited<ReturnType<typeof getScreenerSignals>>['rows']
+  let recentSignals: Awaited<ReturnType<typeof getCachedSignalHistoryForTicker>>
+  let latestScreenerRows: Awaited<ReturnType<typeof getCachedLatestScreenerRow>>
 
   try {
-    ;[tickerSummary, fallbackQuote, historicalData, recentSignals, latestScreenerRows] = await Promise.all([
+    ;[tickerSummary, historicalData, recentSignals, latestScreenerRows] = await Promise.all([
       getTickerPageSummary(ticker),
-      getStockQuote(ticker),
-      getHistoricalData(ticker, 0),
-      getSignalHistoryForTicker(ticker, 180),
-      getScreenerSignals({ tickers: [ticker], limit: 1 }).then((result) => result.rows),
+      getHistoricalData(ticker, 1825),
+      getCachedSignalHistoryForTicker(ticker, 180),
+      getCachedLatestScreenerRow(ticker),
     ])
   } catch {
     return (
@@ -221,14 +219,14 @@ export default async function TickerPage({
   const relatedTickerSymbols = getRelatedTickers(ticker)
   const [relatedQuotesResult, correlationNetworkResult] = await Promise.allSettled([
     Promise.allSettled(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
-    getTickerCorrelationNetwork(ticker, { maxPeers: 10, lookbackDays: 504, minOverlapDays: 90 }),
+    getTickerCorrelationNetwork(ticker, { maxPeers: 8, lookbackDays: 504, minOverlapDays: 90 }),
   ])
 
   const marketQuote = tickerSummary.quote
   const marketStats = tickerSummary.marketStats
   const fundamentalsSummary = tickerSummary.fundamentalsSummary
   const latestFundamentals = tickerSummary.latestFundamentals
-  const quote = fallbackQuote
+  const quote = tickerSummary.quote
   const displayName = marketQuote?.name ?? quote?.name ?? ticker
   const isEtf = looksLikeEtfAsset({
     ticker,

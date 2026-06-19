@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { BackendDataError, fetchBackendJson } from './backend'
 import { Signal } from './types'
 
@@ -248,6 +249,13 @@ export async function getSignalHistoryForTicker(tickerRaw: string, limit = 250):
   return payload as Signal[]
 }
 
+export const getCachedSignalHistoryForTicker = unstable_cache(
+  async (ticker: string, limit: number): Promise<Signal[]> =>
+    getSignalHistoryForTicker(ticker, limit),
+  ['signal-history-for-ticker-v1'],
+  { revalidate: 120 }
+)
+
 export async function getLatestSignal(): Promise<Signal | null> {
   const signals = await getRecentSignals(1)
   return signals[0] ?? null
@@ -321,6 +329,13 @@ export async function getScreenerSignals(query: ScreenerQuery = {}): Promise<Scr
   rows = sortScreenerRows(rows, sortBy).slice(0, limit)
   return { rows, source: 'finance_backend_screener' }
 }
+
+export const getCachedLatestScreenerRow = unstable_cache(
+  async (ticker: string) =>
+    (await getScreenerSignals({ tickers: [ticker], limit: 1 })).rows,
+  ['latest-screener-row-v1'],
+  { revalidate: 120 }
+)
 
 export async function getScreenerSignalsSafe(
   query: ScreenerQuery = {},

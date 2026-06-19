@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { BackendDataError, fetchBackendJson } from './backend'
 
 export type MarketQuoteSnapshot = {
@@ -108,6 +109,13 @@ async function fetchTickerPageSummaryFromBackend(tickerRaw: string): Promise<Tic
   return payload && typeof payload === 'object' ? payload : null
 }
 
+export const getCachedTickerSummary = unstable_cache(
+  async (ticker: string): Promise<TickerPageSummary | null> =>
+    fetchTickerPageSummaryFromBackend(ticker),
+  ['ticker-page-summary-v1'],
+  { revalidate: 120 }
+)
+
 export async function getTickerCoverage(tickerRaw: string): Promise<SymbolCoverageRow | null> {
   const summary = await fetchTickerPageSummaryFromBackend(tickerRaw)
   return summary?.coverage ?? null
@@ -137,7 +145,7 @@ export async function getTickerEarningsHistory(tickerRaw: string): Promise<Earni
 
 export async function getTickerPageSummary(tickerRaw: string): Promise<TickerPageSummary> {
   const ticker = normalizeTicker(tickerRaw)
-  const summary = await fetchTickerPageSummaryFromBackend(ticker)
+  const summary = await getCachedTickerSummary(ticker)
   if (!summary) {
     throw new BackendDataError('backend.tickers.summary', `No ticker summary payload returned for ${ticker}`)
   }

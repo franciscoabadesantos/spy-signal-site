@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { fetchBackendJson } from './backend'
+import { getCachedTickerSummary } from './ticker-data'
 
 const YAHOO_API_BASE = 'https://query1.finance.yahoo.com'
 const YAHOO_SUMMARY_API_BASE = 'https://query2.finance.yahoo.com'
@@ -1800,21 +1801,9 @@ async function fetchLiveFundamentalsWithFallback(
 
 async function loadQuote(tickerRaw: string): Promise<StockQuote | null> {
   const ticker = normalizeTicker(tickerRaw)
-  const payload = await fetchBackendJson<{
-    ticker: string
-    quote?: {
-      ticker?: string
-      name?: string | null
-      price?: number | null
-      change?: number | null
-      changePercent?: number | null
-      marketCapText?: string | null
-    } | null
-  }>(`/tickers/${encodeURIComponent(ticker)}/summary`, {
-    context: 'backend.tickers.summary.quote',
-  })
-  const quote = payload?.quote
-  if (!quote || typeof quote !== 'object') return null
+  const summary = await getCachedTickerSummary(ticker)
+  const quote = summary?.quote
+  if (!quote) return null
   const price = typeof quote.price === 'number' ? quote.price : null
   if (price === null) return null
   return {
@@ -1847,18 +1836,12 @@ async function loadHistorical(tickerRaw: string, periodDays: number): Promise<Pr
 
 async function loadTickerFundamentals(tickerRaw: string): Promise<TickerFundamentals> {
   const ticker = normalizeTicker(tickerRaw)
-  const payload = await fetchBackendJson<{
-    ticker: string
-    quote?: { name?: string | null; marketCapText?: string | null } | null
-    latestFundamentals?: Array<{ metricLabel?: string | null; valueDisplay?: string | null; valueNumber?: number | null }>
-  }>(`/tickers/${encodeURIComponent(ticker)}/summary`, {
-    context: 'backend.tickers.summary.fundamentals',
-  })
-  if (!payload || typeof payload !== 'object') {
+  const payload = await getCachedTickerSummary(ticker)
+  if (!payload) {
     return emptyFundamentals()
   }
 
-  const rows = Array.isArray(payload?.latestFundamentals) ? payload!.latestFundamentals : []
+  const rows = Array.isArray(payload?.latestFundamentals) ? payload.latestFundamentals : []
   const financialRows: TickerFinancialRow[] = rows
     .map((row) => {
       const label = typeof row?.metricLabel === 'string' && row.metricLabel.trim() ? row.metricLabel : null
@@ -2004,7 +1987,7 @@ export async function getTickerCorrelationNetwork(
 
   const candidateTickers = [...new Set([...getRelatedTickers(ticker), ...CORRELATION_FALLBACK_POOL])]
     .filter((candidate) => candidate !== ticker)
-    .slice(0, 18)
+    .slice(0, 8)
 
   const [centerQuote, centerHistory] = await Promise.all([
     getStockQuote(ticker),
