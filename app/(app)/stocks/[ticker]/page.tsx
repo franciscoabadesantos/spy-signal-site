@@ -217,10 +217,42 @@ export default async function TickerPage({
   }
 
   const relatedTickerSymbols = getRelatedTickers(ticker)
-  const [relatedQuotesResult, correlationNetworkResult] = await Promise.allSettled([
-    Promise.allSettled(relatedTickerSymbols.map((symbol) => getStockQuote(symbol))),
-    getTickerCorrelationNetwork(ticker, { maxPeers: 8, lookbackDays: 504, minOverlapDays: 90 }),
-  ])
+
+  const peersPromise: Promise<
+    Array<{
+      ticker: string
+      name: string | null
+      correlation: number
+      absCorrelation: number
+      sector: string | null
+    }>
+  > = getTickerCorrelationNetwork(ticker, { maxPeers: 8, lookbackDays: 504, minOverlapDays: 90 })
+    .then((network) =>
+      network.peers.map((peer) => ({
+        ticker: peer.ticker,
+        name: peer.name,
+        correlation: peer.correlation,
+        absCorrelation: peer.absCorrelation,
+        sector: peer.sector,
+      }))
+    )
+    .catch(() => [])
+
+  const relatedAssetsPromise: Promise<
+    Array<{ symbol: string; name: string | null; price: number | null; changePercent: number | null }>
+  > = Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol).catch(() => null)))
+    .then((quotes) =>
+      relatedTickerSymbols
+        .map((symbol, index) => ({ symbol, quote: quotes[index] ?? null }))
+        .filter((item) => item.quote !== null)
+        .map((item) => ({
+          symbol: item.symbol,
+          name: item.quote?.name ?? null,
+          price: item.quote?.price ?? null,
+          changePercent: item.quote?.changePercent ?? null,
+        }))
+    )
+    .catch(() => [])
 
   const marketQuote = tickerSummary.quote
   const marketStats = tickerSummary.marketStats
@@ -254,27 +286,6 @@ export default async function TickerPage({
             signalDate: latestHistorySignal.signal_date,
           }
         : null
-
-  const relatedQuotes =
-    relatedQuotesResult.status === 'fulfilled'
-      ? relatedQuotesResult.value.map((result) => (result.status === 'fulfilled' ? result.value : null))
-      : []
-  const relatedAssets = relatedTickerSymbols
-    .map((symbol, index) => ({ symbol, quote: relatedQuotes[index] ?? null }))
-    .filter((item) => item.quote !== null)
-    .map((item) => ({
-      symbol: item.symbol,
-      name: item.quote?.name ?? null,
-      price: item.quote?.price ?? null,
-      changePercent: item.quote?.changePercent ?? null,
-    }))
-
-  const correlationNetwork =
-    correlationNetworkResult.status === 'fulfilled'
-      ? correlationNetworkResult.value
-      : {
-          peers: [],
-        }
 
   const marketCapNumeric = fundamentalsSummary?.marketCap ?? parseCompactCurrencyNumber(marketQuote?.marketCapText ?? null)
   const marketCapValue =
@@ -392,15 +403,9 @@ export default async function TickerPage({
         historicalData={historicalData}
         statStrip={statStrip}
         heroStats={heroStats}
-        peers={correlationNetwork.peers.map((peer) => ({
-          ticker: peer.ticker,
-          name: peer.name,
-          correlation: peer.correlation,
-          absCorrelation: peer.absCorrelation,
-          sector: peer.sector,
-        }))}
+        peers={peersPromise}
         fundDetails={fundDetails}
-        relatedAssets={relatedAssets}
+        relatedAssets={relatedAssetsPromise}
         regimeSignals={recentSignals.map((signal) => ({
           signal_date: signal.signal_date,
           direction: signal.direction,

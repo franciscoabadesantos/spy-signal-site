@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState, type ReactNode } from 'react'
+import { Suspense, use, useMemo, useState, type ReactNode } from 'react'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
 import CorrelationNetwork from '@/components/CorrelationNetwork'
 import OrbitMini from '@/components/stocks/OrbitMini'
@@ -75,9 +75,9 @@ type StockOverviewClientProps = {
   historicalData: PricePoint[]
   statStrip: OverviewStat[]
   heroStats: OverviewStat[]
-  peers: OverviewPeer[]
+  peers: Promise<OverviewPeer[]>
   fundDetails: OverviewFundDetail[]
-  relatedAssets: OverviewRelatedAsset[]
+  relatedAssets: Promise<OverviewRelatedAsset[]>
   regimeSignals: OverviewRegimePoint[]
   orbitDimensions: SystemProfileBlobDimension[]
   orbitTelemetry: SignalOrbitTelemetry
@@ -624,6 +624,71 @@ function Modal({
   )
 }
 
+function PeerWebContent({
+  ticker,
+  displayName,
+  peersPromise,
+}: {
+  ticker: string
+  displayName: string
+  peersPromise: Promise<OverviewPeer[]>
+}) {
+  const peers = use(peersPromise)
+  return (
+    <>
+      <CorrelationNetwork centerTicker={ticker} centerName={displayName} peers={peers} />
+      <div className={styles.peerTableWrap}>
+        <table className={styles.peerTable}>
+          <thead>
+            <tr>
+              <th>Peer ticker</th>
+              <th>Name</th>
+              <th>Correlation</th>
+              <th>Direction</th>
+            </tr>
+          </thead>
+          <tbody>
+            {peers.map((peer) => (
+              <tr key={peer.ticker}>
+                <td>
+                  <Link href={`/stocks/${peer.ticker}`} className={styles.chipTicker}>
+                    {peer.ticker}
+                  </Link>
+                </td>
+                <td>{peer.name ?? 'Related asset'}</td>
+                <td>{peer.correlation.toFixed(2)} · {correlationStrength(peer.correlation)}</td>
+                <td>{correlationDirection(peer.correlation)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+function RelatedAssetsContent({
+  relatedAssetsPromise,
+}: {
+  relatedAssetsPromise: Promise<OverviewRelatedAsset[]>
+}) {
+  const relatedAssets = use(relatedAssetsPromise)
+  if (relatedAssets.length === 0) {
+    return <div className={styles.emptyState}>No related assets are available right now.</div>
+  }
+  return (
+    <div className={styles.relatedAssets}>
+      {relatedAssets.map((asset) => (
+        <Link key={asset.symbol} href={`/stocks/${asset.symbol}`} className={styles.relatedChip}>
+          <span className={styles.chipTicker}>{asset.symbol}</span>
+          <span>{formatPrice(asset.price)}</span>
+          <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 export default function StockOverviewClient({
   ticker,
   displayName,
@@ -635,9 +700,9 @@ export default function StockOverviewClient({
   historicalData,
   statStrip,
   heroStats,
-  peers,
+  peers: peersPromise,
   fundDetails,
-  relatedAssets,
+  relatedAssets: relatedAssetsPromise,
   regimeSignals,
   orbitDimensions,
   orbitTelemetry,
@@ -798,33 +863,9 @@ export default function StockOverviewClient({
               <div className={styles.cardHint}>Interactive correlation map with numeric scan below</div>
             </div>
           </div>
-          <CorrelationNetwork centerTicker={ticker} centerName={displayName} peers={peers} />
-          <div className={styles.peerTableWrap}>
-            <table className={styles.peerTable}>
-              <thead>
-                <tr>
-                  <th>Peer ticker</th>
-                  <th>Name</th>
-                  <th>Correlation</th>
-                  <th>Direction</th>
-                </tr>
-              </thead>
-              <tbody>
-                {peers.map((peer) => (
-                  <tr key={peer.ticker}>
-                    <td>
-                      <Link href={`/stocks/${peer.ticker}`} className={styles.chipTicker}>
-                        {peer.ticker}
-                      </Link>
-                    </td>
-                    <td>{peer.name ?? 'Related asset'}</td>
-                    <td>{peer.correlation.toFixed(2)} · {correlationStrength(peer.correlation)}</td>
-                    <td>{correlationDirection(peer.correlation)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Suspense fallback={<div className={styles.emptyState}>Loading peer correlations…</div>}>
+            <PeerWebContent ticker={ticker} displayName={displayName} peersPromise={peersPromise} />
+          </Suspense>
         </article>
 
         <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
@@ -876,19 +917,9 @@ export default function StockOverviewClient({
               <div className={styles.cardHint}>Compact peer shortcuts</div>
             </div>
           </div>
-          {relatedAssets.length === 0 ? (
-            <div className={styles.emptyState}>No related assets are available right now.</div>
-          ) : (
-            <div className={styles.relatedAssets}>
-              {relatedAssets.map((asset) => (
-                <Link key={asset.symbol} href={`/stocks/${asset.symbol}`} className={styles.relatedChip}>
-                  <span className={styles.chipTicker}>{asset.symbol}</span>
-                  <span>{formatPrice(asset.price)}</span>
-                  <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span>
-                </Link>
-              ))}
-            </div>
-          )}
+          <Suspense fallback={<div className={styles.emptyState}>Loading related assets…</div>}>
+            <RelatedAssetsContent relatedAssetsPromise={relatedAssetsPromise} />
+          </Suspense>
         </article>
 
         {showCopilot ? (
