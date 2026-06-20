@@ -1,7 +1,15 @@
-import type { PricePoint } from '@/lib/finance'
+import type { OhlcPoint } from '@/lib/finance'
 
-export type TechnicalTimeframe = '1m' | '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '1D' | '1W' | '1M'
+export type TechnicalTimeframe = '1D' | '1W' | '1M'
 export type TechnicalAction = 'Buy' | 'Sell' | 'Neutral'
+
+type Bar = {
+  date: string
+  high: number
+  low: number
+  close: number
+  volume: number | null
+}
 
 export type TechnicalIndicatorRow = {
   name: string
@@ -31,28 +39,56 @@ export type TechnicalSummary = {
   movingAverageRows: TechnicalIndicatorRow[]
 }
 
-type TimeframeConfig = {
-  oscillatorLookback: number
-  priceSmoothing: number
+function toBar(p: OhlcPoint): Bar {
+  // Quando high/low faltam (histórico pré-2020), usa close como proxy.
+  const high = p.high ?? p.close
+  const low = p.low ?? p.close
+  return { date: p.date, high, low, close: p.close, volume: p.volume }
 }
 
-const TIMEFRAME_CONFIG: Record<TechnicalTimeframe, TimeframeConfig> = {
-  '1m': { oscillatorLookback: 35, priceSmoothing: 2 },
-  '5m': { oscillatorLookback: 45, priceSmoothing: 3 },
-  '15m': { oscillatorLookback: 55, priceSmoothing: 5 },
-  '30m': { oscillatorLookback: 70, priceSmoothing: 8 },
-  '1h': { oscillatorLookback: 90, priceSmoothing: 10 },
-  '2h': { oscillatorLookback: 120, priceSmoothing: 14 },
-  '4h': { oscillatorLookback: 160, priceSmoothing: 21 },
-  '1D': { oscillatorLookback: 240, priceSmoothing: 30 },
-  '1W': { oscillatorLookback: 360, priceSmoothing: 60 },
-  '1M': { oscillatorLookback: 520, priceSmoothing: 90 },
+function periodKey(dateIso: string, grain: 'week' | 'month'): string {
+  const d = new Date(`${dateIso}T00:00:00Z`)
+  if (grain === 'month') {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+  }
+  // ISO week
+  const tmp = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+  const day = tmp.getUTCDay() || 7
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - day)
+  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1))
+  const week = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return `${tmp.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
 }
 
-function getCloses(data: PricePoint[]): number[] {
-  return data
-    .map((point) => point.close)
-    .filter((value): value is number => Number.isFinite(value))
+function buildBars(data: OhlcPoint[], timeframe: TechnicalTimeframe): Bar[] {
+  const sorted = data.slice().sort((a, b) => a.date.localeCompare(b.date))
+  if (timeframe === '1D') return sorted.map(toBar)
+
+  const grain = timeframe === '1W' ? 'week' : 'month'
+  const groups = new Map<string, OhlcPoint[]>()
+  const order: string[] = []
+  for (const p of sorted) {
+    const key = periodKey(p.date, grain)
+    if (!groups.has(key)) {
+      groups.set(key, [])
+      order.push(key)
+    }
+    groups.get(key)!.push(p)
+  }
+
+  return order.map((key) => {
+    const pts = groups.get(key)!
+    const highs = pts.map((p) => p.high ?? p.close)
+    const lows = pts.map((p) => p.low ?? p.close)
+    const vols = pts.map((p) => p.volume).filter((v): v is number => v !== null)
+    return {
+      date: pts[pts.length - 1].date,
+      high: Math.max(...highs),
+      low: Math.min(...lows),
+      close: pts[pts.length - 1].close,
+      volume: vols.length > 0 ? vols.reduce((s, v) => s + v, 0) : null,
+    }
+  })
 }
 
 function takeLast(values: number[], count: number): number[] {
@@ -184,20 +220,28 @@ function rsi(values: number[], period: number): number | null {
   return latest(rsiSeries(values, period))
 }
 
-function stochasticK(values: number[], period: number): number | null {
-  if (period <= 0 || values.length < period) return null
-  const slice = values.slice(-period)
-  const low = Math.min(...slice)
-  const high = Math.max(...slice)
-  const current = slice[slice.length - 1]
-  if (!Number.isFinite(current)) return null
-  if (high === low) return 50
-  return ((current - low) / (high - low)) * 100
+function stochasticK(highs: number[], lows: number[], closes: number[], period: number): number | null {
+  if (period <= 0 || closes.length < period) return null
+  const hi = Math.max(...highs.slice(-period))
+  const lo = Math.min(...lows.slice(-period))
+  const current = closes[closes.length - 1]
+  if (!Number.isFinite(current) || hi === lo) return 50
+  return ((current - lo) / (hi - lo)) * 100
 }
 
-function cci(values: number[], period: number): number | null {
-  if (period <= 0 || values.length < period) return null
-  const slice = values.slice(-period)
+function williamsR(highs: number[], lows: number[], closes: number[], period: number): number | null {
+  if (period <= 0 || closes.length < period) return null
+  const hi = Math.max(...highs.slice(-period))
+  const lo = Math.min(...lows.slice(-period))
+  const current = closes[closes.length - 1]
+  if (!Number.isFinite(current) || hi === lo) return -50
+  return ((hi - current) / (hi - lo)) * -100
+}
+
+function cci(highs: number[], lows: number[], closes: number[], period: number): number | null {
+  if (period <= 0 || closes.length < period) return null
+  const tp = closes.map((c, i) => (highs[i] + lows[i] + c) / 3)
+  const slice = tp.slice(-period)
   const mean = average(slice)
   const deviation = meanDeviation(slice)
   const current = slice[slice.length - 1]
@@ -205,38 +249,33 @@ function cci(values: number[], period: number): number | null {
   return (current - mean) / (0.015 * deviation)
 }
 
-function adxFromClose(values: number[], period: number): number | null {
-  if (period <= 0 || values.length <= period + 1) return null
-
-  const trList: number[] = []
-  const plusDmList: number[] = []
-  const minusDmList: number[] = []
-
-  for (let index = 1; index < values.length; index += 1) {
-    const delta = values[index] - values[index - 1]
-    trList.push(Math.abs(delta))
-    plusDmList.push(delta > 0 ? delta : 0)
-    minusDmList.push(delta < 0 ? Math.abs(delta) : 0)
+function adx(highs: number[], lows: number[], closes: number[], period: number): number | null {
+  const n = closes.length
+  if (period <= 0 || n <= period + 1) return null
+  const tr: number[] = []
+  const plusDm: number[] = []
+  const minusDm: number[] = []
+  for (let i = 1; i < n; i += 1) {
+    const upMove = highs[i] - highs[i - 1]
+    const downMove = lows[i - 1] - lows[i]
+    plusDm.push(upMove > downMove && upMove > 0 ? upMove : 0)
+    minusDm.push(downMove > upMove && downMove > 0 ? downMove : 0)
+    const hl = highs[i] - lows[i]
+    const hc = Math.abs(highs[i] - closes[i - 1])
+    const lc = Math.abs(lows[i] - closes[i - 1])
+    tr.push(Math.max(hl, hc, lc))
   }
-
-  if (trList.length < period) return null
-
-  const dxValues: number[] = []
-  for (let index = period - 1; index < trList.length; index += 1) {
-    const tr = trList.slice(index - period + 1, index + 1).reduce((sum, value) => sum + value, 0)
-    if (tr === 0) {
-      dxValues.push(0)
-      continue
-    }
-    const plusDm = plusDmList.slice(index - period + 1, index + 1).reduce((sum, value) => sum + value, 0)
-    const minusDm = minusDmList.slice(index - period + 1, index + 1).reduce((sum, value) => sum + value, 0)
-    const plusDi = (plusDm / tr) * 100
-    const minusDi = (minusDm / tr) * 100
-    const denominator = plusDi + minusDi
-    dxValues.push(denominator === 0 ? 0 : (Math.abs(plusDi - minusDi) / denominator) * 100)
+  if (tr.length < period) return null
+  const dx: number[] = []
+  for (let i = period - 1; i < tr.length; i += 1) {
+    const trSum = tr.slice(i - period + 1, i + 1).reduce((s, v) => s + v, 0)
+    if (trSum === 0) { dx.push(0); continue }
+    const plus = (plusDm.slice(i - period + 1, i + 1).reduce((s, v) => s + v, 0) / trSum) * 100
+    const minus = (minusDm.slice(i - period + 1, i + 1).reduce((s, v) => s + v, 0) / trSum) * 100
+    const denom = plus + minus
+    dx.push(denom === 0 ? 0 : (Math.abs(plus - minus) / denom) * 100)
   }
-
-  return sma(dxValues, period)
+  return sma(dx, period)
 }
 
 function awesomeOscillator(values: number[]): number | null {
@@ -278,16 +317,6 @@ function stochasticRsi(values: number[], period: number): number | null {
   return ((current - low) / (high - low)) * 100
 }
 
-function williamsR(values: number[], period: number): number | null {
-  if (period <= 0 || values.length < period) return null
-  const slice = values.slice(-period)
-  const low = Math.min(...slice)
-  const high = Math.max(...slice)
-  const current = slice[slice.length - 1]
-  if (high === low) return -50
-  return ((high - current) / (high - low)) * -100
-}
-
 function bullBearPower(values: number[]): number | null {
   const ema13 = ema(values, 13)
   const current = latest(values)
@@ -299,6 +328,21 @@ function ichimokuBase(values: number[]): number | null {
   if (values.length < 26) return null
   const slice = values.slice(-26)
   return (Math.max(...slice) + Math.min(...slice)) / 2
+}
+
+function vwma(closes: number[], volumes: Array<number | null>, period: number): number | null {
+  if (period <= 0 || closes.length < period) return null
+  const c = closes.slice(-period)
+  const v = volumes.slice(-period)
+  let num = 0
+  let den = 0
+  for (let i = 0; i < c.length; i += 1) {
+    const vol = v[i]
+    if (vol === null || !Number.isFinite(vol)) return null // sem volume → não calculável
+    num += c[i] * vol
+    den += vol
+  }
+  return den > 0 ? num / den : null
 }
 
 function actionFromRsi(value: number | null): TechnicalAction {
@@ -384,25 +428,24 @@ function buildGauge(label: string, rows: TechnicalIndicatorRow[]): TechnicalGaug
   }
 }
 
-export function buildTechnicalSummary(
-  data: PricePoint[],
-  timeframe: TechnicalTimeframe
-): TechnicalSummary {
-  const closes = getCloses(data)
-  const config = TIMEFRAME_CONFIG[timeframe]
-  const oscillatorCloses = takeLast(closes, config.oscillatorLookback)
-  const currentPrice = average(takeLast(closes, config.priceSmoothing))
+export function buildTechnicalSummary(data: OhlcPoint[], timeframe: TechnicalTimeframe): TechnicalSummary {
+  const bars = buildBars(data, timeframe)
+  const closes = bars.map((b) => b.close)
+  const highs = bars.map((b) => b.high)
+  const lows = bars.map((b) => b.low)
+  const volumes = bars.map((b) => b.volume)
+  const currentPrice = latest(closes)
 
-  const rsi14 = rsi(oscillatorCloses, 14)
-  const stochastic14 = stochasticK(oscillatorCloses, 14)
-  const cci20 = cci(oscillatorCloses, 20)
-  const adx14 = adxFromClose(oscillatorCloses, 14)
-  const awesome = awesomeOscillator(oscillatorCloses)
-  const momentum10 = momentum(oscillatorCloses, 10)
-  const macdValue = macd(oscillatorCloses)
-  const stochRsi = stochasticRsi(oscillatorCloses, 14)
-  const williams14 = williamsR(oscillatorCloses, 14)
-  const bullBear = bullBearPower(oscillatorCloses)
+  const rsi14 = rsi(closes, 14)
+  const stochastic14 = stochasticK(highs, lows, closes, 14)
+  const cci20 = cci(highs, lows, closes, 20)
+  const adx14 = adx(highs, lows, closes, 14)
+  const awesome = awesomeOscillator(closes)
+  const momentum10 = momentum(closes, 10)
+  const macdValue = macd(closes)
+  const stochRsi = stochasticRsi(closes, 14)
+  const williams14 = williamsR(highs, lows, closes, 14)
+  const bullBear = bullBearPower(closes)
 
   const oscillatorRows: TechnicalIndicatorRow[] = [
     {
@@ -478,7 +521,7 @@ export function buildTechnicalSummary(
     ['EMA (200)', ema(closes, 200)],
     ['SMA (200)', sma(closes, 200)],
     ['Ichimoku Base Line (9, 26, 52, 26)', ichimokuBase(closes)],
-    ['Volume Weighted MA (20)', sma(closes, 20)],
+    ['Volume Weighted MA (20)', vwma(closes, volumes, 20)],
     ['Hull Moving Average (9)', hma(closes, 9)],
   ]
 

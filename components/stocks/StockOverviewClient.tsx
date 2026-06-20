@@ -7,7 +7,7 @@ import CorrelationNetwork from '@/components/CorrelationNetwork'
 import OrbitMini from '@/components/stocks/OrbitMini'
 import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
 import ChartContainer from '@/components/charts/ChartContainer'
-import type { PricePoint } from '@/lib/finance'
+import type { OhlcPoint, PricePoint } from '@/lib/finance'
 import type { SignalOrbitTelemetry } from '@/lib/signalOrbit'
 import {
   buildTechnicalSummary,
@@ -73,6 +73,7 @@ type StockOverviewClientProps = {
   dailyMovePercent: number | null
   latestSignal: OverviewSignal | null
   historicalData: PricePoint[]
+  ohlcData: OhlcPoint[]
   statStrip: OverviewStat[]
   heroStats: OverviewStat[]
   peers: Promise<OverviewPeer[]>
@@ -94,7 +95,7 @@ type StockOverviewClientProps = {
 }
 
 const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y']
-const SIGNAL_TIMEFRAMES: TechnicalTimeframe[] = ['1m', '5m', '15m', '30m', '1h', '2h', '4h', '1D', '1W', '1M']
+const SIGNAL_TIMEFRAMES: TechnicalTimeframe[] = ['1D', '1W', '1M']
 
 function formatPrice(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—'
@@ -698,6 +699,7 @@ export default function StockOverviewClient({
   dailyMovePercent,
   latestSignal,
   historicalData,
+  ohlcData,
   statStrip,
   heroStats,
   peers: peersPromise,
@@ -718,8 +720,8 @@ export default function StockOverviewClient({
 
   const filteredChartData = useMemo(() => filterChartData(historicalData, heroTimeframe), [historicalData, heroTimeframe])
   const technicalSummary = useMemo(
-    () => buildTechnicalSummary(historicalData, signalTimeframe),
-    [historicalData, signalTimeframe]
+    () => buildTechnicalSummary(ohlcData, signalTimeframe),
+    [ohlcData, signalTimeframe]
   )
 
   const regimeClass =

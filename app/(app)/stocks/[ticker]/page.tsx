@@ -8,7 +8,7 @@ import StockOverviewClient from '@/components/stocks/StockOverviewClient'
 import { getViewerUserId } from '@/lib/auth'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import {
-  getHistoricalData,
+  getOhlcData,
   getRelatedTickers,
   getStockQuote,
   getTickerCorrelationNetwork,
@@ -195,14 +195,14 @@ export default async function TickerPage({
     : '/sign-up?redirect_url=/stocks/' + ticker
 
   let tickerSummary: Awaited<ReturnType<typeof getTickerPageSummary>>
-  let historicalData: Awaited<ReturnType<typeof getHistoricalData>>
+  let ohlcData: Awaited<ReturnType<typeof getOhlcData>>
   let recentSignals: Awaited<ReturnType<typeof getCachedSignalHistoryForTicker>>
   let latestScreenerRows: Awaited<ReturnType<typeof getCachedLatestScreenerRow>>
 
   try {
-    ;[tickerSummary, historicalData, recentSignals, latestScreenerRows] = await Promise.all([
+    ;[tickerSummary, ohlcData, recentSignals, latestScreenerRows] = await Promise.all([
       getTickerPageSummary(ticker),
-      getHistoricalData(ticker, 1825),
+      getOhlcData(ticker, 1825),
       getCachedSignalHistoryForTicker(ticker, 180),
       getCachedLatestScreenerRow(ticker),
     ])
@@ -215,6 +215,7 @@ export default async function TickerPage({
       />
     )
   }
+  const historicalData = ohlcData.map((point) => ({ date: point.date, close: point.close }))
 
   const relatedTickerSymbols = getRelatedTickers(ticker)
 
@@ -401,6 +402,7 @@ export default async function TickerPage({
         dailyMovePercent={marketQuote?.changePercent ?? quote?.changePercent ?? null}
         latestSignal={latestSignal}
         historicalData={historicalData}
+        ohlcData={ohlcData}
         statStrip={statStrip}
         heroStats={heroStats}
         peers={peersPromise}

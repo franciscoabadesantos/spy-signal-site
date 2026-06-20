@@ -54,6 +54,15 @@ export interface PricePoint {
   close: number
 }
 
+export type OhlcPoint = {
+  date: string
+  open: number | null
+  high: number | null
+  low: number | null
+  close: number
+  volume: number | null
+}
+
 export interface TickerHolding {
   symbol: string
   name: string
@@ -1834,6 +1843,24 @@ async function loadHistorical(tickerRaw: string, periodDays: number): Promise<Pr
     .filter((point): point is PricePoint => point !== null)
 }
 
+async function loadOhlc(tickerRaw: string, periodDays: number): Promise<OhlcPoint[]> {
+  const ticker = normalizeTicker(tickerRaw)
+  const safeDays = Number.isFinite(periodDays) && periodDays > 0 ? Math.max(30, Math.min(periodDays, 3650)) : 0
+  const payload = await fetchBackendJson<
+    Array<{ date?: string; open?: number | null; high?: number | null; low?: number | null; close?: number; volume?: number | null }>
+  >(`/tickers/${encodeURIComponent(ticker)}/ohlc?period_days=${safeDays}`, { context: 'backend.tickers.ohlc' })
+  if (!Array.isArray(payload)) return []
+  const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  return payload
+    .map((row) => {
+      const date = typeof row?.date === 'string' ? row.date : null
+      const close = typeof row?.close === 'number' && Number.isFinite(row.close) ? row.close : null
+      if (!date || close === null) return null
+      return { date, open: num(row.open), high: num(row.high), low: num(row.low), close: Number(close.toFixed(4)), volume: num(row.volume) }
+    })
+    .filter((p): p is OhlcPoint => p !== null)
+}
+
 async function loadTickerFundamentals(tickerRaw: string): Promise<TickerFundamentals> {
   const ticker = normalizeTicker(tickerRaw)
   const payload = await getCachedTickerSummary(ticker)
@@ -1902,6 +1929,12 @@ export const getHistoricalData = unstable_cache(
   async (ticker: string, periodDays: number = 30): Promise<PricePoint[]> =>
     loadHistorical(ticker, periodDays),
   ['stock-historical-cache-v2'],
+  { revalidate: 3600 }
+)
+
+export const getOhlcData = unstable_cache(
+  async (ticker: string, periodDays: number = 1825): Promise<OhlcPoint[]> => loadOhlc(ticker, periodDays),
+  ['stock-ohlc-cache-v1'],
   { revalidate: 3600 }
 )
 
