@@ -518,6 +518,8 @@ export function buildTechnicalSummary(data: OhlcPoint[], timeframe: TechnicalTim
     ['SMA (50)', sma(closes, 50)],
     ['EMA (100)', ema(closes, 100)],
     ['SMA (100)', sma(closes, 100)],
+    ['EMA (150)', ema(closes, 150)],
+    ['SMA (150)', sma(closes, 150)],
     ['EMA (200)', ema(closes, 200)],
     ['SMA (200)', sma(closes, 200)],
     ['Ichimoku Base Line (9, 26, 52, 26)', ichimokuBase(closes)],
