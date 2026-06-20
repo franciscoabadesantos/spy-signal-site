@@ -202,7 +202,7 @@ export default async function TickerPage({
   try {
     ;[tickerSummary, ohlcData, recentSignals, latestScreenerRows] = await Promise.all([
       getTickerPageSummary(ticker),
-      getOhlcData(ticker, 1825),
+      getOhlcData(ticker, 3650),
       getCachedSignalHistoryForTicker(ticker, 180),
       getCachedLatestScreenerRow(ticker),
     ])
