@@ -167,9 +167,11 @@ function buildChartInterpretation(data: PricePoint[], markers: StockChartSignalM
 
 export default function StockChartPanel({
   data,
+  currency = 'USD',
   signalMarkers,
 }: {
   data: PricePoint[]
+  currency?: string
   signalMarkers?: StockChartSignalMarker[]
 }) {
   const palette = useChartPalette()
@@ -264,6 +266,7 @@ export default function StockChartPanel({
       <div className="h-[360px] md:h-[400px]">
         <StockChart
           data={filteredData}
+          currency={currency}
           signalMarkers={filteredMarkers}
           showRegimes={showRegimes}
           showSignalMarkers={showSignalMarkers}

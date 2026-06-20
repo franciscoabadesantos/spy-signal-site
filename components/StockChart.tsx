@@ -2,6 +2,7 @@
 
 import React, { useId, useState } from 'react'
 import type { PricePoint } from '@/lib/finance'
+import { formatMoney } from '@/lib/currency'
 import ChartContainer, { CHART_MARGINS, type ChartPalette, ChartTooltipCard } from '@/components/charts/ChartContainer'
 
 type Point = { x: number; y: number; value: number; date: string }
@@ -44,8 +45,8 @@ function formatDateShort(date: string): string {
   return `${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}`
 }
 
-function formatPrice(value: number): string {
-  return `$${value.toFixed(0)}`
+function formatPrice(value: number, currency: string): string {
+  return formatMoney(value, currency)
 }
 
 function formatDateLong(date: string): string {
@@ -153,11 +154,13 @@ function buildSmoothLinePath(points: Point[]): string {
 
 export default function StockChart({
   data,
+  currency = 'USD',
   signalMarkers = [],
   showRegimes = true,
   showSignalMarkers = true,
 }: {
   data: PricePoint[]
+  currency?: string
   signalMarkers?: StockChartSignalMarker[]
   showRegimes?: boolean
   showSignalMarkers?: boolean
@@ -409,7 +412,7 @@ export default function StockChart({
                       fontSize={12}
                       fill={palette.axisText}
                     >
-                      {formatPrice(value)}
+                      {formatPrice(value, currency)}
                     </text>
                   </g>
                 )
@@ -532,7 +535,7 @@ export default function StockChart({
                   rows={[
                     {
                       label: 'Close',
-                      value: `$${hoverPoint.value.toFixed(2)}`,
+                      value: formatMoney(hoverPoint.value, currency),
                       swatchColor: palette.primary,
                     },
                     ...(hasSignalContext

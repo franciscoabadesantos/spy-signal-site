@@ -15,6 +15,7 @@ import {
   type TechnicalIndicatorRow,
   type TechnicalTimeframe,
 } from '@/lib/technicalSignals'
+import { formatMoney, formatSignedMoney } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import styles from './StockOverviewClient.module.css'
 
@@ -66,6 +67,7 @@ type OrbitTooltipState = {
 
 type StockOverviewClientProps = {
   ticker: string
+  currency: string
   displayName: string
   assetBadgeLabel: string
   price: number | null
@@ -97,14 +99,12 @@ type StockOverviewClientProps = {
 const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y']
 const SIGNAL_TIMEFRAMES: TechnicalTimeframe[] = ['1D', '1W', '1M']
 
-function formatPrice(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return '—'
-  return `$${value.toFixed(2)}`
+function formatPrice(value: number | null | undefined, currency = 'USD'): string {
+  return formatMoney(value, currency)
 }
 
-function formatSignedDelta(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return '—'
-  return `${value >= 0 ? '+' : '-'}$${Math.abs(value).toFixed(2)}`
+function formatSignedDelta(value: number | null | undefined, currency = 'USD'): string {
+  return formatSignedMoney(value, currency)
 }
 
 function formatDate(value: string | null, options?: Intl.DateTimeFormatOptions): string {
@@ -259,9 +259,11 @@ function Gauge({
 function HeroPriceChart({
   data,
   className,
+  currency,
 }: {
   data: PricePoint[]
   className?: string
+  currency: string
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
 
@@ -361,7 +363,7 @@ function HeroPriceChart({
                     fontSize="12"
                     fill="var(--color-text-muted)"
                   >
-                    ${tick.toFixed(0)}
+                    {formatMoney(tick, currency)}
                   </text>
                 )
               })}
@@ -384,7 +386,7 @@ function HeroPriceChart({
 
             {hoverPoint ? (
               <div className={styles.chartTooltip} style={{ left: tooltipLeft, top: 10 }}>
-                <div>{formatPrice(hoverPoint.close)}</div>
+                <div>{formatPrice(hoverPoint.close, currency)}</div>
                 <div className={styles.chartTooltipSubtle}>{formatDate(hoverPoint.date)}</div>
               </div>
             ) : null}
@@ -682,7 +684,7 @@ function RelatedAssetsContent({
       {relatedAssets.map((asset) => (
         <Link key={asset.symbol} href={`/stocks/${asset.symbol}`} className={styles.relatedChip}>
           <span className={styles.chipTicker}>{asset.symbol}</span>
-          <span>{formatPrice(asset.price)}</span>
+          <span>{formatPrice(asset.price, 'USD')}</span>
           <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span>
         </Link>
       ))}
@@ -692,6 +694,7 @@ function RelatedAssetsContent({
 
 export default function StockOverviewClient({
   ticker,
+  currency,
   displayName,
   assetBadgeLabel,
   price,
@@ -743,8 +746,8 @@ export default function StockOverviewClient({
         </div>
 
         <div className={styles.priceBlock}>
-          <div className={styles.price}>{formatPrice(price)}</div>
-          <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>{formatSignedDelta(dailyMoveAmount)}</div>
+          <div className={styles.price}>{formatPrice(price, currency)}</div>
+          <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>{formatSignedDelta(dailyMoveAmount, currency)}</div>
           <div className={cn(styles.delta, directionToneClass(dailyMovePercent))}>({formatCompactPercent(dailyMovePercent)})</div>
         </div>
 
@@ -768,7 +771,7 @@ export default function StockOverviewClient({
               </button>
             </div>
             <div className={styles.heroChartWrap}>
-              <HeroPriceChart data={filteredChartData} />
+              <HeroPriceChart data={filteredChartData} currency={currency} />
             </div>
           </div>
 
@@ -970,7 +973,7 @@ export default function StockOverviewClient({
 
       {isChartModalOpen ? (
         <Modal title="Expanded Price Chart" onClose={() => setChartModalOpen(false)}>
-          <HeroPriceChart data={filteredChartData} className={styles.expandedChart} />
+          <HeroPriceChart data={filteredChartData} className={styles.expandedChart} currency={currency} />
         </Modal>
       ) : null}
     </div>

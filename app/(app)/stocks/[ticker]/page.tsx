@@ -7,6 +7,7 @@ import WatchlistButton from '@/components/WatchlistButton'
 import StockOverviewClient from '@/components/stocks/StockOverviewClient'
 import { getViewerUserId } from '@/lib/auth'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
+import { currencyForTicker, formatCompactMoney, formatMoney } from '@/lib/currency'
 import {
   getOhlcData,
   getRelatedTickers,
@@ -64,23 +65,13 @@ function stockEntrySourceFromContext(
   return 'direct'
 }
 
-function formatCompactCurrency(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return '—'
-  const formatter = new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 2,
-  })
-  return `$${formatter.format(value)}`
-}
-
-function formatPrice(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return '—'
-  return `$${value.toFixed(2)}`
-}
-
 function parseCompactCurrencyNumber(value: string | null): number | null {
   if (!value) return null
-  const normalized = value.replace(/\$/g, '').replace(/,/g, '').trim()
+  const normalized = value
+    .replace(/[$€£₹¥]/g, '')
+    .replace(/\b(?:USD|EUR|GBP|GBp|GBX|AUD|HKD|INR|JPY|DKK|SEK|NOK|kr)\b/gi, '')
+    .replace(/,/g, '')
+    .trim()
   const match = normalized.match(/^(-?\d+(?:\.\d+)?)([KMBT])?$/i)
   if (!match) return null
 
@@ -177,6 +168,7 @@ export default async function TickerPage({
   const resolvedParams = await params
   const resolvedSearchParams = await searchParams
   const ticker = resolvedParams.ticker.toUpperCase()
+  const currency = currencyForTicker(ticker)
   const initialAiQuestion = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiQuestion))
   const initialAiPromptLabel = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiPromptLabel))
   const sourceContext = singleSearchParam(resolvedSearchParams.from)
@@ -291,7 +283,7 @@ export default async function TickerPage({
   const marketCapNumeric = fundamentalsSummary?.marketCap ?? parseCompactCurrencyNumber(marketQuote?.marketCapText ?? null)
   const marketCapValue =
     marketCapNumeric !== null
-      ? formatCompactCurrency(marketCapNumeric)
+      ? formatCompactMoney(marketCapNumeric, currency)
       : marketQuote?.marketCapText ?? '—'
   const previousClose =
     marketQuote?.price !== null &&
@@ -311,7 +303,7 @@ export default async function TickerPage({
     findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('volume')) ?? '—'
   const latestRevenueValue =
     fundamentalsSummary?.latestRevenue !== null && fundamentalsSummary?.latestRevenue !== undefined
-      ? formatCompactCurrency(fundamentalsSummary.latestRevenue)
+      ? formatCompactMoney(fundamentalsSummary.latestRevenue, currency)
       : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('revenue')) ?? '—')
   const latestEpsValue =
     fundamentalsSummary?.latestEps !== null && fundamentalsSummary?.latestEps !== undefined
@@ -320,9 +312,9 @@ export default async function TickerPage({
 
   const statStrip = [
     { label: 'Open', value: '—' },
-    { label: 'Prev. Close', value: formatPrice(previousClose) },
-    { label: '52w High', value: formatPrice(marketStats?.week52High ?? null) },
-    { label: '52w Low', value: formatPrice(marketStats?.week52Low ?? null) },
+    { label: 'Prev. Close', value: formatMoney(previousClose, currency) },
+    { label: '52w High', value: formatMoney(marketStats?.week52High ?? null, currency) },
+    { label: '52w Low', value: formatMoney(marketStats?.week52Low ?? null, currency) },
     { label: 'Volume', value: volumeValue },
     { label: 'Market Cap', value: marketCapValue },
     { label: 'P/E', value: trailingPe },
@@ -333,7 +325,7 @@ export default async function TickerPage({
     { label: 'P/E', value: trailingPe },
     { label: 'Revenue', value: latestRevenueValue },
     { label: 'EPS', value: latestEpsValue },
-    { label: '52W High', value: formatPrice(marketStats?.week52High ?? null) },
+    { label: '52W High', value: formatMoney(marketStats?.week52High ?? null, currency) },
     { label: 'Div Yield', value: dividendYield },
   ]
 
@@ -395,6 +387,7 @@ export default async function TickerPage({
 
       <StockOverviewClient
         ticker={ticker}
+        currency={currency}
         displayName={displayName}
         assetBadgeLabel={isEtf ? 'ETF' : 'Equity'}
         price={marketQuote?.price ?? quote?.price ?? null}
