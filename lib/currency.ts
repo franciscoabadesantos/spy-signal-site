@@ -7,6 +7,8 @@ const SUFFIX_CURRENCY: Array<[string, string]> = [
   ['.CO', 'DKK'],
   ['.AX', 'AUD'],
   ['.HK', 'HKD'],
+  ['.SS', 'CNY'],
+  ['.SZ', 'CNY'],
   ['.NS', 'INR'],
   ['.BO', 'INR'],
   ['.T', 'JPY'],
@@ -18,6 +20,7 @@ const PREFIX_SYMBOL: Record<string, string> = {
   GBP: '£',
   AUD: 'A$',
   HKD: 'HK$',
+  CNY: 'CN¥',
   INR: '₹',
   JPY: '¥',
 }
