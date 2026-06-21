@@ -10,10 +10,9 @@ import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import { currencyForTicker, formatCompactMoney, formatMoney } from '@/lib/currency'
 import {
   getOhlcData,
-  getRelatedTickers,
   getStockQuote,
-  getTickerCorrelationNetwork,
 } from '@/lib/finance'
+import { getTickerNetwork, type NetworkGraph } from '@/lib/network'
 import { getCachedLatestScreenerRow, getCachedSignalHistoryForTicker } from '@/lib/signals'
 import {
   getTickerPageSummary,
@@ -209,33 +208,29 @@ export default async function TickerPage({
   }
   const historicalData = ohlcData.map((point) => ({ date: point.date, close: point.close }))
 
-  const relatedTickerSymbols = getRelatedTickers(ticker)
-
-  const peersPromise: Promise<
-    Array<{
-      ticker: string
-      name: string | null
-      correlation: number
-      absCorrelation: number
-      sector: string | null
-    }>
-  > = getTickerCorrelationNetwork(ticker, { maxPeers: 8, lookbackDays: 504, minOverlapDays: 90 })
-    .then((network) =>
-      network.peers.map((peer) => ({
-        ticker: peer.ticker,
-        name: peer.name,
-        correlation: peer.correlation,
-        absCorrelation: peer.absCorrelation,
-        sector: peer.sector,
-      }))
-    )
-    .catch(() => [])
+  const emptyPeerNetwork: NetworkGraph = {
+    asOf: null,
+    window: '1y',
+    focus: ticker,
+    nodes: [],
+    edges: [],
+  }
+  const peerNetworkPromise = getTickerNetwork(ticker, { hops: 1 }).catch(() => emptyPeerNetwork)
 
   const relatedAssetsPromise: Promise<
     Array<{ symbol: string; name: string | null; price: number | null; changePercent: number | null }>
-  > = Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol).catch(() => null)))
-    .then((quotes) =>
-      relatedTickerSymbols
+  > = peerNetworkPromise
+    .then((network) =>
+      network.edges
+        .filter((edge) => edge.source === ticker || edge.target === ticker)
+        .sort((a, b) => b.absCorrelation - a.absCorrelation)
+        .map((edge) => (edge.source === ticker ? edge.target : edge.source))
+        .filter((symbol, index, array) => symbol !== ticker && array.indexOf(symbol) === index)
+        .slice(0, 8)
+    )
+    .then((relatedTickerSymbols) =>
+      Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol).catch(() => null))).then((quotes) =>
+        relatedTickerSymbols
         .map((symbol, index) => ({ symbol, quote: quotes[index] ?? null }))
         .filter((item) => item.quote !== null)
         .map((item) => ({
@@ -244,6 +239,7 @@ export default async function TickerPage({
           price: item.quote?.price ?? null,
           changePercent: item.quote?.changePercent ?? null,
         }))
+      )
     )
     .catch(() => [])
 
@@ -396,10 +392,10 @@ export default async function TickerPage({
         latestSignal={latestSignal}
         historicalData={historicalData}
         ohlcData={ohlcData}
-        statStrip={statStrip}
-        heroStats={heroStats}
-        peers={peersPromise}
-        fundDetails={fundDetails}
+      statStrip={statStrip}
+      heroStats={heroStats}
+      peerNetwork={peerNetworkPromise}
+      fundDetails={fundDetails}
         relatedAssets={relatedAssetsPromise}
         regimeSignals={recentSignals.map((signal) => ({
           signal_date: signal.signal_date,

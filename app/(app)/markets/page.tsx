@@ -152,11 +152,25 @@ export default async function MarketsPage() {
           },
           {
             label: 'Discovery Lanes',
-            value: '3 live',
-            hint: 'Themes, sectors, IPOs, and ETFs next',
+            value: '4 live',
+            hint: 'Signals plus correlation network',
           },
         ]}
       />
+
+      <Card className="section-gap">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-card-title text-content-primary">Correlation network</h2>
+            <p className="text-body mt-2">
+              Explore the precomputed correlation graph with country colour, MST backbone, and ticker neighborhoods.
+            </p>
+          </div>
+          <Link href="/markets/network" className={buttonClass({ variant: 'primary', size: 'sm' })}>
+            Open network
+          </Link>
+        </div>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <DiscoveryLane

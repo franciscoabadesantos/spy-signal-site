@@ -5,7 +5,8 @@ import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
 import MetricGrid from '@/components/page/MetricGrid'
-import { getRelatedTickers, getStockQuote } from '@/lib/finance'
+import { getStockQuote } from '@/lib/finance'
+import { getTickerNetwork } from '@/lib/network'
 import { getTickerPageSummary } from '@/lib/ticker-data'
 
 export const dynamic = 'force-dynamic'
@@ -79,7 +80,16 @@ export default async function HoldingsAndDividendsPage({
     )
   }
 
-  const relatedTickerSymbols = getRelatedTickers(ticker)
+  const relatedTickerSymbols = await getTickerNetwork(ticker, { hops: 1 })
+    .then((network) =>
+      network.edges
+        .filter((edge) => edge.source === ticker || edge.target === ticker)
+        .sort((a, b) => b.absCorrelation - a.absCorrelation)
+        .map((edge) => (edge.source === ticker ? edge.target : edge.source))
+        .filter((symbol, index, array) => symbol !== ticker && array.indexOf(symbol) === index)
+        .slice(0, 8)
+    )
+    .catch(() => [])
   const relatedQuotes = await Promise.allSettled(relatedTickerSymbols.map((symbol) => getStockQuote(symbol)))
   const relatedAssets = relatedTickerSymbols
     .map((symbol, index) => {

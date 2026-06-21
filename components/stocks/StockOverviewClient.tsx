@@ -8,6 +8,8 @@ import OrbitMini from '@/components/stocks/OrbitMini'
 import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
 import ChartContainer from '@/components/charts/ChartContainer'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
+import type { NetworkGraph } from '@/lib/network'
+import { countryDisplayName } from '@/lib/network-regions'
 import type { SignalOrbitTelemetry } from '@/lib/signalOrbit'
 import {
   buildTechnicalSummary,
@@ -25,14 +27,6 @@ type ChartTimeframe = '1D' | '5D' | '1M' | '3M' | 'YTD' | '1Y' | '5Y'
 type OverviewStat = {
   label: string
   value: string
-}
-
-type OverviewPeer = {
-  ticker: string
-  name: string | null
-  correlation: number
-  absCorrelation: number
-  sector: string | null
 }
 
 type OverviewRelatedAsset = {
@@ -78,7 +72,7 @@ type StockOverviewClientProps = {
   ohlcData: OhlcPoint[]
   statStrip: OverviewStat[]
   heroStats: OverviewStat[]
-  peers: Promise<OverviewPeer[]>
+  peerNetwork: Promise<NetworkGraph>
   fundDetails: OverviewFundDetail[]
   relatedAssets: Promise<OverviewRelatedAsset[]>
   regimeSignals: OverviewRegimePoint[]
@@ -630,16 +624,33 @@ function Modal({
 function PeerWebContent({
   ticker,
   displayName,
-  peersPromise,
+  peerNetworkPromise,
 }: {
   ticker: string
   displayName: string
-  peersPromise: Promise<OverviewPeer[]>
+  peerNetworkPromise: Promise<NetworkGraph>
 }) {
-  const peers = use(peersPromise)
+  const graph = use(peerNetworkPromise)
+  const nodeByTicker = new Map(graph.nodes.map((node) => [node.ticker, node]))
+  const peers = graph.edges
+    .filter((edge) => edge.source === ticker || edge.target === ticker)
+    .map((edge) => {
+      const peerTicker = edge.source === ticker ? edge.target : edge.source
+      const node = nodeByTicker.get(peerTicker)
+      return {
+        ticker: peerTicker,
+        name: node?.name ?? null,
+        correlation: edge.correlation,
+        absCorrelation: edge.absCorrelation,
+        country: node?.country ?? null,
+        region: node?.region ?? null,
+      }
+    })
+    .sort((a, b) => b.absCorrelation - a.absCorrelation || a.ticker.localeCompare(b.ticker))
+
   return (
     <>
-      <CorrelationNetwork centerTicker={ticker} centerName={displayName} peers={peers} />
+      <CorrelationNetwork centerTicker={ticker} centerName={displayName} graph={graph} />
       <div className={styles.peerTableWrap}>
         <table className={styles.peerTable}>
           <thead>
@@ -647,7 +658,7 @@ function PeerWebContent({
               <th>Peer ticker</th>
               <th>Name</th>
               <th>Correlation</th>
-              <th>Direction</th>
+              <th>Country</th>
             </tr>
           </thead>
           <tbody>
@@ -660,7 +671,7 @@ function PeerWebContent({
                 </td>
                 <td>{peer.name ?? 'Related asset'}</td>
                 <td>{peer.correlation.toFixed(2)} · {correlationStrength(peer.correlation)}</td>
-                <td>{correlationDirection(peer.correlation)}</td>
+                <td>{countryDisplayName(peer.country, peer.region) || correlationDirection(peer.correlation)}</td>
               </tr>
             ))}
           </tbody>
@@ -705,7 +716,7 @@ export default function StockOverviewClient({
   ohlcData,
   statStrip,
   heroStats,
-  peers: peersPromise,
+  peerNetwork: peerNetworkPromise,
   fundDetails,
   relatedAssets: relatedAssetsPromise,
   regimeSignals,
@@ -869,7 +880,7 @@ export default function StockOverviewClient({
             </div>
           </div>
           <Suspense fallback={<div className={styles.emptyState}>Loading peer correlations…</div>}>
-            <PeerWebContent ticker={ticker} displayName={displayName} peersPromise={peersPromise} />
+            <PeerWebContent ticker={ticker} displayName={displayName} peerNetworkPromise={peerNetworkPromise} />
           </Suspense>
         </article>
 

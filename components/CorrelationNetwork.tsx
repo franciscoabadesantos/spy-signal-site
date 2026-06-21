@@ -1,25 +1,35 @@
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
-import { cn } from '@/lib/utils'
-import type { CorrelationNetworkPeer } from '@/lib/finance'
+import {
+  forceCenter,
+  forceCollide,
+  forceLink,
+  forceManyBody,
+  forceSimulation,
+  forceX,
+  forceY,
+  type SimulationNodeDatum,
+} from 'd3-force'
 import { ChartTooltipCard } from '@/components/charts/ChartContainer'
+import type { NetworkEdge, NetworkGraph, NetworkNode } from '@/lib/network'
+import { countryColor, countryDisplayName, sectorLabel } from '@/lib/network-regions'
+import { cn } from '@/lib/utils'
 
 type CorrelationNetworkProps = {
   centerTicker: string
   centerName: string | null
-  peers: CorrelationNetworkPeer[]
+  graph: NetworkGraph
 }
 
-type LayoutNode = CorrelationNetworkPeer & {
-  x: number
-  y: number
-  radius: number
-  edgeOpacity: number
-  edgeWidth: number
-  edgeColor: string
-  ringColor: string
-  fillColor: string
+type LayoutNode = NetworkNode &
+  SimulationNodeDatum & {
+    id: string
+    radius: number
+  }
+
+type LayoutEdge = NetworkEdge & {
+  id: string
 }
 
 type HoverTooltipState = {
@@ -29,93 +39,121 @@ type HoverTooltipState = {
 
 const WIDTH = 860
 const HEIGHT = 420
-const CENTER_X = WIDTH / 2
-const CENTER_Y = HEIGHT / 2
-
-function correlationDescriptor(absCorrelation: number): 'high' | 'moderate' | 'low' {
-  if (absCorrelation >= 0.75) return 'high'
-  if (absCorrelation >= 0.5) return 'moderate'
-  return 'low'
-}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-function ringRadius(absCorrelation: number): number {
-  const minRadius = 104
-  const maxRadius = 172
-  const normalized = Math.max(0, Math.min(1, absCorrelation))
-  return maxRadius - normalized * (maxRadius - minRadius)
+function correlationDescriptor(absCorrelation: number): 'Strong' | 'Moderate' | 'Weak' {
+  if (absCorrelation >= 0.75) return 'Strong'
+  if (absCorrelation >= 0.5) return 'Moderate'
+  return 'Weak'
 }
 
-function edgeColorForCorrelation(correlation: number): string {
-  return correlation >= 0
-    ? `rgba(99, 179, 237, ${0.2 + Math.abs(correlation) * 0.8})`
-    : `rgba(252, 129, 129, ${0.2 + Math.abs(correlation) * 0.8})`
+function edgeKey(source: string, target: string): string {
+  return [source, target].sort().join('__')
 }
 
-function ringColorForCorrelation(correlation: number): string {
-  if (correlation > 0.7) return '#63b3ed'
-  if (correlation > 0.4) return '#4a90d9'
-  if (correlation < 0) return '#fc8181'
-  return '#4b5563'
+function edgeStroke(edge: NetworkEdge): string {
+  const alpha = clamp(0.18 + edge.absCorrelation * 0.72, 0.24, 0.9)
+  return edge.correlation >= 0 ? `rgba(54, 179, 255, ${alpha})` : `rgba(255, 134, 123, ${alpha})`
 }
 
-function fillColorForCorrelation(correlation: number): string {
-  if (correlation > 0.7) return '#1e3a5f'
-  if (correlation > 0.4) return '#1a2a3f'
-  if (correlation < 0) return '#3f1e1e'
-  return '#1e1e2e'
+function marketCapRadius(marketCap: number | null): number {
+  if (!marketCap || !Number.isFinite(marketCap) || marketCap <= 0) return 16
+  const normalized = clamp((Math.log10(marketCap) - 8) / 5, 0, 1)
+  return 13 + normalized * 13
 }
 
-function computeNodeLayout(peers: CorrelationNetworkPeer[]): LayoutNode[] {
-  const sorted = peers
-    .slice()
-    .sort((a, b) => b.absCorrelation - a.absCorrelation || a.ticker.localeCompare(b.ticker))
+function buildLayout(graph: NetworkGraph, centerTickerRaw: string): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
+  const centerTicker = centerTickerRaw.trim().toUpperCase()
+  const nodeByTicker = new Map<string, NetworkNode>()
+  for (const node of graph.nodes) {
+    nodeByTicker.set(node.ticker, node)
+  }
 
-  const count = sorted.length
-  if (count === 0) return []
+  const edges = graph.edges
+    .filter((edge) => nodeByTicker.has(edge.source) && nodeByTicker.has(edge.target))
+    .sort((a, b) => Number(a.inMst) - Number(b.inMst) || a.absCorrelation - b.absCorrelation)
+    .map((edge) => ({ ...edge, id: edgeKey(edge.source, edge.target) }))
 
-  return sorted.map((peer, index) => {
-    const angle = -Math.PI / 2 + (2 * Math.PI * index) / count
-    const r = ringRadius(peer.absCorrelation)
-    const x = CENTER_X + Math.cos(angle) * r
-    const y = CENTER_Y + Math.sin(angle) * r
-    const nodeRadius = 18
-    const edgeOpacity = 0.2 + peer.absCorrelation * 0.8
-    const edgeWidth = 0.5 + peer.absCorrelation * 5
-
+  const nodes: LayoutNode[] = [...nodeByTicker.values()].map((node, index) => {
+    const angle = -Math.PI / 2 + (index / Math.max(1, nodeByTicker.size)) * Math.PI * 2
+    const isCenter = node.ticker === centerTicker
     return {
-      ...peer,
-      x,
-      y,
-      radius: nodeRadius,
-      edgeOpacity,
-      edgeWidth,
-      edgeColor: edgeColorForCorrelation(peer.correlation),
-      ringColor: ringColorForCorrelation(peer.correlation),
-      fillColor: fillColorForCorrelation(peer.correlation),
+      ...node,
+      id: node.ticker,
+      radius: isCenter ? Math.max(23, marketCapRadius(node.marketCap)) : marketCapRadius(node.marketCap),
+      x: isCenter ? WIDTH / 2 : WIDTH / 2 + Math.cos(angle) * 150,
+      y: isCenter ? HEIGHT / 2 : HEIGHT / 2 + Math.sin(angle) * 118,
+      fx: isCenter ? WIDTH / 2 : undefined,
+      fy: isCenter ? HEIGHT / 2 : undefined,
     }
   })
+
+  const linkEdges = edges.map((edge) => ({ ...edge }))
+  const simulation = forceSimulation<LayoutNode>(nodes)
+    .force(
+      'link',
+      forceLink<LayoutNode, LayoutEdge>(linkEdges)
+        .id((node) => node.id)
+        .distance((edge) => (edge.inMst ? 92 : 122) - edge.absCorrelation * 34)
+        .strength((edge) => (edge.inMst ? 0.78 : 0.32 + edge.absCorrelation * 0.22))
+    )
+    .force('charge', forceManyBody<LayoutNode>().strength(-225))
+    .force('collide', forceCollide<LayoutNode>().radius((node) => node.radius + 15).strength(0.9))
+    .force('x', forceX<LayoutNode>(WIDTH / 2).strength((node) => (node.id === centerTicker ? 0.42 : 0.045)))
+    .force('y', forceY<LayoutNode>(HEIGHT / 2).strength((node) => (node.id === centerTicker ? 0.42 : 0.06)))
+    .force('center', forceCenter(WIDTH / 2, HEIGHT / 2))
+    .stop()
+
+  for (let index = 0; index < 180; index += 1) simulation.tick()
+
+  for (const node of nodes) {
+    node.x = clamp(node.x ?? WIDTH / 2, node.radius + 14, WIDTH - node.radius - 14)
+    node.y = clamp(node.y ?? HEIGHT / 2, node.radius + 18, HEIGHT - node.radius - 18)
+  }
+
+  return { nodes, edges }
+}
+
+function strongestEdgeForTicker(ticker: string, edges: NetworkEdge[]): NetworkEdge | null {
+  return (
+    edges
+      .filter((edge) => edge.source === ticker || edge.target === ticker)
+      .sort((a, b) => b.absCorrelation - a.absCorrelation)[0] ?? null
+  )
 }
 
 export default function CorrelationNetwork({
   centerTicker,
   centerName,
-  peers,
+  graph,
 }: CorrelationNetworkProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [hoveredTicker, setHoveredTicker] = useState<string | null>(null)
   const [tooltipState, setTooltipState] = useState<HoverTooltipState | null>(null)
-  const layoutNodes = useMemo(() => computeNodeLayout(peers), [peers])
-  const hoveredNode = hoveredTicker
-    ? layoutNodes.find((node) => node.ticker === hoveredTicker) ?? null
-    : null
+  const { nodes, edges } = useMemo(() => buildLayout(graph, centerTicker), [centerTicker, graph])
+  const nodeByTicker = useMemo(() => new Map(nodes.map((node) => [node.ticker, node])), [nodes])
+  const hoveredNode = hoveredTicker ? nodeByTicker.get(hoveredTicker) ?? null : null
+  const connectedTickers = useMemo(() => {
+    if (!hoveredTicker) return null
+    const connected = new Set<string>([hoveredTicker])
+    for (const edge of edges) {
+      if (edge.source === hoveredTicker) connected.add(edge.target)
+      if (edge.target === hoveredTicker) connected.add(edge.source)
+    }
+    return connected
+  }, [edges, hoveredTicker])
+  const connectedEdges = useMemo(() => {
+    if (!hoveredTicker) return null
+    return new Set(edges.filter((edge) => edge.source === hoveredTicker || edge.target === hoveredTicker).map((edge) => edge.id))
+  }, [edges, hoveredTicker])
+  const tooltipEdge = hoveredTicker ? strongestEdgeForTicker(hoveredTicker, edges) : null
 
-  if (layoutNodes.length === 0) {
+  if (nodes.length === 0 || edges.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-content-muted">
+      <div className="rounded-[8px] border border-dashed border-border p-6 text-sm text-content-muted">
         Correlation relationships are not available for this ticker yet.
       </div>
     )
@@ -125,46 +163,41 @@ export default function CorrelationNetwork({
     <div className="space-y-3">
       <div
         ref={containerRef}
-        className="relative overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[var(--bg-surface)] p-4"
+        className="relative overflow-hidden rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[var(--bg-surface)] p-4"
       >
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-[340px] w-full rounded-xl bg-[var(--bg-surface)]" role="img" aria-label="Correlation network">
-          {layoutNodes.map((node) => {
-            const isHovered = hoveredTicker === node.ticker
-            const hasActiveHover = hoveredTicker !== null
+        <svg
+          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          className="h-[340px] w-full rounded-[8px] bg-[var(--bg-surface)]"
+          role="img"
+          aria-label="Correlation network"
+        >
+          {edges.map((edge) => {
+            const source = nodeByTicker.get(edge.source)
+            const target = nodeByTicker.get(edge.target)
+            if (!source || !target) return null
+            const isHighlighted = connectedEdges ? connectedEdges.has(edge.id) : false
+            const isDimmed = connectedEdges ? !isHighlighted : false
             return (
               <line
-                key={`edge-${node.ticker}`}
-                x1={CENTER_X}
-                y1={CENTER_Y}
-                x2={node.x}
-                y2={node.y}
-                stroke={node.edgeColor}
-                strokeOpacity={hasActiveHover ? (isHovered ? 1 : 0.1) : node.edgeOpacity}
-                strokeWidth={isHovered ? node.edgeWidth + 1 : node.edgeWidth}
+                key={edge.id}
+                x1={source.x}
+                y1={source.y}
+                x2={target.x}
+                y2={target.y}
+                stroke={edgeStroke(edge)}
+                strokeOpacity={isDimmed ? 0.08 : edge.inMst ? 0.92 : 0.46}
+                strokeWidth={isHighlighted ? 4.2 : edge.inMst ? 3 : 1.4 + edge.absCorrelation * 1.8}
+                strokeDasharray={edge.inMst ? undefined : '4 8'}
+                strokeLinecap="round"
               />
             )
           })}
 
-          <circle
-            cx={CENTER_X}
-            cy={CENTER_Y}
-            r={22}
-            fill="#111827"
-            stroke="#63b3ed"
-            strokeWidth={2}
-          />
-          <text
-            x={CENTER_X}
-            y={CENTER_Y + 5}
-            textAnchor="middle"
-            className="text-[14px] font-semibold"
-            fill="#f9fafb"
-          >
-            {centerTicker}
-          </text>
-
-          {layoutNodes.map((node) => {
+          {nodes.map((node) => {
+            const isCenter = node.ticker === centerTicker
             const isHovered = hoveredTicker === node.ticker
+            const isDimmed = connectedTickers ? !connectedTickers.has(node.ticker) : false
+            const color = countryColor(node.country, node.region)
             return (
               <a
                 key={node.ticker}
@@ -174,16 +207,16 @@ export default function CorrelationNetwork({
                   const rect = containerRef.current?.getBoundingClientRect()
                   if (!rect) return
                   setTooltipState({
-                    x: clamp(event.clientX - rect.left + 10, 8, rect.width - 196),
-                    y: clamp(event.clientY - rect.top - 10, 8, rect.height - 120),
+                    x: clamp(event.clientX - rect.left + 10, 8, rect.width - 220),
+                    y: clamp(event.clientY - rect.top - 10, 8, rect.height - 132),
                   })
                 }}
                 onMouseMove={(event) => {
                   const rect = containerRef.current?.getBoundingClientRect()
                   if (!rect) return
                   setTooltipState({
-                    x: clamp(event.clientX - rect.left + 10, 8, rect.width - 196),
-                    y: clamp(event.clientY - rect.top - 10, 8, rect.height - 120),
+                    x: clamp(event.clientX - rect.left + 10, 8, rect.width - 220),
+                    y: clamp(event.clientY - rect.top - 10, 8, rect.height - 132),
                   })
                 }}
                 onMouseLeave={() => {
@@ -194,22 +227,32 @@ export default function CorrelationNetwork({
                 <circle
                   cx={node.x}
                   cy={node.y}
-                  r={isHovered ? node.radius + 2 : node.radius}
-                  fill={node.fillColor}
-                  stroke={node.ringColor}
-                  strokeWidth={2}
+                  r={node.radius + (isHovered ? 5 : isCenter ? 3 : 0)}
+                  fill={color}
+                  fillOpacity={isDimmed ? 0.18 : isCenter ? 0.38 : 0.26}
+                  stroke={color}
+                  strokeWidth={isCenter ? 2.8 : isHovered ? 2.4 : 1.5}
+                  opacity={isDimmed ? 0.3 : 1}
+                />
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={Math.max(7, node.radius * 0.48)}
+                  fill={color}
+                  fillOpacity={isDimmed ? 0.28 : 0.72}
                 />
                 <text
                   x={node.x}
-                  y={node.y + 4}
+                  y={(node.y ?? 0) + 4}
                   textAnchor="middle"
-                  className={cn('text-[11px] font-semibold', isHovered ? 'text-[12px]' : undefined)}
+                  className={cn('text-[10px] font-semibold', isCenter ? 'text-[12px]' : undefined)}
                   fill="#f9fafb"
+                  opacity={isDimmed ? 0.32 : 0.96}
                 >
                   {node.ticker}
                 </text>
                 <title>
-                  {`${node.ticker} · ${(node.correlation * 100).toFixed(1)}% correlation${node.sector ? ` · ${node.sector}` : ''}`}
+                  {`${node.ticker} · ${countryDisplayName(node.country, node.region)} · ${sectorLabel(node.sector)}${tooltipEdge ? ` · ${tooltipEdge.correlation.toFixed(2)} correlation` : ''}`}
                 </title>
               </a>
             )
@@ -221,20 +264,21 @@ export default function CorrelationNetwork({
             <ChartTooltipCard
               title={hoveredNode.ticker}
               rows={[
+                { label: 'Name', value: hoveredNode.name ?? '—' },
+                {
+                  label: 'Country',
+                  value: countryDisplayName(hoveredNode.country, hoveredNode.region),
+                  swatchColor: countryColor(hoveredNode.country, hoveredNode.region),
+                },
+                { label: 'Sector', value: sectorLabel(hoveredNode.sector) },
                 {
                   label: 'Correlation',
-                  value: hoveredNode.correlation.toFixed(2),
-                  swatchColor: hoveredNode.correlation >= 0 ? '#63b3ed' : '#fc8181',
+                  value: tooltipEdge ? tooltipEdge.correlation.toFixed(2) : '—',
+                  swatchColor: tooltipEdge ? edgeStroke(tooltipEdge) : undefined,
                 },
-                { label: 'Direction', value: hoveredNode.correlation >= 0 ? 'Positive' : 'Negative' },
                 {
                   label: 'Strength',
-                  value:
-                    correlationDescriptor(hoveredNode.absCorrelation) === 'high'
-                      ? 'Strong'
-                      : correlationDescriptor(hoveredNode.absCorrelation) === 'moderate'
-                        ? 'Moderate'
-                        : 'Weak',
+                  value: tooltipEdge ? correlationDescriptor(tooltipEdge.absCorrelation) : '—',
                 },
               ]}
             />
@@ -244,32 +288,27 @@ export default function CorrelationNetwork({
 
       <div
         className={cn(
-          'rounded-xl border border-[rgba(255,255,255,0.08)] bg-[var(--bg-surface-raised)] px-3 py-2 text-xs text-content-secondary',
-          hoveredNode ? 'border-[#63b3ed] text-content-primary' : undefined
+          'rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[var(--bg-surface-raised)] px-3 py-2 text-xs text-content-secondary',
+          hoveredNode ? 'border-[#36B3FF] text-content-primary' : undefined
         )}
       >
         {hoveredNode ? (
           <span>
-            {hoveredNode.ticker} · correlation {hoveredNode.correlation.toFixed(2)} ·{' '}
-            {correlationDescriptor(hoveredNode.absCorrelation) === 'high'
-              ? 'Strong'
-              : correlationDescriptor(hoveredNode.absCorrelation) === 'moderate'
-                ? 'Moderate'
-                : 'Weak'}
-            {hoveredNode.sector ? ` · ${hoveredNode.sector}` : ''}
+            {hoveredNode.ticker} · {countryDisplayName(hoveredNode.country, hoveredNode.region)} · {sectorLabel(hoveredNode.sector)}
+            {tooltipEdge ? ` · correlation ${tooltipEdge.correlation.toFixed(2)} · ${correlationDescriptor(tooltipEdge.absCorrelation)}` : ''}
             {hoveredNode.name ? ` · ${hoveredNode.name}` : ''}
           </span>
         ) : (
           <span>
-            Hover a node to inspect ticker, correlation strength, and sector context.
+            Hover a node to inspect country, sector, correlation strength, and graph neighbors.
           </span>
         )}
       </div>
-      {centerName ? (
-        <p className="text-[11px] text-content-muted">
-          {centerTicker}: {centerName}
-        </p>
-      ) : null}
+      <p className="text-[11px] text-content-muted">
+        {centerName ? `${centerTicker}: ${centerName} · ` : null}
+        {graph.asOf ? `As of ${graph.asOf} · ` : null}
+        Window {graph.window}
+      </p>
     </div>
   )
 }

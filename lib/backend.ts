@@ -112,7 +112,12 @@ export async function fetchBackendJson<T>(
   }: {
     context: string
     timeoutMs?: number
-    init?: RequestInit
+    init?: RequestInit & {
+      next?: {
+        revalidate?: number | false
+        tags?: string[]
+      }
+    }
     allowEmptyBody?: boolean
   }
 ): Promise<T> {
