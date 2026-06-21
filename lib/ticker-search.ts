@@ -118,7 +118,7 @@ export function normalizeTickerSearchQuery(raw: string): string {
 
 export function isTickerLikeQuery(raw: string): boolean {
   const normalized = raw.trim().toUpperCase()
-  if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(normalized)) return false
+  if (!/^[A-Z0-9][A-Z0-9.\-]{0,9}$/.test(normalized)) return false
   if (normalized.includes('.') || normalized.includes('-')) return true
   return normalized.length <= 5
 }

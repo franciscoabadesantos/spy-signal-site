@@ -53,7 +53,7 @@ function normalizeTickerIndexItem(value: unknown): TickerIndexItem | null {
   if (!value || typeof value !== 'object') return null
   const row = value as Record<string, unknown>
   const symbol =
-    typeof row.symbol === 'string' && /^[A-Z][A-Z0-9.\-]{0,9}$/.test(row.symbol.trim().toUpperCase())
+    typeof row.symbol === 'string' && /^[A-Z0-9][A-Z0-9.\-]{0,9}$/.test(row.symbol.trim().toUpperCase())
       ? row.symbol.trim().toUpperCase()
       : null
   if (!symbol) return null
@@ -252,7 +252,7 @@ export default function TickerSearchCombobox({
       const next = parsed
         .filter((value): value is string => typeof value === 'string')
         .map((value) => value.trim().toUpperCase())
-        .filter((value) => /^[A-Z][A-Z0-9.\-]{0,9}$/.test(value))
+        .filter((value) => /^[A-Z0-9][A-Z0-9.\-]{0,9}$/.test(value))
         .slice(0, 6)
       setRecentTickers(next)
     } catch {

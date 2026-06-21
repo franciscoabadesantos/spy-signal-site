@@ -48,7 +48,7 @@ function json(payload: TickerSearchResponse) {
 }
 
 function isTradableSymbol(symbol: string): boolean {
-  return /^[A-Z][A-Z0-9.\-]{0,9}$/.test(symbol)
+  return /^[A-Z0-9][A-Z0-9.\-]{0,9}$/.test(symbol)
 }
 
 function normalizeCandidate(candidate: SearchCandidate): SearchCandidate {
