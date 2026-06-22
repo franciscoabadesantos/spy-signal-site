@@ -415,7 +415,8 @@ export default function NetworkGraphCanvas({
       'collide',
       forceCollide<GraphNode>()
         .radius((node) => node.radius + (mode === 'peer' ? NETWORK_PHYSICS.peerCollidePadding : NETWORK_PHYSICS.collidePadding))
-        .strength(0.88) as unknown as never
+        .strength(1)
+        .iterations(2) as unknown as never
     )
     fg.d3Force('center', forceCenter(0, 0) as unknown as never)
     const linkForce = fg.d3Force('link') as unknown as MutableLinkForce | undefined
@@ -471,7 +472,9 @@ export default function NetworkGraphCanvas({
         d3VelocityDecay={NETWORK_PHYSICS.velocityDecay}
         d3AlphaDecay={NETWORK_PHYSICS.alphaDecay}
         cooldownTime={NETWORK_PHYSICS.cooldownTimeMs}
-        warmupTicks={40}
+        // 0 (not the lib default) so the on-mount warmup doesn't pre-collapse the ring with the
+        // library's DEFAULT forces (no collide) before our real forces + collide are applied.
+        warmupTicks={0}
         minZoom={0.28}
         maxZoom={5}
         enableNodeDrag
