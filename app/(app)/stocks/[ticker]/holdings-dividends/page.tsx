@@ -5,7 +5,17 @@ import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
 import MetricGrid from '@/components/page/MetricGrid'
-import { getStockQuote } from '@/lib/finance'
+import {
+  TableBase,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  TableShell,
+  TableEmptyRow,
+} from '@/components/ui/DataTable'
+import { getStockQuote, getTickerFundamentals } from '@/lib/finance'
 import { getTickerNetwork } from '@/lib/network'
 import { getTickerPageSummary } from '@/lib/ticker-data'
 
@@ -43,6 +53,11 @@ function formatPct(value: number | null): string {
   return `${sign}${value.toFixed(2)}%`
 }
 
+function formatWeight(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return `${value.toFixed(2)}%`
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -68,8 +83,12 @@ export default async function HoldingsAndDividendsPage({
   const ticker = resolvedParams.ticker.toUpperCase()
 
   let summary: Awaited<ReturnType<typeof getTickerPageSummary>>
+  let fundamentals: Awaited<ReturnType<typeof getTickerFundamentals>>
   try {
-    summary = await getTickerPageSummary(ticker)
+    ;[summary, fundamentals] = await Promise.all([
+      getTickerPageSummary(ticker),
+      getTickerFundamentals(ticker),
+    ])
   } catch {
     return (
       <EmptyState
@@ -142,8 +161,82 @@ export default async function HoldingsAndDividendsPage({
 
         <Card className="section-gap" padding="lg">
           <div className="text-filter-label">Coverage Status</div>
-          <p className="mt-2 text-caption text-content-muted">Holdings and dividend data is being added.</p>
+          <p className="mt-2 text-caption text-content-muted">
+            {fundamentals.holdings.length > 0 || fundamentals.sectorWeights.length > 0
+              ? 'Backend holdings and allocation data is available for this ticker.'
+              : 'Holdings coverage is not available for this ticker yet.'}
+          </p>
         </Card>
+
+        <MetricGrid
+          columns={4}
+          items={[
+            { label: 'Dividend Rate', value: fundamentals.dividendRate ?? '—' },
+            { label: 'Dividend Yield', value: fundamentals.dividendYield ?? '—' },
+            { label: 'Ex-Dividend Date', value: fundamentals.exDividendDate ?? '—' },
+            { label: 'Payout Ratio', value: fundamentals.payoutRatio ?? '—' },
+          ]}
+        />
+
+        <TableShell contentClassName="max-h-[520px]">
+          <TableBase className="whitespace-nowrap text-body-sm">
+            <TableHead sticky>
+              <tr>
+                <TableHeaderCell>Holding</TableHeaderCell>
+                <TableHeaderCell>Name</TableHeaderCell>
+                <TableHeaderCell>Weight</TableHeaderCell>
+              </tr>
+            </TableHead>
+            <TableBody>
+              {fundamentals.holdings.length === 0 ? (
+                <TableEmptyRow
+                  colSpan={3}
+                  title="No holdings are available for this ticker."
+                  description="Equities and funds without backend holdings data render gracefully without Yahoo fallback."
+                />
+              ) : (
+                fundamentals.holdings.slice(0, 25).map((holding, index) => (
+                  <TableRow key={`${holding.symbol}-${holding.name}-${index}`} index={index}>
+                    <TableCell className="font-semibold text-content-primary">{holding.symbol}</TableCell>
+                    <TableCell>{holding.name}</TableCell>
+                    <TableCell className="numeric-tabular text-content-primary">
+                      {formatWeight(holding.weightPercent)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </TableBase>
+        </TableShell>
+
+        <TableShell contentClassName="max-h-[420px]">
+          <TableBase className="whitespace-nowrap text-body-sm">
+            <TableHead sticky>
+              <tr>
+                <TableHeaderCell>Sector</TableHeaderCell>
+                <TableHeaderCell>Weight</TableHeaderCell>
+              </tr>
+            </TableHead>
+            <TableBody>
+              {fundamentals.sectorWeights.length === 0 ? (
+                <TableEmptyRow
+                  colSpan={2}
+                  title="No sector weights are available for this ticker."
+                  description="The backend can return null/empty allocations independently of other fundamentals."
+                />
+              ) : (
+                fundamentals.sectorWeights.map((sector, index) => (
+                  <TableRow key={`${sector.sector}-${index}`} index={index}>
+                    <TableCell>{sector.sector}</TableCell>
+                    <TableCell className="numeric-tabular text-content-primary">
+                      {formatWeight(sector.weightPercent)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </TableBase>
+        </TableShell>
 
         <Card className="section-gap" padding="lg">
           <div className="flex flex-wrap items-center justify-between gap-2">

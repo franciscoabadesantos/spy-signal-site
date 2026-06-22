@@ -2,7 +2,7 @@ import TrackedLink from '@/components/analytics/TrackedLink'
 import OrbitMini from '@/components/stocks/OrbitMini'
 import Card from '@/components/ui/Card'
 import SignalBlock from '@/components/ui/SignalBlock'
-import { buildMiniOrbitDimensions } from '@/lib/signalOrbit'
+import type { Scorecard } from '@/lib/scorecard-types'
 import { shortSignalHeadline } from '@/lib/signalSummary'
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
@@ -17,6 +17,7 @@ type ScreenerSignalCardProps = {
     predictionHorizon: number | null
     price: number | null
     changePercent: number | null
+    scorecard: Scorecard
   }
 }
 
@@ -52,12 +53,6 @@ function stockHref(ticker: string, signal: string): string {
 
 export default function ScreenerSignalCard({ row }: ScreenerSignalCardProps) {
   const shortHeadline = shortSignalHeadline(row.direction, row.conviction)
-  const orbitDimensions = buildMiniOrbitDimensions({
-    direction: row.direction,
-    conviction: row.conviction,
-    changePercent: row.changePercent,
-    horizon: row.predictionHorizon,
-  })
 
   return (
     <TrackedLink
@@ -128,10 +123,10 @@ export default function ScreenerSignalCard({ row }: ScreenerSignalCardProps) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-filter-label">System Profile</div>
-              <div className="text-caption mt-1 text-content-muted">Mini orbit view</div>
+              <div className="text-caption mt-1 text-content-muted">Backend scorecard</div>
             </div>
             <div className="shrink-0">
-              <OrbitMini dimensions={orbitDimensions} size={80} />
+              <OrbitMini scorecard={row.scorecard} size={80} />
             </div>
           </div>
         </div>

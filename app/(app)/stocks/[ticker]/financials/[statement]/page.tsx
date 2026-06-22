@@ -15,7 +15,7 @@ import {
   TableShell,
   TableEmptyRow,
 } from '@/components/ui/DataTable'
-import { getStockQuote } from '@/lib/finance'
+import { getStockQuote, getTickerFundamentals, type TickerFinancialRow } from '@/lib/finance'
 import { getTickerPageSummary } from '@/lib/ticker-data'
 
 export const dynamic = 'force-dynamic'
@@ -125,6 +125,18 @@ function formatFinancialMetricValue(label: string, valueDisplay: string | null, 
   return numericValue.toFixed(2)
 }
 
+function rowsForStatement(
+  statementSlug: StatementSlug,
+  fundamentals: Awaited<ReturnType<typeof getTickerFundamentals>>
+): TickerFinancialRow[] {
+  if (statementSlug === 'fund-profile') {
+    return fundamentals.snapshot.length > 0 ? fundamentals.snapshot : fundamentals.profile
+  }
+  if (statementSlug === 'portfolio') return fundamentals.portfolio
+  if (statementSlug === 'distributions') return fundamentals.distributions
+  return fundamentals.risk
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -153,8 +165,12 @@ export default async function FinancialStatementPage({
   if (!statementMeta) notFound()
 
   let summary: Awaited<ReturnType<typeof getTickerPageSummary>>
+  let fundamentals: Awaited<ReturnType<typeof getTickerFundamentals>>
   try {
-    summary = await getTickerPageSummary(ticker)
+    ;[summary, fundamentals] = await Promise.all([
+      getTickerPageSummary(ticker),
+      getTickerFundamentals(ticker),
+    ])
   } catch {
     return (
       <EmptyState
@@ -165,7 +181,7 @@ export default async function FinancialStatementPage({
     )
   }
 
-  const rows = summary.latestFundamentals.filter(
+  const latestRows = summary.latestFundamentals.filter(
     (row) =>
       row !== null &&
       typeof row.metric === 'string' &&
@@ -174,6 +190,14 @@ export default async function FinancialStatementPage({
       row.metricLabel.trim().length > 0 &&
       (row.valueDisplay !== null || row.valueNumber !== null)
   )
+  const profileRows = rowsForStatement(statementSlug, fundamentals)
+  const rows =
+    profileRows.length > 0
+      ? profileRows
+      : latestRows.map((row) => ({
+          label: row.metricLabel,
+          value: formatFinancialMetricValue(row.metricLabel, row.valueDisplay, row.valueNumber),
+        }))
 
   return (
     <>
@@ -192,19 +216,17 @@ export default async function FinancialStatementPage({
           items={[
             {
               label: 'Market Cap',
-              value: formatCompactNumber(summary.fundamentalsSummary?.marketCap ?? null, { currency: true }),
-            },
-            {
-              label: 'Latest Revenue',
-              value: formatCompactNumber(summary.fundamentalsSummary?.latestRevenue ?? null, { currency: true }),
-            },
-            {
-              label: 'Latest EPS',
               value:
-                summary.fundamentalsSummary?.latestEps !== null &&
-                summary.fundamentalsSummary?.latestEps !== undefined
-                  ? summary.fundamentalsSummary.latestEps.toFixed(2)
-                  : '—',
+                fundamentals.marketCap ??
+                formatCompactNumber(summary.fundamentalsSummary?.marketCap ?? null, { currency: true }),
+            },
+            {
+              label: 'Dividend Yield',
+              value: fundamentals.dividendYield ?? '—',
+            },
+            {
+              label: 'Dividend Rate',
+              value: fundamentals.dividendRate ?? '—',
             },
             { label: 'Latest Period End', value: formatCalendarDate(summary.fundamentalsSummary?.periodEnd ?? null) },
           ]}
@@ -229,7 +251,7 @@ export default async function FinancialStatementPage({
               </div>
             </div>
             <div className="surface-tertiary p-3">
-              <div className="text-filter-label">Latest Metrics</div>
+              <div className="text-filter-label">Displayed Metrics</div>
               <div className="mt-1 text-data-sm text-content-primary">{rows.length}</div>
             </div>
             <div className="surface-tertiary p-3">
@@ -256,15 +278,13 @@ export default async function FinancialStatementPage({
                   description="When summary rows exist, they appear here as summary metrics only, not as full statements."
                 />
               ) : (
-                rows.slice(0, 12).map((row, index) => (
-                  <TableRow key={`${row.metric}-${index}`} index={index}>
-                    <TableCell>{displayMetricLabel(row.metricLabel)}</TableCell>
+                rows.slice(0, 24).map((row, index) => (
+                  <TableRow key={`${row.label}-${index}`} index={index}>
+                    <TableCell>{displayMetricLabel(row.label)}</TableCell>
                     <TableCell className="text-data-sm numeric-tabular text-content-primary">
-                      {formatFinancialMetricValue(row.metricLabel, row.valueDisplay, row.valueNumber)}
+                      {row.value}
                     </TableCell>
-                    <TableCell muted className="numeric-tabular">
-                      {formatCalendarDate(row.periodEnd)}
-                    </TableCell>
+                    <TableCell muted className="numeric-tabular">—</TableCell>
                   </TableRow>
                 ))
               )}

@@ -18,11 +18,7 @@ import {
   getTickerPageSummary,
   type LatestFundamentalsRow,
 } from '@/lib/ticker-data'
-import {
-  buildOrbitDimensionsFromHistory,
-  buildOrbitTelemetry,
-  trendAgeFromSignals,
-} from '@/lib/signalOrbit'
+import { getTickerScorecard } from '@/lib/scorecard'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 
 export const dynamic = 'force-dynamic'
@@ -189,13 +185,15 @@ export default async function TickerPage({
   let ohlcData: Awaited<ReturnType<typeof getOhlcData>>
   let recentSignals: Awaited<ReturnType<typeof getCachedSignalHistoryForTicker>>
   let latestScreenerRows: Awaited<ReturnType<typeof getCachedLatestScreenerRow>>
+  let scorecard: Awaited<ReturnType<typeof getTickerScorecard>>
 
   try {
-    ;[tickerSummary, ohlcData, recentSignals, latestScreenerRows] = await Promise.all([
+    ;[tickerSummary, ohlcData, recentSignals, latestScreenerRows, scorecard] = await Promise.all([
       getTickerPageSummary(ticker),
       getOhlcData(ticker, 3650),
       getCachedSignalHistoryForTicker(ticker, 180),
       getCachedLatestScreenerRow(ticker),
+      getTickerScorecard(ticker),
     ])
   } catch {
     return (
@@ -344,19 +342,6 @@ export default async function TickerPage({
       .filter((row) => !duplicateLabels.has(normalizeFundDetailLabel(row.label)))
   ).slice(0, 18)
 
-  const orbitDimensions = buildOrbitDimensionsFromHistory({
-    historicalData,
-    recentSignals,
-    dividendYield: dividendYield === '—' ? null : dividendYield,
-    hasFundamentals: latestFundamentals.length > 0 || fundamentalsSummary !== null,
-  })
-  const orbitTelemetry = buildOrbitTelemetry({
-    dimensions: orbitDimensions,
-    conviction: latestSignal?.conviction ?? null,
-    direction: latestSignal?.direction ?? null,
-    trendAge: trendAgeFromSignals(recentSignals, latestSignal?.direction ?? null),
-  })
-
   return (
     <div className="space-y-4 md:space-y-5">
       <TrackEventOnMount
@@ -392,20 +377,17 @@ export default async function TickerPage({
         latestSignal={latestSignal}
         historicalData={historicalData}
         ohlcData={ohlcData}
-      statStrip={statStrip}
-      heroStats={heroStats}
-      peerNetwork={peerNetworkPromise}
-      fundDetails={fundDetails}
+        statStrip={statStrip}
+        heroStats={heroStats}
+        peerNetwork={peerNetworkPromise}
+        fundDetails={fundDetails}
         relatedAssets={relatedAssetsPromise}
         regimeSignals={recentSignals.map((signal) => ({
           signal_date: signal.signal_date,
           direction: signal.direction,
           prob_side: signal.prob_side,
         }))}
-        orbitDimensions={orbitDimensions}
-        orbitTelemetry={orbitTelemetry}
-        marketCap={marketCapNumeric}
-        marketCapLabel={marketCapValue !== '—' ? marketCapValue : null}
+        scorecard={scorecard}
         showCopilot
         copilot={{
           isPro: viewerAccess.isPro,

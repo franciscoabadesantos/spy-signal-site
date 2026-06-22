@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import OrbitMini from '@/components/stocks/OrbitMini'
 import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
-import { buildMiniOrbitDimensions } from '@/lib/signalOrbit'
+import { buildUnavailableScorecard } from '@/lib/scorecard-types'
 import { ensureTickerOnboarding } from '@/lib/ticker-onboarding'
 import {
   filterTickerIndexItems,
@@ -45,6 +45,7 @@ type DisplaySection = {
 
 const RECENT_TICKERS_STORAGE_KEY = 'spy_recent_tickers_v1'
 const TICKER_INDEX_STORAGE_KEY = 'spy_ticker_index_v1'
+const UNAVAILABLE_SEARCH_SCORECARD = buildUnavailableScorecard()
 
 let memoryTickerIndex: CachedTickerIndex | null = null
 let memoryTickerIndexPromise: Promise<CachedTickerIndex | null> | null = null
@@ -219,6 +220,7 @@ export default function TickerSearchCombobox({
   const [loadAttemptToken, setLoadAttemptToken] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const [remoteSuggestions, setRemoteSuggestions] = useState<DisplayItem[]>([])
+  const [localScorecardSuggestions, setLocalScorecardSuggestions] = useState<DisplayItem[]>([])
   const [isRemoteSearching, setIsRemoteSearching] = useState(false)
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const normalizedSearch = normalizeTickerSearchQuery(search)
@@ -315,11 +317,14 @@ export default function TickerSearchCombobox({
       displaySource: 'result' as const,
     }))
   }, [normalizedSearch, tickerIndex])
+  const resultSuggestionSymbols = useMemo(
+    () => resultSuggestions.map((item) => item.symbol).join(','),
+    [resultSuggestions]
+  )
 
   useEffect(() => {
     const query = normalizedSearch
-    // Só recorremos à pesquisa remota quando o índice local não tem matches.
-    if (query.length === 0 || resultSuggestions.length > 0) {
+    if (query.length === 0) {
       setRemoteSuggestions([])
       setIsRemoteSearching(false)
       return
@@ -353,12 +358,59 @@ export default function TickerSearchCombobox({
       controller.abort()
       clearTimeout(timer)
     }
-  }, [normalizedSearch, resultSuggestions.length])
+  }, [normalizedSearch])
+
+  useEffect(() => {
+    if (!resultSuggestionSymbols) {
+      setLocalScorecardSuggestions([])
+      return
+    }
+
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        const response = await fetch(`/api/search?symbols=${encodeURIComponent(resultSuggestionSymbols)}`, {
+          signal: controller.signal,
+          cache: 'no-store',
+        })
+        if (!response.ok) throw new Error(`scorecard search failed (${response.status})`)
+        const payload = (await response.json()) as TickerSearchResponse
+        const items: DisplayItem[] = (payload.results ?? []).map((result) => ({
+          ...result,
+          displaySource: 'result' as const,
+        }))
+        setLocalScorecardSuggestions(items)
+      } catch {
+        setLocalScorecardSuggestions([])
+      }
+    })()
+
+    return () => controller.abort()
+  }, [resultSuggestionSymbols])
+
+  const enrichedResultSuggestions = useMemo<DisplayItem[]>(() => {
+    if (resultSuggestions.length === 0) return []
+    const remoteBySymbol = new Map(
+      [...localScorecardSuggestions, ...remoteSuggestions].map((item) => [item.symbol, item])
+    )
+    return resultSuggestions.map((item) => {
+      const remote = remoteBySymbol.get(item.symbol)
+      if (!remote) return item
+      return {
+        ...item,
+        hasSignals: item.hasSignals || remote.hasSignals,
+        convictionPct: remote.convictionPct ?? item.convictionPct,
+        tone: remote.tone ?? item.tone,
+        signalDate: remote.signalDate ?? item.signalDate,
+        scorecard: remote.scorecard ?? item.scorecard,
+      }
+    })
+  }, [localScorecardSuggestions, remoteSuggestions, resultSuggestions])
 
   const knownSuggestions = useMemo(() => {
     const items = new Map<string, TickerSearchResult>()
 
-    for (const item of resultSuggestions) {
+    for (const item of enrichedResultSuggestions) {
       items.set(item.symbol, item)
     }
     for (const item of featuredBase) {
@@ -368,7 +420,7 @@ export default function TickerSearchCombobox({
     }
 
     return [...items.values()]
-  }, [featuredBase, resultSuggestions])
+  }, [enrichedResultSuggestions, featuredBase])
 
   const recentSuggestions = useMemo<DisplayItem[]>(() => {
     const bySymbol = new Map(knownSuggestions.map((item) => [item.symbol, item]))
@@ -382,6 +434,7 @@ export default function TickerSearchCombobox({
         convictionPct: match?.convictionPct ?? null,
         tone: match?.tone ?? null,
         signalDate: match?.signalDate ?? null,
+        scorecard: match?.scorecard ?? null,
         displaySource: 'recent',
       }
     })
@@ -402,8 +455,8 @@ export default function TickerSearchCombobox({
   const showManualSuggestion =
     normalizedSearch.length > 0 &&
     canDirectOpen &&
-    resultSuggestions.length === 0 &&
-    !isExactMatch(normalizedSearch, resultSuggestions)
+    enrichedResultSuggestions.length === 0 &&
+    !isExactMatch(normalizedSearch, enrichedResultSuggestions)
 
   const manualSuggestion = useMemo<DisplayItem | null>(() => {
     if (!showManualSuggestion) return null
@@ -416,6 +469,7 @@ export default function TickerSearchCombobox({
       convictionPct: null,
       tone: null,
       signalDate: null,
+      scorecard: null,
       displaySource: 'manual',
     }
   }, [normalizedSearch, showManualSuggestion])
@@ -431,10 +485,10 @@ export default function TickerSearchCombobox({
         })
       }
 
-      if (resultSuggestions.length > 0) {
+      if (enrichedResultSuggestions.length > 0) {
         nextSections.push({
           label: '',
-          items: resultSuggestions,
+          items: enrichedResultSuggestions,
         })
       } else if (remoteSuggestions.length > 0) {
         nextSections.push({
@@ -463,7 +517,7 @@ export default function TickerSearchCombobox({
     normalizedSearch.length,
     recentSuggestions,
     remoteSuggestions,
-    resultSuggestions,
+    enrichedResultSuggestions,
   ])
 
   const selectableItems = useMemo(() => sections.flatMap((section) => section.items), [sections])
@@ -524,7 +578,7 @@ export default function TickerSearchCombobox({
   }
 
   function submitSearch() {
-    const firstResult = resultSuggestions[0] ?? remoteSuggestions[0]
+    const firstResult = enrichedResultSuggestions[0] ?? remoteSuggestions[0]
     if (firstResult) {
       navigateToTicker(firstResult.symbol, firstResult.exchange)
       return
@@ -588,12 +642,7 @@ export default function TickerSearchCombobox({
           <div className="flex items-center justify-center">
             <OrbitMini
               size={40}
-              dimensions={buildMiniOrbitDimensions({
-                direction: item.tone,
-                conviction: item.convictionPct,
-                changePercent: null,
-                horizon: null,
-              })}
+              scorecard={item.scorecard ?? UNAVAILABLE_SEARCH_SCORECARD}
             />
           </div>
           <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
@@ -733,7 +782,7 @@ export default function TickerSearchCombobox({
             })}
 
             {!isLoading && !isRemoteSearching && normalizedSearch.length > 0 &&
-            resultSuggestions.length === 0 && remoteSuggestions.length === 0 ? (
+            enrichedResultSuggestions.length === 0 && remoteSuggestions.length === 0 ? (
               <div className="border-t border-border/70 px-4 py-4">
                 <div className="text-body-sm text-content-primary">No exact match found.</div>
                 {canDirectOpen ? (

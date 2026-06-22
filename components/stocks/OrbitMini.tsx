@@ -1,20 +1,21 @@
-import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
+import ScorecardDisc from '@/components/stocks/ScorecardDisc'
+import type { Scorecard } from '@/lib/scorecard-types'
 import { cn } from '@/lib/utils'
 
 type OrbitMiniProps = {
-  dimensions: SystemProfileBlobDimension[]
+  scorecard: Scorecard
   size?: number
   className?: string
 }
 
 export default function OrbitMini({
-  dimensions,
-  size = 80,
+  scorecard,
+  size = 40,
   className,
 }: OrbitMiniProps) {
   return (
-    <SystemProfileBlob
-      dimensions={dimensions}
+    <ScorecardDisc
+      scorecard={scorecard}
       mini
       size={size}
       className={cn('shrink-0', className)}

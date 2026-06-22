@@ -10,7 +10,6 @@ import {
   TableRow,
   TableShell,
 } from '@/components/ui/DataTable'
-import { buildMiniOrbitDimensions } from '@/lib/signalOrbit'
 import type { WatchlistWorkspaceRow } from '@/lib/watchlist-workspace'
 
 function formatConviction(value: number | null): string {
@@ -57,18 +56,13 @@ export default function WatchlistTable({ rows }: WatchlistTableProps) {
           </tr>
         </TableHead>
         <TableBody>
-          {rows.map(({ ticker, row, direction, lastFlippedDate }, index) => (
+          {rows.map(({ ticker, row, direction, lastFlippedDate, scorecard }, index) => (
             <TableRow key={ticker} index={index}>
               <TableCell className="text-label-lg">
                 <div className="flex items-center gap-3">
                   <div className="shrink-0">
                     <OrbitMini
-                      dimensions={buildMiniOrbitDimensions({
-                        direction: direction ?? null,
-                        conviction: row?.conviction ?? null,
-                        changePercent: row?.changePercent ?? null,
-                        horizon: row?.predictionHorizon ?? null,
-                      })}
+                      scorecard={scorecard}
                       size={80}
                     />
                   </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { BackendDataError, fetchBackendJson } from '@/lib/backend'
+import { getTickerScorecards } from '@/lib/scorecard'
 import { getScreenerSignalsSafe } from '@/lib/signals'
 import {
   getTemplateFeaturedTickerResults,
@@ -159,6 +160,7 @@ async function resolveBackendCandidate(candidate: SearchCandidate): Promise<{
         convictionPct: null,
         tone: null,
         signalDate: null,
+        scorecard: null,
       },
     }
   } catch (error) {
@@ -201,9 +203,49 @@ async function enrichWithSignals(results: TickerSearchResult[]): Promise<TickerS
   }
 }
 
+async function enrichWithScorecards(results: TickerSearchResult[]): Promise<TickerSearchResult[]> {
+  if (results.length === 0) return results
+
+  try {
+    const scorecardsByTicker = await getTickerScorecards(results.map((item) => item.symbol))
+    return results.map((result) => ({
+      ...result,
+      scorecard: scorecardsByTicker[result.symbol] ?? result.scorecard,
+    }))
+  } catch {
+    return results
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const query = normalizeTickerSearchQuery(searchParams.get('q') || '')
+  const symbolParam = searchParams.get('symbols') || ''
+  const symbols = symbolParam
+    .split(',')
+    .map((symbol) => symbol.trim().toUpperCase())
+    .filter((symbol) => isTradableSymbol(symbol))
+    .slice(0, 12)
+
+  if (symbols.length > 0) {
+    const scorecardsByTicker = await getTickerScorecards(symbols)
+    return json({
+      featured: [],
+      fallbackUsed: false,
+      query,
+      results: symbols.map((symbol) => ({
+        symbol,
+        name: symbol,
+        exchange: null,
+        hasSignals: false,
+        convictionPct: null,
+        tone: null,
+        signalDate: null,
+        scorecard: scorecardsByTicker[symbol] ?? null,
+      })),
+      source: 'backend',
+    })
+  }
 
   if (!query) {
     try {
@@ -216,7 +258,7 @@ export async function GET(request: Request) {
       )
 
       return json({
-        featured: mapScreenerRowsToTickerSearchResults(featured.rows).slice(0, 8),
+        featured: await enrichWithScorecards(mapScreenerRowsToTickerSearchResults(featured.rows).slice(0, 8)),
         fallbackUsed: false,
         query,
         results: [],
@@ -262,6 +304,7 @@ export async function GET(request: Request) {
         convictionPct: null,
         tone: null,
         signalDate: null,
+        scorecard: null,
       }))
     ).slice(0, 12)
 
@@ -294,7 +337,7 @@ export async function GET(request: Request) {
           ]
         : []
     )
-    const enriched = await enrichWithSignals(matched.map((item) => item.result))
+    const enriched = await enrichWithScorecards(await enrichWithSignals(matched.map((item) => item.result)))
     const enrichedBySymbol = new Map(enriched.map((item) => [item.symbol, item]))
     const rankBySymbol = new Map(matched.map((item) => [item.result.symbol, item.rank]))
     const results = matched

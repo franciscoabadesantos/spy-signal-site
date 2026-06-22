@@ -1,4 +1,5 @@
 import type { ScreenerSignal } from './signals'
+import type { Scorecard } from './scorecard-types'
 
 export type SearchSignalTone = 'bullish' | 'neutral' | 'bearish'
 
@@ -27,6 +28,7 @@ export type TickerSearchResult = {
   convictionPct: number | null
   tone: SearchSignalTone | null
   signalDate: string | null
+  scorecard: Scorecard | null
 }
 
 export type TickerSearchResponse = {
@@ -46,6 +48,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     convictionPct: 71,
     tone: 'bullish',
     signalDate: null,
+    scorecard: null,
   },
   {
     symbol: 'QQQ',
@@ -55,6 +58,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     convictionPct: 69,
     tone: 'bullish',
     signalDate: null,
+    scorecard: null,
   },
   {
     symbol: 'AAPL',
@@ -64,6 +68,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     convictionPct: 76,
     tone: 'bullish',
     signalDate: null,
+    scorecard: null,
   },
   {
     symbol: 'MSFT',
@@ -73,6 +78,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     convictionPct: 74,
     tone: 'bullish',
     signalDate: null,
+    scorecard: null,
   },
   {
     symbol: 'NVDA',
@@ -82,6 +88,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     convictionPct: 79,
     tone: 'bullish',
     signalDate: null,
+    scorecard: null,
   },
   {
     symbol: 'AMZN',
@@ -91,6 +98,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     convictionPct: 64,
     tone: 'neutral',
     signalDate: null,
+    scorecard: null,
   },
   {
     symbol: 'META',
@@ -100,6 +108,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     convictionPct: 67,
     tone: 'bullish',
     signalDate: null,
+    scorecard: null,
   },
   {
     symbol: 'TSLA',
@@ -109,6 +118,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     convictionPct: 62,
     tone: 'neutral',
     signalDate: null,
+    scorecard: null,
   },
 ]
 
@@ -147,6 +157,7 @@ export function tickerIndexItemToSearchResult(item: TickerIndexItem): TickerSear
     convictionPct: null,
     tone: null,
     signalDate: null,
+    scorecard: null,
   }
 }
 
@@ -160,6 +171,7 @@ export function mapScreenerRowsToTickerSearchResults(rows: ScreenerSignal[]): Ti
       convictionPct: row.conviction === null ? null : Math.round(row.conviction * 100),
       tone: row.direction,
       signalDate: row.signalDate,
+      scorecard: null,
     }))
   )
 }

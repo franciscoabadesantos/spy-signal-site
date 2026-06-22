@@ -1,4 +1,6 @@
 import { getRecentAiResearchRuns, type AiResearchRun } from '@/lib/ai-research'
+import { getTickerScorecards } from '@/lib/scorecard'
+import type { Scorecard } from '@/lib/scorecard-types'
 import { getLastFlipDatesByTicker, getScreenerSignals, type ScreenerSignal } from '@/lib/signals'
 import { getUserWatchlistTickers } from '@/lib/watchlist'
 
@@ -7,6 +9,7 @@ export type WatchlistWorkspaceRow = {
   row: ScreenerSignal | undefined
   direction: ScreenerSignal['direction'] | null
   lastFlippedDate: string | null
+  scorecard: Scorecard
 }
 
 export type WatchlistWorkspaceData = {
@@ -35,10 +38,11 @@ function timestampOrZero(value: string | null): number {
 
 export async function getWatchlistWorkspace(userId: string): Promise<WatchlistWorkspaceData> {
   const tickers = await getUserWatchlistTickers(userId)
-  const [{ rows }, lastFlipByTicker, recentAiRuns] = await Promise.all([
+  const [{ rows }, lastFlipByTicker, recentAiRuns, scorecardsByTicker] = await Promise.all([
     getScreenerSignals({ tickers, limit: 500 }),
     getLastFlipDatesByTicker(tickers),
     getRecentAiResearchRuns({ userId, limit: 6 }),
+    getTickerScorecards(tickers),
   ])
 
   const rowByTicker = new Map(rows.map((row) => [row.ticker, row]))
@@ -52,8 +56,9 @@ export async function getWatchlistWorkspace(userId: string): Promise<WatchlistWo
       row,
       direction,
       lastFlippedDate,
+      scorecard: scorecardsByTicker[ticker],
     }
-  })
+  }).filter((entry): entry is WatchlistWorkspaceRow => Boolean(entry.scorecard))
 
   const convictionRows = watchlistRows
     .map((entry) => entry.row?.conviction ?? null)

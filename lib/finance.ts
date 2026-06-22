@@ -1,9 +1,8 @@
 import { unstable_cache } from 'next/cache'
-import { fetchBackendJson } from './backend'
+import { BackendDataError, fetchBackendJson } from './backend'
 import { getCachedTickerSummary } from './ticker-data'
 
 const YAHOO_API_BASE = 'https://query1.finance.yahoo.com'
-const YAHOO_SUMMARY_API_BASE = 'https://query2.finance.yahoo.com'
 const YAHOO_HEADERS = {
   Accept: 'application/json,text/plain,*/*',
   'User-Agent':
@@ -12,31 +11,14 @@ const YAHOO_HEADERS = {
 
 const RETRY_DELAYS_MS = [250, 600, 1200]
 const YAHOO_COOLDOWN_MS = 5 * 60 * 1000
-const STOOQ_TIMEOUT_MS = 1200
-const STOOQ_COOLDOWN_MS = 10 * 60 * 1000
 const QUOTE_FRESH_MS = 60 * 1000
 const HISTORICAL_FRESH_MS = 60 * 60 * 1000
 const FUNDAMENTALS_FRESH_MS = 6 * 60 * 60 * 1000
-const YAHOO_CRUMB_TTL_MS = 6 * 60 * 60 * 1000
-const YAHOO_SUMMARY_AUTH_COOLDOWN_MS = 30 * 60 * 1000
 
-let yahooQuoteCooldownUntil = 0
 let yahooHistoricalCooldownUntil = 0
-let yahooNewsCooldownUntil = 0
-let stooqQuoteCooldownUntil = 0
 let marketCacheAvailable: boolean | null = null
 let missingSchemaLogged = false
 const writeSupportLogged = false
-let yahooSummaryAuthCooldownUntil = 0
-let yahooSummaryAuthBlockedLogged = false
-let stooqCooldownLogged = false
-let yahooSummaryAuth:
-  | {
-      crumb: string
-      cookieHeader: string
-      expiresAt: number
-    }
-  | null = null
 
 const canWriteCache = false
 
@@ -105,22 +87,6 @@ export interface TickerNewsItem {
   sourceUrl: string | null
 }
 
-interface QuoteApiResult {
-  symbol?: string
-  shortName?: string
-  longName?: string
-  regularMarketPrice?: number
-  regularMarketChange?: number
-  regularMarketChangePercent?: number
-  marketCap?: number
-}
-
-interface QuoteApiResponse {
-  quoteResponse?: {
-    result?: QuoteApiResult[]
-  }
-}
-
 interface ChartApiResponse {
   chart?: {
     result?: Array<{
@@ -134,39 +100,10 @@ interface ChartApiResponse {
   }
 }
 
-interface YahooNewsResponse {
-  news?: Array<{
-    uuid?: string
-    title?: string
-    publisher?: string
-    providerPublishTime?: number
-    link?: string
-    clickThroughUrl?: {
-      url?: string
-    }
-    canonicalUrl?: {
-      url?: string
-    }
-    thumbnail?: {
-      resolutions?: Array<{
-        url?: string
-        width?: number
-        height?: number
-      }>
-    }
-  }>
-}
-
-interface YahooValue {
+interface FormattedValue {
   raw?: number | string | null
   fmt?: string | null
   longFmt?: string | null
-}
-
-interface QuoteSummaryResponse {
-  quoteSummary?: {
-    result?: Array<Record<string, unknown>>
-  }
 }
 
 interface MarketQuoteRow {
@@ -185,26 +122,11 @@ interface MarketPriceDailyRow {
   fetched_at: string
 }
 
-interface MarketFundamentalsRow {
-  payload: unknown
-  fetched_at: string
-}
-
-interface QuoteFetchResult {
-  quote: StockQuote
-  source: 'yahoo' | 'stooq'
-}
-
-type FundamentalsSource = 'yahoo' | 'fallback_quote'
-
-interface FundamentalsFetchResult {
-  fundamentals: TickerFundamentals
-  source: FundamentalsSource
-}
+type FundamentalsSource = 'backend' | 'fallback_quote'
 
 export interface RefreshTickerResult {
   ticker: string
-  quoteSource: 'yahoo' | 'stooq' | null
+  quoteSource: null
   quoteUpdated: boolean
   historicalUpdated: boolean
   fundamentalsSource: FundamentalsSource | null
@@ -222,15 +144,6 @@ class YahooHttpError extends Error {
   }
 }
 
-class YahooAuthError extends Error {
-  readonly kind: 'auth_blocked' | 'invalid_crumb_payload'
-
-  constructor(kind: 'auth_blocked' | 'invalid_crumb_payload', message: string) {
-    super(message)
-    this.kind = kind
-  }
-}
-
 function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase()
 }
@@ -239,39 +152,38 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function formatMarketCap(num: number | undefined): string {
-  if (!num) return 'N/A'
-  if (num >= 1e12) return `${(num / 1e12).toFixed(2)}T`
-  if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`
-  if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`
-  return num.toLocaleString()
-}
-
-function readYahooValue(value: unknown): YahooValue | null {
+function readFormattedValue(value: unknown): FormattedValue | null {
   if (!value || typeof value !== 'object') return null
-  return value as YahooValue
+  return value as FormattedValue
 }
 
-function getYahooRawNumber(value: unknown): number | null {
-  const yahooValue = readYahooValue(value)
-  if (!yahooValue) return null
-  const raw = yahooValue.raw
+function getRawNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/[$%,]/g, '').trim())
+    if (Number.isFinite(parsed)) return parsed
+  }
+  const formattedValue = readFormattedValue(value)
+  if (!formattedValue) return null
+  const raw = formattedValue.raw
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw
   if (typeof raw === 'string') {
-    const parsed = Number(raw)
+    const parsed = Number(raw.replace(/[$%,]/g, '').trim())
     if (Number.isFinite(parsed)) return parsed
   }
   return null
 }
 
-function getYahooFmt(value: unknown): string | null {
-  const yahooValue = readYahooValue(value)
-  if (!yahooValue) return null
-  if (typeof yahooValue.fmt === 'string' && yahooValue.fmt.trim()) return yahooValue.fmt.trim()
-  if (typeof yahooValue.longFmt === 'string' && yahooValue.longFmt.trim()) {
-    return yahooValue.longFmt.trim()
+function getDisplayValue(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toLocaleString()
+  const formattedValue = readFormattedValue(value)
+  if (!formattedValue) return null
+  if (typeof formattedValue.fmt === 'string' && formattedValue.fmt.trim()) return formattedValue.fmt.trim()
+  if (typeof formattedValue.longFmt === 'string' && formattedValue.longFmt.trim()) {
+    return formattedValue.longFmt.trim()
   }
-  const raw = yahooValue.raw
+  const raw = formattedValue.raw
   if (typeof raw === 'string' && raw.trim()) return raw.trim()
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw.toLocaleString()
   return null
@@ -341,21 +253,21 @@ function toTitleCase(value: string): string {
 }
 
 function formatPercentFromValue(value: unknown): string | null {
-  const fmt = getYahooFmt(value)
+  const fmt = getDisplayValue(value)
   if (fmt && fmt.includes('%')) return fmt
-  const raw = getYahooRawNumber(value)
+  const raw = getRawNumber(value)
   return formatPercent(raw)
 }
 
 function formatNumberFixed(value: unknown, digits: number = 2): string | null {
-  const raw = getYahooRawNumber(value)
+  const raw = getRawNumber(value)
   if (raw === null) return null
   return raw.toFixed(digits)
 }
 
 function formatRange(low: unknown, high: unknown): string | null {
-  const lowFmt = getYahooFmt(low) ?? formatNumberFixed(low)
-  const highFmt = getYahooFmt(high) ?? formatNumberFixed(high)
+  const lowFmt = getDisplayValue(low) ?? formatNumberFixed(low)
+  const highFmt = getDisplayValue(high) ?? formatNumberFixed(high)
   if (!lowFmt || !highFmt) return null
   return `${lowFmt} - ${highFmt}`
 }
@@ -363,7 +275,7 @@ function formatRange(low: unknown, high: unknown): string | null {
 function formatPayoutFrequency(value: unknown): string | null {
   const direct = getString(value)
   if (direct) return toTitleCase(direct)
-  const raw = getYahooRawNumber(value)
+  const raw = getRawNumber(value)
   if (raw === null) return null
   const freq = Math.round(raw)
   if (freq === 12) return 'Monthly'
@@ -482,23 +394,11 @@ function hasFreshTimestamp(fetchedAt: string, maxAgeMs: number): boolean {
 }
 
 async function fetchYahooJson<T>(url: string): Promise<T> {
-  const requestKind = url.includes('/v8/finance/chart/')
-    ? 'historical'
-    : url.includes('/v1/finance/search')
-      ? 'news'
-      : 'quote'
-  const cooldownUntil =
-    requestKind === 'historical'
-      ? yahooHistoricalCooldownUntil
-      : requestKind === 'news'
-        ? yahooNewsCooldownUntil
-        : yahooQuoteCooldownUntil
-
-  if (Date.now() < cooldownUntil) {
+  if (Date.now() < yahooHistoricalCooldownUntil) {
     throw new YahooHttpError(
       429,
       'Too Many Requests',
-      `Yahoo ${requestKind} cooldown active`
+      'Yahoo historical cooldown active'
     )
   }
 
@@ -516,13 +416,7 @@ async function fetchYahooJson<T>(url: string): Promise<T> {
         const error = new YahooHttpError(res.status, res.statusText, snippet || undefined)
 
         if (res.status === 429) {
-          if (requestKind === 'historical') {
-            yahooHistoricalCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS
-          } else if (requestKind === 'news') {
-            yahooNewsCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS
-          } else {
-            yahooQuoteCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS
-          }
+          yahooHistoricalCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS
           throw error
         }
 
@@ -546,22 +440,6 @@ async function fetchYahooJson<T>(url: string): Promise<T> {
   }
 
   throw lastError
-}
-
-async function fetchYahooQuote(ticker: string): Promise<StockQuote | null> {
-  const url = `${YAHOO_API_BASE}/v7/finance/quote?symbols=${encodeURIComponent(ticker)}`
-  const data = await fetchYahooJson<QuoteApiResponse>(url)
-  const quote = data.quoteResponse?.result?.[0]
-  if (!quote) return null
-
-  return {
-    ticker: quote.symbol || ticker,
-    name: quote.shortName || quote.longName || quote.symbol || ticker,
-    price: quote.regularMarketPrice || 0,
-    change: quote.regularMarketChange || 0,
-    changePercent: quote.regularMarketChangePercent || 0,
-    marketCap: formatMarketCap(quote.marketCap),
-  }
 }
 
 async function fetchYahooHistorical(ticker: string, periodDays: number): Promise<PricePoint[]> {
@@ -591,195 +469,6 @@ async function fetchYahooHistorical(ticker: string, periodDays: number): Promise
   return points
 }
 
-function normalizeNewsUrl(item: {
-  link?: string
-  clickThroughUrl?: { url?: string }
-  canonicalUrl?: { url?: string }
-}): string | null {
-  const candidate = item.clickThroughUrl?.url || item.link || item.canonicalUrl?.url || null
-  if (!candidate) return null
-  const trimmed = candidate.trim()
-  if (!trimmed.startsWith('http')) return null
-  return trimmed
-}
-
-function normalizePublishedAt(raw: number | undefined): string | null {
-  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
-  return new Date(raw * 1000).toISOString()
-}
-
-function normalizeNewsImage(item: {
-  thumbnail?: {
-    resolutions?: Array<{
-      url?: string
-      width?: number
-      height?: number
-    }>
-  }
-}): string | null {
-  const resolutions = item.thumbnail?.resolutions
-  if (!Array.isArray(resolutions) || resolutions.length === 0) return null
-
-  const sorted = resolutions
-    .filter((entry) => typeof entry.url === 'string' && entry.url.trim().startsWith('http'))
-    .slice()
-    .sort((a, b) => {
-      const areaA = (a.width ?? 0) * (a.height ?? 0)
-      const areaB = (b.width ?? 0) * (b.height ?? 0)
-      return areaB - areaA
-    })
-
-  const candidate = sorted[0]?.url?.trim()
-  return candidate || null
-}
-
-function decodeXmlEntities(value: string): string {
-  return value
-    .replaceAll('&amp;', '&')
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&quot;', '"')
-    .replaceAll('&#39;', "'")
-}
-
-function readRssTag(block: string, tag: string): string | null {
-  const cdataRegex = new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, 'i')
-  const plainRegex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i')
-  const cdataMatch = block.match(cdataRegex)
-  if (cdataMatch?.[1]) return decodeXmlEntities(cdataMatch[1].trim())
-  const plainMatch = block.match(plainRegex)
-  if (plainMatch?.[1]) return decodeXmlEntities(plainMatch[1].trim())
-  return null
-}
-
-function readRssSourceUrl(block: string): string | null {
-  const sourceTagMatch = block.match(/<source[^>]*url="([^"]+)"[^>]*>/i)
-  const url = sourceTagMatch?.[1]?.trim()
-  if (!url || !url.startsWith('http')) return null
-  return decodeXmlEntities(url)
-}
-
-async function fetchGoogleNewsRss(ticker: string, limit: number): Promise<TickerNewsItem[]> {
-  const query = encodeURIComponent(`${ticker} ETF OR ${ticker} stock`)
-  const url = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        Accept: 'application/rss+xml,application/xml,text/xml,*/*',
-        'User-Agent':
-          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-      },
-      cache: 'no-store',
-    })
-    if (!response.ok) return []
-
-    const xml = await response.text()
-    const itemBlocks = xml
-      .split('<item>')
-      .slice(1)
-      .map((chunk) => chunk.split('</item>')[0] || '')
-      .filter(Boolean)
-
-    const items: TickerNewsItem[] = []
-    for (let i = 0; i < itemBlocks.length; i++) {
-      const block = itemBlocks[i]
-      const title = readRssTag(block, 'title')
-      const link = readRssTag(block, 'link')
-      const publisher = readRssTag(block, 'source') ?? 'Google News'
-      const sourceUrl = readRssSourceUrl(block)
-      const pubDate = readRssTag(block, 'pubDate')
-      const publishedAt =
-        pubDate && Number.isFinite(Date.parse(pubDate))
-          ? new Date(pubDate).toISOString()
-          : null
-      if (!title || !link || !link.startsWith('http')) continue
-
-      items.push({
-        id: `google:${ticker}:${i}:${title.slice(0, 40)}`,
-        title,
-        publisher,
-        url: link,
-        publishedAt,
-        imageUrl: null,
-        sourceUrl,
-      })
-      if (items.length >= limit) break
-    }
-
-    return items
-  } catch {
-    return []
-  }
-}
-
-async function fetchYahooNews(ticker: string, limit: number): Promise<TickerNewsItem[]> {
-  const desiredCount = Math.max(limit, 6)
-  const queries = [ticker]
-  const deduped = new Map<string, TickerNewsItem>()
-
-  for (const q of queries) {
-    const url = new URL(`${YAHOO_SUMMARY_API_BASE}/v1/finance/search`)
-    url.searchParams.set('q', q)
-    url.searchParams.set('quotesCount', '0')
-    url.searchParams.set('newsCount', String(desiredCount))
-    url.searchParams.set('enableFuzzyQuery', 'true')
-    url.searchParams.set('lang', 'en-US')
-    url.searchParams.set('region', 'US')
-
-    try {
-      const data = await fetchYahooJson<YahooNewsResponse>(url.toString())
-      const rawNews = Array.isArray(data.news) ? data.news : []
-
-      for (const item of rawNews) {
-        const title = getString(item.title)
-        const publisher = getString(item.publisher) ?? 'Market News'
-        const newsUrl = normalizeNewsUrl(item)
-        if (!title || !newsUrl) continue
-        const id = getString(item.uuid) ?? `${ticker}:${title.slice(0, 48)}`
-        const key = id || newsUrl
-        if (deduped.has(key)) continue
-        deduped.set(key, {
-          id,
-          title,
-          publisher,
-          url: newsUrl,
-          publishedAt: normalizePublishedAt(item.providerPublishTime),
-          imageUrl: normalizeNewsImage(item),
-          sourceUrl: null,
-        })
-      }
-
-      if (deduped.size >= limit) break
-    } catch {
-      continue
-    }
-  }
-
-  if (deduped.size < limit) {
-    const googleFallback = await fetchGoogleNewsRss(ticker, limit)
-    for (const item of googleFallback) {
-      const key = `${item.url}:${item.title}`
-      if (!deduped.has(key)) deduped.set(key, item)
-      if (deduped.size >= limit) break
-    }
-  }
-
-  const items = [...deduped.values()].slice(0, limit)
-  return items
-}
-
-const QUOTE_SUMMARY_MODULES = [
-  'price',
-  'fundProfile',
-  'fundPerformance',
-  'assetProfile',
-  'summaryProfile',
-  'summaryDetail',
-  'topHoldings',
-  'defaultKeyStatistics',
-]
-
 function emptyFundamentals(): TickerFundamentals {
   return {
     about: null,
@@ -796,314 +485,6 @@ function emptyFundamentals(): TickerFundamentals {
     distributions: [],
     risk: [],
   }
-}
-
-function staticSpyFundamentals(ticker: string, quote: StockQuote | null): TickerFundamentals {
-  const symbol = quote?.ticker || ticker
-  const name = quote?.name || 'SPDR S&P 500 ETF Trust'
-  const marketCapText =
-    quote?.marketCap && quote.marketCap !== 'N/A' ? quote.marketCap : '$653.25B'
-
-  return {
-    about:
-      'SPY is an exchange-traded fund designed to track the S&P 500 Index, providing diversified large-cap U.S. equity exposure.',
-    marketCap: marketCapText,
-    snapshot: [
-      { label: 'Assets', value: '$653.25B' },
-      { label: 'Expense Ratio', value: '0.09%' },
-      { label: 'PE Ratio', value: '25.80' },
-      { label: 'Shares Out', value: '994.48M' },
-      { label: 'Dividend (ttm)', value: '$7.38' },
-      { label: 'Dividend Yield', value: '1.13%' },
-      { label: 'Ex-Dividend Date', value: 'Mar 20, 2026' },
-      { label: 'Payout Frequency', value: 'Quarterly' },
-      { label: 'Payout Ratio', value: '29.01%' },
-      { label: 'Volume', value: '24,185,466' },
-      { label: 'Open', value: '656.65' },
-      { label: 'Previous Close', value: '658.93' },
-      { label: "Day's Range", value: '651.06 - 657.58' },
-      { label: '52-Week Low', value: '481.80' },
-      { label: '52-Week High', value: '697.84' },
-      { label: 'Beta', value: '1.01' },
-      { label: 'Holdings', value: '504' },
-      { label: 'Inception Date', value: 'Jan 22, 1993' },
-    ],
-    holdings: [
-      { symbol: 'AAPL', name: 'Apple Inc.', weightPercent: 6.6 },
-      { symbol: 'MSFT', name: 'Microsoft Corp.', weightPercent: 6.2 },
-      { symbol: 'NVDA', name: 'NVIDIA Corp.', weightPercent: 5.7 },
-      { symbol: 'AMZN', name: 'Amazon.com Inc.', weightPercent: 3.8 },
-      { symbol: 'META', name: 'Meta Platforms Inc.', weightPercent: 2.5 },
-      { symbol: 'GOOGL', name: 'Alphabet Inc. Class A', weightPercent: 1.9 },
-      { symbol: 'BRK.B', name: 'Berkshire Hathaway Inc. Class B', weightPercent: 1.8 },
-      { symbol: 'GOOG', name: 'Alphabet Inc. Class C', weightPercent: 1.6 },
-      { symbol: 'AVGO', name: 'Broadcom Inc.', weightPercent: 1.5 },
-      { symbol: 'TSLA', name: 'Tesla Inc.', weightPercent: 1.4 },
-    ],
-    sectorWeights: [
-      { sector: 'Information Technology', weightPercent: 31.2 },
-      { sector: 'Financials', weightPercent: 12.7 },
-      { sector: 'Health Care', weightPercent: 11.3 },
-      { sector: 'Consumer Discretionary', weightPercent: 10.2 },
-      { sector: 'Communication Services', weightPercent: 8.7 },
-      { sector: 'Industrials', weightPercent: 8.6 },
-      { sector: 'Consumer Staples', weightPercent: 5.9 },
-      { sector: 'Energy', weightPercent: 3.9 },
-      { sector: 'Utilities', weightPercent: 2.5 },
-      { sector: 'Real Estate', weightPercent: 2.2 },
-      { sector: 'Materials', weightPercent: 1.8 },
-    ],
-    dividendRate: '$7.38',
-    dividendYield: '1.13%',
-    exDividendDate: 'Mar 20, 2026',
-    payoutRatio: '29.01%',
-    profile: [
-      { label: 'Symbol', value: symbol },
-      { label: 'Name', value: name },
-      { label: 'Fund Family', value: 'State Street Global Advisors' },
-      { label: 'Category', value: 'Large Blend' },
-      { label: 'Fund Inception', value: '1993-01-22' },
-      { label: 'Market Cap', value: marketCapText },
-    ],
-    portfolio: [
-      { label: 'Number of Holdings', value: '504' },
-      { label: 'Top 10 Concentration', value: '33.00%' },
-      { label: 'Largest Position', value: 'AAPL (6.60%)' },
-      { label: 'Largest Sector', value: 'Information Technology (31.20%)' },
-    ],
-    distributions: [
-      { label: 'Annual Dividend', value: '$7.38' },
-      { label: 'Dividend Yield', value: '1.13%' },
-      { label: 'Ex-Dividend Date', value: '2026-03-20' },
-      { label: 'Payout Ratio', value: '29.01%' },
-      { label: 'Expense Ratio', value: '0.09%' },
-    ],
-    risk: [
-      { label: 'Beta (3Y)', value: '1.01' },
-      { label: 'Portfolio P/E', value: '25.80' },
-    ],
-  }
-}
-
-function staticFundamentalsFallback(ticker: string, quote: StockQuote | null): TickerFundamentals | null {
-  if (ticker === 'SPY') return staticSpyFundamentals(ticker, quote)
-  return null
-}
-
-function fallbackFundamentalsFromQuote(ticker: string, quote: StockQuote | null): TickerFundamentals {
-  const staticFallback = staticFundamentalsFallback(ticker, quote)
-  if (staticFallback) return staticFallback
-
-  const fallback = emptyFundamentals()
-  if (!quote) return fallback
-
-  const safeMarketCap =
-    quote.marketCap && quote.marketCap !== 'N/A' ? quote.marketCap : null
-  fallback.marketCap = safeMarketCap
-  fallback.profile = [
-    { label: 'Symbol', value: quote.ticker || ticker },
-    { label: 'Name', value: quote.name || ticker },
-  ]
-  if (safeMarketCap) {
-    fallback.profile.push({ label: 'Market Cap', value: safeMarketCap })
-  }
-  fallback.snapshot = [
-    { label: 'Assets', value: safeMarketCap ?? '—' },
-    { label: 'Expense Ratio', value: '—' },
-    { label: 'PE Ratio', value: '—' },
-    { label: 'Shares Out', value: '—' },
-    { label: 'Dividend (ttm)', value: '—' },
-    { label: 'Dividend Yield', value: '—' },
-    { label: 'Ex-Dividend Date', value: '—' },
-    { label: 'Payout Frequency', value: '—' },
-    { label: 'Payout Ratio', value: '—' },
-    { label: 'Volume', value: '—' },
-    { label: 'Open', value: '—' },
-    { label: 'Previous Close', value: '—' },
-    { label: "Day's Range", value: '—' },
-    { label: '52-Week Low', value: '—' },
-    { label: '52-Week High', value: '—' },
-    { label: 'Beta', value: '—' },
-    { label: 'Holdings', value: '—' },
-    { label: 'Inception Date', value: '—' },
-  ]
-
-  return fallback
-}
-
-function splitSetCookieHeader(value: string): string[] {
-  return value
-    .split(/,(?=[^;,\s]+=)/g)
-    .map((part) => part.trim())
-    .filter(Boolean)
-}
-
-function extractCookieHeader(res: Response): string | null {
-  const extendedHeaders = res.headers as Headers & { getSetCookie?: () => string[] }
-  const setCookies =
-    typeof extendedHeaders.getSetCookie === 'function'
-      ? extendedHeaders.getSetCookie()
-      : splitSetCookieHeader(res.headers.get('set-cookie') || '')
-
-  if (setCookies.length === 0) return null
-
-  const cookies = setCookies
-    .map((entry) => entry.split(';')[0]?.trim())
-    .filter((entry): entry is string => Boolean(entry))
-  if (cookies.length === 0) return null
-
-  return cookies.join('; ')
-}
-
-async function getYahooSummaryAuth(
-  ticker: string,
-  forceRefresh: boolean = false
-): Promise<{ crumb: string; cookieHeader: string }> {
-  if (!forceRefresh && Date.now() < yahooSummaryAuthCooldownUntil) {
-    throw new YahooAuthError('auth_blocked', 'Yahoo auth blocked by cooldown')
-  }
-
-  if (!forceRefresh && yahooSummaryAuth && Date.now() < yahooSummaryAuth.expiresAt) {
-    return {
-      crumb: yahooSummaryAuth.crumb,
-      cookieHeader: yahooSummaryAuth.cookieHeader,
-    }
-  }
-
-  const quoteUrl = `https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}`
-  const pageRes = await fetch(quoteUrl, {
-    headers: {
-      ...YAHOO_HEADERS,
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      Referer: 'https://finance.yahoo.com/',
-    },
-    cache: 'no-store',
-  })
-  if (!pageRes.ok) {
-    const snippet = (await pageRes.text().catch(() => '')).slice(0, 160)
-    throw new YahooHttpError(pageRes.status, pageRes.statusText, snippet || undefined)
-  }
-
-  const cookieHeader = extractCookieHeader(pageRes)
-  if (!cookieHeader) {
-    yahooSummaryAuthCooldownUntil = Date.now() + YAHOO_SUMMARY_AUTH_COOLDOWN_MS
-    throw new YahooAuthError('auth_blocked', 'Yahoo auth failed: missing Set-Cookie header')
-  }
-
-  const crumbRes = await fetch(`${YAHOO_API_BASE}/v1/test/getcrumb`, {
-    headers: {
-      ...YAHOO_HEADERS,
-      Cookie: cookieHeader,
-      Referer: quoteUrl,
-    },
-    cache: 'no-store',
-  })
-  if (!crumbRes.ok) {
-    const snippet = (await crumbRes.text().catch(() => '')).slice(0, 160)
-    throw new YahooHttpError(crumbRes.status, crumbRes.statusText, snippet || undefined)
-  }
-
-  const crumb = (await crumbRes.text()).trim()
-  if (!crumb || crumb.includes('<')) {
-    throw new YahooAuthError(
-      'invalid_crumb_payload',
-      `Yahoo auth failed: invalid crumb payload (${crumb.slice(0, 64)})`
-    )
-  }
-
-  yahooSummaryAuth = {
-    crumb,
-    cookieHeader,
-    expiresAt: Date.now() + YAHOO_CRUMB_TTL_MS,
-  }
-
-  return { crumb, cookieHeader }
-}
-
-function isInvalidCrumbError(error: unknown): boolean {
-  return (
-    error instanceof YahooHttpError &&
-    error.status === 401 &&
-    error.message.toLowerCase().includes('crumb')
-  )
-}
-
-function isYahooAuthError(error: unknown): error is YahooAuthError {
-  return error instanceof YahooAuthError
-}
-
-async function fetchYahooQuoteSummary(
-  ticker: string,
-  modules: string[]
-): Promise<Record<string, unknown> | null> {
-  if (Date.now() < yahooSummaryAuthCooldownUntil) {
-    throw new YahooAuthError('auth_blocked', 'Yahoo auth blocked by cooldown')
-  }
-  if (Date.now() < yahooQuoteCooldownUntil) {
-    throw new YahooHttpError(429, 'Too Many Requests', 'Yahoo quote cooldown active')
-  }
-
-  const moduleQuery = encodeURIComponent(modules.join(','))
-  let lastError: unknown = new Error('Yahoo summary request failed')
-
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    try {
-      const forceRefreshAuth = attempt > 0 && isInvalidCrumbError(lastError)
-      const auth = await getYahooSummaryAuth(ticker, forceRefreshAuth)
-      const url =
-        `${YAHOO_SUMMARY_API_BASE}/v10/finance/quoteSummary/${encodeURIComponent(ticker)}` +
-        `?modules=${moduleQuery}&crumb=${encodeURIComponent(auth.crumb)}`
-
-      const res = await fetch(url, {
-        headers: {
-          ...YAHOO_HEADERS,
-          Cookie: auth.cookieHeader,
-          Referer: `https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}`,
-        },
-        cache: 'no-store',
-      })
-
-      if (!res.ok) {
-        const snippet = (await res.text().catch(() => '')).slice(0, 160)
-        const error = new YahooHttpError(res.status, res.statusText, snippet || undefined)
-
-        if (isInvalidCrumbError(error)) {
-          yahooSummaryAuth = null
-          if (attempt < RETRY_DELAYS_MS.length) {
-            await sleep(RETRY_DELAYS_MS[attempt])
-            lastError = error
-            continue
-          }
-        }
-
-        if (res.status === 429) {
-          yahooQuoteCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS
-          throw error
-        }
-
-        if (attempt < RETRY_DELAYS_MS.length && isRetriableStatus(res.status)) {
-          await sleep(RETRY_DELAYS_MS[attempt])
-          lastError = error
-          continue
-        }
-
-        throw error
-      }
-
-      const data = (await res.json()) as QuoteSummaryResponse
-      return data.quoteSummary?.result?.[0] ?? null
-    } catch (error) {
-      if (isYahooAuthError(error)) throw error
-      if (isRateLimitedYahooError(error)) throw error
-
-      lastError = error
-      if (attempt < RETRY_DELAYS_MS.length) {
-        await sleep(RETRY_DELAYS_MS[attempt])
-      }
-    }
-  }
-
-  throw lastError
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -1248,82 +629,6 @@ function shouldTreatAsInsufficientFundamentals(
   return false
 }
 
-function parseHoldings(topHoldings: Record<string, unknown> | null): TickerHolding[] {
-  const holdings = asArray(topHoldings?.holdings)
-  if (holdings.length === 0) return []
-
-  const parsed = holdings
-    .map((item): TickerHolding | null => {
-      const record = asRecord(item)
-      if (!record) return null
-      const symbol =
-        getString(record.symbol) ??
-        getString(readYahooValue(record.symbol)?.raw) ??
-        getString(record.holdingName) ??
-        'Unknown'
-      const name = getString(record.holdingName) ?? symbol
-      const weightRaw = getYahooRawNumber(record.holdingPercent)
-      return {
-        symbol,
-        name,
-        weightPercent: weightRaw !== null ? Number((weightRaw * 100).toFixed(4)) : null,
-      }
-    })
-    .filter((item): item is TickerHolding => item !== null)
-
-  return parsed
-}
-
-function parseSectorWeights(topHoldings: Record<string, unknown> | null): TickerSectorWeight[] {
-  const sectorWeightings = asArray(topHoldings?.sectorWeightings)
-  if (sectorWeightings.length === 0) return []
-
-  const output: TickerSectorWeight[] = []
-  for (const item of sectorWeightings) {
-    const record = asRecord(item)
-    if (!record) continue
-
-    for (const [sectorKey, sectorValue] of Object.entries(record)) {
-      const raw = getYahooRawNumber(sectorValue)
-      output.push({
-        sector: toTitleCase(sectorKey),
-        weightPercent: raw !== null ? Number((raw * 100).toFixed(2)) : null,
-      })
-    }
-  }
-
-  return output
-}
-
-function pushIfPresent(rows: TickerFinancialRow[], label: string, value: string | null) {
-  if (!value) return
-  rows.push({ label, value })
-}
-
-function buildProfileRows(
-  price: Record<string, unknown> | null,
-  fundProfile: Record<string, unknown> | null,
-  summaryDetail: Record<string, unknown> | null
-): TickerFinancialRow[] {
-  const rows: TickerFinancialRow[] = []
-  pushIfPresent(rows, 'Fund Family', getString(fundProfile?.family))
-  pushIfPresent(rows, 'Category', getString(fundProfile?.categoryName))
-  pushIfPresent(rows, 'Legal Type', getString(fundProfile?.legalType))
-  pushIfPresent(rows, 'Fund Inception', formatUnixDate(getYahooRawNumber(fundProfile?.fundInceptionDate)))
-  pushIfPresent(
-    rows,
-    'Total Assets',
-    getYahooFmt(summaryDetail?.totalAssets) ??
-      formatCurrencyCompact(getYahooRawNumber(summaryDetail?.totalAssets))
-  )
-  pushIfPresent(
-    rows,
-    'Market Cap',
-    getYahooFmt(price?.marketCap) ?? formatCurrencyCompact(getYahooRawNumber(price?.marketCap))
-  )
-  return rows
-}
-
 function buildPortfolioRows(
   holdings: TickerHolding[],
   sectorWeights: TickerSectorWeight[]
@@ -1362,249 +667,253 @@ function buildPortfolioRows(
   return rows
 }
 
-function buildDistributionRows(
-  summaryDetail: Record<string, unknown> | null,
-  fundProfile: Record<string, unknown> | null
+function formatBackendPercent(raw: number | null): string | null {
+  if (raw === null || !Number.isFinite(raw)) return null
+  return `${raw.toFixed(2)}%`
+}
+
+function formatBackendMoney(raw: number | null): string | null {
+  if (raw === null || !Number.isFinite(raw)) return null
+  if (Math.abs(raw) < 1000) return `$${raw.toFixed(2)}`
+  return formatDollarCompact(raw)
+}
+
+function formatBackendDate(value: unknown): string | null {
+  const direct = getString(value)
+  if (direct) {
+    const parsed = Date.parse(direct)
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    }
+    return direct
+  }
+
+  const numeric = getRawNumber(value)
+  if (numeric === null) return null
+  if (numeric > 10_000_000_000) return new Date(numeric).toISOString().slice(0, 10)
+  return formatUnixDateDisplay(numeric)
+}
+
+function formatBackendRowValue(label: string, value: unknown): string | null {
+  const display = getDisplayValue(value)
+  const raw = getRawNumber(value)
+  const normalized = label.toLowerCase()
+
+  if (/date|inception/.test(normalized)) return formatBackendDate(value)
+  if (/yield|ratio|return|distance|expense|turnover|percent|pct/.test(normalized)) {
+    return display?.includes('%') ? display : formatBackendPercent(raw)
+  }
+  if (/market cap|assets|dividend rate|annual dividend/.test(normalized)) {
+    return display?.startsWith('$') ? display : formatBackendMoney(raw)
+  }
+  if (/shares|holdings|exposures/.test(normalized)) {
+    return raw !== null ? formatNumberCompact(raw) : display
+  }
+  if (/high|low|price|p\/e|pe|beta/.test(normalized)) {
+    return raw !== null ? raw.toFixed(2) : display
+  }
+
+  return display
+}
+
+function parseBackendFinancialRows(value: unknown): TickerFinancialRow[] {
+  return asArray(value)
+    .map((item): TickerFinancialRow | null => {
+      const row = asRecord(item)
+      if (!row) return null
+      const label = getString(row.label) ?? getString(row.key)
+      if (!label) return null
+      const rowValue = formatBackendRowValue(label, row.value)
+      if (!rowValue) return null
+      return { label, value: rowValue }
+    })
+    .filter((row): row is TickerFinancialRow => row !== null)
+}
+
+function parseBackendHoldings(value: unknown): TickerHolding[] {
+  return asArray(value)
+    .map((item): TickerHolding | null => {
+      const row = asRecord(item)
+      if (!row) return null
+      const symbol = getString(row.symbol) ?? getString(row.ticker)
+      const name = getString(row.name) ?? getString(row.companyName) ?? symbol
+      if (!symbol && !name) return null
+      const weight = getRawNumber(row.weightPercent ?? row.weight ?? row.weight_pct)
+      return {
+        symbol: symbol ?? name ?? 'Unknown',
+        name: name ?? symbol ?? 'Unknown',
+        weightPercent: weight !== null ? Number(weight.toFixed(4)) : null,
+      }
+    })
+    .filter((row): row is TickerHolding => row !== null)
+}
+
+function parseBackendSectorWeights(value: unknown): TickerSectorWeight[] {
+  return asArray(value)
+    .map((item): TickerSectorWeight | null => {
+      const row = asRecord(item)
+      if (!row) return null
+      const sector = getString(row.sector) ?? getString(row.name)
+      if (!sector) return null
+      const weight = getRawNumber(row.weightPercent ?? row.weight ?? row.weight_pct)
+      return {
+        sector,
+        weightPercent: weight !== null ? Number(weight.toFixed(4)) : null,
+      }
+    })
+    .filter((row): row is TickerSectorWeight => row !== null)
+}
+
+function firstBackendRecord(...values: unknown[]): Record<string, unknown> | null {
+  for (const value of values) {
+    const record = asRecord(value)
+    if (record) return record
+  }
+  return null
+}
+
+function firstBackendValue(record: Record<string, unknown>, keys: string[]): unknown {
+  for (const key of keys) {
+    if (record[key] !== undefined && record[key] !== null) return record[key]
+  }
+  return null
+}
+
+function ensureProfileIdentityRows(
+  profileRows: TickerFinancialRow[],
+  ticker: string,
+  name: string | null,
+  marketCap: string | null
 ): TickerFinancialRow[] {
-  const rows: TickerFinancialRow[] = []
-  pushIfPresent(rows, 'Annual Dividend', getYahooFmt(summaryDetail?.dividendRate))
-  pushIfPresent(rows, 'Dividend Yield', formatPercentFromValue(summaryDetail?.dividendYield))
-  pushIfPresent(rows, 'Trailing Yield', formatPercentFromValue(summaryDetail?.trailingAnnualDividendYield))
-  pushIfPresent(rows, 'Ex-Dividend Date', formatUnixDate(getYahooRawNumber(summaryDetail?.exDividendDate)))
-  pushIfPresent(rows, 'Payout Ratio', formatPercentFromValue(summaryDetail?.payoutRatio))
-
-  const feesAndExpenses = asRecord(fundProfile?.feesExpensesInvestment)
-  pushIfPresent(rows, 'Expense Ratio', formatPercentFromValue(feesAndExpenses?.annualReportExpenseRatio))
-  pushIfPresent(rows, 'Annual Holdings Turnover', formatPercentFromValue(feesAndExpenses?.annualHoldingsTurnover))
-
+  const rows = [...profileRows]
+  if (!rows.some((row) => row.label === 'Symbol')) rows.unshift({ label: 'Symbol', value: ticker })
+  if (name && !rows.some((row) => row.label === 'Name')) rows.splice(1, 0, { label: 'Name', value: name })
+  if (marketCap && !rows.some((row) => row.label === 'Market Cap')) {
+    rows.push({ label: 'Market Cap', value: marketCap })
+  }
   return rows
 }
 
-function buildRiskRows(
-  summaryDetail: Record<string, unknown> | null,
-  defaultKeyStatistics: Record<string, unknown> | null,
-  fundPerformance: Record<string, unknown> | null,
-  topHoldings: Record<string, unknown> | null
-): TickerFinancialRow[] {
-  const rows: TickerFinancialRow[] = []
-  pushIfPresent(
-    rows,
-    'Beta (3Y)',
-    getYahooFmt(defaultKeyStatistics?.beta3Year) ?? getYahooFmt(summaryDetail?.beta)
+function buildFallbackFundamentalsFromBackendSummary(summary: Awaited<ReturnType<typeof getCachedTickerSummary>>): TickerFundamentals {
+  const fallback = emptyFundamentals()
+  if (!summary) return fallback
+
+  const rows = Array.isArray(summary.latestFundamentals) ? summary.latestFundamentals : []
+  fallback.snapshot = rows
+    .map((row) => {
+      const label = typeof row?.metricLabel === 'string' && row.metricLabel.trim() ? row.metricLabel : null
+      const valueDisplay = typeof row?.valueDisplay === 'string' && row.valueDisplay.trim() ? row.valueDisplay : null
+      const valueNumber = typeof row?.valueNumber === 'number' && Number.isFinite(row.valueNumber) ? row.valueNumber : null
+      if (!label) return null
+      return {
+        label,
+        value:
+          formatBackendRowValue(label, valueDisplay ?? valueNumber) ??
+          (valueNumber !== null ? String(valueNumber) : '—'),
+      }
+    })
+    .filter((row): row is TickerFinancialRow => row !== null)
+    .slice(0, 10)
+
+  const marketCapNumber = summary.fundamentalsSummary?.marketCap ?? null
+  const quoteMarketCapText =
+    typeof summary.quote?.marketCapText === 'string' && summary.quote.marketCapText.trim()
+      ? summary.quote.marketCapText
+      : null
+  fallback.marketCap =
+    formatBackendMoney(getRawNumber(quoteMarketCapText)) ??
+    quoteMarketCapText ??
+    formatBackendMoney(marketCapNumber)
+  fallback.profile = ensureProfileIdentityRows(
+    [],
+    summary.ticker,
+    summary.quote?.name ?? null,
+    fallback.marketCap
   )
-  pushIfPresent(rows, 'YTD Return', formatPercentFromValue(summaryDetail?.ytdReturn))
-  pushIfPresent(rows, '3Y Avg Return', formatPercentFromValue(defaultKeyStatistics?.threeYearAverageReturn))
-  pushIfPresent(rows, '5Y Avg Return', formatPercentFromValue(defaultKeyStatistics?.fiveYearAverageReturn))
-
-  const trailingReturns = asRecord(fundPerformance?.trailingReturns)
-  if (trailingReturns) {
-    pushIfPresent(rows, '1Y Return', formatPercentFromValue(trailingReturns.oneYear))
-    pushIfPresent(rows, '3Y Return', formatPercentFromValue(trailingReturns.threeYear))
-    pushIfPresent(rows, '5Y Return', formatPercentFromValue(trailingReturns.fiveYear))
-  }
-
-  const equityHoldings = asRecord(topHoldings?.equityHoldings)
-  if (equityHoldings) {
-    pushIfPresent(rows, 'Portfolio P/E', getYahooFmt(equityHoldings.priceToEarnings))
-    pushIfPresent(rows, 'Portfolio P/B', getYahooFmt(equityHoldings.priceToBook))
-    pushIfPresent(rows, 'Portfolio P/S', getYahooFmt(equityHoldings.priceToSales))
-  }
-
-  return rows
+  return fallback
 }
 
-function buildSnapshotRows(
-  price: Record<string, unknown> | null,
-  summaryDetail: Record<string, unknown> | null,
-  defaultKeyStatistics: Record<string, unknown> | null,
-  fundProfile: Record<string, unknown> | null,
-  topHoldings: Record<string, unknown> | null,
-  holdings: TickerHolding[]
-): TickerFinancialRow[] {
-  const feesAndExpenses = asRecord(fundProfile?.feesExpensesInvestment)
-  const fundOperations = asRecord(fundProfile?.fundOperations)
-
-  const assets =
-    getYahooFmt(summaryDetail?.totalAssets) ??
-    formatDollarCompact(getYahooRawNumber(summaryDetail?.totalAssets))
-  const expenseRatio =
-    formatPercentFromValue(feesAndExpenses?.annualReportExpenseRatio) ??
-    formatPercentFromValue(fundOperations?.annualReportExpenseRatio)
-  const peRatio = getYahooFmt(summaryDetail?.trailingPE) ?? formatNumberFixed(summaryDetail?.trailingPE)
-  const sharesOut =
-    getYahooFmt(defaultKeyStatistics?.sharesOutstanding) ??
-    formatNumberCompact(getYahooRawNumber(defaultKeyStatistics?.sharesOutstanding))
-  const trailingDividendRaw = getYahooRawNumber(summaryDetail?.trailingAnnualDividendRate)
-  const dividendTtm =
-    getYahooFmt(summaryDetail?.trailingAnnualDividendRate) ??
-    getYahooFmt(summaryDetail?.dividendRate) ??
-    (trailingDividendRaw !== null ? `$${trailingDividendRaw.toFixed(2)}` : null)
-  const dividendYield =
-    formatPercentFromValue(summaryDetail?.trailingAnnualDividendYield) ??
-    formatPercentFromValue(summaryDetail?.dividendYield)
-  const exDividendDate = formatUnixDateDisplay(getYahooRawNumber(summaryDetail?.exDividendDate))
-  const payoutFrequency = formatPayoutFrequency(summaryDetail?.payoutFrequency)
-  const payoutRatio = formatPercentFromValue(summaryDetail?.payoutRatio)
-  const volume =
-    getYahooFmt(price?.regularMarketVolume) ??
-    formatNumberCompact(getYahooRawNumber(price?.regularMarketVolume))
-  const open = getYahooFmt(price?.regularMarketOpen) ?? formatNumberFixed(price?.regularMarketOpen)
-  const previousClose =
-    getYahooFmt(price?.regularMarketPreviousClose) ?? formatNumberFixed(price?.regularMarketPreviousClose)
-  const dayRange =
-    formatRange(price?.regularMarketDayLow, price?.regularMarketDayHigh) ??
-    formatRange(summaryDetail?.dayLow, summaryDetail?.dayHigh)
-  const fiftyTwoWeekLow =
-    getYahooFmt(summaryDetail?.fiftyTwoWeekLow) ?? formatNumberFixed(summaryDetail?.fiftyTwoWeekLow)
-  const fiftyTwoWeekHigh =
-    getYahooFmt(summaryDetail?.fiftyTwoWeekHigh) ?? formatNumberFixed(summaryDetail?.fiftyTwoWeekHigh)
-  const beta =
-    getYahooFmt(defaultKeyStatistics?.beta3Year) ??
-    getYahooFmt(summaryDetail?.beta) ??
-    formatNumberFixed(defaultKeyStatistics?.beta3Year) ??
-    formatNumberFixed(summaryDetail?.beta)
-  const holdingsCount =
-    holdings.length > 0
-      ? holdings.length.toLocaleString()
-      : getYahooFmt(topHoldings?.holdingsCount)
-  const inceptionDate = formatUnixDateDisplay(getYahooRawNumber(fundProfile?.fundInceptionDate))
-
-  return [
-    { label: 'Assets', value: assets ?? '—' },
-    { label: 'Expense Ratio', value: expenseRatio ?? '—' },
-    { label: 'PE Ratio', value: peRatio ?? '—' },
-    { label: 'Shares Out', value: sharesOut ?? '—' },
-    { label: 'Dividend (ttm)', value: dividendTtm ?? '—' },
-    { label: 'Dividend Yield', value: dividendYield ?? '—' },
-    { label: 'Ex-Dividend Date', value: exDividendDate ?? '—' },
-    { label: 'Payout Frequency', value: payoutFrequency ?? '—' },
-    { label: 'Payout Ratio', value: payoutRatio ?? '—' },
-    { label: 'Volume', value: volume ?? '—' },
-    { label: 'Open', value: open ?? '—' },
-    { label: 'Previous Close', value: previousClose ?? '—' },
-    { label: "Day's Range", value: dayRange ?? '—' },
-    { label: '52-Week Low', value: fiftyTwoWeekLow ?? '—' },
-    { label: '52-Week High', value: fiftyTwoWeekHigh ?? '—' },
-    { label: 'Beta', value: beta ?? '—' },
-    { label: 'Holdings', value: holdingsCount ?? '—' },
-    { label: 'Inception Date', value: inceptionDate ?? '—' },
-  ]
-}
-
-function buildFundamentalsFromSummary(summary: Record<string, unknown>): TickerFundamentals {
-  const assetProfile = asRecord(summary.assetProfile)
-  const summaryProfile = asRecord(summary.summaryProfile)
-  const summaryDetail = asRecord(summary.summaryDetail)
-  const price = asRecord(summary.price)
-  const fundProfile = asRecord(summary.fundProfile)
-  const fundPerformance = asRecord(summary.fundPerformance)
-  const topHoldings = asRecord(summary.topHoldings)
-  const defaultKeyStatistics = asRecord(summary.defaultKeyStatistics)
-
-  const about =
-    getString(assetProfile?.longBusinessSummary) ??
-    getString(fundProfile?.longBusinessSummary) ??
-    getString(summaryProfile?.longBusinessSummary) ??
-    getString(summaryProfile?.description) ??
-    null
-
-  const marketCapRaw = getYahooRawNumber(price?.marketCap)
-  const marketCap =
-    getYahooFmt(price?.marketCap) ??
-    getYahooFmt(summaryDetail?.marketCap) ??
-    (marketCapRaw !== null ? formatMarketCap(marketCapRaw) : null)
-
-  const holdings = parseHoldings(topHoldings)
-  const sectorWeights = parseSectorWeights(topHoldings)
-
-  const dividendRate = getYahooFmt(summaryDetail?.dividendRate)
-  const dividendYieldRaw = getYahooRawNumber(summaryDetail?.dividendYield)
-  const dividendYield = formatPercent(dividendYieldRaw)
-  const exDividendDate = formatUnixDate(getYahooRawNumber(summaryDetail?.exDividendDate))
-  const payoutRatio = formatPercent(getYahooRawNumber(summaryDetail?.payoutRatio))
-  const profile = buildProfileRows(price, fundProfile, summaryDetail)
-  const portfolio = buildPortfolioRows(holdings, sectorWeights)
-  const distributions = buildDistributionRows(summaryDetail, fundProfile)
-  const risk = buildRiskRows(summaryDetail, defaultKeyStatistics, fundPerformance, topHoldings)
-  const snapshot = buildSnapshotRows(
-    price,
-    summaryDetail,
-    defaultKeyStatistics,
-    fundProfile,
-    topHoldings,
-    holdings
+function normalizeBackendProfilePayload(
+  payload: unknown,
+  summary: Awaited<ReturnType<typeof getCachedTickerSummary>>,
+  ticker: string
+): TickerFundamentals | null {
+  const record = firstBackendRecord(
+    payload,
+    asRecord(payload)?.profilePayload,
+    asRecord(payload)?.fundamentals,
+    asRecord(payload)?.tickerProfile
   )
-  const symbol = getString(price?.symbol)
-  const displayName = getString(price?.shortName) ?? getString(price?.longName)
+  if (!record) return null
 
-  if (profile.length === 0) {
-    if (symbol) profile.push({ label: 'Symbol', value: symbol })
-    if (displayName) profile.push({ label: 'Name', value: displayName })
-  }
-  if (marketCap && !profile.some((row) => row.label === 'Market Cap')) {
-    profile.push({ label: 'Market Cap', value: marketCap })
-  }
+  const holdings = parseBackendHoldings(record.holdings)
+  const sectorWeights = parseBackendSectorWeights(record.sectorWeights ?? record.sector_weights)
+  const marketCap = formatBackendMoney(getRawNumber(firstBackendValue(record, ['marketCap', 'market_cap'])))
+  const dividendRate = formatBackendMoney(getRawNumber(firstBackendValue(record, ['dividendRate', 'dividend_rate'])))
+  const dividendYield = formatBackendPercent(getRawNumber(firstBackendValue(record, ['dividendYield', 'dividend_yield'])))
+  const exDividendDate = formatBackendDate(firstBackendValue(record, ['exDividendDate', 'ex_dividend_date']))
+  const payoutRatio = formatBackendPercent(getRawNumber(firstBackendValue(record, ['payoutRatio', 'payout_ratio'])))
+  const profileRows = parseBackendFinancialRows(record.profile)
+  const portfolioRows = parseBackendFinancialRows(record.portfolio)
+  const distributions = parseBackendFinancialRows(record.distributions)
+  const risk = parseBackendFinancialRows(record.risk)
 
-  return {
-    about,
-    marketCap: marketCap || null,
-    snapshot,
+  const fundamentals: TickerFundamentals = {
+    about:
+      getString(record.about) ??
+      getString(record.description) ??
+      getString(record.longBusinessSummary) ??
+      null,
+    marketCap:
+      marketCap ??
+      (typeof summary?.quote?.marketCapText === 'string' && summary.quote.marketCapText.trim()
+        ? summary.quote.marketCapText
+        : null),
+    snapshot: parseBackendFinancialRows(record.snapshot),
     holdings,
     sectorWeights,
-    dividendRate: dividendRate || null,
-    dividendYield: dividendYield || null,
-    exDividendDate: exDividendDate || null,
-    payoutRatio: payoutRatio || null,
-    profile,
-    portfolio,
+    dividendRate,
+    dividendYield,
+    exDividendDate,
+    payoutRatio,
+    profile: ensureProfileIdentityRows(
+      profileRows,
+      ticker,
+      summary?.quote?.name ?? null,
+      marketCap
+    ),
+    portfolio: portfolioRows.length > 0 ? portfolioRows : buildPortfolioRows(holdings, sectorWeights),
     distributions,
     risk,
   }
+
+  return fundamentals
 }
 
-async function fetchStooqQuote(ticker: string): Promise<StockQuote | null> {
-  if (Date.now() < stooqQuoteCooldownUntil) {
-    if (!stooqCooldownLogged) {
-      console.warn('Stooq quote fallback is temporarily disabled due to prior timeout/network errors.')
-      stooqCooldownLogged = true
-    }
-    return null
-  }
-
-  const symbol = `${ticker.toLowerCase()}.us`
-  const url = `https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&i=d`
-  let res: Response
+async function fetchBackendTickerProfile(ticker: string): Promise<unknown | null> {
   try {
-    res = await fetch(url, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(STOOQ_TIMEOUT_MS),
+    return await fetchBackendJson<unknown>(`/tickers/${encodeURIComponent(ticker)}/profile`, {
+      context: 'backend.tickers.profile',
+      init: {
+        cache: 'force-cache',
+        next: {
+          revalidate: FUNDAMENTALS_FRESH_MS / 1000,
+          tags: [`ticker-profile:${ticker}`],
+        },
+      },
     })
   } catch (error) {
-    stooqQuoteCooldownUntil = Date.now() + STOOQ_COOLDOWN_MS
-    stooqCooldownLogged = false
-    const wrappedError = new Error(`Stooq quote request failed: ${errorMessage(error)}`)
-    ;(wrappedError as Error & { cause?: unknown }).cause = error
-    throw wrappedError
-  }
-
-  if (!res.ok) throw new Error(`Stooq request failed (${res.status} ${res.statusText})`)
-
-  const text = (await res.text()).trim()
-  const fields = text.split(',')
-  if (fields.length < 7) return null
-
-  const open = parseMaybeNumber(fields[3])
-  const close = parseMaybeNumber(fields[6])
-  if (open === null || close === null) return null
-
-  const change = close - open
-  return {
-    ticker,
-    name: ticker,
-    price: close,
-    change,
-    changePercent: open !== 0 ? (change / open) * 100 : 0,
-    marketCap: 'N/A',
+    if (error instanceof BackendDataError) {
+      if (error.status !== 404 && error.status !== 422) {
+        console.warn(`Backend profile unavailable for ${ticker}; using summary fundamentals only.`)
+      }
+      return null
+    }
+    throw error
   }
 }
 
@@ -1633,7 +942,7 @@ async function readCachedFundamentals(
 async function writeQuoteCache(
   _ticker: string,
   _quote: StockQuote,
-  _source: QuoteFetchResult['source']
+  _source: 'backend'
 ): Promise<void> {
   return
 }
@@ -1652,67 +961,6 @@ async function writeFundamentalsCache(
   _source: FundamentalsSource
 ): Promise<void> {
   return
-}
-
-async function fetchLiveQuoteWithFallback(ticker: string): Promise<QuoteFetchResult | null> {
-  try {
-    const yahooQuote = await fetchYahooQuote(ticker)
-    if (yahooQuote) return { quote: yahooQuote, source: 'yahoo' }
-  } catch (error) {
-    if (!isRateLimitedYahooError(error)) {
-      if (isTransientNetworkError(error)) {
-        console.warn(`Yahoo quote fetch timed out for ${ticker}; using fallback or cached quote if available.`)
-      } else {
-        console.warn(`Failed to fetch Yahoo quote for ${ticker}:`, error)
-      }
-    }
-  }
-
-  try {
-    const fallbackQuote = await fetchStooqQuote(ticker)
-    if (fallbackQuote) return { quote: fallbackQuote, source: 'stooq' }
-  } catch (error) {
-    stooqQuoteCooldownUntil = Date.now() + STOOQ_COOLDOWN_MS
-    stooqCooldownLogged = false
-    if (isTransientNetworkError(error)) {
-      console.warn(`Fallback quote provider timed out for ${ticker}; temporarily disabling Stooq fallback.`)
-    } else {
-      console.warn(`Failed to fetch fallback quote for ${ticker}; temporarily disabling Stooq fallback:`, error)
-    }
-  }
-
-  return null
-}
-
-async function fetchLiveFundamentalsWithFallback(
-  ticker: string,
-  quoteHint?: StockQuote | null
-): Promise<FundamentalsFetchResult | null> {
-  try {
-    const summary = await fetchYahooQuoteSummary(ticker, QUOTE_SUMMARY_MODULES)
-    if (summary) {
-      const fundamentals = buildFundamentalsFromSummary(summary)
-      if (hasMeaningfulFundamentalsData(fundamentals)) {
-        return { fundamentals, source: 'yahoo' }
-      }
-    }
-  } catch (error) {
-    if (isYahooAuthError(error)) {
-      if (!yahooSummaryAuthBlockedLogged) {
-        console.warn(
-          `Yahoo fundamentals auth unavailable for ${ticker}; using cached/static fallback instead.`
-        )
-        yahooSummaryAuthBlockedLogged = true
-      }
-    } else if (!isRateLimitedYahooError(error)) {
-      console.warn(`Failed to fetch Yahoo fundamentals for ${ticker}:`, error)
-    }
-  }
-
-  const quote = quoteHint ?? (await loadQuote(ticker))
-  const fallback = fallbackFundamentalsFromQuote(ticker, quote)
-  if (!hasMeaningfulFundamentalsData(fallback)) return null
-  return { fundamentals: fallback, source: 'fallback_quote' }
 }
 
 async function loadQuote(tickerRaw: string): Promise<StockQuote | null> {
@@ -1770,41 +1018,23 @@ async function loadOhlc(tickerRaw: string, periodDays: number): Promise<OhlcPoin
 
 async function loadTickerFundamentals(tickerRaw: string): Promise<TickerFundamentals> {
   const ticker = normalizeTicker(tickerRaw)
-  const payload = await getCachedTickerSummary(ticker)
-  if (!payload) {
+  const summary = await getCachedTickerSummary(ticker)
+  if (!summary) {
     return emptyFundamentals()
   }
 
-  const rows = Array.isArray(payload?.latestFundamentals) ? payload.latestFundamentals : []
-  const financialRows: TickerFinancialRow[] = rows
-    .map((row) => {
-      const label = typeof row?.metricLabel === 'string' && row.metricLabel.trim() ? row.metricLabel : null
-      const valueDisplay = typeof row?.valueDisplay === 'string' && row.valueDisplay.trim() ? row.valueDisplay : null
-      const valueNumber = typeof row?.valueNumber === 'number' && Number.isFinite(row.valueNumber) ? row.valueNumber : null
-      if (!label) return null
-      return {
-        label,
-        value: valueDisplay ?? (valueNumber !== null ? String(valueNumber) : '—'),
-      }
-    })
-    .filter((row): row is TickerFinancialRow => row !== null)
-
-  const marketCapText = typeof payload?.quote?.marketCapText === 'string' ? payload.quote.marketCapText : null
-  return {
-    about: null,
-    marketCap: marketCapText || null,
-    snapshot: financialRows.slice(0, 10),
-    holdings: [],
-    sectorWeights: [],
-    dividendRate: null,
-    dividendYield: null,
-    exDividendDate: null,
-    payoutRatio: null,
-    profile: [],
-    portfolio: [],
-    distributions: [],
-    risk: [],
+  const embeddedProfile = normalizeBackendProfilePayload(summary.profile, summary, ticker)
+  if (embeddedProfile && hasMeaningfulFundamentalsData(embeddedProfile)) {
+    return embeddedProfile
   }
+
+  const remoteProfilePayload = await fetchBackendTickerProfile(ticker)
+  const remoteProfile = normalizeBackendProfilePayload(remoteProfilePayload, summary, ticker)
+  if (remoteProfile && hasMeaningfulFundamentalsData(remoteProfile)) {
+    return remoteProfile
+  }
+
+  return buildFallbackFundamentalsFromBackendSummary(summary)
 }
 
 export async function refreshTickerMarketData(
@@ -1820,7 +1050,7 @@ export async function refreshTickerMarketData(
     quoteSource: null,
     quoteUpdated: quote !== null,
     historicalUpdated: historical.length > 0,
-    fundamentalsSource: null,
+    fundamentalsSource: hasMeaningfulFundamentalsData(fundamentals) ? 'backend' : null,
     fundamentalsUpdated: Boolean(fundamentals.snapshot.length || fundamentals.profile.length),
     errors: [],
   }
@@ -1847,7 +1077,7 @@ export const getOhlcData = unstable_cache(
 
 export const getTickerFundamentals = unstable_cache(
   async (ticker: string): Promise<TickerFundamentals> => loadTickerFundamentals(ticker),
-  ['stock-fundamentals-cache-v5'],
+  ['stock-fundamentals-cache-v6'],
   { revalidate: 21600 }
 )
 

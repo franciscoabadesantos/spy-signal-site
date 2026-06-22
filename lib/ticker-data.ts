@@ -92,6 +92,8 @@ export type TickerPageSummary = {
   latestFundamentals: LatestFundamentalsRow[]
   nextEarnings: NextEarningsRow | null
   earningsHistory: EarningsHistoryRow[]
+  scorecard?: unknown
+  profile?: unknown
 }
 
 function normalizeTicker(tickerRaw: string): string {

@@ -2,6 +2,7 @@ import { Filter, Lock } from 'lucide-react'
 import Link from 'next/link'
 import TrackedLink from '@/components/analytics/TrackedLink'
 import ScreenerSignalCard from '@/components/ScreenerSignalCard'
+import OrbitMini from '@/components/stocks/OrbitMini'
 import ActionBar from '@/components/page/ActionBar'
 import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
 import DismissibleLocalHint from '@/components/onboarding/DismissibleLocalHint'
@@ -26,9 +27,10 @@ import {
   TableShell,
 } from '@/components/ui/DataTable'
 import { getScreenerSignals, type ScreenerSort } from '@/lib/signals'
+import { getTickerScorecards } from '@/lib/scorecard'
+import type { Scorecard } from '@/lib/scorecard-types'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import {
-  convictionPercent,
   rowSignalQualityLabel,
   shortSignalHeadline,
   signalHeadlineFromInputs,
@@ -45,6 +47,10 @@ type ScreenerSearchParams = {
 }
 
 type SignalDirection = 'all' | 'bullish' | 'neutral' | 'bearish'
+
+type ScreenerRowWithScorecard = Awaited<ReturnType<typeof getScreenerSignals>>['rows'][number] & {
+  scorecard: Scorecard
+}
 
 type QuickFilterPreset = {
   label: string
@@ -188,30 +194,6 @@ function buildStockHref(ticker: string, screenerSignal: string): string {
   return `/stocks/${ticker}?${params.toString()}`
 }
 
-function miniProfileBars({
-  direction,
-  conviction,
-  predictionHorizon,
-  changePercent,
-}: {
-  direction: Exclude<SignalDirection, 'all'>
-  conviction: number | null
-  predictionHorizon: number | null
-  changePercent: number | null
-}): number[] {
-  const convictionScore = convictionPercent(conviction) ?? 38
-  const moveMag = Math.min(8, Math.abs(changePercent ?? 0))
-  const horizonTarget = predictionHorizon ?? 20
-  const horizonScore = Math.max(28, 100 - Math.abs(horizonTarget - 20) * 2.1)
-  const trendBase = direction === 'bullish' ? 58 : direction === 'bearish' ? 44 : 50
-  const trend = Math.max(22, Math.min(96, trendBase + convictionScore * 0.32))
-  const momentum = Math.max(22, Math.min(96, convictionScore * 0.88 + moveMag * 4.4))
-  const risk = Math.max(22, Math.min(96, 68 - moveMag * 4.6))
-  const yieldScore = Math.max(22, Math.min(96, 34 + convictionScore * 0.26))
-  const stability = Math.max(22, Math.min(96, convictionScore * 0.8 - moveMag * 3.7 + horizonScore * 0.08))
-  return [trend, momentum, risk, yieldScore, stability].map((value) => Math.round(value))
-}
-
 export default async function ScreenerPage({
   searchParams,
 }: {
@@ -243,7 +225,12 @@ export default async function ScreenerPage({
   }
 
   const previewLimit = 3
-  const previewRows = viewer.isPro ? rows : rows.slice(0, previewLimit)
+  const scorecardsByTicker = await getTickerScorecards(rows.map((row) => row.ticker))
+  const rowsWithScorecards: ScreenerRowWithScorecard[] = rows.map((row) => ({
+    ...row,
+    scorecard: scorecardsByTicker[row.ticker],
+  })).filter((row): row is ScreenerRowWithScorecard => Boolean(row.scorecard))
+  const previewRows = viewer.isPro ? rowsWithScorecards : rowsWithScorecards.slice(0, previewLimit)
   const hiddenCount = viewer.isPro ? 0 : Math.max(0, rows.length - previewLimit)
   const upgradeUrl = getStripeUpgradeUrl(viewer.userId)
   const upgradeHref = viewer.isSignedIn ? upgradeUrl ?? '/dashboard' : '/sign-up?redirect_url=/screener'
@@ -433,17 +420,11 @@ export default async function ScreenerPage({
                         </tr>
                       </TableHead>
                       <TableBody>
-                        {rows.map((row, index) => {
+                        {rowsWithScorecards.map((row, index) => {
                           const isBlurredRow = !viewer.isPro && index >= previewLimit
                           const shortHeadline = shortSignalHeadline(row.direction, row.conviction)
                           const fullHeadline = signalHeadlineFromInputs(row.direction, row.conviction)
                           const screenerHref = buildStockHref(row.ticker, shortHeadline)
-                          const profileBars = miniProfileBars({
-                            direction: row.direction,
-                            conviction: row.conviction,
-                            predictionHorizon: row.predictionHorizon,
-                            changePercent: row.changePercent,
-                          })
                           return (
                             <TableRow
                               key={`${row.ticker}-${row.signalDate ?? ''}`}
@@ -501,16 +482,8 @@ export default async function ScreenerPage({
                               </TableCell>
                               <TableCell className="min-w-[126px]">
                                 <div className={cn('space-y-1', isBlurredRow ? 'blur-[2px] opacity-65' : undefined)}>
-                                  <div className="flex h-8 items-end gap-1">
-                                    {profileBars.map((score, profileIndex) => (
-                                      <span
-                                        key={`${row.ticker}-profile-${profileIndex}`}
-                                        className="w-1.5 rounded-t-sm bg-primary/75"
-                                        style={{ height: `${Math.max(4, Math.round(score * 0.3))}px` }}
-                                      />
-                                    ))}
-                                  </div>
-                                  <div className="text-micro text-content-muted">Derived profile</div>
+                                  <OrbitMini scorecard={row.scorecard} size={40} />
+                                  <div className="text-micro text-content-muted">Scorecard</div>
                                 </div>
                               </TableCell>
                               <TableCell muted>

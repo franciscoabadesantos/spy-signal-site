@@ -4,13 +4,12 @@ import Link from 'next/link'
 import { Suspense, use, useMemo, useState, type ReactNode } from 'react'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
 import CorrelationNetwork from '@/components/CorrelationNetwork'
-import OrbitMini from '@/components/stocks/OrbitMini'
-import SystemProfileBlob, { type SystemProfileBlobDimension } from '@/components/page/SystemProfileBlob'
+import ScorecardDisc from '@/components/stocks/ScorecardDisc'
 import ChartContainer from '@/components/charts/ChartContainer'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
 import type { NetworkGraph } from '@/lib/network'
 import { countryDisplayName } from '@/lib/network-regions'
-import type { SignalOrbitTelemetry } from '@/lib/signalOrbit'
+import type { Scorecard } from '@/lib/scorecard-types'
 import {
   buildTechnicalSummary,
   type TechnicalAction,
@@ -54,11 +53,6 @@ type OverviewRegimePoint = {
   prob_side: number | null
 }
 
-type OrbitTooltipState = {
-  x: number
-  y: number
-}
-
 type StockOverviewClientProps = {
   ticker: string
   currency: string
@@ -76,10 +70,7 @@ type StockOverviewClientProps = {
   fundDetails: OverviewFundDetail[]
   relatedAssets: Promise<OverviewRelatedAsset[]>
   regimeSignals: OverviewRegimePoint[]
-  orbitDimensions: SystemProfileBlobDimension[]
-  orbitTelemetry: SignalOrbitTelemetry
-  marketCap: number | null
-  marketCapLabel: string | null
+  scorecard: Scorecard
   showCopilot: boolean
   copilot: {
     isPro: boolean
@@ -518,80 +509,28 @@ function RegimeHistoryChart({
 }
 
 function OrbitPanel({
-  dimensions,
-  telemetry,
-  marketCap,
-  marketCapLabel,
+  scorecard,
 }: {
-  dimensions: SystemProfileBlobDimension[]
-  telemetry: SignalOrbitTelemetry
-  marketCap: number | null
-  marketCapLabel: string | null
+  scorecard: Scorecard
 }) {
-  const [tooltip, setTooltip] = useState<OrbitTooltipState | null>(null)
-
   return (
-    <div
-      className={styles.orbitWrap}
-      onMouseMove={(event) => {
-        const rect = event.currentTarget.getBoundingClientRect()
-        setTooltip({
-          x: Math.min(rect.width - 172, Math.max(10, event.clientX - rect.left + 12)),
-          y: Math.min(rect.height - 126, Math.max(10, event.clientY - rect.top + 12)),
-        })
-      }}
-      onMouseLeave={() => setTooltip(null)}
-    >
-      <SystemProfileBlob
-        dimensions={dimensions}
-        marketCap={marketCap}
-        marketCapLabel={marketCapLabel}
+    <div className={styles.orbitWrap}>
+      <ScorecardDisc
+        scorecard={scorecard}
+        compact
+        size={360}
         className={styles.orbitVisual}
       />
 
-      {tooltip ? (
-        <div className={styles.orbitTooltip} style={{ left: tooltip.x, top: tooltip.y }}>
-          <div className={styles.orbitTooltipTitle}>Orbit inputs</div>
-          <div className={styles.orbitTooltipRow}>
-            <span>Momentum</span>
-            <strong>{telemetry.momentum}</strong>
-          </div>
-          <div className={styles.orbitTooltipRow}>
-            <span>Risk</span>
-            <strong>{telemetry.risk}</strong>
-          </div>
-          <div className={styles.orbitTooltipRow}>
-            <span>Conviction</span>
-            <strong>{telemetry.conviction}</strong>
-          </div>
-          <div className={styles.orbitTooltipRow}>
-            <span>Direction</span>
-            <strong>{telemetry.direction}</strong>
-          </div>
-          <div className={styles.orbitTooltipRow}>
-            <span>Trend age</span>
-            <strong>{telemetry.trendAge}d</strong>
-          </div>
-        </div>
-      ) : null}
-
       <div className={styles.orbitStats}>
-        <div className={styles.orbitStat}>
-          <span className={styles.orbitStatLabel}>Momentum</span>
-          <span className={styles.orbitStatValue}>{telemetry.momentum}</span>
-        </div>
-        <div className={styles.orbitStat}>
-          <span className={styles.orbitStatLabel}>Risk</span>
-          <span className={styles.orbitStatValue}>{telemetry.risk}</span>
-        </div>
-        <div className={styles.orbitStat}>
-          <span className={styles.orbitStatLabel}>Conviction</span>
-          <span className={styles.orbitStatValue}>{telemetry.conviction}</span>
-        </div>
-        <div className={styles.orbitStat}>
-          <span className={styles.orbitStatLabel}>Trend age</span>
-          <span className={styles.orbitStatValue}>{telemetry.trendAge}d</span>
-        </div>
+        {scorecard.axes.map((axis) => (
+          <div key={axis.key} className={styles.orbitStat}>
+            <span className={styles.orbitStatLabel}>{axis.label}</span>
+            <span className={styles.orbitStatValue}>
+              {axis.available && axis.score !== null ? axis.score : 'No data'}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -720,10 +659,7 @@ export default function StockOverviewClient({
   fundDetails,
   relatedAssets: relatedAssetsPromise,
   regimeSignals,
-  orbitDimensions,
-  orbitTelemetry,
-  marketCap,
-  marketCapLabel,
+  scorecard,
   showCopilot,
   copilot,
 }: StockOverviewClientProps) {
@@ -788,12 +724,12 @@ export default function StockOverviewClient({
 
           <aside className={styles.heroSidebar}>
             <button type="button" className={styles.orbitMiniButton} onClick={() => setOrbitModalOpen(true)}>
-              <OrbitMini dimensions={orbitDimensions} size={160} className={styles.heroOrbitMini} />
+              <ScorecardDisc scorecard={scorecard} compact size={160} className={styles.heroOrbitMini} />
             </button>
             <div className={styles.heroOrbitMetrics}>
-              <span className={styles.heroOrbitMetricChip}>Momentum {orbitTelemetry.momentum}</span>
-              <span className={styles.heroOrbitMetricChip}>Risk {orbitTelemetry.risk}</span>
-              <span className={styles.heroOrbitMetricChip}>Conviction {orbitTelemetry.conviction}</span>
+              <span className={styles.heroOrbitMetricChip}>Grade {scorecard.overall.grade}</span>
+              <span className={styles.heroOrbitMetricChip}>Score {scorecard.overall.score ?? '—'}</span>
+              <span className={styles.heroOrbitMetricChip}>{scorecard.overall.label}</span>
             </div>
             <div className={styles.keyStatsGrid}>
               {heroStats.map((stat) => (
@@ -967,16 +903,11 @@ export default function StockOverviewClient({
       </section>
 
       {isOrbitModalOpen ? (
-        <Modal title="Signal Orbit" onClose={() => setOrbitModalOpen(false)}>
+        <Modal title="Scorecard" onClose={() => setOrbitModalOpen(false)}>
           <div className={styles.modalOrbitBody}>
-            <OrbitPanel
-              dimensions={orbitDimensions}
-              telemetry={orbitTelemetry}
-              marketCap={marketCap}
-              marketCapLabel={marketCapLabel}
-            />
+            <OrbitPanel scorecard={scorecard} />
             <p className={styles.modalOrbitCopy}>
-              The orbit radius represents risk. Glow intensity represents conviction. Rotation speed reflects momentum, and the trail length reflects how long the current trend has held.
+              Each slice is an investment axis. Radius is the backend score, colour is the same green to amber to red verdict scale, and grey dashed slices mean no score is available yet.
             </p>
           </div>
         </Modal>
