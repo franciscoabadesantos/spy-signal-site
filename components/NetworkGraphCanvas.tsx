@@ -48,11 +48,14 @@ export const NETWORK_PHYSICS = {
 export const NETWORK_ARCS = {
   curvature: 0.25,
   peerCurvature: 0.22,
-  mstWidth: 2.4,
-  baseWidth: 1,
-  correlationWidth: 2,
+  mstWidth: 2.6,
+  baseWidth: 0.8,
+  correlationWidth: 3.6, // higher contrast: strong correlations read much thicker than weak ones
   baseAlpha: 0.12,
   correlationAlpha: 0.6,
+  // On the GLOBAL map, edges rest at a uniform readable opacity (strength is shown by
+  // thickness, not by fading). Strength-scaled opacity is kept only for the per-ticker peer web.
+  globalRestingAlpha: 0.4,
 } as const
 
 export const NETWORK_GLOW = {
@@ -135,12 +138,13 @@ function correlationDescriptor(absCorrelation: number): 'Strong' | 'Moderate' | 
 }
 
 function marketCapRadius(marketCap: number | null, mode: 'global' | 'peer', isCenter: boolean): number {
-  if (!marketCap || !Number.isFinite(marketCap) || marketCap <= 0) return mode === 'peer' ? 10 : 7
-  const normalized =
-    mode === 'peer'
-      ? clamp((Math.log10(marketCap) - 8.5) / 4.1, 0, 1)
-      : clamp((Math.log10(marketCap) - 7.5) / 5.2, 0, 1)
-  const radius = mode === 'peer' ? 9 + normalized * 25 : 6 + normalized * 13
+  if (!marketCap || !Number.isFinite(marketCap) || marketCap <= 0) return mode === 'peer' ? 9 : 5
+  // Market cap spans ~1000x (billions -> trillions). Log keeps it on-screen; the power>1 and the
+  // wide radius range make megacaps clearly dominate while small caps stay visible.
+  // Window ~ $1B (log 9) to ~$4T (log 12.6); values above clamp so one outlier can't dwarf the rest.
+  const normalized = clamp((Math.log10(marketCap) - 9) / 3.6, 0, 1)
+  const emphasized = Math.pow(normalized, 1.5)
+  const radius = mode === 'peer' ? 9 + emphasized * 27 : 5 + emphasized * 28
   return isCenter ? Math.max(14, radius) : radius
 }
 
@@ -528,7 +532,10 @@ export default function NetworkGraphCanvas({
           const cy = (sy + ty) / 2 + (dx / length) * curvature
           const focused = connectedEdges?.has(link.id) ?? false
           const dimmed = isLinkDimmed(link)
-          const alpha = dimmed ? NETWORK_GLOW.dimAlpha : focused ? NETWORK_GLOW.clusterAlpha : linkAlpha(link)
+          // Per-ticker: opacity encodes correlation strength. Global: uniform so nothing fades
+          // away; strength reads from thickness, and hover handles focus/dim.
+          const restingAlpha = mode === 'peer' ? linkAlpha(link) : NETWORK_ARCS.globalRestingAlpha
+          const alpha = dimmed ? NETWORK_GLOW.dimAlpha : focused ? NETWORK_GLOW.clusterAlpha : restingAlpha
 
           ctx.save()
           ctx.beginPath()
@@ -537,7 +544,7 @@ export default function NetworkGraphCanvas({
           ctx.strokeStyle = linkColor(link, alpha)
           ctx.lineWidth = focused ? linkWidth(link) + 1.4 : linkWidth(link)
           ctx.lineCap = 'round'
-          ctx.setLineDash(link.inMst ? [] : [5, 8])
+          ctx.setLineDash([])
           if (focused) {
             ctx.shadowBlur = NETWORK_GLOW.focusBlur
             ctx.shadowColor = linkColor(link, 0.85)
