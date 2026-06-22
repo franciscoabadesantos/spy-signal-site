@@ -117,11 +117,13 @@ function buildLayout(graph: NetworkGraph, centerTickerRaw: string): { nodes: Lay
   return { nodes, edges }
 }
 
-function strongestEdgeForTicker(ticker: string, edges: NetworkEdge[]): NetworkEdge | null {
+function edgeBetween(a: string, b: string, edges: NetworkEdge[]): NetworkEdge | null {
+  if (a === b) return null
   return (
-    edges
-      .filter((edge) => edge.source === ticker || edge.target === ticker)
-      .sort((a, b) => b.absCorrelation - a.absCorrelation)[0] ?? null
+    edges.find(
+      (edge) =>
+        (edge.source === a && edge.target === b) || (edge.source === b && edge.target === a),
+    ) ?? null
   )
 }
 
@@ -149,7 +151,9 @@ export default function CorrelationNetwork({
     if (!hoveredTicker) return null
     return new Set(edges.filter((edge) => edge.source === hoveredTicker || edge.target === hoveredTicker).map((edge) => edge.id))
   }, [edges, hoveredTicker])
-  const tooltipEdge = hoveredTicker ? strongestEdgeForTicker(hoveredTicker, edges) : null
+  const tooltipEdge = hoveredTicker
+    ? edgeBetween(hoveredTicker, centerTicker.trim().toUpperCase(), edges)
+    : null
 
   if (nodes.length === 0 || edges.length === 0) {
     return (
@@ -272,7 +276,9 @@ export default function CorrelationNetwork({
                 },
                 { label: 'Sector', value: sectorLabel(hoveredNode.sector) },
                 {
-                  label: 'Correlation',
+                  label: hoveredNode.ticker === centerTicker.trim().toUpperCase()
+                    ? 'Correlation'
+                    : `Correlation vs ${centerTicker.trim().toUpperCase()}`,
                   value: tooltipEdge ? tooltipEdge.correlation.toFixed(2) : '—',
                   swatchColor: tooltipEdge ? edgeStroke(tooltipEdge) : undefined,
                 },
