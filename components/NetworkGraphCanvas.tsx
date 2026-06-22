@@ -361,6 +361,10 @@ export default function NetworkGraphCanvas({
     },
     [connectedTickers, mode, zoomScale]
   )
+  // Keep a stable ref so the layout/zoom-to-fit effect doesn't re-run (and reheat) on every
+  // hover/zoom change — those would restart the sim and override the user's zoom.
+  const nodeIsVisibleRef = useRef(nodeIsVisible)
+  nodeIsVisibleRef.current = nodeIsVisible
 
   const linkIsVisible = useCallback(
     (link: GraphLink) => {
@@ -423,10 +427,10 @@ export default function NetworkGraphCanvas({
 
     fg.d3ReheatSimulation()
     window.setTimeout(() => {
-      fg.zoomToFit(650, mode === 'peer' ? 54 : 42, (node) => nodeIsVisible(node as GraphNode))
+      fg.zoomToFit(650, mode === 'peer' ? 54 : 42, (node) => nodeIsVisibleRef.current(node as GraphNode))
       if (mode === 'peer') window.setTimeout(() => fg.centerAt(0, 0, 450), 680)
     }, 80)
-  }, [graphData, mode, nodeIsVisible, width, height])
+  }, [graphData, mode, width, height])
 
   if (graphData.nodes.length === 0 || graphData.links.length === 0) {
     return (
@@ -484,7 +488,6 @@ export default function NetworkGraphCanvas({
           }
           const rect = wrapperRef.current?.getBoundingClientRect()
           updateTooltipPosition(rect ? rect.left + width / 2 : 0, rect ? rect.top + 24 : 0, node.ticker)
-          graphRef.current?.d3ReheatSimulation()
         }}
         onNodeClick={(node: GraphNode) => {
           router.push(`/stocks/${node.ticker}`)
