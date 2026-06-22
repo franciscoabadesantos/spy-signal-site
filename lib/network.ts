@@ -37,6 +37,8 @@ export type MarketNetworkOptions = {
 
 export type TickerNetworkOptions = {
   hops?: number
+  topK?: number
+  minAbsCorrelation?: number
 }
 
 const NETWORK_REVALIDATE_SECONDS = 900
@@ -125,9 +127,15 @@ export async function getTickerNetwork(
 ): Promise<NetworkGraph> {
   const ticker = tickerRaw.trim().toUpperCase()
   const hops = Math.max(1, Math.min(2, Math.round(options.hops ?? 1)))
+  // Peer web defaults: surface more peers (incl. moderate/negative ones) than the
+  // global-map defaults, since a single ticker (esp. defensives) has few very-strong links.
+  const topK = Math.max(1, Math.min(50, Math.round(options.topK ?? 10)))
+  const minAbsCorrelation = options.minAbsCorrelation ?? 0.2
   const path = appendNetworkParams('/network', {
     focus: ticker,
     hops,
+    topK,
+    minAbsCorrelation,
   })
 
   try {

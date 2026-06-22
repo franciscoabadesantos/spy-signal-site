@@ -33,6 +33,7 @@ const PRIMARY_APP_ITEMS: readonly MenuItem[] = [
   { key: 'today', label: 'Today', href: '/dashboard', icon: PanelsTopLeft },
   { key: 'signals', label: 'Signals', href: '/screener', icon: Gauge },
   { key: 'markets', label: 'Markets', href: '/markets', icon: BarChart3 },
+  { key: 'network', label: 'Correlations', href: '/markets/network', icon: Layers3 },
   { key: 'watchlist', label: 'Watchlist', href: '/dashboard/watchlist', icon: Bookmark },
   { key: 'community', label: 'Community', href: '/community', icon: MessageSquareShare },
   { key: 'model-lab', label: 'Model Lab', href: '/models', icon: FlaskConical },

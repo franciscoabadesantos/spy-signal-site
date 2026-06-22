@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   forceCenter,
   forceCollide,
@@ -152,12 +152,35 @@ function buildLayout({
 
   for (let index = 0; index < 260; index += 1) simulation.tick()
 
-  for (const node of layoutNodes) {
-    node.x = clamp(node.x ?? width / 2, node.radius + 12, width - node.radius - 12)
-    node.y = clamp(node.y ?? height / 2, node.radius + 12, height - node.radius - 12)
-  }
-
+  // No hard clamp to the viewport — that pins overflowing nodes to the walls/corners.
+  // The canvas fits the whole graph into view via an initial zoom/pan transform instead.
   return layoutNodes
+}
+
+function computeFitTransform(nodes: LayoutNode[], width: number, height: number): TransformState {
+  if (nodes.length === 0) return { x: 0, y: 0, k: 1 }
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const node of nodes) {
+    const x = node.x ?? width / 2
+    const y = node.y ?? height / 2
+    const r = node.radius + 16 // padding for ring/label
+    minX = Math.min(minX, x - r)
+    maxX = Math.max(maxX, x + r)
+    minY = Math.min(minY, y - r)
+    maxY = Math.max(maxY, y + r)
+  }
+  const contentW = Math.max(1, maxX - minX)
+  const contentH = Math.max(1, maxY - minY)
+  const pad = 24
+  const k = clamp(Math.min((width - pad * 2) / contentW, (height - pad * 2) / contentH), 0.3, 1.4)
+  return {
+    x: width / 2 - ((minX + maxX) / 2) * k,
+    y: height / 2 - ((minY + maxY) / 2) * k,
+    k,
+  }
 }
 
 function NetworkCanvas({
@@ -179,10 +202,16 @@ function NetworkCanvas({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [hover, setHover] = useState<TooltipState | null>(null)
-  const [transform, setTransform] = useState<TransformState>({ x: 0, y: 0, k: 1 })
   const [panState, setPanState] = useState<PanState>(null)
   const visibleEdges = useMemo(() => filterEdges(graph.edges, threshold, topK), [graph.edges, threshold, topK])
   const nodes = useMemo(() => buildLayout({ nodes: graph.nodes, edges: visibleEdges, width, height }), [graph.nodes, visibleEdges, width, height])
+  const fitTransform = useMemo(() => computeFitTransform(nodes, width, height), [nodes, width, height])
+  const [transform, setTransform] = useState<TransformState>(fitTransform)
+  // Re-fit the whole graph into view whenever the layout or canvas size changes
+  // (initial load, threshold/topK change, resize). User pan/zoom persists otherwise.
+  useEffect(() => {
+    setTransform(fitTransform)
+  }, [fitTransform])
   const nodeByTicker = useMemo(() => new Map(nodes.map((node) => [node.ticker, node])), [nodes])
   const hoveredNode = hover ? nodeByTicker.get(hover.ticker) ?? null : null
   const connectedTickers = useMemo(() => {
@@ -214,7 +243,7 @@ function NetworkCanvas({
         aria-label="Global market correlation network"
         onWheel={(event) => {
           event.preventDefault()
-          const nextK = clamp(transform.k * (event.deltaY > 0 ? 0.92 : 1.08), 0.62, 2.6)
+          const nextK = clamp(transform.k * (event.deltaY > 0 ? 0.92 : 1.08), 0.3, 2.6)
           setTransform((prev) => ({ ...prev, k: nextK }))
         }}
         onPointerDown={(event) => {

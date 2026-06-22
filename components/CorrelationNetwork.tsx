@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   forceCenter,
   forceCollide,
@@ -60,9 +60,10 @@ function edgeStroke(edge: NetworkEdge): string {
 }
 
 function marketCapRadius(marketCap: number | null): number {
-  if (!marketCap || !Number.isFinite(marketCap) || marketCap <= 0) return 16
-  const normalized = clamp((Math.log10(marketCap) - 8) / 5, 0, 1)
-  return 13 + normalized * 13
+  if (!marketCap || !Number.isFinite(marketCap) || marketCap <= 0) return 11
+  // Wider, more sensitive range so market-cap differences are clearly visible.
+  const normalized = clamp((Math.log10(marketCap) - 8.5) / 4.1, 0, 1)
+  return 9 + normalized * 25
 }
 
 function buildLayout(graph: NetworkGraph, centerTickerRaw: string): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
@@ -72,18 +73,28 @@ function buildLayout(graph: NetworkGraph, centerTickerRaw: string): { nodes: Lay
     nodeByTicker.set(node.ticker, node)
   }
 
+  // Per-ticker peer web: only the center ticker's own correlations (spokes),
+  // not the edges between the peers themselves — those belong to the global map.
   const edges = graph.edges
     .filter((edge) => nodeByTicker.has(edge.source) && nodeByTicker.has(edge.target))
-    .sort((a, b) => Number(a.inMst) - Number(b.inMst) || a.absCorrelation - b.absCorrelation)
+    .filter((edge) => edge.source === centerTicker || edge.target === centerTicker)
+    .sort((a, b) => a.absCorrelation - b.absCorrelation)
     .map((edge) => ({ ...edge, id: edgeKey(edge.source, edge.target) }))
 
-  const nodes: LayoutNode[] = [...nodeByTicker.values()].map((node, index) => {
-    const angle = -Math.PI / 2 + (index / Math.max(1, nodeByTicker.size)) * Math.PI * 2
+  const connectedToCenter = new Set<string>([centerTicker])
+  for (const edge of edges) {
+    connectedToCenter.add(edge.source)
+    connectedToCenter.add(edge.target)
+  }
+
+  const visibleNodes = [...nodeByTicker.values()].filter((node) => connectedToCenter.has(node.ticker))
+  const nodes: LayoutNode[] = visibleNodes.map((node, index) => {
+    const angle = -Math.PI / 2 + (index / Math.max(1, visibleNodes.length)) * Math.PI * 2
     const isCenter = node.ticker === centerTicker
     return {
       ...node,
       id: node.ticker,
-      radius: isCenter ? Math.max(23, marketCapRadius(node.marketCap)) : marketCapRadius(node.marketCap),
+      radius: isCenter ? Math.max(12, marketCapRadius(node.marketCap)) : marketCapRadius(node.marketCap),
       x: isCenter ? WIDTH / 2 : WIDTH / 2 + Math.cos(angle) * 150,
       y: isCenter ? HEIGHT / 2 : HEIGHT / 2 + Math.sin(angle) * 118,
       fx: isCenter ? WIDTH / 2 : undefined,
@@ -97,8 +108,9 @@ function buildLayout(graph: NetworkGraph, centerTickerRaw: string): { nodes: Lay
       'link',
       forceLink<LayoutNode, LayoutEdge>(linkEdges)
         .id((node) => node.id)
-        .distance((edge) => (edge.inMst ? 92 : 122) - edge.absCorrelation * 34)
-        .strength((edge) => (edge.inMst ? 0.78 : 0.32 + edge.absCorrelation * 0.22))
+        // Distance encodes correlation: stronger correlation pulls the peer closer to center.
+        .distance((edge) => 50 + (1 - edge.absCorrelation) * 120)
+        .strength((edge) => 0.55 + edge.absCorrelation * 0.35)
     )
     .force('charge', forceManyBody<LayoutNode>().strength(-225))
     .force('collide', forceCollide<LayoutNode>().radius((node) => node.radius + 15).strength(0.9))
@@ -154,6 +166,60 @@ export default function CorrelationNetwork({
   const tooltipEdge = hoveredTicker
     ? edgeBetween(hoveredTicker, centerTicker.trim().toUpperCase(), edges)
     : null
+  const centerEdgeByTicker = useMemo(() => {
+    const center = centerTicker.trim().toUpperCase()
+    const map = new Map<string, LayoutEdge>()
+    for (const edge of edges) {
+      map.set(edge.source === center ? edge.target : edge.source, edge)
+    }
+    return map
+  }, [edges, centerTicker])
+
+  const [reducedMotion, setReducedMotion] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReducedMotion(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  const [clock, setClock] = useState(0)
+  useEffect(() => {
+    if (reducedMotion) return
+    let raf = 0
+    const start = performance.now()
+    const loop = (now: number) => {
+      setClock((now - start) / 1000)
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [reducedMotion])
+
+  // Gentle "orbit in space" drift: each peer sways slowly around its base angle
+  // (and bobs slightly in radius) about the fixed center. Spokes follow because
+  // edges are drawn from these animated positions.
+  const orbits = useMemo(() => {
+    const cx = WIDTH / 2
+    const cy = HEIGHT / 2
+    return nodes.map((node, index) => {
+      const dx = (node.x ?? cx) - cx
+      const dy = (node.y ?? cy) - cy
+      const baseR = Math.hypot(dx, dy)
+      return {
+        node,
+        baseR,
+        theta0: Math.atan2(dy, dx),
+        swaySpeed: 0.1 + (index % 5) * 0.013,
+        bobSpeed: 0.22 + (index % 4) * 0.03,
+        phase: index * 1.7,
+        swayAmp: baseR < 1 ? 0 : 0.1,
+        bobAmp: baseR < 1 ? 0 : 2.4,
+      }
+    })
+  }, [nodes])
 
   if (nodes.length === 0 || edges.length === 0) {
     return (
@@ -162,6 +228,14 @@ export default function CorrelationNetwork({
       </div>
     )
   }
+
+  const positioned = orbits.map((o) => {
+    if (o.baseR < 1) return { node: o.node, x: WIDTH / 2, y: HEIGHT / 2 }
+    const theta = o.theta0 + Math.sin(clock * o.swaySpeed + o.phase) * o.swayAmp
+    const r = o.baseR + Math.sin(clock * o.bobSpeed + o.phase) * o.bobAmp
+    return { node: o.node, x: WIDTH / 2 + Math.cos(theta) * r, y: HEIGHT / 2 + Math.sin(theta) * r }
+  })
+  const posByTicker = new Map(positioned.map((p) => [p.node.ticker, p]))
 
   return (
     <div className="space-y-3">
@@ -176,8 +250,8 @@ export default function CorrelationNetwork({
           aria-label="Correlation network"
         >
           {edges.map((edge) => {
-            const source = nodeByTicker.get(edge.source)
-            const target = nodeByTicker.get(edge.target)
+            const source = posByTicker.get(edge.source)
+            const target = posByTicker.get(edge.target)
             if (!source || !target) return null
             const isHighlighted = connectedEdges ? connectedEdges.has(edge.id) : false
             const isDimmed = connectedEdges ? !isHighlighted : false
@@ -202,6 +276,11 @@ export default function CorrelationNetwork({
             const isHovered = hoveredTicker === node.ticker
             const isDimmed = connectedTickers ? !connectedTickers.has(node.ticker) : false
             const color = countryColor(node.country, node.region)
+            const centerEdge = centerEdgeByTicker.get(node.ticker)
+            const isNegative = !isCenter && !!centerEdge && centerEdge.correlation < 0
+            const pos = posByTicker.get(node.ticker)
+            const nx = pos?.x ?? node.x ?? WIDTH / 2
+            const ny = pos?.y ?? node.y ?? HEIGHT / 2
             return (
               <a
                 key={node.ticker}
@@ -228,10 +307,33 @@ export default function CorrelationNetwork({
                   setTooltipState(null)
                 }}
               >
+                {isCenter ? (
+                  <circle
+                    cx={nx}
+                    cy={ny}
+                    r={node.radius + 7}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.55)"
+                    strokeWidth={1.5}
+                    strokeDasharray="2 4"
+                    opacity={isDimmed ? 0.3 : 1}
+                  />
+                ) : isNegative ? (
+                  <circle
+                    cx={nx}
+                    cy={ny}
+                    r={node.radius + 4}
+                    fill="none"
+                    stroke="rgba(255,118,108,0.95)"
+                    strokeWidth={2}
+                    strokeDasharray="3 3"
+                    opacity={isDimmed ? 0.3 : 1}
+                  />
+                ) : null}
                 <circle
-                  cx={node.x}
-                  cy={node.y}
-                  r={node.radius + (isHovered ? 5 : isCenter ? 3 : 0)}
+                  cx={nx}
+                  cy={ny}
+                  r={node.radius + (isHovered ? 5 : 0)}
                   fill={color}
                   fillOpacity={isDimmed ? 0.18 : isCenter ? 0.38 : 0.26}
                   stroke={color}
@@ -239,15 +341,15 @@ export default function CorrelationNetwork({
                   opacity={isDimmed ? 0.3 : 1}
                 />
                 <circle
-                  cx={node.x}
-                  cy={node.y}
+                  cx={nx}
+                  cy={ny}
                   r={Math.max(7, node.radius * 0.48)}
                   fill={color}
                   fillOpacity={isDimmed ? 0.28 : 0.72}
                 />
                 <text
-                  x={node.x}
-                  y={(node.y ?? 0) + 4}
+                  x={nx}
+                  y={ny + 4}
                   textAnchor="middle"
                   className={cn('text-[10px] font-semibold', isCenter ? 'text-[12px]' : undefined)}
                   fill="#f9fafb"
