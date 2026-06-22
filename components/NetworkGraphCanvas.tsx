@@ -404,37 +404,59 @@ export default function NetworkGraphCanvas({
   )
 
   useEffect(() => {
-    const fg = graphRef.current
-    if (!fg) return
+    let cancelled = false
+    let raf = 0
+    let fitTimer = 0
+    let centerTimer = 0
 
-    fg.d3Force(
-      'charge',
-      forceManyBody<GraphNode>().strength(mode === 'peer' ? NETWORK_PHYSICS.peerCharge : NETWORK_PHYSICS.globalCharge) as unknown as never
-    )
-    fg.d3Force(
-      'collide',
-      forceCollide<GraphNode>()
-        .radius((node) => node.radius + (mode === 'peer' ? NETWORK_PHYSICS.peerCollidePadding : NETWORK_PHYSICS.collidePadding))
-        .strength(1)
-        .iterations(2) as unknown as never
-    )
-    fg.d3Force('center', forceCenter(0, 0) as unknown as never)
-    const linkForce = fg.d3Force('link') as unknown as MutableLinkForce | undefined
-    if (linkForce) {
-      linkForce
-        .distance((link: GraphLink) => NETWORK_PHYSICS.linkDistanceBase + (1 - link.absCorrelation) * NETWORK_PHYSICS.linkDistanceSpread)
-        .strength((link: GraphLink) =>
-          link.inMst
-            ? NETWORK_PHYSICS.mstLinkStrength
-            : NETWORK_PHYSICS.linkStrengthBase + link.absCorrelation * NETWORK_PHYSICS.linkStrengthCorrelation
-        )
+    const applyForcesAndLayout = () => {
+      const fg = graphRef.current
+      if (!fg) {
+        // ForceGraph2D is dynamically imported (ssr:false), so its ref can still be null on the
+        // first mount. Retry until it exists — otherwise the custom forces (incl. collide) are
+        // never applied and the nodes stay overlapped until the next interaction reheats the sim.
+        if (!cancelled) raf = requestAnimationFrame(applyForcesAndLayout)
+        return
+      }
+
+      fg.d3Force(
+        'charge',
+        forceManyBody<GraphNode>().strength(mode === 'peer' ? NETWORK_PHYSICS.peerCharge : NETWORK_PHYSICS.globalCharge) as unknown as never
+      )
+      fg.d3Force(
+        'collide',
+        forceCollide<GraphNode>()
+          .radius((node) => node.radius + (mode === 'peer' ? NETWORK_PHYSICS.peerCollidePadding : NETWORK_PHYSICS.collidePadding))
+          .strength(1)
+          .iterations(2) as unknown as never
+      )
+      fg.d3Force('center', forceCenter(0, 0) as unknown as never)
+      const linkForce = fg.d3Force('link') as unknown as MutableLinkForce | undefined
+      if (linkForce) {
+        linkForce
+          .distance((link: GraphLink) => NETWORK_PHYSICS.linkDistanceBase + (1 - link.absCorrelation) * NETWORK_PHYSICS.linkDistanceSpread)
+          .strength((link: GraphLink) =>
+            link.inMst
+              ? NETWORK_PHYSICS.mstLinkStrength
+              : NETWORK_PHYSICS.linkStrengthBase + link.absCorrelation * NETWORK_PHYSICS.linkStrengthCorrelation
+          )
+      }
+
+      fg.d3ReheatSimulation()
+      fitTimer = window.setTimeout(() => {
+        fg.zoomToFit(650, mode === 'peer' ? 54 : 42, (node) => nodeIsVisibleRef.current(node as GraphNode))
+        if (mode === 'peer') centerTimer = window.setTimeout(() => fg.centerAt(0, 0, 450), 680)
+      }, 80)
     }
 
-    fg.d3ReheatSimulation()
-    window.setTimeout(() => {
-      fg.zoomToFit(650, mode === 'peer' ? 54 : 42, (node) => nodeIsVisibleRef.current(node as GraphNode))
-      if (mode === 'peer') window.setTimeout(() => fg.centerAt(0, 0, 450), 680)
-    }, 80)
+    applyForcesAndLayout()
+
+    return () => {
+      cancelled = true
+      if (raf) cancelAnimationFrame(raf)
+      if (fitTimer) window.clearTimeout(fitTimer)
+      if (centerTimer) window.clearTimeout(centerTimer)
+    }
   }, [graphData, mode, width, height])
 
   if (graphData.nodes.length === 0 || graphData.links.length === 0) {
@@ -517,6 +539,31 @@ export default function NetworkGraphCanvas({
             node.fy = undefined
           }
           graphRef.current?.d3ReheatSimulation()
+        }}
+        linkPointerAreaPaint={(link: GraphLink, color: string, ctx: CanvasRenderingContext2D) => {
+          // Paint the hover hit-area along the SAME curved arc we render (with extra width as
+          // tolerance), so hovering a line maps to the link you're actually over — not a nearby
+          // straight-line path the library would otherwise hit-test against.
+          const source = sourceNode(link)
+          const target = targetNode(link)
+          if (!source || !target || source.x === undefined || source.y === undefined || target.x === undefined || target.y === undefined) return
+          const sx = source.x
+          const sy = source.y
+          const tx = target.x
+          const ty = target.y
+          const dx = tx - sx
+          const dy = ty - sy
+          const length = Math.max(1, Math.hypot(dx, dy))
+          const curvature = (mode === 'peer' ? NETWORK_ARCS.peerCurvature : NETWORK_ARCS.curvature) * length
+          const cx = (sx + tx) / 2 + (-dy / length) * curvature
+          const cy = (sy + ty) / 2 + (dx / length) * curvature
+          ctx.beginPath()
+          ctx.moveTo(sx, sy)
+          ctx.quadraticCurveTo(cx, cy, tx, ty)
+          ctx.strokeStyle = color
+          ctx.lineWidth = 6
+          ctx.lineCap = 'round'
+          ctx.stroke()
         }}
         linkCanvasObjectMode={() => 'replace'}
         linkCanvasObject={(link: GraphLink, ctx: CanvasRenderingContext2D) => {
