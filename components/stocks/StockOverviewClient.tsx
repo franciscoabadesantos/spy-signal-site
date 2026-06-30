@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, use, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, use, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
 import CorrelationNetwork from '@/components/CorrelationNetwork'
 import ScorecardDisc from '@/components/stocks/ScorecardDisc'
@@ -162,21 +162,6 @@ function filterChartData(data: PricePoint[], timeframe: ChartTimeframe): PricePo
   return filtered.length >= 2 ? filtered : data
 }
 
-function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
-  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180
-  return {
-    x: centerX + radius * Math.cos(angleInRadians),
-    y: centerY + radius * Math.sin(angleInRadians),
-  }
-}
-
-function describeArc(centerX: number, centerY: number, radius: number, startAngle: number, endAngle: number) {
-  const start = polarToCartesian(centerX, centerY, radius, endAngle)
-  const end = polarToCartesian(centerX, centerY, radius, startAngle)
-  const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1'
-  return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`
-}
-
 function correlationDirection(value: number): string {
   if (value >= 0) return 'Positive'
   return 'Negative'
@@ -207,34 +192,66 @@ function Gauge({
   }
 }) {
   const clamped = Math.max(0, Math.min(100, position))
-  const angle = 180 - (clamped / 100) * 180
-  const radians = (angle * Math.PI) / 180
-  const centerX = 80
-  const centerY = 90
-  const radius = 60
-  const needleX = centerX + Math.cos(radians) * (radius - 6)
-  const needleY = centerY - Math.sin(radians) * (radius - 6)
+  const pressure = Math.round(clamped)
+  const total = Math.max(1, counts.buy + counts.neutral + counts.sell)
+  const sellPct = (counts.sell / total) * 100
+  const neutralPct = (counts.neutral / total) * 100
+  const buyPct = (counts.buy / total) * 100
+  const pressureStyle = {
+    '--pressure': clamped,
+    '--needle-rotation': `${(clamped - 50) * 1.8}deg`,
+    '--sell-share': `${sellPct}%`,
+    '--neutral-share': `${neutralPct}%`,
+    '--buy-share': `${buyPct}%`,
+  } as CSSProperties
+  const toneClass =
+    verdictAction === 'Buy'
+      ? styles.gaugePanelBuy
+      : verdictAction === 'Sell'
+        ? styles.gaugePanelSell
+        : styles.gaugePanelNeutral
 
   return (
-    <div className={styles.gaugePanel}>
-      <svg viewBox="0 0 160 110" className={styles.gaugeSvg} aria-hidden="true">
-        <path d={describeArc(80, 90, 60, 180, 120)} fill="none" stroke="var(--color-negative)" strokeWidth="8" strokeLinecap="round" />
-        <path d={describeArc(80, 90, 60, 120, 60)} fill="none" stroke="var(--color-neutral)" strokeWidth="8" strokeLinecap="round" />
-        <path d={describeArc(80, 90, 60, 60, 0)} fill="none" stroke="var(--color-positive)" strokeWidth="8" strokeLinecap="round" />
-        <line x1={centerX} y1={centerY} x2={needleX} y2={needleY} stroke="var(--text-primary)" strokeWidth="2" strokeLinecap="round" />
-        <circle cx={centerX} cy={centerY} r="4.5" fill="var(--text-primary)" />
-      </svg>
-      <div className={styles.gaugeLabel}>{title}</div>
-      <div className={cn(styles.gaugeVerdict, actionTone(verdictAction))}>{verdict}</div>
+    <div className={cn(styles.gaugePanel, toneClass)} style={pressureStyle}>
+      <div className={styles.gaugeTopline}>
+        <div className={styles.gaugeLabel}>{title}</div>
+        <div className={styles.gaugePressureValue}>{pressure}</div>
+      </div>
+
+      <div className={styles.pressureDial} aria-hidden="true">
+        <div className={styles.pressureGlow} />
+        <div className={styles.pressureTrack}>
+          <span className={styles.pressureTick} style={{ '--tick-rotation': '-90deg' } as CSSProperties} />
+          <span className={styles.pressureTick} style={{ '--tick-rotation': '-45deg' } as CSSProperties} />
+          <span className={styles.pressureTick} style={{ '--tick-rotation': '0deg' } as CSSProperties} />
+          <span className={styles.pressureTick} style={{ '--tick-rotation': '45deg' } as CSSProperties} />
+          <span className={styles.pressureTick} style={{ '--tick-rotation': '90deg' } as CSSProperties} />
+        </div>
+        <div className={styles.pressureNeedle}>
+          <span />
+        </div>
+        <div className={styles.pressureHub} />
+      </div>
+
+      <div className={styles.gaugeReadout}>
+        <div className={cn(styles.gaugeVerdict, actionTone(verdictAction))}>{verdict}</div>
+        <div className={styles.gaugePressureLabel}>Pressure index</div>
+      </div>
+
+      <div className={styles.gaugeMix} aria-hidden="true">
+        <span className={styles.gaugeMixSell} />
+        <span className={styles.gaugeMixNeutral} />
+        <span className={styles.gaugeMixBuy} />
+      </div>
       <div className={styles.gaugeCounts}>
         <span>
-          Sell <span className={styles.gaugeCountValue}>{counts.sell}</span>
+          <span className={styles.gaugeCountDotSell} /> Sell <span className={styles.gaugeCountValue}>{counts.sell}</span>
         </span>
         <span>
-          Neutral <span className={styles.gaugeCountValue}>{counts.neutral}</span>
+          <span className={styles.gaugeCountDotNeutral} /> Neutral <span className={styles.gaugeCountValue}>{counts.neutral}</span>
         </span>
         <span>
-          Buy <span className={styles.gaugeCountValue}>{counts.buy}</span>
+          <span className={styles.gaugeCountDotBuy} /> Buy <span className={styles.gaugeCountValue}>{counts.buy}</span>
         </span>
       </div>
     </div>

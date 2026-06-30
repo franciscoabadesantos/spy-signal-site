@@ -364,7 +364,7 @@
 
 .signalSplit {
   display: grid;
-  grid-template-columns: minmax(0, 0.35fr) minmax(0, 0.65fr);
+  grid-template-columns: minmax(440px, 0.44fr) minmax(0, 0.56fr);
   gap: 16px;
   align-items: start;
 }
@@ -388,46 +388,277 @@
 }
 
 .gaugePanel {
-  min-height: 132px;
-  padding: 10px 8px;
+  position: relative;
+  min-height: 204px;
+  overflow: hidden;
+  padding: 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--bg-surface-raised);
+  background:
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.1), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015)),
+    var(--bg-surface-raised);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.gaugeSvg {
-  display: block;
-  width: 100%;
-  height: 68px;
+.gaugePanel::before {
+  content: "";
+  position: absolute;
+  inset: -42px -44px auto;
+  height: 92px;
+  background: radial-gradient(circle, var(--gauge-glow, rgba(100, 118, 138, 0.18)), transparent 68%);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.gaugePanelBuy {
+  --gauge-tone: var(--color-positive);
+  --gauge-glow: rgba(22, 163, 74, 0.26);
+}
+
+.gaugePanelSell {
+  --gauge-tone: var(--color-negative);
+  --gauge-glow: rgba(220, 38, 38, 0.24);
+}
+
+.gaugePanelNeutral {
+  --gauge-tone: var(--color-neutral);
+  --gauge-glow: rgba(107, 114, 128, 0.2);
+}
+
+.gaugeTopline {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .gaugeLabel {
-  margin-top: 2px;
+  min-width: 0;
   font-size: 12px;
   color: var(--color-text-muted);
+  line-height: 1.2;
+}
+
+.gaugePressureValue {
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.pressureDial {
+  position: relative;
+  z-index: 1;
+  width: min(150px, 100%);
+  height: 86px;
+  margin: 8px auto 0;
+}
+
+.pressureGlow {
+  position: absolute;
+  inset: 12px 10px 0;
+  border-radius: 999px 999px 18px 18px;
+  background: radial-gradient(circle at 50% 86%, var(--gauge-glow), transparent 58%);
+  filter: blur(10px);
+}
+
+.pressureTrack {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 999px 999px 18px 18px;
+  background:
+    radial-gradient(circle at 50% 100%, var(--bg-surface-raised) 0 34px, transparent 35px),
+    conic-gradient(
+      from 270deg at 50% 100%,
+      var(--color-negative) 0deg 52deg,
+      #f59e0b 52deg 118deg,
+      var(--color-positive) 118deg 180deg,
+      transparent 180deg 360deg
+    );
+  border: 1px solid var(--color-border);
+  border-color: color-mix(in srgb, var(--gauge-tone) 38%, var(--color-border));
+  box-shadow:
+    inset 0 0 0 9px rgba(0, 0, 0, 0.12),
+    inset 0 -18px 26px rgba(0, 0, 0, 0.18);
+}
+
+.pressureTrack::before {
+  content: "";
+  position: absolute;
+  inset: 10px 12px 0;
+  border-radius: 999px 999px 14px 14px;
+  background:
+    repeating-conic-gradient(
+      from 270deg at 50% 100%,
+      rgba(255, 255, 255, 0.42) 0deg 1deg,
+      transparent 1deg 10deg
+    );
+  mask-image: radial-gradient(circle at 50% 100%, transparent 0 42px, #000 43px 68px, transparent 69px);
+  -webkit-mask-image: radial-gradient(circle at 50% 100%, transparent 0 42px, #000 43px 68px, transparent 69px);
+  opacity: 0.42;
+}
+
+.pressureTrack::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 58px;
+  height: 34px;
+  border-radius: 999px 999px 0 0;
+  background: var(--bg-surface-raised);
+  transform: translateX(-50%);
+}
+
+.pressureTick {
+  position: absolute;
+  left: calc(50% - 1px);
+  bottom: 8px;
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  transform: rotate(var(--tick-rotation)) translateY(-64px);
+  transform-origin: 50% 64px;
+}
+
+.pressureNeedle {
+  position: absolute;
+  left: calc(50% - 1.5px);
+  bottom: 17px;
+  z-index: 2;
+  width: 3px;
+  height: 66px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, var(--gauge-tone));
+  box-shadow: 0 0 18px var(--gauge-glow);
+  transform: rotate(var(--needle-rotation));
+  transform-origin: 50% 100%;
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pressureNeedle span {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ffffff;
+  transform: translateX(-50%);
+}
+
+.pressureHub {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 3;
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--bg-surface-raised);
+  border-radius: 999px;
+  background: var(--gauge-tone);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 0 20px var(--gauge-glow);
+  transform: translateX(-50%);
+}
+
+.gaugeReadout {
+  position: relative;
+  z-index: 1;
+  margin-top: 2px;
   text-align: center;
 }
 
 .gaugeVerdict {
-  margin-top: 3px;
   font-size: 13px;
   line-height: 1.2;
   font-weight: 600;
-  text-align: center;
+}
+
+.gaugePressureLabel {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--color-text-hint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.gaugeMix {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: var(--color-border-light);
+}
+
+.gaugeMixSell {
+  width: var(--sell-share);
+  background: var(--color-negative);
+}
+
+.gaugeMixNeutral {
+  width: var(--neutral-share);
+  background: #f59e0b;
+}
+
+.gaugeMixBuy {
+  width: var(--buy-share);
+  background: var(--color-positive);
 }
 
 .gaugeCounts {
+  position: relative;
+  z-index: 1;
   display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-size: 11px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 10px;
   color: var(--color-text-muted);
+}
+
+.gaugeCounts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 .gaugeCountValue {
   color: var(--color-text-primary);
   font-weight: 600;
+}
+
+.gaugeCountDotSell,
+.gaugeCountDotNeutral,
+.gaugeCountDotBuy {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.gaugeCountDotSell {
+  background: var(--color-negative);
+}
+
+.gaugeCountDotNeutral {
+  background: #f59e0b;
+}
+
+.gaugeCountDotBuy {
+  background: var(--color-positive);
 }
 
 .positiveText {
