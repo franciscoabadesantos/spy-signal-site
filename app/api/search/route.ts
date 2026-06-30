@@ -225,7 +225,7 @@ export async function GET(request: Request) {
     .split(',')
     .map((symbol) => symbol.trim().toUpperCase())
     .filter((symbol) => isTradableSymbol(symbol))
-    .slice(0, 12)
+    .slice(0, 16)
 
   if (symbols.length > 0) {
     const scorecardsByTicker = await getTickerScorecards(symbols)

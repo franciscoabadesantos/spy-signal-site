@@ -164,6 +164,31 @@ async function loadTickerIndex(signal: AbortSignal): Promise<CachedTickerIndex |
   return memoryTickerIndexPromise
 }
 
+async function fetchScorecardSuggestions(symbols: string, signal: AbortSignal): Promise<TickerSearchResult[]> {
+  const response = await fetch(`/api/search?symbols=${encodeURIComponent(symbols)}`, {
+    signal,
+    cache: 'no-store',
+  })
+  if (!response.ok) throw new Error(`scorecard search failed (${response.status})`)
+  const payload = (await response.json()) as TickerSearchResponse
+  return payload.results ?? []
+}
+
+function mergeRemoteSearchResult(
+  item: TickerSearchResult,
+  remote: TickerSearchResult | null | undefined
+): TickerSearchResult {
+  if (!remote) return item
+  return {
+    ...item,
+    hasSignals: item.hasSignals || remote.hasSignals,
+    convictionPct: remote.convictionPct ?? item.convictionPct,
+    tone: remote.tone ?? item.tone,
+    signalDate: remote.signalDate ?? item.signalDate,
+    scorecard: remote.scorecard ?? item.scorecard,
+  }
+}
+
 function sourceChipClass(item: DisplayItem): string {
   if (item.displaySource === 'manual') {
     return 'border-primary/28 bg-primary/10 text-accent-text'
@@ -220,7 +245,8 @@ export default function TickerSearchCombobox({
   const [loadAttemptToken, setLoadAttemptToken] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const [remoteSuggestions, setRemoteSuggestions] = useState<DisplayItem[]>([])
-  const [localScorecardSuggestions, setLocalScorecardSuggestions] = useState<DisplayItem[]>([])
+  const [localScorecardSuggestions, setLocalScorecardSuggestions] = useState<TickerSearchResult[]>([])
+  const [initialScorecardSuggestions, setInitialScorecardSuggestions] = useState<TickerSearchResult[]>([])
   const [isRemoteSearching, setIsRemoteSearching] = useState(false)
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const normalizedSearch = normalizeTickerSearchQuery(search)
@@ -321,6 +347,27 @@ export default function TickerSearchCombobox({
     () => resultSuggestions.map((item) => item.symbol).join(','),
     [resultSuggestions]
   )
+  const initialSuggestionSymbols = useMemo(() => {
+    if (!isOpen || normalizedSearch.length > 0) return ''
+
+    const symbols: string[] = []
+    const seen = new Set<string>()
+    const recentSet = new Set(recentTickers)
+
+    for (const symbol of recentTickers) {
+      if (seen.has(symbol)) continue
+      seen.add(symbol)
+      symbols.push(symbol)
+    }
+
+    for (const item of featuredBase) {
+      if (recentSet.has(item.symbol) || seen.has(item.symbol)) continue
+      seen.add(item.symbol)
+      symbols.push(item.symbol)
+    }
+
+    return symbols.join(',')
+  }, [featuredBase, isOpen, normalizedSearch.length, recentTickers])
 
   useEffect(() => {
     const query = normalizedSearch
@@ -369,17 +416,7 @@ export default function TickerSearchCombobox({
     const controller = new AbortController()
     void (async () => {
       try {
-        const response = await fetch(`/api/search?symbols=${encodeURIComponent(resultSuggestionSymbols)}`, {
-          signal: controller.signal,
-          cache: 'no-store',
-        })
-        if (!response.ok) throw new Error(`scorecard search failed (${response.status})`)
-        const payload = (await response.json()) as TickerSearchResponse
-        const items: DisplayItem[] = (payload.results ?? []).map((result) => ({
-          ...result,
-          displaySource: 'result' as const,
-        }))
-        setLocalScorecardSuggestions(items)
+        setLocalScorecardSuggestions(await fetchScorecardSuggestions(resultSuggestionSymbols, controller.signal))
       } catch {
         setLocalScorecardSuggestions([])
       }
@@ -388,6 +425,24 @@ export default function TickerSearchCombobox({
     return () => controller.abort()
   }, [resultSuggestionSymbols])
 
+  useEffect(() => {
+    if (!initialSuggestionSymbols) {
+      setInitialScorecardSuggestions([])
+      return
+    }
+
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        setInitialScorecardSuggestions(await fetchScorecardSuggestions(initialSuggestionSymbols, controller.signal))
+      } catch {
+        setInitialScorecardSuggestions([])
+      }
+    })()
+
+    return () => controller.abort()
+  }, [initialSuggestionSymbols])
+
   const enrichedResultSuggestions = useMemo<DisplayItem[]>(() => {
     if (resultSuggestions.length === 0) return []
     const remoteBySymbol = new Map(
@@ -395,32 +450,33 @@ export default function TickerSearchCombobox({
     )
     return resultSuggestions.map((item) => {
       const remote = remoteBySymbol.get(item.symbol)
-      if (!remote) return item
       return {
-        ...item,
-        hasSignals: item.hasSignals || remote.hasSignals,
-        convictionPct: remote.convictionPct ?? item.convictionPct,
-        tone: remote.tone ?? item.tone,
-        signalDate: remote.signalDate ?? item.signalDate,
-        scorecard: remote.scorecard ?? item.scorecard,
+        ...mergeRemoteSearchResult(item, remote),
+        displaySource: item.displaySource,
       }
     })
   }, [localScorecardSuggestions, remoteSuggestions, resultSuggestions])
 
   const knownSuggestions = useMemo(() => {
     const items = new Map<string, TickerSearchResult>()
+    const initialScorecardBySymbol = new Map(initialScorecardSuggestions.map((item) => [item.symbol, item]))
 
     for (const item of enrichedResultSuggestions) {
       items.set(item.symbol, item)
     }
     for (const item of featuredBase) {
       if (!items.has(item.symbol)) {
+        items.set(item.symbol, mergeRemoteSearchResult(item, initialScorecardBySymbol.get(item.symbol)))
+      }
+    }
+    for (const item of initialScorecardSuggestions) {
+      if (!items.has(item.symbol)) {
         items.set(item.symbol, item)
       }
     }
 
     return [...items.values()]
-  }, [enrichedResultSuggestions, featuredBase])
+  }, [enrichedResultSuggestions, featuredBase, initialScorecardSuggestions])
 
   const recentSuggestions = useMemo<DisplayItem[]>(() => {
     const bySymbol = new Map(knownSuggestions.map((item) => [item.symbol, item]))
@@ -442,14 +498,15 @@ export default function TickerSearchCombobox({
 
   const featuredSuggestions = useMemo<DisplayItem[]>(() => {
     const recentSet = new Set(recentTickers)
+    const initialScorecardBySymbol = new Map(initialScorecardSuggestions.map((item) => [item.symbol, item]))
     return featuredBase
       .filter((item) => !recentSet.has(item.symbol))
       .slice(0, 8)
       .map((item) => ({
-        ...item,
+        ...mergeRemoteSearchResult(item, initialScorecardBySymbol.get(item.symbol)),
         displaySource: 'featured' as const,
       }))
-  }, [featuredBase, recentTickers])
+  }, [featuredBase, initialScorecardSuggestions, recentTickers])
 
   const canDirectOpen = isTickerLikeQuery(normalizedSearch)
   const showManualSuggestion =
