@@ -44,7 +44,7 @@ export const NETWORK_PHYSICS = {
   linkDistanceBase: 45,
   linkDistanceSpread: 140,
   peerOrbitMinDistance: 34,
-  peerOrbitSpread: 330,
+  peerOrbitSpread: 300,
   peerRadialStrength: 2.4,
   peerSectorStrength: 0.006,
 } as const
@@ -114,6 +114,8 @@ type GraphLink = Omit<NetworkEdge, 'source' | 'target'> & {
   id: string
   source: string | GraphNode
   target: string | GraphNode
+  orbitDistance: number
+  visualConfidence: number | null
 }
 
 type MutableLinkForce = {
@@ -174,10 +176,10 @@ function linkColor(edge: Pick<NetworkEdge, 'correlation' | 'relationshipColor'>,
   return edge.correlation >= 0 ? `rgba(54, 179, 255, ${alpha})` : `rgba(255, 134, 123, ${alpha})`
 }
 
-function linkWidth(edge: Pick<NetworkEdge, 'inMst' | 'absCorrelation' | 'relationshipWidthBoost' | 'relationshipConfidence'>, mode: 'global' | 'peer'): number {
+function linkWidth(edge: Pick<NetworkEdge, 'inMst' | 'absCorrelation' | 'relationshipWidthBoost' | 'relationshipConfidence'> & { visualConfidence?: number | null }, mode: 'global' | 'peer'): number {
   if (mode === 'peer') {
-    const confidence = confidenceValue(edge.relationshipConfidence)
-    if (confidence !== null) return 1.25 + confidence * 5.6
+    const confidence = edge.visualConfidence ?? confidenceValue(edge.relationshipConfidence)
+    if (confidence !== null) return 1.35 + confidence * 7.4
     return 1.5 + edge.absCorrelation * 2.4
   }
   return (edge.inMst ? NETWORK_ARCS.mstWidth : NETWORK_ARCS.baseWidth) + edge.absCorrelation * NETWORK_ARCS.correlationWidth + (edge.relationshipWidthBoost ?? 0)
@@ -212,9 +214,20 @@ function peerOrbitDistance(strength: number): number {
   return NETWORK_PHYSICS.peerOrbitMinDistance + Math.pow(1 - normalized, 2.1) * NETWORK_PHYSICS.peerOrbitSpread
 }
 
+function peerVisualOrbitDistance(score: number): number {
+  const normalized = clamp(score, 0, 1)
+  return NETWORK_PHYSICS.peerOrbitMinDistance + 52 + Math.pow(1 - normalized, 1.15) * NETWORK_PHYSICS.peerOrbitSpread
+}
+
 function confidenceValue(value: number | null | undefined): number | null {
   if (value === null || value === undefined || !Number.isFinite(value)) return null
   return clamp(value > 1 ? value / 100 : value, 0, 1)
+}
+
+function relativeScore(value: number, min: number, max: number, fallback = 0.5): number {
+  const span = max - min
+  if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max) || span <= 0.000001) return fallback
+  return clamp((value - min) / span, 0, 1)
 }
 
 function hashString(value: string): number {
@@ -355,6 +368,18 @@ function buildGraphData({
       .map(([ticker], index) => [ticker, index + 1])
   )
   const peerCount = centerEdgesByTicker.size
+  const peerStrengths = [...centerEdgesByTicker.values()].map((edge) => edge.absCorrelation)
+  const minPeerStrength = Math.min(...peerStrengths)
+  const maxPeerStrength = Math.max(...peerStrengths)
+  const peerConfidences = [...centerEdgesByTicker.values()]
+    .map((edge) => confidenceValue(edge.relationshipConfidence))
+    .filter((value): value is number => value !== null)
+  const minPeerConfidence = Math.min(...peerConfidences)
+  const maxPeerConfidence = Math.max(...peerConfidences)
+  const orbitDistanceByTicker = new Map<string, number>()
+  for (const [ticker, edge] of centerEdgesByTicker) {
+    orbitDistanceByTicker.set(ticker, peerVisualOrbitDistance(relativeScore(edge.absCorrelation, minPeerStrength, maxPeerStrength)))
+  }
 
   const includedTickers = new Set<string>()
   if (mode === 'peer' && normalizedCenter) includedTickers.add(normalizedCenter)
@@ -375,7 +400,7 @@ function buildGraphData({
           ? 0
           : peerOrbitAngle(node, relationshipEdge, Math.max(0, relationshipRank - 1), peerCount)
         : -Math.PI / 2 + (index / Math.max(1, visibleNodes.length)) * Math.PI * 2
-    const ring = mode === 'peer' ? (isCenter ? 0 : peerOrbitDistance(relationshipStrength)) : 180 + (index % 9) * 22
+    const ring = mode === 'peer' ? (isCenter ? 0 : orbitDistanceByTicker.get(node.ticker) ?? peerOrbitDistance(relationshipStrength)) : 180 + (index % 9) * 22
     const orbitX = Math.cos(angle) * ring
     const orbitY = Math.sin(angle) * ring
     return {
@@ -407,6 +432,14 @@ function buildGraphData({
       id: edge.id ?? edgeKey(edge.source, edge.target),
       source: edge.source,
       target: edge.target,
+      orbitDistance:
+        mode === 'peer'
+          ? peerVisualOrbitDistance(relativeScore(edge.absCorrelation, minPeerStrength, maxPeerStrength))
+          : NETWORK_PHYSICS.linkDistanceBase + (1 - edge.absCorrelation) * NETWORK_PHYSICS.linkDistanceSpread,
+      visualConfidence:
+        mode === 'peer'
+          ? relativeScore(confidenceValue(edge.relationshipConfidence) ?? Number.NaN, minPeerConfidence, maxPeerConfidence)
+          : null,
     }))
 
   return { nodes, links }
@@ -591,7 +624,7 @@ export default function NetworkGraphCanvas({
         linkForce
           .distance((link: GraphLink) =>
             mode === 'peer'
-              ? peerOrbitDistance(link.absCorrelation)
+              ? link.orbitDistance
               : NETWORK_PHYSICS.linkDistanceBase + (1 - link.absCorrelation) * NETWORK_PHYSICS.linkDistanceSpread
           )
           .strength((link: GraphLink) =>
@@ -748,7 +781,7 @@ export default function NetworkGraphCanvas({
           const dimmed = isLinkDimmed(link)
           // Per-ticker: opacity encodes correlation strength. Global: uniform so nothing fades
           // away; strength reads from thickness, and hover handles focus/dim.
-          const restingAlpha = mode === 'peer' ? linkAlpha(link) : NETWORK_ARCS.globalRestingAlpha
+          const restingAlpha = mode === 'peer' ? Math.max(0.58, linkAlpha(link)) : NETWORK_ARCS.globalRestingAlpha
           const alpha = dimmed ? NETWORK_GLOW.dimAlpha : focused ? NETWORK_GLOW.clusterAlpha : restingAlpha
 
           ctx.save()

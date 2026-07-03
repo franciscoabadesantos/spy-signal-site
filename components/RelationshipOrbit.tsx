@@ -451,7 +451,7 @@ type ThemeRegion = {
 }
 
 const THEME_DIAGRAM_WIDTH = 360
-const THEME_DIAGRAM_HEIGHT = 300
+const THEME_DIAGRAM_HEIGHT = 320
 const THEME_COLORS = [
   { fill: 'rgba(54, 179, 255, 0.14)', stroke: 'rgba(54, 179, 255, 0.7)' },
   { fill: 'rgba(167, 243, 208, 0.14)', stroke: 'rgba(167, 243, 208, 0.7)' },
@@ -478,7 +478,7 @@ function memberPillWidth(member: ThemeDiagramPoint): number {
 
 function regionBoxSize(members: ThemeDiagramPoint[], hiddenCount: number, isIntersection: boolean): { width: number; height: number } {
   const width = Math.max(48, ...members.map(memberPillWidth)) + 18
-  const height = Math.max(18, members.length * 18) + (hiddenCount > 0 ? 18 : 0) + (isIntersection ? 22 : 4)
+  const height = Math.max(18, members.length * 20) + (hiddenCount > 0 ? 18 : 0) + (isIntersection ? 8 : 4)
   return { width, height }
 }
 
@@ -728,7 +728,7 @@ function ThemeSetDiagram({
         <div className="text-filter-label">Theme set</div>
         {data.overflowThemes > 0 ? <div className="text-caption text-content-muted">+{data.overflowThemes} more themes</div> : null}
       </div>
-      <svg viewBox={`0 0 ${THEME_DIAGRAM_WIDTH} ${THEME_DIAGRAM_HEIGHT}`} role="img" aria-label={`${centerTicker} theme membership`} className="h-[292px] w-full">
+      <svg viewBox={`0 0 ${THEME_DIAGRAM_WIDTH} ${THEME_DIAGRAM_HEIGHT}`} role="img" aria-label={`${centerTicker} theme membership`} className="h-[310px] w-full">
         {data.circles.map((circle) => (
           <g key={circle.key}>
             <circle
@@ -741,26 +741,21 @@ function ThemeSetDiagram({
             />
             <text
               x={circle.x}
-              y={circle.y - circle.r + 16}
+              y={Math.max(16, circle.y - circle.r - 6)}
               textAnchor="middle"
               className="fill-content-secondary text-[10px] font-bold"
             >
               {shortThemeLabel(circle.label)}
             </text>
-            <text x={circle.x} y={circle.y - circle.r + 29} textAnchor="middle" className="fill-content-muted text-[8px] font-semibold">
+            <text x={circle.x} y={Math.max(28, circle.y - circle.r + 7)} textAnchor="middle" className="fill-content-muted text-[8px] font-semibold">
               {circle.count} members
             </text>
           </g>
         ))}
         {data.regions.map((region) => (
           <g key={region.key}>
-            {region.isIntersection && region.members.some((member) => !member.isCenter) ? (
-              <text x={region.x} y={region.y - 32} textAnchor="middle" className="fill-content-primary text-[8px] font-bold">
-                {region.label}
-              </text>
-            ) : null}
             {region.members.map((member, memberIndex) => {
-              const y = region.y + (memberIndex - (region.members.length - 1) / 2) * 18
+              const y = region.y + (memberIndex - (region.members.length - 1) / 2) * 20
               const label = memberPillLabel(member)
               const width = memberPillWidth(member)
               return (
@@ -794,7 +789,7 @@ function ThemeSetDiagram({
             {region.hiddenCount > 0 ? (
               <text
                 x={region.x}
-                y={region.y + (region.members.length / 2) * 18 + 13}
+                y={region.y + (region.members.length / 2) * 20 + 14}
                 textAnchor="middle"
                 className="fill-content-muted text-[8px] font-semibold"
               >
@@ -804,22 +799,24 @@ function ThemeSetDiagram({
           </g>
         ))}
       </svg>
-      {hover ? (
-        <div className="pointer-events-none absolute left-3 right-3 top-12 z-10 rounded-[8px] border border-border bg-surface-elevated p-3 text-caption shadow-xl">
-          <div className="font-semibold text-content-primary">{hover.symbol}</div>
-          <div className="truncate text-content-muted">{hover.name ?? (hover.isCenter ? centerName ?? 'Central company' : 'Related asset')}</div>
-          <div className="mt-2 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1 text-content-secondary">
-            <span className="text-content-muted">Themes</span>
-            <span>{hover.themes.map(themeDisplayName).join(', ') || '-'}</span>
-            <span className="text-content-muted">Strength</span>
-            <span>{hover.strength === null ? '-' : formatStrength(hover.strength)}</span>
-            <span className="text-content-muted">Confidence</span>
-            <span>{hover.confidence === null ? '-' : formatConfidence(hover.confidence)}</span>
-            <span className="text-content-muted">Country</span>
-            <span>{hover.country}</span>
-          </div>
-        </div>
-      ) : null}
+      <div className="min-h-[76px] rounded-[8px] border border-border bg-surface-elevated p-3 text-caption">
+        {hover ? (
+          <>
+            <div className="font-semibold text-content-primary">{hover.symbol}</div>
+            <div className="truncate text-content-muted">{hover.name ?? (hover.isCenter ? centerName ?? 'Central company' : 'Related asset')}</div>
+            <div className="mt-2 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1 text-content-secondary">
+              <span className="text-content-muted">Themes</span>
+              <span className="truncate">{hover.themes.map(themeDisplayName).join(', ') || '-'}</span>
+              <span className="text-content-muted">Strength</span>
+              <span>{hover.strength === null ? '-' : formatStrength(hover.strength)}</span>
+              <span className="text-content-muted">Confidence</span>
+              <span>{hover.confidence === null ? '-' : formatConfidence(hover.confidence)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex h-full min-h-[52px] items-center text-content-muted">Hover a ticker in the theme set for details.</div>
+        )}
+      </div>
     </div>
   )
 }
