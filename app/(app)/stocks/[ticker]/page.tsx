@@ -12,7 +12,7 @@ import {
   getOhlcData,
   getStockQuote,
 } from '@/lib/finance'
-import { getTickerNetwork, type NetworkGraph } from '@/lib/network'
+import { getTickerRelationships, type TickerRelationships } from '@/lib/relationships'
 import { getCachedLatestScreenerRow, getCachedSignalHistoryForTicker } from '@/lib/signals'
 import {
   getTickerPageSummary,
@@ -131,6 +131,23 @@ function dedupeFundRows(rows: Array<{ label: string; value: string }>): Array<{ 
   })
 }
 
+function emptyRelationships(ticker: string, window: number): TickerRelationships {
+  return {
+    asOf: null,
+    ticker,
+    window,
+    node: null,
+    nodes: [],
+    marketCoMovers: [],
+    residualCoMovers: [],
+    leadLag: {
+      followers: [],
+      leaders: [],
+    },
+    probableSpurious: [],
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -206,26 +223,30 @@ export default async function TickerPage({
   }
   const historicalData = ohlcData.map((point) => ({ date: point.date, close: point.close }))
 
-  const emptyPeerNetwork: NetworkGraph = {
-    asOf: null,
-    window: '1y',
-    focus: ticker,
-    nodes: [],
-    edges: [],
-  }
-  const peerNetworkPromise = getTickerNetwork(ticker, { hops: 1 }).catch(() => emptyPeerNetwork)
+  const relationship126Promise = getTickerRelationships(ticker, { window: 126, topK: 12 }).catch(() =>
+    emptyRelationships(ticker, 126)
+  )
+  const relationship252Promise = getTickerRelationships(ticker, { window: 252, topK: 12 }).catch(() =>
+    emptyRelationships(ticker, 252)
+  )
 
   const relatedAssetsPromise: Promise<
     Array<{ symbol: string; name: string | null; price: number | null; changePercent: number | null }>
-  > = peerNetworkPromise
-    .then((network) =>
-      network.edges
-        .filter((edge) => edge.source === ticker || edge.target === ticker)
-        .sort((a, b) => b.absCorrelation - a.absCorrelation)
-        .map((edge) => (edge.source === ticker ? edge.target : edge.source))
+  > = relationship252Promise
+    .then((relationships) => {
+      const candidates = [
+        ...relationships.residualCoMovers,
+        ...relationships.leadLag.followers,
+        ...relationships.leadLag.leaders,
+        ...relationships.marketCoMovers,
+        ...relationships.probableSpurious,
+      ]
+      return candidates
+        .sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol))
+        .map((neighbor) => neighbor.symbol)
         .filter((symbol, index, array) => symbol !== ticker && array.indexOf(symbol) === index)
         .slice(0, 8)
-    )
+    })
     .then((relatedTickerSymbols) =>
       Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol).catch(() => null))).then((quotes) =>
         relatedTickerSymbols
@@ -379,7 +400,8 @@ export default async function TickerPage({
         ohlcData={ohlcData}
         statStrip={statStrip}
         heroStats={heroStats}
-        peerNetwork={peerNetworkPromise}
+        relationship126={relationship126Promise}
+        relationship252={relationship252Promise}
         fundDetails={fundDetails}
         relatedAssets={relatedAssetsPromise}
         regimeSignals={recentSignals.map((signal) => ({

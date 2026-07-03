@@ -1,0 +1,151 @@
+import 'server-only'
+
+import { fetchBackendJson } from './backend'
+import type { NetworkNode } from './network'
+
+export type RelationshipLayer = 'residual' | 'leadLag' | 'market' | 'spurious'
+
+export type RelationshipNeighbor = {
+  symbol: string
+  strength: number
+  confidence: number
+  direction: string
+}
+
+export type LeadLagRelationships = {
+  followers: RelationshipNeighbor[]
+  leaders: RelationshipNeighbor[]
+}
+
+export type TickerRelationships = {
+  asOf: string | null
+  ticker: string
+  window: number
+  node: NetworkNode | null
+  nodes: NetworkNode[]
+  marketCoMovers: RelationshipNeighbor[]
+  residualCoMovers: RelationshipNeighbor[]
+  leadLag: LeadLagRelationships
+  probableSpurious: RelationshipNeighbor[]
+}
+
+export type TickerRelationshipOptions = {
+  window?: number
+  topK?: number
+  layers?: RelationshipLayer[]
+}
+
+const RELATIONSHIP_REVALIDATE_SECONDS = 900
+
+type BackendRelationshipNeighbor = Partial<RelationshipNeighbor> & {
+  ticker?: string
+}
+
+type BackendRelationshipNode = Partial<NetworkNode> & {
+  symbol?: string
+}
+
+type BackendTickerRelationships = Partial<Omit<TickerRelationships, 'node' | 'nodes' | 'leadLag'>> & {
+  node?: BackendRelationshipNode | null
+  nodes?: BackendRelationshipNode[]
+  leadLag?: Partial<{
+    followers: BackendRelationshipNeighbor[]
+    leaders: BackendRelationshipNeighbor[]
+  }> | null
+}
+
+function relationshipPath(ticker: string, options: Required<Pick<TickerRelationshipOptions, 'window'>> & TickerRelationshipOptions): string {
+  const params = new URLSearchParams()
+  params.set('window', String(options.window))
+  if (options.topK !== undefined) params.set('topK', String(options.topK))
+  if (options.layers && options.layers.length > 0) params.set('layers', options.layers.join(','))
+  return `/relationships/${encodeURIComponent(ticker)}?${params.toString()}`
+}
+
+function cachedRelationshipInit(ticker: string): RequestInit & { next: { revalidate: number; tags: string[] } } {
+  return {
+    cache: 'force-cache',
+    next: {
+      revalidate: RELATIONSHIP_REVALIDATE_SECONDS,
+      tags: ['relationships', `relationships:${ticker}`],
+    },
+  }
+}
+
+function finiteNumber(value: unknown, fallback = 0): number {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : fallback
+}
+
+function normalizeNode(node: BackendRelationshipNode | null | undefined): NetworkNode | null {
+  const ticker = (node?.ticker ?? node?.symbol ?? '').trim().toUpperCase()
+  if (!ticker) return null
+  return {
+    ticker,
+    name: node?.name ?? null,
+    country: node?.country ?? null,
+    region: node?.region ?? null,
+    sector: node?.sector ?? null,
+    marketCap: typeof node?.marketCap === 'number' && Number.isFinite(node.marketCap) ? node.marketCap : null,
+    degree: typeof node?.degree === 'number' && Number.isFinite(node.degree) ? node.degree : null,
+  }
+}
+
+function normalizeNeighbor(neighbor: BackendRelationshipNeighbor): RelationshipNeighbor | null {
+  const symbol = (neighbor.symbol ?? neighbor.ticker ?? '').trim().toUpperCase()
+  if (!symbol) return null
+  const strength = finiteNumber(neighbor.strength)
+  if (!Number.isFinite(strength)) return null
+  return {
+    symbol,
+    strength,
+    confidence: finiteNumber(neighbor.confidence),
+    direction: String(neighbor.direction ?? ''),
+  }
+}
+
+function normalizeNeighbors(neighbors: BackendRelationshipNeighbor[] | undefined): RelationshipNeighbor[] {
+  return (neighbors ?? [])
+    .map(normalizeNeighbor)
+    .filter((neighbor): neighbor is RelationshipNeighbor => neighbor !== null)
+}
+
+function normalizeRelationships(raw: BackendTickerRelationships, ticker: string, window: number): TickerRelationships {
+  const normalizedNodes = (raw.nodes ?? [])
+    .map(normalizeNode)
+    .filter((node): node is NetworkNode => node !== null)
+  const node = normalizeNode(raw.node) ?? normalizedNodes.find((item) => item.ticker === ticker) ?? null
+
+  return {
+    asOf: raw.asOf ?? null,
+    ticker: (raw.ticker ?? ticker).trim().toUpperCase(),
+    window: finiteNumber(raw.window, window),
+    node,
+    nodes: normalizedNodes,
+    marketCoMovers: normalizeNeighbors(raw.marketCoMovers),
+    residualCoMovers: normalizeNeighbors(raw.residualCoMovers),
+    leadLag: {
+      followers: normalizeNeighbors(raw.leadLag?.followers),
+      leaders: normalizeNeighbors(raw.leadLag?.leaders),
+    },
+    probableSpurious: normalizeNeighbors(raw.probableSpurious),
+  }
+}
+
+export async function getTickerRelationships(
+  tickerRaw: string,
+  options: TickerRelationshipOptions = {}
+): Promise<TickerRelationships> {
+  const ticker = tickerRaw.trim().toUpperCase()
+  const window = Math.max(1, Math.round(options.window ?? 252))
+  const topK = options.topK === undefined ? undefined : Math.max(1, Math.min(50, Math.round(options.topK)))
+  const layers = options.layers
+  const path = relationshipPath(ticker, { window, topK, layers })
+  const response = await fetchBackendJson<BackendTickerRelationships>(path, {
+    context: `ticker.relationships.${ticker}`,
+    timeoutMs: 9000,
+    init: cachedRelationshipInit(ticker),
+  })
+
+  return normalizeRelationships(response, ticker, window)
+}

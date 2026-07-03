@@ -14,11 +14,23 @@ export type NetworkNode = {
 }
 
 export type NetworkEdge = {
+  id?: string
   source: string
   target: string
   correlation: number
   absCorrelation: number
   inMst: boolean
+  relationshipLayer?: string
+  relationshipLabel?: string
+  relationshipDescription?: string
+  relationshipInlineLabel?: string
+  relationshipColor?: string
+  relationshipAlpha?: number
+  relationshipDash?: number[] | null
+  relationshipDirectional?: boolean
+  relationshipCurvature?: number
+  relationshipWidthBoost?: number
+  relationshipConfidence?: number | null
 }
 
 export type NetworkGraph = {

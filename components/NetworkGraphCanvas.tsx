@@ -148,16 +148,41 @@ function marketCapRadius(marketCap: number | null, mode: 'global' | 'peer', isCe
   return isCenter ? Math.max(14, radius) : radius
 }
 
-function linkColor(edge: Pick<NetworkEdge, 'correlation'>, alpha = 1): string {
+function linkColor(edge: Pick<NetworkEdge, 'correlation' | 'relationshipColor'>, alpha = 1): string {
+  if (typeof edge.relationshipColor === 'string') {
+    return edge.relationshipColor.includes('rgba(')
+      ? edge.relationshipColor
+      : hexToRgba(edge.relationshipColor, alpha)
+  }
   return edge.correlation >= 0 ? `rgba(54, 179, 255, ${alpha})` : `rgba(255, 134, 123, ${alpha})`
 }
 
-function linkWidth(edge: Pick<NetworkEdge, 'inMst' | 'absCorrelation'>): number {
-  return (edge.inMst ? NETWORK_ARCS.mstWidth : NETWORK_ARCS.baseWidth) + edge.absCorrelation * NETWORK_ARCS.correlationWidth
+function linkWidth(edge: Pick<NetworkEdge, 'inMst' | 'absCorrelation' | 'relationshipWidthBoost'>): number {
+  return (edge.inMst ? NETWORK_ARCS.mstWidth : NETWORK_ARCS.baseWidth) + edge.absCorrelation * NETWORK_ARCS.correlationWidth + (edge.relationshipWidthBoost ?? 0)
 }
 
-function linkAlpha(edge: Pick<NetworkEdge, 'absCorrelation'>): number {
+function linkAlpha(edge: Pick<NetworkEdge, 'absCorrelation' | 'relationshipAlpha'>): number {
+  if (typeof edge.relationshipAlpha === 'number' && Number.isFinite(edge.relationshipAlpha)) {
+    return clamp(edge.relationshipAlpha, 0.08, 1)
+  }
   return clamp(NETWORK_ARCS.baseAlpha + edge.absCorrelation * NETWORK_ARCS.correlationAlpha, 0.16, 0.86)
+}
+
+function hexToRgba(color: string, alpha: number): string {
+  const hex = color.trim().replace(/^#/, '')
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return color
+  const value = Number.parseInt(hex, 16)
+  const r = (value >> 16) & 255
+  const g = (value >> 8) & 255
+  const b = value & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function linkCurvature(link: GraphLink, mode: 'global' | 'peer'): number {
+  if (typeof link.relationshipCurvature === 'number' && Number.isFinite(link.relationshipCurvature)) {
+    return link.relationshipCurvature
+  }
+  return mode === 'peer' ? NETWORK_ARCS.peerCurvature : NETWORK_ARCS.curvature
 }
 
 export function selectGlobalEdges(edges: NetworkEdge[], threshold: number, topK: number): NetworkEdge[] {
@@ -276,7 +301,7 @@ function buildGraphData({
     .filter((edge) => existingTickers.has(edge.source) && existingTickers.has(edge.target))
     .map<GraphLink>((edge) => ({
       ...edge,
-      id: edgeKey(edge.source, edge.target),
+      id: edge.id ?? edgeKey(edge.source, edge.target),
       source: edge.source,
       target: edge.target,
     }))
@@ -368,7 +393,10 @@ export default function NetworkGraphCanvas({
   // Keep a stable ref so the layout/zoom-to-fit effect doesn't re-run (and reheat) on every
   // hover/zoom change — those would restart the sim and override the user's zoom.
   const nodeIsVisibleRef = useRef(nodeIsVisible)
-  nodeIsVisibleRef.current = nodeIsVisible
+
+  useEffect(() => {
+    nodeIsVisibleRef.current = nodeIsVisible
+  }, [nodeIsVisible])
 
   const linkIsVisible = useCallback(
     (link: GraphLink) => {
@@ -503,12 +531,15 @@ export default function NetworkGraphCanvas({
         showPointerCursor={(object: GraphNode | GraphLink | undefined) => Boolean(object && 'ticker' in object)}
         nodeVisibility={(node: GraphNode) => nodeIsVisible(node)}
         linkVisibility={(link: GraphLink) => linkIsVisible(link)}
-        linkCurvature={() => (mode === 'peer' ? NETWORK_ARCS.peerCurvature : NETWORK_ARCS.curvature)}
+        linkCurvature={(link: GraphLink) => linkCurvature(link, mode)}
         linkWidth={(link: GraphLink) => linkWidth(link)}
         linkColor={(link: GraphLink) => linkColor(link, linkAlpha(link))}
-        linkLineDash={(link: GraphLink) => (link.inMst ? null : [5, 8])}
+        linkLineDash={(link: GraphLink) => link.relationshipDash ?? (link.inMst ? null : [5, 8])}
         nodeLabel={(node: GraphNode) => `${node.ticker} - ${countryDisplayName(node.country, node.region)} - ${sectorLabel(node.sector)}`}
-        linkLabel={(link: GraphLink) => `${sourceId(link)} / ${targetId(link)} - correlation ${link.correlation.toFixed(2)}`}
+        linkLabel={(link: GraphLink) =>
+          link.relationshipDescription ??
+          `${sourceId(link)} / ${targetId(link)} - correlation ${link.correlation.toFixed(2)}`
+        }
         onZoom={({ k }: { k: number }) => setZoomScale(k)}
         onNodeHover={(node: GraphNode | null) => {
           if (!node) {
@@ -554,7 +585,7 @@ export default function NetworkGraphCanvas({
           const dx = tx - sx
           const dy = ty - sy
           const length = Math.max(1, Math.hypot(dx, dy))
-          const curvature = (mode === 'peer' ? NETWORK_ARCS.peerCurvature : NETWORK_ARCS.curvature) * length
+          const curvature = linkCurvature(link, mode) * length
           const cx = (sx + tx) / 2 + (-dy / length) * curvature
           const cy = (sy + ty) / 2 + (dx / length) * curvature
           ctx.beginPath()
@@ -566,7 +597,7 @@ export default function NetworkGraphCanvas({
           ctx.stroke()
         }}
         linkCanvasObjectMode={() => 'replace'}
-        linkCanvasObject={(link: GraphLink, ctx: CanvasRenderingContext2D) => {
+        linkCanvasObject={(link: GraphLink, ctx: CanvasRenderingContext2D, globalScale: number) => {
           const source = sourceNode(link)
           const target = targetNode(link)
           if (!source || !target || source.x === undefined || source.y === undefined || target.x === undefined || target.y === undefined) return
@@ -577,7 +608,7 @@ export default function NetworkGraphCanvas({
           const dx = tx - sx
           const dy = ty - sy
           const length = Math.max(1, Math.hypot(dx, dy))
-          const curvature = (mode === 'peer' ? NETWORK_ARCS.peerCurvature : NETWORK_ARCS.curvature) * length
+          const curvature = linkCurvature(link, mode) * length
           const cx = (sx + tx) / 2 + (-dy / length) * curvature
           const cy = (sy + ty) / 2 + (dx / length) * curvature
           const focused = connectedEdges?.has(link.id) ?? false
@@ -594,13 +625,67 @@ export default function NetworkGraphCanvas({
           ctx.strokeStyle = linkColor(link, alpha)
           ctx.lineWidth = focused ? linkWidth(link) + 1.4 : linkWidth(link)
           ctx.lineCap = 'round'
-          ctx.setLineDash([])
+          ctx.setLineDash(link.relationshipDash ?? [])
           if (focused) {
             ctx.shadowBlur = NETWORK_GLOW.focusBlur
             ctx.shadowColor = linkColor(link, 0.85)
           }
           ctx.stroke()
           ctx.restore()
+
+          if (link.relationshipDirectional) {
+            const t = 0.72
+            const arrowX = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * tx
+            const arrowY = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ty
+            const tangentX = 2 * (1 - t) * (cx - sx) + 2 * t * (tx - cx)
+            const tangentY = 2 * (1 - t) * (cy - sy) + 2 * t * (ty - cy)
+            const angle = Math.atan2(tangentY, tangentX)
+            const arrowLength = (focused ? 10 : 8) / globalScale
+            const arrowWidth = (focused ? 6 : 5) / globalScale
+
+            ctx.save()
+            ctx.translate(arrowX, arrowY)
+            ctx.rotate(angle)
+            ctx.beginPath()
+            ctx.moveTo(0, 0)
+            ctx.lineTo(-arrowLength, -arrowWidth)
+            ctx.lineTo(-arrowLength, arrowWidth)
+            ctx.closePath()
+            ctx.fillStyle = linkColor(link, Math.min(1, alpha + 0.18))
+            ctx.shadowBlur = focused ? NETWORK_GLOW.focusBlur : 0
+            ctx.shadowColor = linkColor(link, 0.75)
+            ctx.fill()
+            ctx.restore()
+          }
+
+          if (link.relationshipInlineLabel) {
+            const t = 0.5
+            const labelX = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * tx
+            const labelY = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ty
+            const label = link.relationshipInlineLabel
+            const fontSize = 9.5 / globalScale
+            const paddingX = 5 / globalScale
+            const paddingY = 3 / globalScale
+
+            ctx.save()
+            ctx.font = `700 ${fontSize}px Inter, ui-sans-serif, system-ui, sans-serif`
+            const metrics = ctx.measureText(label)
+            const boxWidth = metrics.width + paddingX * 2
+            const boxHeight = fontSize + paddingY * 2
+            ctx.globalAlpha = dimmed ? 0.34 : 0.9
+            ctx.fillStyle = 'rgba(7, 17, 31, 0.76)'
+            ctx.strokeStyle = linkColor(link, 0.58)
+            ctx.lineWidth = 1 / globalScale
+            ctx.beginPath()
+            ctx.roundRect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight, 4 / globalScale)
+            ctx.fill()
+            ctx.stroke()
+            ctx.fillStyle = '#f7fbff'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(label, labelX, labelY + 0.5 / globalScale)
+            ctx.restore()
+          }
         }}
         nodeCanvasObjectMode={() => 'replace'}
         nodeCanvasObject={(node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -702,20 +787,32 @@ export default function NetworkGraphCanvas({
               { label: 'Sector', value: sectorLabel(hoveredNode.sector) },
               { label: 'Market cap', value: formatMarketCap(hoveredNode.marketCap) },
               {
-                label: mode === 'peer' && center ? `Correlation vs ${center}` : 'Top correlation',
-                value: mode === 'peer' ? centerEdge?.correlation.toFixed(2) ?? '-' : strongestEdge?.correlation.toFixed(2) ?? '-',
+                label: centerEdge?.relationshipLabel
+                  ? 'Relationship'
+                  : mode === 'peer' && center
+                    ? `Correlation vs ${center}`
+                    : 'Top correlation',
+                value: centerEdge?.relationshipLabel
+                  ? centerEdge.relationshipLabel
+                  : mode === 'peer'
+                    ? centerEdge?.correlation.toFixed(2) ?? '-'
+                    : strongestEdge?.correlation.toFixed(2) ?? '-',
                 swatchColor: mode === 'peer' ? (centerEdge ? linkColor(centerEdge, 1) : undefined) : strongestEdge ? linkColor(strongestEdge, 1) : undefined,
               },
               {
-                label: 'Strength',
+                label: centerEdge?.relationshipConfidence !== undefined ? 'Confidence' : 'Strength',
                 value:
-                  mode === 'peer'
-                    ? centerEdge
-                      ? correlationDescriptor(centerEdge.absCorrelation)
-                      : '-'
-                    : strongestEdge
-                      ? correlationDescriptor(strongestEdge.absCorrelation)
-                      : '-',
+                  centerEdge?.relationshipConfidence !== undefined && centerEdge.relationshipConfidence !== null
+                    ? centerEdge.relationshipConfidence <= 1
+                      ? `${Math.round(centerEdge.relationshipConfidence * 100)}%`
+                      : `${Math.round(centerEdge.relationshipConfidence)}%`
+                    : mode === 'peer'
+                      ? centerEdge
+                        ? correlationDescriptor(centerEdge.absCorrelation)
+                        : '-'
+                      : strongestEdge
+                        ? correlationDescriptor(strongestEdge.absCorrelation)
+                        : '-',
               },
             ]}
           />

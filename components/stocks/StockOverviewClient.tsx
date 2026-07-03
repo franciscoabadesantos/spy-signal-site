@@ -3,12 +3,11 @@
 import Link from 'next/link'
 import { Suspense, use, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
-import CorrelationNetwork from '@/components/CorrelationNetwork'
+import RelationshipOrbit from '@/components/RelationshipOrbit'
 import ScorecardDisc from '@/components/stocks/ScorecardDisc'
 import ChartContainer from '@/components/charts/ChartContainer'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
-import type { NetworkGraph } from '@/lib/network'
-import { countryDisplayName } from '@/lib/network-regions'
+import type { TickerRelationships } from '@/lib/relationships'
 import type { Scorecard } from '@/lib/scorecard-types'
 import {
   buildTechnicalSummary,
@@ -66,7 +65,8 @@ type StockOverviewClientProps = {
   ohlcData: OhlcPoint[]
   statStrip: OverviewStat[]
   heroStats: OverviewStat[]
-  peerNetwork: Promise<NetworkGraph>
+  relationship126: Promise<TickerRelationships>
+  relationship252: Promise<TickerRelationships>
   fundDetails: OverviewFundDetail[]
   relatedAssets: Promise<OverviewRelatedAsset[]>
   regimeSignals: OverviewRegimePoint[]
@@ -160,18 +160,6 @@ function filterChartData(data: PricePoint[], timeframe: ChartTimeframe): PricePo
 
   const filtered = data.filter((point) => parseChartDate(point.date) >= start)
   return filtered.length >= 2 ? filtered : data
-}
-
-function correlationDirection(value: number): string {
-  if (value >= 0) return 'Positive'
-  return 'Negative'
-}
-
-function correlationStrength(value: number): string {
-  const magnitude = Math.abs(value)
-  if (magnitude >= 0.75) return 'Strong'
-  if (magnitude >= 0.5) return 'Moderate'
-  return 'Weak'
 }
 
 function Gauge({
@@ -580,60 +568,26 @@ function Modal({
 function PeerWebContent({
   ticker,
   displayName,
-  peerNetworkPromise,
+  relationship126Promise,
+  relationship252Promise,
 }: {
   ticker: string
   displayName: string
-  peerNetworkPromise: Promise<NetworkGraph>
+  relationship126Promise: Promise<TickerRelationships>
+  relationship252Promise: Promise<TickerRelationships>
 }) {
-  const graph = use(peerNetworkPromise)
-  const nodeByTicker = new Map(graph.nodes.map((node) => [node.ticker, node]))
-  const peers = graph.edges
-    .filter((edge) => edge.source === ticker || edge.target === ticker)
-    .map((edge) => {
-      const peerTicker = edge.source === ticker ? edge.target : edge.source
-      const node = nodeByTicker.get(peerTicker)
-      return {
-        ticker: peerTicker,
-        name: node?.name ?? null,
-        correlation: edge.correlation,
-        absCorrelation: edge.absCorrelation,
-        country: node?.country ?? null,
-        region: node?.region ?? null,
-      }
-    })
-    .sort((a, b) => b.absCorrelation - a.absCorrelation || a.ticker.localeCompare(b.ticker))
+  const relationship126 = use(relationship126Promise)
+  const relationship252 = use(relationship252Promise)
 
   return (
-    <>
-      <CorrelationNetwork centerTicker={ticker} centerName={displayName} graph={graph} />
-      <div className={styles.peerTableWrap}>
-        <table className={styles.peerTable}>
-          <thead>
-            <tr>
-              <th>Peer ticker</th>
-              <th>Name</th>
-              <th>Correlation</th>
-              <th>Country</th>
-            </tr>
-          </thead>
-          <tbody>
-            {peers.map((peer) => (
-              <tr key={peer.ticker}>
-                <td>
-                  <Link href={`/stocks/${peer.ticker}`} className={styles.chipTicker}>
-                    {peer.ticker}
-                  </Link>
-                </td>
-                <td>{peer.name ?? 'Related asset'}</td>
-                <td>{peer.correlation.toFixed(2)} · {correlationStrength(peer.correlation)}</td>
-                <td>{countryDisplayName(peer.country, peer.region) || correlationDirection(peer.correlation)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+    <RelationshipOrbit
+      centerTicker={ticker}
+      centerName={displayName}
+      relationshipsByWindow={{
+        126: relationship126,
+        252: relationship252,
+      }}
+    />
   )
 }
 
@@ -672,7 +626,8 @@ export default function StockOverviewClient({
   ohlcData,
   statStrip,
   heroStats,
-  peerNetwork: peerNetworkPromise,
+  relationship126: relationship126Promise,
+  relationship252: relationship252Promise,
   fundDetails,
   relatedAssets: relatedAssetsPromise,
   regimeSignals,
@@ -829,11 +784,16 @@ export default function StockOverviewClient({
           <div className={styles.cardHeader}>
             <div>
               <div className={styles.cardTitle}>Peer web</div>
-              <div className={styles.cardHint}>Interactive correlation map with numeric scan below</div>
+              <div className={styles.cardHint}>Multi-layer relationship map with residual links first</div>
             </div>
           </div>
-          <Suspense fallback={<div className={styles.emptyState}>Loading peer correlations…</div>}>
-            <PeerWebContent ticker={ticker} displayName={displayName} peerNetworkPromise={peerNetworkPromise} />
+          <Suspense fallback={<div className={styles.emptyState}>Loading relationship map…</div>}>
+            <PeerWebContent
+              ticker={ticker}
+              displayName={displayName}
+              relationship126Promise={relationship126Promise}
+              relationship252Promise={relationship252Promise}
+            />
           </Suspense>
         </article>
 
