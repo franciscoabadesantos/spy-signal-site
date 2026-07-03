@@ -5,17 +5,18 @@ import { useMemo, useState } from 'react'
 import ChartContainer from '@/components/charts/ChartContainer'
 import NetworkGraphCanvas from '@/components/NetworkGraphCanvas'
 import type { NetworkEdge, NetworkGraph, NetworkNode } from '@/lib/network'
-import type { RelationshipNeighbor, TickerRelationships } from '@/lib/relationships'
+import type { RelationshipNeighbor, RelationshipThemePeer, TickerRelationships } from '@/lib/relationships'
 import { countryDisplayName } from '@/lib/network-regions'
 import { cn } from '@/lib/utils'
 
 type RelationshipWindow = 126 | 252
-type ToggleLayer = 'residual' | 'leadLag' | 'market' | 'spurious'
+type ToggleLayer = 'residual' | 'theme' | 'leadLag' | 'market' | 'spurious'
 
 type RelationshipOrbitProps = {
   centerTicker: string
   centerName: string | null
   relationshipsByWindow: Record<RelationshipWindow, TickerRelationships>
+  maxNeighborsPerLayer?: number
 }
 
 type RelationshipRow = {
@@ -26,13 +27,19 @@ type RelationshipRow = {
   confidence: number
   country: string | null
   region: string | null
-  tone: 'primary' | 'inverse' | 'lead' | 'market' | 'spurious'
+  tone: 'primary' | 'inverse' | 'theme' | 'lead' | 'market' | 'spurious'
 }
+
+const DEFAULT_LAYER_RENDER_LIMIT = 24
 
 const LAYER_COPY: Record<ToggleLayer, { label: string; hint: string }> = {
   residual: {
     label: 'Residual co-movers',
     hint: 'mexe junto além do mercado',
+  },
+  theme: {
+    label: 'Theme peers',
+    hint: 'same ETF basket or investable theme',
   },
   leadLag: {
     label: 'Lead-lag',
@@ -72,6 +79,17 @@ function formatConfidence(value: number): string {
   return `${Math.round(value)}%`
 }
 
+function themeDisplayName(theme: string | null): string {
+  if (!theme) return 'theme basket'
+  const key = theme.trim().toLowerCase().replace(/[-\s]+/g, '_')
+  const labels: Record<string, string> = {
+    ai_semis: 'AI-semis',
+    glp1_obesity: 'GLP-1 / obesity',
+    space: 'space',
+  }
+  return labels[key] ?? theme.replace(/[_-]+/g, ' ').replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
+}
+
 function relationshipNode(nodes: Map<string, NetworkNode>, symbol: string): NetworkNode {
   return nodes.get(symbol) ?? emptyNode(symbol)
 }
@@ -79,10 +97,30 @@ function relationshipNode(nodes: Map<string, NetworkNode>, symbol: string): Netw
 function addNeighborNode(
   visibleNodes: Map<string, NetworkNode>,
   lookup: Map<string, NetworkNode>,
-  neighbor: RelationshipNeighbor
+  neighbor: Pick<RelationshipNeighbor, 'symbol'>
 ) {
   if (!visibleNodes.has(neighbor.symbol)) {
     visibleNodes.set(neighbor.symbol, relationshipNode(lookup, neighbor.symbol))
+  }
+}
+
+function capByStrength<T extends { strength: number }>(items: T[], limit: number): T[] {
+  return [...items]
+    .sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength))
+    .slice(0, Math.max(1, Math.round(limit)))
+}
+
+function capLeadLag(leadLag: TickerRelationships['leadLag'], limit: number): TickerRelationships['leadLag'] {
+  const capped = capByStrength(
+    [
+      ...leadLag.followers.map((neighbor) => ({ role: 'followers' as const, strength: neighbor.strength, neighbor })),
+      ...leadLag.leaders.map((neighbor) => ({ role: 'leaders' as const, strength: neighbor.strength, neighbor })),
+    ],
+    limit
+  )
+  return {
+    followers: capped.filter((item) => item.role === 'followers').map((item) => item.neighbor),
+    leaders: capped.filter((item) => item.role === 'leaders').map((item) => item.neighbor),
   }
 }
 
@@ -141,8 +179,9 @@ function buildRelationshipGraph(
   relationships: TickerRelationships,
   centerTicker: string,
   centerName: string | null,
-  activeLayers: Record<ToggleLayer, boolean>
-): { graph: NetworkGraph; rows: RelationshipRow[]; counts: Record<ToggleLayer, number> } {
+  activeLayers: Record<ToggleLayer, boolean>,
+  maxNeighborsPerLayer: number
+): { graph: NetworkGraph; rows: RelationshipRow[]; counts: Record<ToggleLayer, number>; moreCounts: Record<ToggleLayer, number> } {
   const center = centerTicker.trim().toUpperCase()
   const lookup = new Map<string, NetworkNode>()
   for (const node of relationships.nodes) lookup.set(node.ticker, node)
@@ -154,12 +193,32 @@ function buildRelationshipGraph(
   const rows = new Map<string, RelationshipRow>()
   const counts = {
     residual: relationships.residualCoMovers.length,
+    theme: relationships.themePeers.length,
     leadLag: relationships.leadLag.followers.length + relationships.leadLag.leaders.length,
     market: relationships.marketCoMovers.length,
     spurious: relationships.probableSpurious.length,
   }
+  const cappedResidual = capByStrength(relationships.residualCoMovers, maxNeighborsPerLayer)
+  const cappedTheme = capByStrength(relationships.themePeers, maxNeighborsPerLayer)
+  const cappedLeadLag = capLeadLag(relationships.leadLag, maxNeighborsPerLayer)
+  const cappedMarket = capByStrength(relationships.marketCoMovers, maxNeighborsPerLayer)
+  const cappedSpurious = capByStrength(relationships.probableSpurious, maxNeighborsPerLayer)
+  const renderedCounts = {
+    residual: cappedResidual.length,
+    theme: cappedTheme.length,
+    leadLag: cappedLeadLag.followers.length + cappedLeadLag.leaders.length,
+    market: cappedMarket.length,
+    spurious: cappedSpurious.length,
+  }
+  const moreCounts = {
+    residual: Math.max(0, counts.residual - renderedCounts.residual),
+    theme: Math.max(0, counts.theme - renderedCounts.theme),
+    leadLag: Math.max(0, counts.leadLag - renderedCounts.leadLag),
+    market: Math.max(0, counts.market - renderedCounts.market),
+    spurious: Math.max(0, counts.spurious - renderedCounts.spurious),
+  }
 
-  const addRow = (neighbor: RelationshipNeighbor, label: string, tone: RelationshipRow['tone']) => {
+  const addRow = (neighbor: RelationshipNeighbor | RelationshipThemePeer, label: string, tone: RelationshipRow['tone']) => {
     if (rows.has(`${tone}:${neighbor.symbol}`)) return
     const node = relationshipNode(lookup, neighbor.symbol)
     rows.set(`${tone}:${neighbor.symbol}`, {
@@ -175,7 +234,7 @@ function buildRelationshipGraph(
   }
 
   if (activeLayers.residual) {
-    for (const neighbor of relationships.residualCoMovers) {
+    for (const neighbor of cappedResidual) {
       addNeighborNode(visibleNodes, lookup, neighbor)
       const isInverse = neighbor.strength < 0
       const label = isInverse ? 'mexe ao contrário idiossincraticamente' : 'mexe junto além do mercado'
@@ -200,8 +259,34 @@ function buildRelationshipGraph(
     }
   }
 
+  if (activeLayers.theme) {
+    for (const neighbor of cappedTheme) {
+      addNeighborNode(visibleNodes, lookup, neighbor)
+      const theme = themeDisplayName(neighbor.theme)
+      const label = `same theme: ${theme}`
+      edges.push(
+        relationshipEdge({
+          id: `theme:${neighbor.symbol}:${neighbor.theme ?? 'unknown'}`,
+          source: center,
+          target: neighbor.symbol,
+          strength: neighbor.strength,
+          label,
+          description: `${center} and ${neighbor.symbol}: ${label}`,
+          inlineLabel: label,
+          color: '#A7F3D0',
+          alpha: 0.34,
+          dash: [3, 5],
+          curvature: 0.12,
+          widthBoost: -0.28,
+          confidence: neighbor.confidence,
+        })
+      )
+      addRow(neighbor, label, 'theme')
+    }
+  }
+
   if (activeLayers.leadLag) {
-    for (const neighbor of relationships.leadLag.followers) {
+    for (const neighbor of cappedLeadLag.followers) {
       addNeighborNode(visibleNodes, lookup, neighbor)
       edges.push(
         relationshipEdge({
@@ -223,7 +308,7 @@ function buildRelationshipGraph(
       addRow(neighbor, `${center} tende a liderar`, 'lead')
     }
 
-    for (const neighbor of relationships.leadLag.leaders) {
+    for (const neighbor of cappedLeadLag.leaders) {
       addNeighborNode(visibleNodes, lookup, neighbor)
       edges.push(
         relationshipEdge({
@@ -247,7 +332,7 @@ function buildRelationshipGraph(
   }
 
   if (activeLayers.market) {
-    for (const neighbor of relationships.marketCoMovers) {
+    for (const neighbor of cappedMarket) {
       addNeighborNode(visibleNodes, lookup, neighbor)
       edges.push(
         relationshipEdge({
@@ -271,7 +356,7 @@ function buildRelationshipGraph(
   }
 
   if (activeLayers.spurious) {
-    for (const neighbor of relationships.probableSpurious) {
+    for (const neighbor of cappedSpurious) {
       addNeighborNode(visibleNodes, lookup, neighbor)
       edges.push(
         relationshipEdge({
@@ -304,6 +389,7 @@ function buildRelationshipGraph(
     },
     rows: [...rows.values()].sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol)).slice(0, 14),
     counts,
+    moreCounts,
   }
 }
 
@@ -311,35 +397,25 @@ export default function RelationshipOrbit({
   centerTicker,
   centerName,
   relationshipsByWindow,
+  maxNeighborsPerLayer = DEFAULT_LAYER_RENDER_LIMIT,
 }: RelationshipOrbitProps) {
   const normalizedCenter = centerTicker.trim().toUpperCase()
   const [window, setWindow] = useState<RelationshipWindow>(252)
   const [activeLayers, setActiveLayers] = useState<Record<ToggleLayer, boolean>>({
     residual: true,
+    theme: true,
     leadLag: false,
     market: false,
     spurious: false,
   })
   const relationships = relationshipsByWindow[window]
-  const { graph, rows, counts } = useMemo(
-    () => buildRelationshipGraph(relationships, normalizedCenter, centerName, activeLayers),
-    [activeLayers, centerName, normalizedCenter, relationships]
+  const renderLimit = Math.max(1, Math.round(maxNeighborsPerLayer))
+  const { graph, rows, counts, moreCounts } = useMemo(
+    () => buildRelationshipGraph(relationships, normalizedCenter, centerName, activeLayers, renderLimit),
+    [activeLayers, centerName, normalizedCenter, relationships, renderLimit]
   )
-  const hasAnyRelationships =
-    relationships.residualCoMovers.length > 0 ||
-    relationships.marketCoMovers.length > 0 ||
-    relationships.leadLag.followers.length > 0 ||
-    relationships.leadLag.leaders.length > 0 ||
-    relationships.probableSpurious.length > 0
   const hasVisibleRelationships = graph.edges.length > 0
-
-  if (!hasAnyRelationships) {
-    return (
-      <div className="rounded-[8px] border border-dashed border-border p-6 text-sm text-content-muted">
-        Relationship map is not available for this ticker yet.
-      </div>
-    )
-  }
+  const hasEnabledLayer = Object.values(activeLayers).some(Boolean)
 
   return (
     <div className="space-y-3">
@@ -384,6 +460,7 @@ export default function RelationshipOrbit({
               />
               {LAYER_COPY[layer].label}
               <span className="numeric-tabular text-content-muted">{counts[layer]}</span>
+              {moreCounts[layer] > 0 ? <span className="numeric-tabular text-content-muted">+{moreCounts[layer]} more</span> : null}
             </button>
           ))}
         </div>
@@ -405,7 +482,7 @@ export default function RelationshipOrbit({
             </ChartContainer>
           ) : (
             <div className="flex h-[380px] items-center justify-center rounded-[8px] border border-dashed border-border p-6 text-sm text-content-muted">
-              Turn on at least one relationship layer.
+              {hasEnabledLayer ? 'No relationships in the selected layers for this ticker yet.' : 'Turn on at least one relationship layer.'}
             </div>
           )}
         </div>
@@ -416,6 +493,10 @@ export default function RelationshipOrbit({
             <div className="flex items-center gap-2">
               <span className="h-px w-8 bg-[#36B3FF]" />
               Residual: mexe junto além do mercado
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-px w-8 border-t-2 border-dashed border-[#A7F3D0] opacity-70" />
+              Theme peers: same theme basket
             </div>
             <div className="flex items-center gap-2">
               <span className="h-px w-8 border-t-2 border-dashed border-[#FF867B]" />

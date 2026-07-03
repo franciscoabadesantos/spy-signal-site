@@ -145,6 +145,7 @@ function emptyRelationships(ticker: string, window: number): TickerRelationships
       leaders: [],
     },
     probableSpurious: [],
+    themePeers: [],
   }
 }
 
@@ -223,10 +224,10 @@ export default async function TickerPage({
   }
   const historicalData = ohlcData.map((point) => ({ date: point.date, close: point.close }))
 
-  const relationship126Promise = getTickerRelationships(ticker, { window: 126, topK: 12 }).catch(() =>
+  const relationship126Promise = getTickerRelationships(ticker, { window: 126, topK: 50 }).catch(() =>
     emptyRelationships(ticker, 126)
   )
-  const relationship252Promise = getTickerRelationships(ticker, { window: 252, topK: 12 }).catch(() =>
+  const relationship252Promise = getTickerRelationships(ticker, { window: 252, topK: 50 }).catch(() =>
     emptyRelationships(ticker, 252)
   )
 

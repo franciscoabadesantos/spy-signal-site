@@ -3,7 +3,7 @@ import 'server-only'
 import { fetchBackendJson } from './backend'
 import type { NetworkNode } from './network'
 
-export type RelationshipLayer = 'residual' | 'leadLag' | 'market' | 'spurious'
+export type RelationshipLayer = 'residual' | 'leadLag' | 'market' | 'spurious' | 'theme'
 
 export type RelationshipNeighbor = {
   symbol: string
@@ -17,6 +17,10 @@ export type LeadLagRelationships = {
   leaders: RelationshipNeighbor[]
 }
 
+export type RelationshipThemePeer = Omit<RelationshipNeighbor, 'direction'> & {
+  theme: string | null
+}
+
 export type TickerRelationships = {
   asOf: string | null
   ticker: string
@@ -27,6 +31,7 @@ export type TickerRelationships = {
   residualCoMovers: RelationshipNeighbor[]
   leadLag: LeadLagRelationships
   probableSpurious: RelationshipNeighbor[]
+  themePeers: RelationshipThemePeer[]
 }
 
 export type TickerRelationshipOptions = {
@@ -38,6 +43,10 @@ export type TickerRelationshipOptions = {
 const RELATIONSHIP_REVALIDATE_SECONDS = 900
 
 type BackendRelationshipNeighbor = Partial<RelationshipNeighbor> & {
+  ticker?: string
+}
+
+type BackendRelationshipThemePeer = Partial<RelationshipThemePeer> & {
   ticker?: string
 }
 
@@ -110,6 +119,26 @@ function normalizeNeighbors(neighbors: BackendRelationshipNeighbor[] | undefined
     .filter((neighbor): neighbor is RelationshipNeighbor => neighbor !== null)
 }
 
+function normalizeThemePeer(neighbor: BackendRelationshipThemePeer): RelationshipThemePeer | null {
+  const symbol = (neighbor.symbol ?? neighbor.ticker ?? '').trim().toUpperCase()
+  if (!symbol) return null
+  const strength = finiteNumber(neighbor.strength)
+  if (!Number.isFinite(strength)) return null
+  const theme = typeof neighbor.theme === 'string' && neighbor.theme.trim() ? neighbor.theme.trim() : null
+  return {
+    symbol,
+    strength,
+    confidence: finiteNumber(neighbor.confidence),
+    theme,
+  }
+}
+
+function normalizeThemePeers(neighbors: BackendRelationshipThemePeer[] | undefined): RelationshipThemePeer[] {
+  return (neighbors ?? [])
+    .map(normalizeThemePeer)
+    .filter((neighbor): neighbor is RelationshipThemePeer => neighbor !== null)
+}
+
 function normalizeRelationships(raw: BackendTickerRelationships, ticker: string, window: number): TickerRelationships {
   const normalizedNodes = (raw.nodes ?? [])
     .map(normalizeNode)
@@ -129,6 +158,7 @@ function normalizeRelationships(raw: BackendTickerRelationships, ticker: string,
       leaders: normalizeNeighbors(raw.leadLag?.leaders),
     },
     probableSpurious: normalizeNeighbors(raw.probableSpurious),
+    themePeers: normalizeThemePeers(raw.themePeers),
   }
 }
 
