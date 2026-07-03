@@ -443,11 +443,15 @@ type ThemeRegion = {
   label: string
   x: number
   y: number
+  boxWidth: number
+  boxHeight: number
   isIntersection: boolean
   members: ThemeDiagramPoint[]
   hiddenCount: number
 }
 
+const THEME_DIAGRAM_WIDTH = 360
+const THEME_DIAGRAM_HEIGHT = 300
 const THEME_COLORS = [
   { fill: 'rgba(54, 179, 255, 0.14)', stroke: 'rgba(54, 179, 255, 0.7)' },
   { fill: 'rgba(167, 243, 208, 0.14)', stroke: 'rgba(167, 243, 208, 0.7)' },
@@ -461,6 +465,55 @@ function shortThemeLabel(theme: string): string {
 
 function shortTickerLabel(symbol: string): string {
   return symbol.length > 7 ? `${symbol.slice(0, 6)}...` : symbol
+}
+
+function memberPillLabel(member: ThemeDiagramPoint): string {
+  return member.isCenter ? `${member.symbol} center` : shortTickerLabel(member.symbol)
+}
+
+function memberPillWidth(member: ThemeDiagramPoint): number {
+  const label = memberPillLabel(member)
+  return member.isCenter ? 82 : Math.max(38, label.length * 6.5 + 14)
+}
+
+function regionBoxSize(members: ThemeDiagramPoint[], hiddenCount: number, isIntersection: boolean): { width: number; height: number } {
+  const width = Math.max(48, ...members.map(memberPillWidth)) + 18
+  const height = Math.max(18, members.length * 18) + (hiddenCount > 0 ? 18 : 0) + (isIntersection ? 22 : 4)
+  return { width, height }
+}
+
+function relaxThemeRegions(regions: ThemeRegion[]): ThemeRegion[] {
+  const relaxed = regions.map((region) => ({ ...region }))
+  for (let iteration = 0; iteration < 24; iteration += 1) {
+    for (let left = 0; left < relaxed.length; left += 1) {
+      for (let right = left + 1; right < relaxed.length; right += 1) {
+        const a = relaxed[left]
+        const b = relaxed[right]
+        const overlapX = (a.boxWidth + b.boxWidth) / 2 - Math.abs(a.x - b.x)
+        const overlapY = (a.boxHeight + b.boxHeight) / 2 - Math.abs(a.y - b.y)
+        if (overlapX <= 0 || overlapY <= 0) continue
+        const dx = a.x <= b.x ? -1 : 1
+        const dy = a.y <= b.y ? -1 : 1
+        if (overlapX < overlapY) {
+          relaxed[left] = { ...a, x: a.x + dx * overlapX * 0.55 }
+          relaxed[right] = { ...b, x: b.x - dx * overlapX * 0.55 }
+        } else {
+          relaxed[left] = { ...a, y: a.y + dy * overlapY * 0.55 }
+          relaxed[right] = { ...b, y: b.y - dy * overlapY * 0.55 }
+        }
+      }
+    }
+
+    for (let index = 0; index < relaxed.length; index += 1) {
+      const region = relaxed[index]
+      relaxed[index] = {
+        ...region,
+        x: Math.max(region.boxWidth / 2 + 8, Math.min(THEME_DIAGRAM_WIDTH - region.boxWidth / 2 - 8, region.x)),
+        y: Math.max(region.boxHeight / 2 + 12, Math.min(THEME_DIAGRAM_HEIGHT - region.boxHeight / 2 - 8, region.y)),
+      }
+    }
+  }
+  return relaxed
 }
 
 function circleDistanceForOverlap(a: ThemeCircle, b: ThemeCircle, overlapRatio: number): number {
@@ -602,7 +655,7 @@ function ThemeSetDiagram({
       const membership = regionKey.split(',').map((index) => Number(index))
       const anchor = anchorFor(membership)
       const sortedPeers = [...peerItems].sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol))
-      const visibleLimit = membership.length > 1 ? 5 : 3
+      const visibleLimit = membership.length > 1 ? 3 : 2
       const members = sortedPeers.slice(0, visibleLimit).map<ThemeDiagramPoint>((peer) => {
         const node = nodeLookup.get(peer.symbol)
         return {
@@ -615,19 +668,22 @@ function ThemeSetDiagram({
           isCenter: false,
         }
       })
+      const hiddenCount = Math.max(0, sortedPeers.length - members.length)
+      const boxSize = regionBoxSize(members, hiddenCount, membership.length > 1)
       regions.push({
         key: regionKey,
         membership,
         label: membership.map((index) => shortThemeLabel(selectedThemes[index])).join(' ∩ '),
         x: anchor.x,
         y: anchor.y,
+        boxWidth: boxSize.width,
+        boxHeight: boxSize.height,
         isIntersection: membership.length > 1,
         members,
-        hiddenCount: Math.max(0, sortedPeers.length - members.length),
+        hiddenCount,
       })
     }
 
-    const centerAnchor = anchorFor(circles.map((_, index) => index))
     const centerNode = relationships.node
     if (selectedThemes.length > 0) {
       const centerPoint: ThemeDiagramPoint = {
@@ -640,19 +696,22 @@ function ThemeSetDiagram({
         isCenter: true,
       }
       const centerRegionKey = `center:${membershipKey(circles.map((_, index) => index))}`
+      const boxSize = regionBoxSize([centerPoint], 0, false)
       regions.push({
         key: centerRegionKey,
         membership: circles.map((_, index) => index),
         label: 'Central company',
-        x: centerAnchor.x,
-        y: centerAnchor.y - (circles.length === 1 ? 4 : 10),
-        isIntersection: circles.length > 1,
+        x: 286,
+        y: 32,
+        boxWidth: boxSize.width,
+        boxHeight: boxSize.height,
+        isIntersection: false,
         members: [centerPoint],
         hiddenCount: 0,
       })
     }
 
-    return { selectedThemes, overflowThemes, circles, regions }
+    return { selectedThemes, overflowThemes, circles, regions: relaxThemeRegions(regions) }
   }, [centerName, centerTicker, relationships])
 
   if (data.selectedThemes.length === 0) {
@@ -669,7 +728,7 @@ function ThemeSetDiagram({
         <div className="text-filter-label">Theme set</div>
         {data.overflowThemes > 0 ? <div className="text-caption text-content-muted">+{data.overflowThemes} more themes</div> : null}
       </div>
-      <svg viewBox="0 0 360 300" role="img" aria-label={`${centerTicker} theme membership`} className="h-[292px] w-full">
+      <svg viewBox={`0 0 ${THEME_DIAGRAM_WIDTH} ${THEME_DIAGRAM_HEIGHT}`} role="img" aria-label={`${centerTicker} theme membership`} className="h-[292px] w-full">
         {data.circles.map((circle) => (
           <g key={circle.key}>
             <circle
@@ -702,8 +761,8 @@ function ThemeSetDiagram({
             ) : null}
             {region.members.map((member, memberIndex) => {
               const y = region.y + (memberIndex - (region.members.length - 1) / 2) * 18
-              const label = member.isCenter ? `${member.symbol} center` : shortTickerLabel(member.symbol)
-              const width = member.isCenter ? 82 : Math.max(38, label.length * 6.5 + 14)
+              const label = memberPillLabel(member)
+              const width = memberPillWidth(member)
               return (
                 <g
                   key={`${region.key}:${member.symbol}`}

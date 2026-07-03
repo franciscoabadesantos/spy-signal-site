@@ -35,18 +35,18 @@ export const NETWORK_PHYSICS = {
   alphaDecay: 0.02,
   cooldownTimeMs: 15_000,
   globalCharge: -90,
-  peerCharge: -10,
+  peerCharge: 0,
   collidePadding: 6,
-  peerCollidePadding: 4,
+  peerCollidePadding: 6,
   linkStrengthBase: 0.06,
   linkStrengthCorrelation: 0.28,
   mstLinkStrength: 0.45,
   linkDistanceBase: 45,
   linkDistanceSpread: 140,
-  peerOrbitMinDistance: 38,
-  peerOrbitSpread: 285,
-  peerRadialStrength: 1.35,
-  peerSectorStrength: 0.016,
+  peerOrbitMinDistance: 34,
+  peerOrbitSpread: 330,
+  peerRadialStrength: 2.4,
+  peerSectorStrength: 0.006,
 } as const
 
 export const NETWORK_ARCS = {
@@ -174,7 +174,12 @@ function linkColor(edge: Pick<NetworkEdge, 'correlation' | 'relationshipColor'>,
   return edge.correlation >= 0 ? `rgba(54, 179, 255, ${alpha})` : `rgba(255, 134, 123, ${alpha})`
 }
 
-function linkWidth(edge: Pick<NetworkEdge, 'inMst' | 'absCorrelation' | 'relationshipWidthBoost'>): number {
+function linkWidth(edge: Pick<NetworkEdge, 'inMst' | 'absCorrelation' | 'relationshipWidthBoost' | 'relationshipConfidence'>, mode: 'global' | 'peer'): number {
+  if (mode === 'peer') {
+    const confidence = confidenceValue(edge.relationshipConfidence)
+    if (confidence !== null) return 1.25 + confidence * 5.6
+    return 1.5 + edge.absCorrelation * 2.4
+  }
   return (edge.inMst ? NETWORK_ARCS.mstWidth : NETWORK_ARCS.baseWidth) + edge.absCorrelation * NETWORK_ARCS.correlationWidth + (edge.relationshipWidthBoost ?? 0)
 }
 
@@ -204,7 +209,12 @@ function linkCurvature(link: GraphLink, mode: 'global' | 'peer'): number {
 
 function peerOrbitDistance(strength: number): number {
   const normalized = clamp(Math.abs(strength), 0, 1)
-  return NETWORK_PHYSICS.peerOrbitMinDistance + Math.pow(1 - normalized, 1.75) * NETWORK_PHYSICS.peerOrbitSpread
+  return NETWORK_PHYSICS.peerOrbitMinDistance + Math.pow(1 - normalized, 2.1) * NETWORK_PHYSICS.peerOrbitSpread
+}
+
+function confidenceValue(value: number | null | undefined): number | null {
+  if (value === null || value === undefined || !Number.isFinite(value)) return null
+  return clamp(value > 1 ? value / 100 : value, 0, 1)
 }
 
 function hashString(value: string): number {
@@ -229,6 +239,14 @@ function relationshipSectorAngle(node: NetworkNode, edge: NetworkEdge | null): n
   const sector = hashString(key) % 12
   const jitter = ((hashString(`${key}:${node.ticker}`) % 100) / 100 - 0.5) * 0.34
   return -Math.PI / 2 + (sector / 12) * Math.PI * 2 + jitter
+}
+
+function peerOrbitAngle(node: NetworkNode, edge: NetworkEdge | null, peerIndex: number, peerCount: number): number {
+  const base = -Math.PI / 2 + (peerIndex / Math.max(1, peerCount)) * Math.PI * 2
+  const sector = relationshipSectorAngle(node, edge)
+  const delta = Math.atan2(Math.sin(sector - base), Math.cos(sector - base))
+  const jitter = ((hashString(`${node.ticker}:orbit`) % 100) / 100 - 0.5) * 0.06
+  return base + delta * 0.14 + jitter
 }
 
 function formatTooltipConfidence(value: number | null | undefined): string {
@@ -336,6 +354,7 @@ function buildGraphData({
       .sort((a, b) => b[1].absCorrelation - a[1].absCorrelation || a[0].localeCompare(b[0]))
       .map(([ticker], index) => [ticker, index + 1])
   )
+  const peerCount = centerEdgesByTicker.size
 
   const includedTickers = new Set<string>()
   if (mode === 'peer' && normalizedCenter) includedTickers.add(normalizedCenter)
@@ -349,11 +368,12 @@ function buildGraphData({
     const isCenter = node.ticker === normalizedCenter
     const relationshipEdge = isCenter ? null : centerEdgesByTicker.get(node.ticker) ?? null
     const relationshipStrength = relationshipEdge?.absCorrelation ?? 0
+    const relationshipRank = isCenter ? 0 : relationshipRanks.get(node.ticker) ?? Number.MAX_SAFE_INTEGER
     const angle =
       mode === 'peer'
         ? isCenter
           ? 0
-          : relationshipSectorAngle(node, relationshipEdge)
+          : peerOrbitAngle(node, relationshipEdge, Math.max(0, relationshipRank - 1), peerCount)
         : -Math.PI / 2 + (index / Math.max(1, visibleNodes.length)) * Math.PI * 2
     const ring = mode === 'peer' ? (isCenter ? 0 : peerOrbitDistance(relationshipStrength)) : 180 + (index % 9) * 22
     const orbitX = Math.cos(angle) * ring
@@ -365,7 +385,7 @@ function buildGraphData({
       rank: capRanks.get(node.ticker) ?? Number.MAX_SAFE_INTEGER,
       isCenter,
       relationshipStrength,
-      relationshipRank: isCenter ? 0 : relationshipRanks.get(node.ticker) ?? Number.MAX_SAFE_INTEGER,
+      relationshipRank,
       relationshipLayer: relationshipEdge?.relationshipLayer ?? null,
       relationshipThemes: relationshipEdge?.relationshipThemes ?? [],
       orbitRadius: ring,
@@ -645,7 +665,7 @@ export default function NetworkGraphCanvas({
         nodeVisibility={(node: GraphNode) => nodeIsVisible(node)}
         linkVisibility={(link: GraphLink) => linkIsVisible(link)}
         linkCurvature={(link: GraphLink) => linkCurvature(link, mode)}
-        linkWidth={(link: GraphLink) => linkWidth(link)}
+        linkWidth={(link: GraphLink) => linkWidth(link, mode)}
         linkColor={(link: GraphLink) => linkColor(link, linkAlpha(link))}
         linkLineDash={(link: GraphLink) => link.relationshipDash ?? (link.inMst ? null : [5, 8])}
         nodeLabel={(node: GraphNode) => `${node.ticker} - ${countryDisplayName(node.country, node.region)} - ${sectorLabel(node.sector)}`}
@@ -705,7 +725,7 @@ export default function NetworkGraphCanvas({
           ctx.moveTo(sx, sy)
           ctx.quadraticCurveTo(cx, cy, tx, ty)
           ctx.strokeStyle = color
-          ctx.lineWidth = 6
+          ctx.lineWidth = Math.max(8, linkWidth(link, mode) + 4)
           ctx.lineCap = 'round'
           ctx.stroke()
         }}
@@ -736,7 +756,7 @@ export default function NetworkGraphCanvas({
           ctx.moveTo(sx, sy)
           ctx.quadraticCurveTo(cx, cy, tx, ty)
           ctx.strokeStyle = linkColor(link, alpha)
-          ctx.lineWidth = focused ? linkWidth(link) + 1.4 : linkWidth(link)
+          ctx.lineWidth = focused ? linkWidth(link, mode) + 1.4 : linkWidth(link, mode)
           ctx.lineCap = 'round'
           ctx.setLineDash(link.relationshipDash ?? [])
           if (focused) {
@@ -864,18 +884,18 @@ export default function NetworkGraphCanvas({
           const limits = visibleLimitForScale(globalScale)
           const showLabel =
             mode === 'peer'
-              ? node.isCenter || focused || node.relationshipRank <= 7
+              ? true
               : focused || connected || node.rank <= limits.labels
           if (showLabel) {
             const fontSize = (node.isCenter ? 12 : 10.5) / globalScale
             ctx.font = `700 ${fontSize}px Inter, ui-sans-serif, system-ui, sans-serif`
             ctx.textAlign = 'center'
-            ctx.textBaseline = mode === 'peer' ? 'middle' : 'bottom'
+            ctx.textBaseline = node.isCenter && mode === 'peer' ? 'middle' : 'bottom'
             ctx.lineWidth = 3.6 / globalScale
             ctx.strokeStyle = '#07111f'
             ctx.fillStyle = '#f7fbff'
             ctx.globalAlpha = dimmed ? 0.34 : 0.96
-            const labelY = mode === 'peer' ? y : y - radius - 5 / globalScale
+            const labelY = mode === 'peer' && !node.isCenter ? y - radius - 5 / globalScale : mode === 'peer' ? y : y - radius - 5 / globalScale
             ctx.strokeText(node.ticker, x, labelY)
             ctx.fillText(node.ticker, x, labelY)
           }
