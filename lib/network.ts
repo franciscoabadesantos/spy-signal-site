@@ -24,6 +24,7 @@ export type NetworkEdge = {
   relationshipLabel?: string
   relationshipDescription?: string
   relationshipInlineLabel?: string
+  relationshipThemes?: string[]
   relationshipColor?: string
   relationshipAlpha?: number
   relationshipDash?: number[] | null

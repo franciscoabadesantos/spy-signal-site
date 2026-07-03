@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import { forceCenter, forceCollide, forceManyBody, type SimulationNodeDatum } from 'd3-force'
+import { forceCenter, forceCollide, forceManyBody, forceRadial, forceX, forceY, type SimulationNodeDatum } from 'd3-force'
 import { ChartTooltipCard } from '@/components/charts/ChartContainer'
 import type { NetworkEdge, NetworkGraph, NetworkNode } from '@/lib/network'
 import {
@@ -35,7 +35,7 @@ export const NETWORK_PHYSICS = {
   alphaDecay: 0.02,
   cooldownTimeMs: 15_000,
   globalCharge: -90,
-  peerCharge: -180,
+  peerCharge: -72,
   collidePadding: 6,
   peerCollidePadding: 12,
   linkStrengthBase: 0.06,
@@ -43,6 +43,10 @@ export const NETWORK_PHYSICS = {
   mstLinkStrength: 0.45,
   linkDistanceBase: 45,
   linkDistanceSpread: 140,
+  peerOrbitMinDistance: 48,
+  peerOrbitSpread: 220,
+  peerRadialStrength: 0.72,
+  peerSectorStrength: 0.028,
 } as const
 
 export const NETWORK_ARCS = {
@@ -96,6 +100,14 @@ type GraphNode = NetworkNode &
   radius: number
   rank: number
   isCenter: boolean
+  relationshipStrength: number
+  relationshipRank: number
+  relationshipLayer: string | null
+  relationshipThemes: string[]
+  orbitRadius: number
+  orbitAngle: number
+  orbitX: number
+  orbitY: number
   }
 
 type GraphLink = Omit<NetworkEdge, 'source' | 'target'> & {
@@ -185,6 +197,40 @@ function linkCurvature(link: GraphLink, mode: 'global' | 'peer'): number {
   return mode === 'peer' ? NETWORK_ARCS.peerCurvature : NETWORK_ARCS.curvature
 }
 
+function peerOrbitDistance(strength: number): number {
+  const normalized = clamp(Math.abs(strength), 0, 1)
+  return NETWORK_PHYSICS.peerOrbitMinDistance + Math.pow(1 - normalized, 1.15) * NETWORK_PHYSICS.peerOrbitSpread
+}
+
+function hashString(value: string): number {
+  let hash = 0
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0
+  }
+  return hash
+}
+
+function relationshipSectorKey(node: NetworkNode, edge: NetworkEdge | null): string {
+  const theme = edge?.relationshipThemes?.find((item) => item.trim())
+  if (theme) return `theme:${theme.trim().toLowerCase()}`
+  if (node.region) return `region:${node.region}`
+  if (node.country) return `country:${node.country}`
+  if (node.sector) return `sector:${node.sector}`
+  return `ticker:${node.ticker}`
+}
+
+function relationshipSectorAngle(node: NetworkNode, edge: NetworkEdge | null): number {
+  const key = relationshipSectorKey(node, edge)
+  const sector = hashString(key) % 12
+  const jitter = ((hashString(`${key}:${node.ticker}`) % 100) / 100 - 0.5) * 0.34
+  return -Math.PI / 2 + (sector / 12) * Math.PI * 2 + jitter
+}
+
+function formatTooltipConfidence(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '-'
+  return value <= 1 ? `${Math.round(value * 100)}%` : `${Math.round(value)}%`
+}
+
 export function selectGlobalEdges(edges: NetworkEdge[], threshold: number, topK: number): NetworkEdge[] {
   const included = new Map<string, NetworkEdge>()
   const counts = new Map<string, number>()
@@ -271,6 +317,21 @@ function buildGraphData({
           .sort((a, b) => a.absCorrelation - b.absCorrelation)
       : selectGlobalEdges(graph.edges, threshold, topK)
 
+  const centerEdgesByTicker = new Map<string, NetworkEdge>()
+  if (mode === 'peer' && normalizedCenter) {
+    for (const edge of rawEdges) {
+      const peer = edge.source === normalizedCenter ? edge.target : edge.target === normalizedCenter ? edge.source : null
+      if (!peer) continue
+      const current = centerEdgesByTicker.get(peer)
+      if (!current || edge.absCorrelation > current.absCorrelation) centerEdgesByTicker.set(peer, edge)
+    }
+  }
+  const relationshipRanks = new Map(
+    [...centerEdgesByTicker.entries()]
+      .sort((a, b) => b[1].absCorrelation - a[1].absCorrelation || a[0].localeCompare(b[0]))
+      .map(([ticker], index) => [ticker, index + 1])
+  )
+
   const includedTickers = new Set<string>()
   if (mode === 'peer' && normalizedCenter) includedTickers.add(normalizedCenter)
   for (const edge of rawEdges) {
@@ -281,16 +342,33 @@ function buildGraphData({
   const visibleNodes = graph.nodes.filter((node) => (mode === 'peer' ? includedTickers.has(node.ticker) : true))
   const nodes = visibleNodes.map<GraphNode>((node, index) => {
     const isCenter = node.ticker === normalizedCenter
-    const angle = -Math.PI / 2 + (index / Math.max(1, visibleNodes.length)) * Math.PI * 2
-    const ring = mode === 'peer' ? 130 + (index % 3) * 28 : 180 + (index % 9) * 22
+    const relationshipEdge = isCenter ? null : centerEdgesByTicker.get(node.ticker) ?? null
+    const relationshipStrength = relationshipEdge?.absCorrelation ?? 0
+    const angle =
+      mode === 'peer'
+        ? isCenter
+          ? 0
+          : relationshipSectorAngle(node, relationshipEdge)
+        : -Math.PI / 2 + (index / Math.max(1, visibleNodes.length)) * Math.PI * 2
+    const ring = mode === 'peer' ? (isCenter ? 0 : peerOrbitDistance(relationshipStrength)) : 180 + (index % 9) * 22
+    const orbitX = Math.cos(angle) * ring
+    const orbitY = Math.sin(angle) * ring
     return {
       ...node,
       id: node.ticker,
       radius: marketCapRadius(node.marketCap, mode, isCenter),
       rank: capRanks.get(node.ticker) ?? Number.MAX_SAFE_INTEGER,
       isCenter,
-      x: isCenter ? 0 : Math.cos(angle) * ring,
-      y: isCenter ? 0 : Math.sin(angle) * ring,
+      relationshipStrength,
+      relationshipRank: isCenter ? 0 : relationshipRanks.get(node.ticker) ?? Number.MAX_SAFE_INTEGER,
+      relationshipLayer: relationshipEdge?.relationshipLayer ?? null,
+      relationshipThemes: relationshipEdge?.relationshipThemes ?? [],
+      orbitRadius: ring,
+      orbitAngle: angle,
+      orbitX,
+      orbitY,
+      x: isCenter ? 0 : orbitX,
+      y: isCenter ? 0 : orbitY,
       fx: isCenter && mode === 'peer' ? 0 : undefined,
       fy: isCenter && mode === 'peer' ? 0 : undefined,
     }
@@ -459,12 +537,42 @@ export default function NetworkGraphCanvas({
           .iterations(2) as unknown as never
       )
       fg.d3Force('center', forceCenter(0, 0) as unknown as never)
+      fg.d3Force(
+        'peer-radius',
+        (mode === 'peer'
+          ? forceRadial<GraphNode>((node) => (node.isCenter ? 0 : node.orbitRadius), 0, 0).strength((node) =>
+              node.isCenter ? 1 : NETWORK_PHYSICS.peerRadialStrength
+            )
+          : null) as unknown as never
+      )
+      fg.d3Force(
+        'peer-sector-x',
+        (mode === 'peer'
+          ? forceX<GraphNode>((node) => (node.isCenter ? 0 : node.orbitX)).strength((node) =>
+              node.isCenter ? 1 : NETWORK_PHYSICS.peerSectorStrength
+            )
+          : null) as unknown as never
+      )
+      fg.d3Force(
+        'peer-sector-y',
+        (mode === 'peer'
+          ? forceY<GraphNode>((node) => (node.isCenter ? 0 : node.orbitY)).strength((node) =>
+              node.isCenter ? 1 : NETWORK_PHYSICS.peerSectorStrength
+            )
+          : null) as unknown as never
+      )
       const linkForce = fg.d3Force('link') as unknown as MutableLinkForce | undefined
       if (linkForce) {
         linkForce
-          .distance((link: GraphLink) => NETWORK_PHYSICS.linkDistanceBase + (1 - link.absCorrelation) * NETWORK_PHYSICS.linkDistanceSpread)
+          .distance((link: GraphLink) =>
+            mode === 'peer'
+              ? peerOrbitDistance(link.absCorrelation)
+              : NETWORK_PHYSICS.linkDistanceBase + (1 - link.absCorrelation) * NETWORK_PHYSICS.linkDistanceSpread
+          )
           .strength((link: GraphLink) =>
-            link.inMst
+            mode === 'peer'
+              ? 0.68 + link.absCorrelation * 0.22
+              : link.inMst
               ? NETWORK_PHYSICS.mstLinkStrength
               : NETWORK_PHYSICS.linkStrengthBase + link.absCorrelation * NETWORK_PHYSICS.linkStrengthCorrelation
           )
@@ -658,7 +766,7 @@ export default function NetworkGraphCanvas({
             ctx.restore()
           }
 
-          if (link.relationshipInlineLabel) {
+          if (mode !== 'peer' && link.relationshipInlineLabel) {
             const t = 0.5
             const labelX = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * tx
             const labelY = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ty
@@ -749,7 +857,10 @@ export default function NetworkGraphCanvas({
           ctx.stroke()
 
           const limits = visibleLimitForScale(globalScale)
-          const showLabel = mode === 'peer' || focused || connected || node.rank <= limits.labels
+          const showLabel =
+            mode === 'peer'
+              ? node.isCenter || focused || node.relationshipRank <= 7
+              : focused || connected || node.rank <= limits.labels
           if (showLabel) {
             const fontSize = (node.isCenter ? 12 : 10.5) / globalScale
             ctx.font = `700 ${fontSize}px Inter, ui-sans-serif, system-ui, sans-serif`
@@ -786,34 +897,27 @@ export default function NetworkGraphCanvas({
               },
               { label: 'Sector', value: sectorLabel(hoveredNode.sector) },
               { label: 'Market cap', value: formatMarketCap(hoveredNode.marketCap) },
-              {
-                label: centerEdge?.relationshipLabel
-                  ? 'Relationship'
-                  : mode === 'peer' && center
-                    ? `Correlation vs ${center}`
-                    : 'Top correlation',
-                value: centerEdge?.relationshipLabel
-                  ? centerEdge.relationshipLabel
-                  : mode === 'peer'
-                    ? centerEdge?.correlation.toFixed(2) ?? '-'
-                    : strongestEdge?.correlation.toFixed(2) ?? '-',
-                swatchColor: mode === 'peer' ? (centerEdge ? linkColor(centerEdge, 1) : undefined) : strongestEdge ? linkColor(strongestEdge, 1) : undefined,
-              },
-              {
-                label: centerEdge?.relationshipConfidence !== undefined ? 'Confidence' : 'Strength',
-                value:
-                  centerEdge?.relationshipConfidence !== undefined && centerEdge.relationshipConfidence !== null
-                    ? centerEdge.relationshipConfidence <= 1
-                      ? `${Math.round(centerEdge.relationshipConfidence * 100)}%`
-                      : `${Math.round(centerEdge.relationshipConfidence)}%`
-                    : mode === 'peer'
-                      ? centerEdge
-                        ? correlationDescriptor(centerEdge.absCorrelation)
-                        : '-'
-                      : strongestEdge
-                        ? correlationDescriptor(strongestEdge.absCorrelation)
-                        : '-',
-              },
+              ...(mode === 'peer'
+                ? [
+                    {
+                      label: centerEdge?.relationshipLabel ? 'Relationship' : center ? `Correlation vs ${center}` : 'Relationship',
+                      value: centerEdge?.relationshipLabel ?? centerEdge?.correlation.toFixed(2) ?? '-',
+                      swatchColor: centerEdge ? linkColor(centerEdge, 1) : undefined,
+                    },
+                    ...(centerEdge?.relationshipThemes?.length
+                      ? [{ label: 'Themes', value: centerEdge.relationshipThemes.join(', ') }]
+                      : []),
+                    { label: 'Strength', value: centerEdge?.correlation.toFixed(2) ?? '-' },
+                    { label: 'Confidence', value: formatTooltipConfidence(centerEdge?.relationshipConfidence) },
+                  ]
+                : [
+                    {
+                      label: 'Top correlation',
+                      value: strongestEdge?.correlation.toFixed(2) ?? '-',
+                      swatchColor: strongestEdge ? linkColor(strongestEdge, 1) : undefined,
+                    },
+                    { label: 'Strength', value: strongestEdge ? correlationDescriptor(strongestEdge.absCorrelation) : '-' },
+                  ]),
             ]}
           />
         </div>

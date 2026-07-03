@@ -19,6 +19,7 @@ export type LeadLagRelationships = {
 
 export type RelationshipThemePeer = Omit<RelationshipNeighbor, 'direction'> & {
   theme: string | null
+  themes: string[]
 }
 
 export type TickerRelationships = {
@@ -125,11 +126,17 @@ function normalizeThemePeer(neighbor: BackendRelationshipThemePeer): Relationshi
   const strength = finiteNumber(neighbor.strength)
   if (!Number.isFinite(strength)) return null
   const theme = typeof neighbor.theme === 'string' && neighbor.theme.trim() ? neighbor.theme.trim() : null
+  const themes = Array.isArray(neighbor.themes)
+    ? neighbor.themes.map((item) => String(item ?? '').trim()).filter(Boolean)
+    : theme
+      ? [theme]
+      : []
   return {
     symbol,
     strength,
     confidence: finiteNumber(neighbor.confidence),
     theme,
+    themes,
   }
 }
 
