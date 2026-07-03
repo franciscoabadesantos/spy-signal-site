@@ -43,9 +43,9 @@ export const NETWORK_PHYSICS = {
   mstLinkStrength: 0.45,
   linkDistanceBase: 45,
   linkDistanceSpread: 140,
-  peerOrbitMinDistance: 34,
-  peerOrbitSpread: 300,
-  peerRadialStrength: 2.4,
+  peerOrbitMinDistance: 30,
+  peerOrbitSpread: 188,
+  peerRadialStrength: 2.7,
   peerSectorStrength: 0.006,
 } as const
 
@@ -162,9 +162,10 @@ function marketCapRadius(marketCap: number | null, isCenter: boolean): number {
   return isCenter ? Math.max(14, radius) : radius
 }
 
-function peerNodeRadius(strength: number, isCenter: boolean): number {
-  if (isCenter) return 15
-  return 7 + clamp(Math.abs(strength), 0, 1) * 5
+function peerNodeRadius(strengthScore: number, isCenter: boolean): number {
+  if (isCenter) return 18
+  const normalized = clamp(strengthScore, 0, 1)
+  return 10.5 + Math.sqrt(normalized) * 6.5
 }
 
 function linkColor(edge: Pick<NetworkEdge, 'correlation' | 'relationshipColor'>, alpha = 1): string {
@@ -179,8 +180,8 @@ function linkColor(edge: Pick<NetworkEdge, 'correlation' | 'relationshipColor'>,
 function linkWidth(edge: Pick<NetworkEdge, 'inMst' | 'absCorrelation' | 'relationshipWidthBoost' | 'relationshipConfidence'> & { visualConfidence?: number | null }, mode: 'global' | 'peer'): number {
   if (mode === 'peer') {
     const confidence = edge.visualConfidence ?? confidenceValue(edge.relationshipConfidence)
-    if (confidence !== null) return 1.35 + confidence * 7.4
-    return 1.5 + edge.absCorrelation * 2.4
+    if (confidence !== null) return 1.8 + confidence * 8.8
+    return 2 + edge.absCorrelation * 3
   }
   return (edge.inMst ? NETWORK_ARCS.mstWidth : NETWORK_ARCS.baseWidth) + edge.absCorrelation * NETWORK_ARCS.correlationWidth + (edge.relationshipWidthBoost ?? 0)
 }
@@ -216,7 +217,7 @@ function peerOrbitDistance(strength: number): number {
 
 function peerVisualOrbitDistance(score: number): number {
   const normalized = clamp(score, 0, 1)
-  return NETWORK_PHYSICS.peerOrbitMinDistance + 52 + Math.pow(1 - normalized, 1.15) * NETWORK_PHYSICS.peerOrbitSpread
+  return NETWORK_PHYSICS.peerOrbitMinDistance + 30 + Math.pow(1 - normalized, 1.08) * NETWORK_PHYSICS.peerOrbitSpread
 }
 
 function confidenceValue(value: number | null | undefined): number | null {
@@ -406,7 +407,7 @@ function buildGraphData({
     return {
       ...node,
       id: node.ticker,
-      radius: mode === 'peer' ? peerNodeRadius(relationshipStrength, isCenter) : marketCapRadius(node.marketCap, isCenter),
+      radius: mode === 'peer' ? peerNodeRadius(relativeScore(relationshipStrength, minPeerStrength, maxPeerStrength), isCenter) : marketCapRadius(node.marketCap, isCenter),
       rank: capRanks.get(node.ticker) ?? Number.MAX_SAFE_INTEGER,
       isCenter,
       relationshipStrength,
@@ -638,7 +639,7 @@ export default function NetworkGraphCanvas({
 
       fg.d3ReheatSimulation()
       fitTimer = window.setTimeout(() => {
-        fg.zoomToFit(650, mode === 'peer' ? 54 : 42, (node) => nodeIsVisibleRef.current(node as GraphNode))
+        fg.zoomToFit(650, mode === 'peer' ? 28 : 42, (node) => nodeIsVisibleRef.current(node as GraphNode))
         if (mode === 'peer') centerTimer = window.setTimeout(() => fg.centerAt(0, 0, 450), 680)
       }, 80)
     }

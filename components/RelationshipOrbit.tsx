@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import ChartContainer from '@/components/charts/ChartContainer'
 import NetworkGraphCanvas from '@/components/NetworkGraphCanvas'
 import type { NetworkEdge, NetworkGraph, NetworkNode } from '@/lib/network'
@@ -450,8 +450,15 @@ type ThemeRegion = {
   hiddenCount: number
 }
 
+type ThemeRect = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 const THEME_DIAGRAM_WIDTH = 360
-const THEME_DIAGRAM_HEIGHT = 320
+const THEME_DIAGRAM_HEIGHT = 344
 const THEME_COLORS = [
   { fill: 'rgba(54, 179, 255, 0.14)', stroke: 'rgba(54, 179, 255, 0.7)' },
   { fill: 'rgba(167, 243, 208, 0.14)', stroke: 'rgba(167, 243, 208, 0.7)' },
@@ -482,38 +489,81 @@ function regionBoxSize(members: ThemeDiagramPoint[], hiddenCount: number, isInte
   return { width, height }
 }
 
-function relaxThemeRegions(regions: ThemeRegion[]): ThemeRegion[] {
-  const relaxed = regions.map((region) => ({ ...region }))
-  for (let iteration = 0; iteration < 24; iteration += 1) {
-    for (let left = 0; left < relaxed.length; left += 1) {
-      for (let right = left + 1; right < relaxed.length; right += 1) {
-        const a = relaxed[left]
-        const b = relaxed[right]
-        const overlapX = (a.boxWidth + b.boxWidth) / 2 - Math.abs(a.x - b.x)
-        const overlapY = (a.boxHeight + b.boxHeight) / 2 - Math.abs(a.y - b.y)
-        if (overlapX <= 0 || overlapY <= 0) continue
-        const dx = a.x <= b.x ? -1 : 1
-        const dy = a.y <= b.y ? -1 : 1
-        if (overlapX < overlapY) {
-          relaxed[left] = { ...a, x: a.x + dx * overlapX * 0.55 }
-          relaxed[right] = { ...b, x: b.x - dx * overlapX * 0.55 }
-        } else {
-          relaxed[left] = { ...a, y: a.y + dy * overlapY * 0.55 }
-          relaxed[right] = { ...b, y: b.y - dy * overlapY * 0.55 }
-        }
-      }
-    }
-
-    for (let index = 0; index < relaxed.length; index += 1) {
-      const region = relaxed[index]
-      relaxed[index] = {
-        ...region,
-        x: Math.max(region.boxWidth / 2 + 8, Math.min(THEME_DIAGRAM_WIDTH - region.boxWidth / 2 - 8, region.x)),
-        y: Math.max(region.boxHeight / 2 + 12, Math.min(THEME_DIAGRAM_HEIGHT - region.boxHeight / 2 - 8, region.y)),
-      }
-    }
+function rectForRegion(region: ThemeRegion, x = region.x, y = region.y): ThemeRect {
+  return {
+    x: x - region.boxWidth / 2,
+    y: y - region.boxHeight / 2,
+    width: region.boxWidth,
+    height: region.boxHeight,
   }
-  return relaxed
+}
+
+function rectOverlap(a: ThemeRect, b: ThemeRect, gap = 6): number {
+  const overlapX = Math.min(a.x + a.width + gap, b.x + b.width + gap) - Math.max(a.x - gap, b.x - gap)
+  const overlapY = Math.min(a.y + a.height + gap, b.y + b.height + gap) - Math.max(a.y - gap, b.y - gap)
+  if (overlapX <= 0 || overlapY <= 0) return 0
+  return overlapX * overlapY
+}
+
+function clampRegionPoint(region: ThemeRegion, x: number, y: number): { x: number; y: number } {
+  return {
+    x: Math.max(region.boxWidth / 2 + 10, Math.min(THEME_DIAGRAM_WIDTH - region.boxWidth / 2 - 10, x)),
+    y: Math.max(region.boxHeight / 2 + 14, Math.min(THEME_DIAGRAM_HEIGHT - region.boxHeight / 2 - 10, y)),
+  }
+}
+
+function regionCandidates(region: ThemeRegion): Array<{ x: number; y: number }> {
+  const offsets = [
+    [0, 0],
+    [0, -26],
+    [0, 26],
+    [-40, 0],
+    [40, 0],
+    [-42, -24],
+    [42, -24],
+    [-42, 24],
+    [42, 24],
+    [0, -54],
+    [0, 54],
+    [-78, 0],
+    [78, 0],
+    [-78, -36],
+    [78, -36],
+    [-78, 36],
+    [78, 36],
+  ] as const
+  return offsets.map(([dx, dy]) => clampRegionPoint(region, region.x + dx, region.y + dy))
+}
+
+function packThemeRegions(regions: ThemeRegion[]): ThemeRegion[] {
+  const placed: ThemeRegion[] = []
+  const ordered = [...regions].sort(
+    (a, b) =>
+      Number(b.members.some((member) => member.isCenter)) - Number(a.members.some((member) => member.isCenter)) ||
+      b.membership.length - a.membership.length ||
+      b.boxWidth * b.boxHeight - a.boxWidth * a.boxHeight
+  )
+
+  for (const region of ordered) {
+    const candidates = regionCandidates(region)
+    let best = candidates[0]
+    let bestScore = Number.POSITIVE_INFINITY
+    for (const candidate of candidates) {
+      const rect = rectForRegion(region, candidate.x, candidate.y)
+      const overlap = placed.reduce((sum, item) => sum + rectOverlap(rect, rectForRegion(item)), 0)
+      const distance = Math.hypot(candidate.x - region.x, candidate.y - region.y)
+      const score = overlap * 1000 + distance
+      if (score < bestScore) {
+        best = candidate
+        bestScore = score
+      }
+      if (overlap === 0 && distance < 1) break
+    }
+    placed.push({ ...region, x: best.x, y: best.y })
+  }
+
+  const order = new Map(regions.map((region, index) => [region.key, index]))
+  return placed.sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
 }
 
 function circleDistanceForOverlap(a: ThemeCircle, b: ThemeCircle, overlapRatio: number): number {
@@ -535,6 +585,7 @@ function ThemeSetDiagram({
   centerName: string | null
   relationships: TickerRelationships
 }) {
+  const svgId = useId().replace(/:/g, '')
   const [hover, setHover] = useState<ThemeDiagramPoint | null>(null)
   const data = useMemo(() => {
     const nodeLookup = new Map(relationships.nodes.map((node) => [node.ticker, node]))
@@ -655,7 +706,7 @@ function ThemeSetDiagram({
       const membership = regionKey.split(',').map((index) => Number(index))
       const anchor = anchorFor(membership)
       const sortedPeers = [...peerItems].sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol))
-      const visibleLimit = membership.length > 1 ? 3 : 2
+      const visibleLimit = membership.length > 1 ? 2 : 2
       const members = sortedPeers.slice(0, visibleLimit).map<ThemeDiagramPoint>((peer) => {
         const node = nodeLookup.get(peer.symbol)
         return {
@@ -702,7 +753,7 @@ function ThemeSetDiagram({
         membership: circles.map((_, index) => index),
         label: 'Central company',
         x: 286,
-        y: 32,
+        y: 34,
         boxWidth: boxSize.width,
         boxHeight: boxSize.height,
         isIntersection: false,
@@ -711,7 +762,7 @@ function ThemeSetDiagram({
       })
     }
 
-    return { selectedThemes, overflowThemes, circles, regions: relaxThemeRegions(regions) }
+    return { selectedThemes, overflowThemes, circles, regions: packThemeRegions(regions) }
   }, [centerName, centerTicker, relationships])
 
   if (data.selectedThemes.length === 0) {
@@ -728,28 +779,43 @@ function ThemeSetDiagram({
         <div className="text-filter-label">Theme set</div>
         {data.overflowThemes > 0 ? <div className="text-caption text-content-muted">+{data.overflowThemes} more themes</div> : null}
       </div>
-      <svg viewBox={`0 0 ${THEME_DIAGRAM_WIDTH} ${THEME_DIAGRAM_HEIGHT}`} role="img" aria-label={`${centerTicker} theme membership`} className="h-[310px] w-full">
+      <div className="mb-2 flex flex-wrap gap-1.5">
         {data.circles.map((circle) => (
+          <div key={circle.key} className="flex items-center gap-1 rounded-[6px] border border-border bg-surface-elevated px-2 py-1 text-[9px] font-semibold text-content-secondary">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: circle.stroke }} />
+            <span>{shortThemeLabel(circle.label)}</span>
+            <span className="text-content-muted">{circle.count}</span>
+          </div>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${THEME_DIAGRAM_WIDTH} ${THEME_DIAGRAM_HEIGHT}`} role="img" aria-label={`${centerTicker} theme membership`} className="h-[330px] w-full">
+        <defs>
+          <filter id={`${svgId}-theme-set-shadow`} x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="10" stdDeviation="10" floodColor="#000000" floodOpacity="0.28" />
+          </filter>
+          <filter id={`${svgId}-theme-chip-shadow`} x="-30%" y="-60%" width="160%" height="220%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.42" />
+          </filter>
+          {data.circles.map((circle, index) => (
+            <radialGradient key={`gradient:${circle.key}`} id={`${svgId}-theme-gradient-${index}`} cx="38%" cy="30%" r="72%">
+              <stop offset="0%" stopColor={circle.stroke} stopOpacity="0.28" />
+              <stop offset="58%" stopColor={circle.fill} stopOpacity="0.7" />
+              <stop offset="100%" stopColor={circle.fill} stopOpacity="0.24" />
+            </radialGradient>
+          ))}
+        </defs>
+        {data.circles.map((circle, index) => (
           <g key={circle.key}>
             <circle
               cx={circle.x}
               cy={circle.y}
               r={circle.r}
-              fill={circle.fill}
+              fill={`url(#${svgId}-theme-gradient-${index})`}
               stroke={circle.stroke}
-              strokeWidth="1.4"
+              strokeWidth="1.6"
+              filter={`url(#${svgId}-theme-set-shadow)`}
             />
-            <text
-              x={circle.x}
-              y={Math.max(16, circle.y - circle.r - 6)}
-              textAnchor="middle"
-              className="fill-content-secondary text-[10px] font-bold"
-            >
-              {shortThemeLabel(circle.label)}
-            </text>
-            <text x={circle.x} y={Math.max(28, circle.y - circle.r + 7)} textAnchor="middle" className="fill-content-muted text-[8px] font-semibold">
-              {circle.count} members
-            </text>
+            <circle cx={circle.x - circle.r * 0.24} cy={circle.y - circle.r * 0.26} r={circle.r * 0.28} fill="rgba(247,251,255,0.08)" />
           </g>
         ))}
         {data.regions.map((region) => (
@@ -774,6 +840,7 @@ function ThemeSetDiagram({
                     fill={member.isCenter ? 'rgba(247, 251, 255, 0.96)' : region.isIntersection ? 'rgba(7,17,31,0.94)' : 'rgba(7,17,31,0.72)'}
                     stroke={member.isCenter ? 'rgba(247, 251, 255, 1)' : region.isIntersection ? 'rgba(247,251,255,0.78)' : 'rgba(247,251,255,0.38)'}
                     strokeWidth={region.isIntersection || member.isCenter ? 1.2 : 0.8}
+                    filter={`url(#${svgId}-theme-chip-shadow)`}
                   />
                   <text
                     x={region.x}
