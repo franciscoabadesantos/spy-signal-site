@@ -423,10 +423,54 @@ type ThemeDiagramPoint = {
   strength: number | null
   confidence: number | null
   themes: string[]
+  isCenter: boolean
+}
+
+type ThemeCircle = {
+  key: string
+  label: string
+  count: number
   x: number
   y: number
-  radius: number
-  isCenter: boolean
+  r: number
+  fill: string
+  stroke: string
+}
+
+type ThemeRegion = {
+  key: string
+  membership: number[]
+  label: string
+  x: number
+  y: number
+  isIntersection: boolean
+  members: ThemeDiagramPoint[]
+  hiddenCount: number
+}
+
+const THEME_COLORS = [
+  { fill: 'rgba(54, 179, 255, 0.14)', stroke: 'rgba(54, 179, 255, 0.7)' },
+  { fill: 'rgba(167, 243, 208, 0.14)', stroke: 'rgba(167, 243, 208, 0.7)' },
+  { fill: 'rgba(255, 203, 71, 0.14)', stroke: 'rgba(255, 203, 71, 0.7)' },
+] as const
+
+function shortThemeLabel(theme: string): string {
+  const label = themeDisplayName(theme)
+  return label.length > 15 ? `${label.slice(0, 14)}...` : label
+}
+
+function shortTickerLabel(symbol: string): string {
+  return symbol.length > 7 ? `${symbol.slice(0, 6)}...` : symbol
+}
+
+function circleDistanceForOverlap(a: ThemeCircle, b: ThemeCircle, overlapRatio: number): number {
+  const minDistance = Math.abs(a.r - b.r) + Math.min(a.r, b.r) * 0.52
+  const maxDistance = a.r + b.r - 16
+  return Math.max(minDistance, Math.min(maxDistance, maxDistance - overlapRatio * Math.min(a.r, b.r) * 1.05))
+}
+
+function membershipKey(membership: number[]): string {
+  return membership.join(',')
 }
 
 function ThemeSetDiagram({
@@ -441,50 +485,105 @@ function ThemeSetDiagram({
   const [hover, setHover] = useState<ThemeDiagramPoint | null>(null)
   const data = useMemo(() => {
     const nodeLookup = new Map(relationships.nodes.map((node) => [node.ticker, node]))
-    const themeScores = new Map<string, { label: string; count: number; maxStrength: number }>()
+    const themeScores = new Map<string, { label: string; members: Set<string>; maxStrength: number }>()
     for (const peer of relationships.themePeers) {
       for (const theme of peerThemes(peer)) {
         const key = themeKey(theme)
         const current = themeScores.get(key)
         if (current) {
-          current.count += 1
+          current.members.add(peer.symbol)
           current.maxStrength = Math.max(current.maxStrength, Math.abs(peer.strength))
         } else {
-          themeScores.set(key, { label: theme, count: 1, maxStrength: Math.abs(peer.strength) })
+          themeScores.set(key, { label: theme, members: new Set([peer.symbol]), maxStrength: Math.abs(peer.strength) })
         }
       }
     }
 
     const selectedThemes = [...themeScores.values()]
-      .sort((a, b) => b.maxStrength - a.maxStrength || b.count - a.count || a.label.localeCompare(b.label))
+      .sort((a, b) => b.members.size - a.members.size || b.maxStrength - a.maxStrength || a.label.localeCompare(b.label))
       .slice(0, 3)
       .map((item) => item.label)
     const selectedKeys = selectedThemes.map(themeKey)
     const overflowThemes = Math.max(0, themeScores.size - selectedThemes.length)
+    const peerRecords = relationships.themePeers
+      .map((peer) => {
+        const peerThemeKeys = new Set(peerThemes(peer).map(themeKey))
+        const membership = selectedKeys.map((key, index) => (peerThemeKeys.has(key) ? index : -1)).filter((index) => index >= 0)
+        return { peer, membership }
+      })
+      .filter((item) => item.membership.length > 0)
 
-    const circleGeometry = [
-      [{ x: 150, y: 118, r: 74 }],
-      [
-        { x: 124, y: 118, r: 72 },
-        { x: 176, y: 118, r: 72 },
-      ],
-      [
-        { x: 150, y: 92, r: 68 },
-        { x: 118, y: 148, r: 68 },
-        { x: 182, y: 148, r: 68 },
-      ],
-    ][Math.max(0, selectedThemes.length - 1)] ?? []
+    const counts = selectedKeys.map((key) => peerRecords.filter((item) => item.membership.includes(selectedKeys.indexOf(key))).length + 1)
+    const maxCount = Math.max(1, ...counts)
+    let circles: ThemeCircle[] = selectedThemes.map((theme, index) => ({
+      key: selectedKeys[index],
+      label: theme,
+      count: counts[index],
+      x: 180,
+      y: 138,
+      r: 52 + Math.sqrt(counts[index] / maxCount) * 34,
+      fill: THEME_COLORS[index].fill,
+      stroke: THEME_COLORS[index].stroke,
+    }))
+
+    const pairOverlapRatio = (left: number, right: number) => {
+      const overlap = peerRecords.filter((item) => item.membership.includes(left) && item.membership.includes(right)).length + 1
+      return Math.min(1, overlap / Math.max(1, Math.min(counts[left], counts[right])))
+    }
+
+    if (circles.length === 1) {
+      circles = [{ ...circles[0], x: 180, y: 142 }]
+    } else if (circles.length === 2) {
+      const distance = circleDistanceForOverlap(circles[0], circles[1], pairOverlapRatio(0, 1))
+      circles = [
+        { ...circles[0], x: 180 - distance / 2, y: 142 },
+        { ...circles[1], x: 180 + distance / 2, y: 142 },
+      ]
+    } else if (circles.length === 3) {
+      circles = [
+        { ...circles[0], x: 180, y: 102 },
+        { ...circles[1], x: 132, y: 178 },
+        { ...circles[2], x: 228, y: 178 },
+      ]
+      for (let iteration = 0; iteration < 2; iteration += 1) {
+        for (const [left, right] of [
+          [0, 1],
+          [0, 2],
+          [1, 2],
+        ] as const) {
+          const ratio = pairOverlapRatio(left, right)
+          const dx = circles[right].x - circles[left].x
+          const dy = circles[right].y - circles[left].y
+          const length = Math.max(1, Math.hypot(dx, dy))
+          const target = circleDistanceForOverlap(circles[left], circles[right], ratio)
+          const delta = (length - target) * 0.28
+          const moveX = (dx / length) * delta
+          const moveY = (dy / length) * delta
+          circles[left] = { ...circles[left], x: circles[left].x + moveX, y: circles[left].y + moveY }
+          circles[right] = { ...circles[right], x: circles[right].x - moveX, y: circles[right].y - moveY }
+        }
+      }
+    }
+
+    const diagramCenter = {
+      x: circles.reduce((sum, circle) => sum + circle.x, 0) / Math.max(1, circles.length),
+      y: circles.reduce((sum, circle) => sum + circle.y, 0) / Math.max(1, circles.length),
+    }
 
     const anchorFor = (membership: number[]) => {
-      if (membership.length === 0 || circleGeometry.length === 0) return { x: 150, y: 118 }
-      const points = membership.map((index) => circleGeometry[index])
-      const x = points.reduce((sum, point) => sum + point.x, 0) / points.length
-      const y = points.reduce((sum, point) => sum + point.y, 0) / points.length
-      if (membership.length === 1 && selectedThemes.length > 1) {
-        const dx = x - 150
-        const dy = y - 118
+      if (membership.length === 0 || circles.length === 0) return diagramCenter
+      const selected = membership.map((index) => circles[index])
+      const x = selected.reduce((sum, circle) => sum + circle.x, 0) / selected.length
+      const y = selected.reduce((sum, circle) => sum + circle.y, 0) / selected.length
+      if (membership.length === 1 && circles.length > 1) {
+        const circle = selected[0]
+        const dx = circle.x - diagramCenter.x
+        const dy = circle.y - diagramCenter.y
         const length = Math.max(1, Math.hypot(dx, dy))
-        return { x: x + (dx / length) * 20, y: y + (dy / length) * 20 }
+        return {
+          x: circle.x + (dx / length) * circle.r * 0.34,
+          y: circle.y + (dy / length) * circle.r * 0.34,
+        }
       }
       return { x, y }
     }
@@ -494,52 +593,66 @@ function ThemeSetDiagram({
       const keys = new Set(peerThemes(peer).map(themeKey))
       const membership = selectedKeys.map((key, index) => (keys.has(key) ? index : -1)).filter((index) => index >= 0)
       if (membership.length === 0) continue
-      const regionKey = membership.join(',')
+      const regionKey = membershipKey(membership)
       peersByRegion.set(regionKey, [...(peersByRegion.get(regionKey) ?? []), peer])
     }
 
-    const points: ThemeDiagramPoint[] = []
-    for (const [regionKey, peers] of peersByRegion) {
+    const regions: ThemeRegion[] = []
+    for (const [regionKey, peerItems] of peersByRegion) {
       const membership = regionKey.split(',').map((index) => Number(index))
       const anchor = anchorFor(membership)
-      const sortedPeers = [...peers].sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol))
-      const visiblePeers = sortedPeers.slice(0, 18)
-      visiblePeers.forEach((peer, index) => {
+      const sortedPeers = [...peerItems].sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol))
+      const visibleLimit = membership.length > 1 ? 5 : 3
+      const members = sortedPeers.slice(0, visibleLimit).map<ThemeDiagramPoint>((peer) => {
         const node = nodeLookup.get(peer.symbol)
-        const angle = -Math.PI / 2 + (index / Math.max(1, visiblePeers.length)) * Math.PI * 2
-        const spread = membership.length > 1 ? 16 : 24
-        points.push({
+        return {
           symbol: peer.symbol,
           name: node?.name ?? null,
           country: countryDisplayName(node?.country ?? null, node?.region ?? null),
           strength: peer.strength,
           confidence: peer.confidence,
           themes: peerThemes(peer).filter((theme) => selectedKeys.includes(themeKey(theme))),
-          x: anchor.x + Math.cos(angle) * spread,
-          y: anchor.y + Math.sin(angle) * spread,
-          radius: 4.5 + Math.min(4, Math.abs(peer.strength) * 4),
           isCenter: false,
-        })
+        }
+      })
+      regions.push({
+        key: regionKey,
+        membership,
+        label: membership.map((index) => shortThemeLabel(selectedThemes[index])).join(' ∩ '),
+        x: anchor.x,
+        y: anchor.y,
+        isIntersection: membership.length > 1,
+        members,
+        hiddenCount: Math.max(0, sortedPeers.length - members.length),
       })
     }
 
+    const centerAnchor = anchorFor(circles.map((_, index) => index))
+    const centerNode = relationships.node
     if (selectedThemes.length > 0) {
-      const centerNode = relationships.node
-      points.push({
+      const centerPoint: ThemeDiagramPoint = {
         symbol: centerTicker,
         name: centerName,
         country: countryDisplayName(centerNode?.country ?? null, centerNode?.region ?? null),
         strength: null,
         confidence: null,
         themes: selectedThemes,
-        x: 150,
-        y: selectedThemes.length === 3 ? 128 : 118,
-        radius: 8.5,
         isCenter: true,
+      }
+      const centerRegionKey = `center:${membershipKey(circles.map((_, index) => index))}`
+      regions.push({
+        key: centerRegionKey,
+        membership: circles.map((_, index) => index),
+        label: 'Central company',
+        x: centerAnchor.x,
+        y: centerAnchor.y - (circles.length === 1 ? 4 : 10),
+        isIntersection: circles.length > 1,
+        members: [centerPoint],
+        hiddenCount: 0,
       })
     }
 
-    return { selectedThemes, overflowThemes, circles: circleGeometry, points }
+    return { selectedThemes, overflowThemes, circles, regions }
   }, [centerName, centerTicker, relationships])
 
   if (data.selectedThemes.length === 0) {
@@ -556,59 +669,79 @@ function ThemeSetDiagram({
         <div className="text-filter-label">Theme set</div>
         {data.overflowThemes > 0 ? <div className="text-caption text-content-muted">+{data.overflowThemes} more themes</div> : null}
       </div>
-      <svg viewBox="0 0 300 230" role="img" aria-label={`${centerTicker} theme membership`} className="h-[220px] w-full">
-        {data.circles.map((circle, index) => (
-          <g key={data.selectedThemes[index]}>
+      <svg viewBox="0 0 360 300" role="img" aria-label={`${centerTicker} theme membership`} className="h-[292px] w-full">
+        {data.circles.map((circle) => (
+          <g key={circle.key}>
             <circle
               cx={circle.x}
               cy={circle.y}
               r={circle.r}
-              fill={['rgba(54, 179, 255, 0.12)', 'rgba(167, 243, 208, 0.12)', 'rgba(255, 203, 71, 0.12)'][index]}
-              stroke={['rgba(54, 179, 255, 0.58)', 'rgba(167, 243, 208, 0.58)', 'rgba(255, 203, 71, 0.58)'][index]}
-              strokeWidth="1.2"
+              fill={circle.fill}
+              stroke={circle.stroke}
+              strokeWidth="1.4"
             />
             <text
               x={circle.x}
-              y={circle.y - circle.r + 17}
+              y={circle.y - circle.r + 16}
               textAnchor="middle"
-              className="fill-content-secondary text-[10px] font-semibold"
+              className="fill-content-secondary text-[10px] font-bold"
             >
-              {themeDisplayName(data.selectedThemes[index])}
+              {shortThemeLabel(circle.label)}
+            </text>
+            <text x={circle.x} y={circle.y - circle.r + 29} textAnchor="middle" className="fill-content-muted text-[8px] font-semibold">
+              {circle.count} members
             </text>
           </g>
         ))}
-        {data.points.map((point) => (
-          <g
-            key={`${point.isCenter ? 'center' : 'peer'}:${point.symbol}`}
-            onMouseEnter={() => setHover(point)}
-            onMouseLeave={() => setHover(null)}
-            className="cursor-default"
-          >
-            <circle
-              cx={point.x}
-              cy={point.y}
-              r={point.radius + (point.isCenter ? 3 : 1.5)}
-              fill={point.isCenter ? 'rgba(255,255,255,0.2)' : 'rgba(7,17,31,0.88)'}
-              stroke={point.isCenter ? 'rgba(255,255,255,0.92)' : 'rgba(247,251,255,0.52)'}
-              strokeWidth={point.isCenter ? 1.8 : 1}
-            />
-            <circle
-              cx={point.x}
-              cy={point.y}
-              r={point.radius}
-              fill={point.isCenter ? '#f7fbff' : '#A7F3D0'}
-              opacity={point.isCenter ? 1 : 0.86}
-            />
-            {(point.isCenter || point.radius >= 7.5) && (
-              <text
-                x={point.x}
-                y={point.y - point.radius - 5}
-                textAnchor="middle"
-                className="fill-content-primary text-[9px] font-bold"
-              >
-                {point.symbol}
+        {data.regions.map((region) => (
+          <g key={region.key}>
+            {region.isIntersection && region.members.some((member) => !member.isCenter) ? (
+              <text x={region.x} y={region.y - 32} textAnchor="middle" className="fill-content-primary text-[8px] font-bold">
+                {region.label}
               </text>
-            )}
+            ) : null}
+            {region.members.map((member, memberIndex) => {
+              const y = region.y + (memberIndex - (region.members.length - 1) / 2) * 18
+              const label = member.isCenter ? `${member.symbol} center` : shortTickerLabel(member.symbol)
+              const width = member.isCenter ? 82 : Math.max(38, label.length * 6.5 + 14)
+              return (
+                <g
+                  key={`${region.key}:${member.symbol}`}
+                  onMouseEnter={() => setHover(member)}
+                  onMouseLeave={() => setHover(null)}
+                  className="cursor-default"
+                >
+                  <rect
+                    x={region.x - width / 2}
+                    y={y - 8}
+                    width={width}
+                    height="16"
+                    rx="4"
+                    fill={member.isCenter ? 'rgba(247, 251, 255, 0.96)' : region.isIntersection ? 'rgba(7,17,31,0.94)' : 'rgba(7,17,31,0.72)'}
+                    stroke={member.isCenter ? 'rgba(247, 251, 255, 1)' : region.isIntersection ? 'rgba(247,251,255,0.78)' : 'rgba(247,251,255,0.38)'}
+                    strokeWidth={region.isIntersection || member.isCenter ? 1.2 : 0.8}
+                  />
+                  <text
+                    x={region.x}
+                    y={y + 3.5}
+                    textAnchor="middle"
+                    className={member.isCenter ? 'fill-[#07111f] text-[9px] font-black' : 'fill-content-primary text-[9px] font-bold'}
+                  >
+                    {label}
+                  </text>
+                </g>
+              )
+            })}
+            {region.hiddenCount > 0 ? (
+              <text
+                x={region.x}
+                y={region.y + (region.members.length / 2) * 18 + 13}
+                textAnchor="middle"
+                className="fill-content-muted text-[8px] font-semibold"
+              >
+                +{region.hiddenCount} more
+              </text>
+            ) : null}
           </g>
         ))}
       </svg>
@@ -699,7 +832,7 @@ export default function RelationshipOrbit({
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="relative min-h-[380px] overflow-hidden rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[var(--bg-surface)] p-3">
           {hasVisibleRelationships ? (
             <ChartContainer className="h-[380px]" loadingText="Loading relationship map...">

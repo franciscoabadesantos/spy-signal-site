@@ -35,18 +35,18 @@ export const NETWORK_PHYSICS = {
   alphaDecay: 0.02,
   cooldownTimeMs: 15_000,
   globalCharge: -90,
-  peerCharge: -72,
+  peerCharge: -10,
   collidePadding: 6,
-  peerCollidePadding: 12,
+  peerCollidePadding: 4,
   linkStrengthBase: 0.06,
   linkStrengthCorrelation: 0.28,
   mstLinkStrength: 0.45,
   linkDistanceBase: 45,
   linkDistanceSpread: 140,
-  peerOrbitMinDistance: 48,
-  peerOrbitSpread: 220,
-  peerRadialStrength: 0.72,
-  peerSectorStrength: 0.028,
+  peerOrbitMinDistance: 38,
+  peerOrbitSpread: 285,
+  peerRadialStrength: 1.35,
+  peerSectorStrength: 0.016,
 } as const
 
 export const NETWORK_ARCS = {
@@ -149,15 +149,20 @@ function correlationDescriptor(absCorrelation: number): 'Strong' | 'Moderate' | 
   return 'Weak'
 }
 
-function marketCapRadius(marketCap: number | null, mode: 'global' | 'peer', isCenter: boolean): number {
-  if (!marketCap || !Number.isFinite(marketCap) || marketCap <= 0) return mode === 'peer' ? 9 : 5
+function marketCapRadius(marketCap: number | null, isCenter: boolean): number {
+  if (!marketCap || !Number.isFinite(marketCap) || marketCap <= 0) return 5
   // Market cap spans ~1000x (billions -> trillions). Log keeps it on-screen; the power>1 and the
   // wide radius range make megacaps clearly dominate while small caps stay visible.
   // Window ~ $1B (log 9) to ~$4T (log 12.6); values above clamp so one outlier can't dwarf the rest.
   const normalized = clamp((Math.log10(marketCap) - 9) / 3.6, 0, 1)
   const emphasized = Math.pow(normalized, 1.5)
-  const radius = mode === 'peer' ? 9 + emphasized * 27 : 5 + emphasized * 28
+  const radius = 5 + emphasized * 28
   return isCenter ? Math.max(14, radius) : radius
+}
+
+function peerNodeRadius(strength: number, isCenter: boolean): number {
+  if (isCenter) return 15
+  return 7 + clamp(Math.abs(strength), 0, 1) * 5
 }
 
 function linkColor(edge: Pick<NetworkEdge, 'correlation' | 'relationshipColor'>, alpha = 1): string {
@@ -199,7 +204,7 @@ function linkCurvature(link: GraphLink, mode: 'global' | 'peer'): number {
 
 function peerOrbitDistance(strength: number): number {
   const normalized = clamp(Math.abs(strength), 0, 1)
-  return NETWORK_PHYSICS.peerOrbitMinDistance + Math.pow(1 - normalized, 1.15) * NETWORK_PHYSICS.peerOrbitSpread
+  return NETWORK_PHYSICS.peerOrbitMinDistance + Math.pow(1 - normalized, 1.75) * NETWORK_PHYSICS.peerOrbitSpread
 }
 
 function hashString(value: string): number {
@@ -356,7 +361,7 @@ function buildGraphData({
     return {
       ...node,
       id: node.ticker,
-      radius: marketCapRadius(node.marketCap, mode, isCenter),
+      radius: mode === 'peer' ? peerNodeRadius(relationshipStrength, isCenter) : marketCapRadius(node.marketCap, isCenter),
       rank: capRanks.get(node.ticker) ?? Number.MAX_SAFE_INTEGER,
       isCenter,
       relationshipStrength,
@@ -571,7 +576,7 @@ export default function NetworkGraphCanvas({
           )
           .strength((link: GraphLink) =>
             mode === 'peer'
-              ? 0.68 + link.absCorrelation * 0.22
+              ? 0.28 + link.absCorrelation * 0.18
               : link.inMst
               ? NETWORK_PHYSICS.mstLinkStrength
               : NETWORK_PHYSICS.linkStrengthBase + link.absCorrelation * NETWORK_PHYSICS.linkStrengthCorrelation
