@@ -16,7 +16,7 @@ export default function AskUsForm() {
     event.preventDefault()
     if (!message.trim()) return
 
-    const subject = 'A question for the lounge'
+    const subject = 'A question for Longbrunch'
     const body = `${message.trim()}\n\n— sent from the FAQ page${email.trim() ? `\nReply to: ${email.trim()}` : ''}`
     const href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 

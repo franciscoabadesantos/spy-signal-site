@@ -12,26 +12,26 @@ import {
 
 const steps = [
   {
-    title: 'The model reads the weekly tape',
-    body: 'Longbrunch pulls market context into one framework instead of forcing you to read five different dashboards.',
+    title: 'Pick any company',
+    body: 'Search a ticker and get the essentials in one glance: price context, a readable scorecard, and what the technicals are pressing toward.',
     icon: Sparkles,
   },
   {
-    title: 'The signal is published before the open',
-    body: 'You get the weekly view before the market starts instead of while the tape is already moving.',
+    title: 'See what surrounds it',
+    body: 'The relationship map shows which companies move together beyond the market, which share a theme, which tend to lead or follow — and which links are probably just noise.',
     icon: Clock3,
   },
   {
-    title: 'You execute one clear stance',
-    body: 'Long, defensive, or neutral. The goal is a cleaner decision, not more interaction.',
+    title: 'Go as deep as you want',
+    body: 'Every plain-language sentence sits on inspectable data. Zoom out to the whole market on the correlation network, or drill into the numbers behind any claim.',
     icon: Target,
   },
 ] as const
 
 const whatYouGet = [
-  'Weekly direction and confidence',
-  'Market bias and supporting context',
-  'A calmer workflow before Monday starts',
+  'A relationship map for every covered company',
+  'A scorecard you can read at a glance',
+  'The full market correlation network',
 ] as const
 
 export default function HowItWorksPage() {
@@ -41,15 +41,15 @@ export default function HowItWorksPage() {
       eyebrow="How it works"
       title={
         <>
-          Read the tape.
+          Pick a company.
           <br />
-          Get the signal.
+          See its neighborhood.
           <br />
-          <span className="text-[#0757ff]">Start the week prepared.</span>
+          <span className="text-[#0757ff]">Understand the map.</span>
         </>
       }
-      description="Longbrunch turns a broad weekly market read into one SPY signal, supporting context, and a calmer execution workflow before the open."
-      primaryCta={{ label: 'View current signal', href: '/screener' }}
+      description="Longbrunch shows you what surrounds any company — the relationships, themes and signals that context a price move — in plain language, never as tips."
+      primaryCta={{ label: 'Explore a company', href: '/stocks' }}
       secondaryCta={{ label: 'Read the method', href: '/method' }}
       heroAside={
         <GlassPanel className="p-7">
@@ -57,18 +57,18 @@ export default function HowItWorksPage() {
             <div className="grid size-12 place-items-center rounded-2xl bg-white/70 text-[#6f79ff] dark:bg-white/[0.08]">
               <Zap className="size-6" />
             </div>
-            <h2 className="mt-5 text-2xl font-black tracking-tight">One trade card.</h2>
-            <HandScript className="mt-4 block text-[2.2rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-              Start the week prepared.
+            <h2 className="mt-5 text-2xl font-black tracking-tight">The peer web.</h2>
+            <HandScript className="mt-4 block text-xl leading-snug text-accent-text">
+              Moves together beyond the market.
             </HandScript>
             <p className="mt-3 text-base leading-7 text-slate-600 dark:text-white/62">
-              The product is built to keep the weekly decision clear, documented, and easy to review.
+              Every relationship comes with strength, confidence, and an honest flag when a link is probably just market noise.
             </p>
           </div>
-          <ScribbleNote className="mt-6" tone="orange">
-            One trade.
+          <ScribbleNote className="mt-6" tone="blue">
+            Same theme.
             <br />
-            One edge.
+            Tends to lead.
           </ScribbleNote>
         </GlassPanel>
       }
@@ -100,11 +100,11 @@ export default function HowItWorksPage() {
           <div>
             <SectionHeading
               eyebrow="What you see"
-              title="The interface is supposed to clarify the call, not compete with it."
-              body="The interface keeps the weekly signal, context, and next step visible without turning the workflow into a constant feed."
+              title="Clarity first: the strongest information surfaces before the rest."
+              body="Every page leads with what matters — the grade, the strongest relationships, the clearest signals — and reveals detail only when you ask for it."
             />
             <CircleHighlight className="mt-5" tone="blue">
-              <HandScript className="text-[2.1rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">Read. Decide. Move.</HandScript>
+              <HandScript className="text-xl leading-snug text-accent-text">Read. Understand. Then decide.</HandScript>
             </CircleHighlight>
           </div>
           <GlassPanel className="p-7">

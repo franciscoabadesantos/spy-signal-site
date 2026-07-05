@@ -1,14 +1,16 @@
 export const BRAND_NAME = 'Longbrunch'
 
 export const BRAND_DESCRIPTION =
-  'Market signals, research, watchlists, and alerts in one workspace.'
+  'See how companies move together, what themes connect them, and what the data says — in plain language.'
+
+// Provisional brand line pending owner sign-off (see docs/VOICE.md).
+export const BRAND_TAGLINE = 'See what surrounds a company.'
 
 // Where "ask us anything" messages are sent. Change this to your real inbox.
 export const CONTACT_EMAIL = 'hello@longbrunch.com'
 
 export const MARKETING_NAV_ITEMS = [
   { label: 'How it works', href: '/how-it-works' },
-  { label: 'Performance', href: '/performance' },
   { label: 'Method', href: '/method' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'FAQ', href: '/faq' },
@@ -16,13 +18,13 @@ export const MARKETING_NAV_ITEMS = [
 
 export const FOOTER_SECONDARY_LINKS = [
   { label: 'About', href: '/about' },
-  { label: 'Start membership', href: '/sign-up' },
+  { label: 'Become a member', href: '/sign-up' },
 ] as const
 
 export const HOMEPAGE_FAQ_ITEMS = [
   {
     question: 'What is included in membership?',
-    answer: 'Membership covers the signal workspace, markets and ticker coverage, screener and watchlist access, research context, alerts, and signal history views.',
+    answer: 'Membership covers full ticker coverage, the relationship map and correlation network, watchlists and alerts, and deeper research surfaces as they ship.',
   },
   {
     question: 'Do I create an account first?',

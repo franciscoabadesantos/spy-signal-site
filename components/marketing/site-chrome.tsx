@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react'
 import BrandHomeMenu from '@/components/BrandHomeMenu'
 import HeaderSearch from '@/components/HeaderSearch'
 import { cn } from '@/lib/utils'
-import { BRAND_DESCRIPTION, BRAND_NAME } from '@/components/marketing/site-config'
+import { BRAND_DESCRIPTION, BRAND_NAME, BRAND_TAGLINE } from '@/components/marketing/site-config'
 
 export const sharedHeaderShellClass =
   'material-glass-bar fixed inset-x-0 top-0 z-[90]'
@@ -166,8 +166,8 @@ export function SectionHeading({
       {accent === false ? null : accent ? (
         accent
       ) : (
-        <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-          Signal before the open.
+        <HandScript className="mt-4 block text-xl leading-snug text-accent-text">
+          {BRAND_TAGLINE}
         </HandScript>
       )}
       {body ? <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600 dark:text-white/62">{body}</p> : null}
@@ -255,9 +255,7 @@ export function MarketingPageShell({
             heroAccent
           ) : (
             <CircleHighlight tone="blue" className="mt-6">
-              <HandScript className="text-[2.6rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-                Signal before the open.
-              </HandScript>
+              <HandScript className="text-2xl leading-snug text-accent-text">{BRAND_TAGLINE}</HandScript>
             </CircleHighlight>
           )}
           <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-700 dark:text-white/68">{description}</p>
@@ -336,18 +334,18 @@ export function BrandSummary() {
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#d7dcff]">
             {BRAND_NAME}
           </p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight">One trade. One edge.</h2>
+          <h2 className="mt-3 text-3xl font-black tracking-tight">Understand first. Decide after.</h2>
           <p className="mt-4 max-w-xl text-base leading-7 text-slate-600 dark:text-white/62">
             {BRAND_DESCRIPTION}
           </p>
-          <CircleHighlight className="mt-5" tone="orange">
-            <HandScript className="text-[2rem] leading-none text-[#6f79ff]">One trade. One edge.</HandScript>
+          <CircleHighlight className="mt-5" tone="blue">
+            <HandScript className="text-xl leading-snug text-accent-text">{BRAND_TAGLINE}</HandScript>
           </CircleHighlight>
         </div>
         <ScribbleNote tone="blue" className="mt-2 sm:mr-2">
-          Live tape.
+          Plain language.
           <br />
-          Real time.
+          Real data.
           <br />
           No noise.
         </ScribbleNote>

@@ -24,8 +24,8 @@ const interpretive = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Longbrunch | Signal Before The Open",
-  description: "AI-driven weekly SPY signals built for one clear decision before the open.",
+  title: "Longbrunch — See what surrounds a company",
+  description: "Explore how companies move together — shared themes, lead-lag patterns, market noise — plus technical context and a readable scorecard. Research, not tips.",
 };
 
 export default function RootLayout({

@@ -11,7 +11,7 @@ import {
 
 const proofStats = [
   { label: 'Live since', value: 'Jan 2018', icon: CalendarDays },
-  { label: 'Signal cadence', value: 'Weekly before the open', icon: Activity },
+  { label: 'Signal cadence', value: 'Daily model outputs', icon: Activity },
   { label: 'Risk posture', value: 'Capital first', icon: ShieldCheck },
   { label: 'Decision style', value: 'One clear trade view', icon: Target },
 ] as const

@@ -4,7 +4,7 @@ import { BRAND_NAME, CONTACT_EMAIL, FOOTER_SECONDARY_LINKS, MARKETING_NAV_ITEMS 
 
 export default function SiteFooter() {
   const year = new Date().getFullYear()
-  const askHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('A question for the lounge')}`
+  const askHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('A question for Longbrunch')}`
 
   return (
     <footer className="mt-auto border-t border-slate-950/8 bg-white text-slate-600 dark:border-white/10 dark:bg-[#02050d] dark:text-white/72">
@@ -12,10 +12,10 @@ export default function SiteFooter() {
         <div className="flex flex-col gap-6 border-b border-slate-950/8 pb-10 dark:border-white/10 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-lg font-medium leading-none text-accent-text">
-              A small room. The same tape.
+              Understand first. Decide after.
             </p>
             <h2 className="mt-3 max-w-md text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-              Pull up a chair in the lounge.
+              See the market around any company.
             </h2>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -23,7 +23,7 @@ export default function SiteFooter() {
               href="/sign-up"
               className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-[#03050b]"
             >
-              Join the lounge
+              Become a member
             </Link>
             <a
               href={askHref}
@@ -46,7 +46,7 @@ export default function SiteFooter() {
               Market signals, research, watchlists, and alerts in one workspace.
             </p>
             <p className="mt-4 text-lg font-medium leading-none text-accent-text">
-              Open the workspace.
+              Research you can actually read.
             </p>
           </div>
           <nav className="flex max-w-[34rem] flex-wrap gap-x-6 gap-y-3 text-sm text-slate-600 dark:text-white/72">
@@ -65,7 +65,7 @@ export default function SiteFooter() {
               </Link>
             ))}
           </div>
-          <span>© {year} {BRAND_NAME}. All rights reserved.</span>
+          <span>© {year} {BRAND_NAME}. All rights reserved. Longbrunch is research and education, not investment advice.</span>
         </div>
       </div>
     </footer>

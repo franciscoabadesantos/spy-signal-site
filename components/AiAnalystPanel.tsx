@@ -110,7 +110,7 @@ function LockedState({
         </Badge>
       </div>
       <p className="text-body-md text-content-secondary">
-        Ask deeper questions about catalysts, risk scenarios, and stance shifts. Upgrade to run unlimited AI research prompts.
+        Ask follow-up questions about anything on this page — relationships, themes, the scorecard — and get answers grounded in the same data you see here.
       </p>
       <a
         href={href}

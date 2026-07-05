@@ -19,27 +19,27 @@ type FaqGroup = {
 
 const faqGroups: readonly FaqGroup[] = [
   {
-    label: 'The signal',
+    label: 'The product',
     items: [
       {
-        question: 'When does the signal arrive?',
+        question: 'What does Longbrunch actually show me?',
         answer:
-          'Every Sunday, before the market opens. The decision is made ahead of the week, not in reaction to Monday tape.',
+          'For any covered company: what surrounds it. Which companies move together beyond the market, which share a theme, which tend to lead or follow — plus technical context and a scorecard you can read at a glance.',
       },
       {
-        question: 'What does the signal actually tell me?',
+        question: 'Does Longbrunch tell me what to buy?',
         answer:
-          'Direction, confidence, and the supporting tape behind the call. You get the full read, not a single one-word label.',
+          'No, and it never will. Longbrunch is research and education: it helps you understand what the data says so your decisions are yours. Nothing here is investment advice.',
+      },
+      {
+        question: 'How is a relationship different from a correlation?',
+        answer:
+          'We separate co-movement from what the whole market is doing. A link on the map means something specific — and when a link is probably just market noise, we say so instead of hiding it.',
       },
       {
         question: 'Is this built for intraday trading?',
         answer:
-          'No. It is deliberately slower. One weekly posture, held with discipline, instead of a stream of intraday alerts.',
-      },
-      {
-        question: 'Do I have to watch the market all week?',
-        answer:
-          'No. That is the point. Read the signal before Monday, set your stance, and step back from the noise.',
+          'No. It is deliberately slower — context and understanding rather than a stream of intraday alerts.',
       },
     ],
   },
@@ -49,7 +49,7 @@ const faqGroups: readonly FaqGroup[] = [
       {
         question: 'What is included in membership?',
         answer:
-          'Membership covers the weekly signal, the full system view, markets and ticker coverage, screener and watchlist access, research context, alerts, and signal history views.',
+          'Membership covers full ticker coverage, the relationship map and market correlation network, watchlists and alerts, and deeper research surfaces as they ship.',
       },
       {
         question: 'How much does it cost?',
@@ -58,7 +58,7 @@ const faqGroups: readonly FaqGroup[] = [
       {
         question: 'Is this for intraday trading?',
         answer:
-          'No. The product is built around a slower weekly posture, signal monitoring, and research workflows rather than a chatty intraday feed.',
+          'No. The product is built around understanding and research workflows rather than a chatty intraday feed.',
       },
       {
         question: 'Can I cancel anytime?',
@@ -83,21 +83,21 @@ const faqGroups: readonly FaqGroup[] = [
       {
         question: 'Can I review history and research inside the product?',
         answer:
-          'Yes. The product includes signal history views, ticker-level context, and saved research surfaces inside the workspace.',
+          'Yes. The product includes ticker-level context, relationship history across time windows, and saved research surfaces inside the workspace.',
       },
       {
         question: 'Is there a free trial?',
         answer:
-          'Not yet. The public screener lets you preview the signal format before you commit to membership.',
+          'Not yet. The public company pages let you preview the product before you commit to membership.',
       },
     ],
   },
 ]
 
 const quickFacts = [
-  'Weekly signal before the open',
+  'Relationship maps for every covered company',
   'Markets, watchlists, and research context',
-  'Weekly cadence, never intraday',
+  'Plain language, never tips',
   '€49 / month, cancel anytime',
 ] as const
 
@@ -164,7 +164,7 @@ export default function FaqPage() {
           <span className="text-[#0757ff]">membership.</span>
         </>
       }
-      description="Everything worth knowing about the signal, the workspace, and the access flow before you create an account."
+      description="Everything worth knowing about the product, the workspace, and the access flow before you create an account."
       primaryCta={{ label: 'Start membership', href: '/sign-up' }}
       secondaryCta={{ label: 'See pricing', href: '/pricing' }}
       heroAside={
@@ -184,7 +184,7 @@ export default function FaqPage() {
           </ul>
           <div className="mt-7 border-t border-slate-950/8 pt-5 dark:border-white/10">
             <HandScript className="text-[1.7rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-              Just signal. No noise.
+              Plain language. Real data.
             </HandScript>
           </div>
         </GlassPanel>
@@ -209,19 +209,19 @@ export default function FaqPage() {
         <div className="mx-auto grid max-w-[1080px] gap-10 px-6 py-20 sm:px-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:px-12">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#d7dcff]">
-              The lounge
+              Ask us anything
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
-              It&apos;s a lounge,
+              Real people,
               <br />
-              not a help desk.
+              real replies.
             </h2>
-            <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#6f79ff]">
-              Real people. Real replies.
+            <HandScript className="mt-4 block text-xl leading-snug text-accent-text">
+              No scripts, no bots.
             </HandScript>
             <p className="mt-6 max-w-md text-lg leading-8 text-slate-600 dark:text-white/62">
-              Longbrunch is a small room of people reading the same tape every week. Bring a question, a doubt, or a
-              second opinion and a real person reads every message and writes back.
+              Bring a question, a doubt, or a second opinion about anything you see in the product — a real person
+              reads every message and writes back.
             </p>
           </div>
           <GlassPanel className="p-7 sm:p-8">

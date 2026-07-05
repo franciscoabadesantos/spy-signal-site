@@ -96,12 +96,12 @@ export default function AboutPage() {
         <div className="mx-auto grid max-w-[1280px] gap-8 px-6 py-20 sm:px-10 lg:grid-cols-[0.9fr_1.1fr] lg:px-16">
           <div>
             <SectionHeading
-              eyebrow="The lounge"
+              eyebrow="Community"
               title="A room, not a feed."
-              body="The lounge is a small group reading the same tape every week — structure, cadence, and a second opinion when you want one, without the noise of an endless timeline."
+              body="Longbrunch members are a small group trying to understand the same market — structure, context, and a second opinion when you want one, without the noise of an endless timeline."
             />
-            <HandScript className="mt-5 block text-[2.15rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-              One clean weekly read.
+            <HandScript className="mt-5 block text-xl leading-snug text-accent-text">
+              Understand first. Decide after.
             </HandScript>
           </div>
           <GlassPanel className="grid gap-5 p-7 sm:grid-cols-2">

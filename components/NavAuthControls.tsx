@@ -15,7 +15,7 @@ export default function NavAuthControls() {
         className="group relative inline-flex items-center rounded-full px-2 py-1 text-sm font-semibold leading-none text-accent-text transition duration-200 hover:opacity-85"
       >
         <HandScript className="relative z-10 transition duration-200 group-hover:-rotate-[2deg] group-hover:scale-[1.04]">
-          Join the lounge
+          Become a member
         </HandScript>
         <span className="pointer-events-none absolute inset-x-2 bottom-0 h-px origin-left scale-x-0 bg-current/70 transition duration-300 group-hover:scale-x-100" />
       </Link>

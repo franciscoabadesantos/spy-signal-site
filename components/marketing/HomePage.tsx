@@ -54,17 +54,17 @@ function Hero() {
       <div className="relative z-20 mx-auto grid max-w-[1760px] gap-8 px-6 pb-32 pt-10 sm:px-10 md:min-h-[600px] md:grid-cols-[0.78fr_1.22fr] md:items-start md:pb-24 md:pt-16 lg:px-14">
         <div className="max-w-[520px]">
           <h1 className="text-[clamp(2.55rem,5.6vw,4.55rem)] leading-[0.98] text-slate-950 drop-shadow-[0_8px_24px_rgba(255,255,255,0.18)] dark:text-white dark:drop-shadow-[0_8px_28px_rgba(255,255,255,0.08)]">
-            Signal <span className="block text-[#0757ff]">before</span>
-            <span className="block">the open<span className="text-[#0757ff]">.</span></span>
+            See what <span className="block text-[#0757ff]">surrounds</span>
+            <span className="block">any company<span className="text-[#0757ff]">.</span></span>
           </h1>
           <p className="mt-6 max-w-lg text-base leading-7 text-slate-700 dark:text-white md:text-lg">
-            AI-driven signals. One trade.
+            Relationships, themes, technical context and a readable scorecard —
             <br />
-            Every Sunday before the market opens.
+            explained in plain language. Research, not tips.
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Link href="/screener" className="group inline-flex h-[52px] items-center justify-center gap-3 rounded-xl bg-[#0757ff] px-6 font-semibold text-white shadow-[0_0_36px_rgba(7,87,255,0.3)] transition duration-200 ease-out hover:-translate-y-1 hover:scale-[1.015] hover:bg-[#1a66ff] hover:shadow-[0_18px_52px_rgba(7,87,255,0.38)] active:translate-y-0 active:scale-[0.96]">
-              See this week&apos;s signal <ArrowRight className="size-5 transition-transform duration-200 group-hover:translate-x-1.5" />
+            <Link href="/stocks" className="group inline-flex h-[52px] items-center justify-center gap-3 rounded-xl bg-[#0757ff] px-6 font-semibold text-white shadow-[0_0_36px_rgba(7,87,255,0.3)] transition duration-200 ease-out hover:-translate-y-1 hover:scale-[1.015] hover:bg-[#1a66ff] hover:shadow-[0_18px_52px_rgba(7,87,255,0.38)] active:translate-y-0 active:scale-[0.96]">
+              Explore a company <ArrowRight className="size-5 transition-transform duration-200 group-hover:translate-x-1.5" />
             </Link>
             <Link href="/how-it-works" className="inline-flex h-[52px] items-center justify-center border-b-2 border-slate-950/16 px-1 text-base text-slate-950 transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#0757ff]/28 hover:text-[#0757ff] active:translate-y-0 active:scale-[0.97] dark:border-[#d7dcff] dark:text-white dark:hover:text-[#fff4c8]">
               How it works
@@ -86,7 +86,7 @@ function Sections() {
 
       <section id="pricing" className="border-t border-slate-950/10 bg-[radial-gradient(circle_at_50%_0%,rgba(7,87,255,0.16),transparent_38%)] px-6 py-24 text-center dark:border-white/10 dark:bg-[radial-gradient(circle_at_50%_0%,rgba(7,87,255,0.22),transparent_38%)] sm:px-10">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#d7dcff]">Pricing</p>
-        <h2 className="mx-auto mt-4 max-w-3xl text-4xl font-black tracking-tight md:text-6xl">Signals, research, and alerts in one workspace.</h2>
+        <h2 className="mx-auto mt-4 max-w-3xl text-4xl font-black tracking-tight md:text-6xl">Relationships, research, and alerts in one workspace.</h2>
         <CircleHighlight className="mt-4" tone="orange">
           <HandScript className="text-[2.5rem] leading-none text-[#6f79ff]">Open the product workspace.</HandScript>
         </CircleHighlight>
