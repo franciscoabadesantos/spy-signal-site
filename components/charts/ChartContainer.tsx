@@ -125,7 +125,7 @@ export function ChartTooltipCard({
   if (rows.length === 0) return null
 
   return (
-    <div className="rounded-[var(--radius-lg)] border border-chart-tooltip-border bg-chart-tooltip px-3.5 py-3 shadow-[var(--shadow-sm)] backdrop-blur-[3px]">
+    <div className="rounded-[var(--radius-lg)] border border-chart-tooltip-border bg-chart-tooltip px-3.5 py-3 shadow-[var(--shadow-sm)]">
       {title ? (
         <div className="mb-2 text-label-sm text-content-primary">
           {title}
@@ -160,6 +160,7 @@ type ChartContainerArgs = {
 
 type ChartContainerProps = {
   className?: string
+  style?: React.CSSProperties
   padding?: 'none' | 'sm' | 'md'
   loading?: boolean
   loadingText?: string
@@ -174,6 +175,7 @@ function paddingClass(padding: ChartContainerProps['padding']): string {
 
 export default function ChartContainer({
   className,
+  style,
   padding = 'none',
   loading = false,
   loadingText = 'Loading chart...',
@@ -204,7 +206,7 @@ export default function ChartContainer({
   const isReady = !loading && size.width > 40 && size.height > 40
 
   return (
-    <div ref={containerRef} className={cn('relative w-full min-w-0', paddingClass(padding), className)}>
+    <div ref={containerRef} style={style} className={cn('relative w-full min-w-0', paddingClass(padding), className)}>
       {isReady ? (
         children({
           width: size.width,

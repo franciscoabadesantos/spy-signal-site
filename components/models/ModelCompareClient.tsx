@@ -632,7 +632,7 @@ export default function ModelCompareClient({
                       <Badge variant="neutral">{leftInsights.personality}</Badge>
                       <Badge variant="neutral">{leftInsights.confidence} confidence</Badge>
                     </div>
-                    <div className="surface-tertiary px-3 py-2">
+                    <div className="material-surface rounded-[var(--radius-md)] px-3 py-2">
                       <div className="text-label-md text-content-primary">
                         {leftInsights.topInsightHeadline}
                       </div>
@@ -668,7 +668,7 @@ export default function ModelCompareClient({
                       <Badge variant="neutral">{rightInsights.personality}</Badge>
                       <Badge variant="neutral">{rightInsights.confidence} confidence</Badge>
                     </div>
-                    <div className="surface-tertiary px-3 py-2">
+                    <div className="material-surface rounded-[var(--radius-md)] px-3 py-2">
                       <div className="text-label-md text-content-primary">
                         {rightInsights.topInsightHeadline}
                       </div>
@@ -707,16 +707,16 @@ export default function ModelCompareClient({
                 <div className="text-filter-label">Model B</div>
                 {comparisonMetrics.map((metric) => (
                   <div key={metric.key} className="contents">
-                    <div className="surface-tertiary px-3 py-2 text-content-secondary">
+                    <div className="material-surface rounded-[var(--radius-md)] px-3 py-2 text-content-secondary">
                       {metric.label}
                     </div>
-                    <div className="surface-secondary px-3 py-2">
+                    <div className="material-surface-raised rounded-[var(--radius-md)] px-3 py-2">
                       <div className="text-label-md text-content-primary numeric-tabular">{metric.leftDisplay}</div>
                       <Badge variant={sideVariant(metric.outcome, 'left')} className="mt-1">
                         {sideLabel(metric.outcome, 'left')}
                       </Badge>
                     </div>
-                    <div className="surface-secondary px-3 py-2">
+                    <div className="material-surface-raised rounded-[var(--radius-md)] px-3 py-2">
                       <div className="text-label-md text-content-primary numeric-tabular">{metric.rightDisplay}</div>
                       <Badge variant={sideVariant(metric.outcome, 'right')} className="mt-1">
                         {sideLabel(metric.outcome, 'right')}

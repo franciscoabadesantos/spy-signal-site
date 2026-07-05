@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation'
+import { modelSignalsEnabled } from '@/lib/flags'
 import { Filter, Lock } from 'lucide-react'
 import Link from 'next/link'
 import TrackedLink from '@/components/analytics/TrackedLink'
@@ -199,6 +201,7 @@ export default async function ScreenerPage({
 }: {
   searchParams: Promise<ScreenerSearchParams>
 }) {
+  if (!modelSignalsEnabled()) notFound()
   const resolvedSearchParams = await searchParams
   const signal = parseSignalFilter(singleParam(resolvedSearchParams.signal))
   const minConviction = parseMinConviction(singleParam(resolvedSearchParams.minConviction))
@@ -287,7 +290,7 @@ export default async function ScreenerPage({
               text="Start here: rank the tape → open a ticker → add it to watchlist"
             />
 
-            <div className="emphasis-secondary p-4">
+            <div className="material-surface rounded-[var(--radius-lg)] p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-filter-label">Quick Filters</span>
                 {QUICK_FILTER_PRESETS.map((preset) => (

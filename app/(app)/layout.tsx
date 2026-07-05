@@ -13,7 +13,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(111,121,255,0.16),transparent_28%),radial-gradient(circle_at_86%_10%,rgba(255,139,43,0.14),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_22%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(111,121,255,0.16),transparent_28%),radial-gradient(circle_at_86%_10%,rgba(111,121,255,0.14),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_22%)]"
       />
       <div
         aria-hidden="true"
@@ -21,7 +21,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute right-[-6%] top-[20rem] h-80 w-80 rounded-full border border-[#ff8b2b]/20 bg-[#ff8b2b]/[0.04] blur-[2px]"
+        className="pointer-events-none absolute right-[-6%] top-[20rem] h-80 w-80 rounded-full border border-[#6f79ff]/20 bg-[#6f79ff]/[0.04] blur-[2px]"
       />
       <svg
         aria-hidden="true"
@@ -38,7 +38,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <path
           d="M248 126 C286 112 332 110 396 148"
           fill="none"
-          stroke="rgba(255,139,43,0.68)"
+          stroke="rgba(111,121,255,0.68)"
           strokeLinecap="round"
           strokeWidth="2.6"
         />

@@ -723,7 +723,7 @@ function MobileSourceRail({
 function TickerSceneBackground() {
   return (
     <>
-      <div className="absolute inset-x-0 bottom-0 top-[4.5rem] bg-[linear-gradient(180deg,transparent,rgba(255,255,255,0.78)_4.5rem,rgba(255,255,255,0.98)_52%),radial-gradient(circle_at_20%_24%,rgba(7,87,255,0.12),transparent_30%),radial-gradient(circle_at_82%_26%,rgba(255,139,43,0.1),transparent_22%)] dark:bg-[linear-gradient(180deg,transparent,rgba(0,4,10,0.72)_4.5rem,rgba(0,4,10,0.98)_52%),radial-gradient(circle_at_20%_24%,rgba(7,87,255,0.18),transparent_30%),radial-gradient(circle_at_82%_26%,rgba(255,139,43,0.1),transparent_22%)] md:top-20" />
+      <div className="absolute inset-x-0 bottom-0 top-[4.5rem] bg-[linear-gradient(180deg,transparent,rgba(255,255,255,0.78)_4.5rem,rgba(255,255,255,0.98)_52%),radial-gradient(circle_at_20%_24%,rgba(7,87,255,0.12),transparent_30%),radial-gradient(circle_at_82%_26%,rgba(111,121,255,0.1),transparent_22%)] dark:bg-[linear-gradient(180deg,transparent,rgba(0,4,10,0.72)_4.5rem,rgba(0,4,10,0.98)_52%),radial-gradient(circle_at_20%_24%,rgba(7,87,255,0.18),transparent_30%),radial-gradient(circle_at_82%_26%,rgba(111,121,255,0.1),transparent_22%)] md:top-20" />
       <div className="absolute inset-x-0 bottom-0 top-[4.5rem] opacity-[0.28] [mask-image:linear-gradient(180deg,transparent,black_5rem)] [background-image:linear-gradient(rgba(17,24,42,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(17,24,42,0.04)_1px,transparent_1px)] [background-size:40px_40px] dark:opacity-[0.1] md:top-20" />
     </>
   )

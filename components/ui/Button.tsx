@@ -6,9 +6,9 @@ type ButtonSize = 'sm' | 'md'
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'border border-[#0757ff]/20 bg-[#0757ff] text-white shadow-[0_18px_42px_rgba(7,87,255,0.18)] hover:border-[#1a66ff]/28 hover:bg-[#1a66ff] dark:border-[#f5df57]/45 dark:bg-[linear-gradient(180deg,rgba(245,223,87,0.22),rgba(245,223,87,0.12))] dark:text-[#fff8cc] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_18px_42px_rgba(245,223,87,0.08)] dark:hover:border-[#ffe97d]/58 dark:hover:bg-[linear-gradient(180deg,rgba(245,223,87,0.28),rgba(245,223,87,0.16))] dark:hover:text-white',
+    'border border-primary/25 bg-primary text-primary-foreground shadow-[0_14px_36px_var(--accent-glow)] hover:bg-[var(--accent-600)] hover:border-primary/40',
   secondary:
-    'border border-slate-950/10 bg-white/78 text-content-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_12px_32px_rgba(20,33,51,0.06)] backdrop-blur-xl hover:border-slate-950/16 hover:bg-white dark:border-white/12 dark:bg-white/[0.06] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] dark:hover:border-white/18 dark:hover:bg-white/[0.1]',
+    'border border-border bg-surface-solid-raised text-content-primary shadow-[var(--shadow-xs)] hover:border-divider-strong hover:bg-surface-hover',
   ghost:
     'border border-transparent text-content-secondary hover:bg-slate-950/[0.04] hover:text-content-primary dark:hover:bg-white/[0.06]',
 }

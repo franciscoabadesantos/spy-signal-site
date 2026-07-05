@@ -53,8 +53,8 @@ export default function HowItWorksPage() {
       secondaryCta={{ label: 'Read the method', href: '/method' }}
       heroAside={
         <GlassPanel className="p-7">
-          <div className="rounded-[26px] border border-[#ff8b2b]/35 bg-[#ff8b2b]/8 p-5 dark:bg-[#ff8b2b]/10">
-            <div className="grid size-12 place-items-center rounded-2xl bg-white/70 text-[#ff8b2b] dark:bg-white/[0.08]">
+          <div className="rounded-[26px] border border-[#6f79ff]/35 bg-[#6f79ff]/8 p-5 dark:bg-[#6f79ff]/10">
+            <div className="grid size-12 place-items-center rounded-2xl bg-white/70 text-[#6f79ff] dark:bg-white/[0.08]">
               <Zap className="size-6" />
             </div>
             <h2 className="mt-5 text-2xl font-black tracking-tight">One trade card.</h2>
@@ -84,7 +84,7 @@ export default function HowItWorksPage() {
             const Icon = step.icon
             return (
               <GlassPanel key={step.title} className="p-6">
-                <div className="grid size-12 place-items-center rounded-2xl bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.06] dark:text-[#f8f200]">
+                <div className="grid size-12 place-items-center rounded-2xl bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.06] dark:text-[#d7dcff]">
                   <Icon className="size-6" />
                 </div>
                 <h3 className="mt-6 text-2xl font-semibold">{step.title}</h3>
@@ -111,12 +111,12 @@ export default function HowItWorksPage() {
             <div className="space-y-3">
               {whatYouGet.map((item) => (
                 <div key={item} className="flex items-start gap-3 rounded-2xl border border-slate-950/8 bg-white/42 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-                  <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[#0757ff] dark:text-[#f8f200]" />
+                  <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[#0757ff] dark:text-[#d7dcff]" />
                   <span className="text-sm font-medium">{item}</span>
                 </div>
               ))}
             </div>
-            <Link href="/pricing" className="mt-6 inline-flex items-center gap-3 text-sm font-semibold text-[#0757ff] dark:text-[#f8f200]">
+            <Link href="/pricing" className="mt-6 inline-flex items-center gap-3 text-sm font-semibold text-[#0757ff] dark:text-[#d7dcff]">
               See pricing <ArrowRight className="size-4" />
             </Link>
           </GlassPanel>

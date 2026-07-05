@@ -329,7 +329,7 @@ export default function AiAnalystPanel({
         </div>
       </div>
 
-      <div className={cn('surface-tertiary rounded-[var(--radius-lg)] p-4 md:p-5', compact ? 'md:p-4' : undefined)}>
+      <div className={cn('material-surface rounded-[var(--radius-lg)] p-4 md:p-5', compact ? 'md:p-4' : undefined)}>
         {error ? (
           <p className="text-body-sm signal-bearish">{error}</p>
         ) : (
@@ -340,7 +340,7 @@ export default function AiAnalystPanel({
       </div>
 
       {citations.length > 0 ? (
-        <div className="surface-secondary rounded-[var(--radius-lg)] p-4">
+        <div className="material-surface-raised rounded-[var(--radius-lg)] p-4">
           <div className="text-filter-label mb-2">Sources</div>
           <div className="space-y-1.5">
             {citations.slice(0, 5).map((url) => (

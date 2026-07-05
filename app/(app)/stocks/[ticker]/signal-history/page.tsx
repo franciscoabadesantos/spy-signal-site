@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation'
+import { modelSignalsEnabled } from '@/lib/flags'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -128,6 +130,7 @@ export default async function SignalHistoryPage({
 }: {
   params: Promise<{ ticker: string }>
 }) {
+  if (!modelSignalsEnabled()) notFound()
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
   const viewer = await getViewerAccess()

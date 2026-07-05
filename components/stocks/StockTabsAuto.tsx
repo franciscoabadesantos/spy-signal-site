@@ -12,7 +12,13 @@ function activeTabFromPath(pathname: string): StockTabKey {
   return 'overview'
 }
 
-export default function StockTabsAuto({ ticker }: { ticker: string }) {
+export default function StockTabsAuto({
+  ticker,
+  includeHoldings,
+}: {
+  ticker: string
+  includeHoldings?: boolean
+}) {
   const pathname = usePathname()
-  return <StockTabs ticker={ticker} active={activeTabFromPath(pathname)} />
+  return <StockTabs ticker={ticker} active={activeTabFromPath(pathname)} includeHoldings={includeHoldings} />
 }

@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
 import MetricGrid from '@/components/page/MetricGrid'
+import { presentMetrics } from '@/lib/format'
 import {
   TableBase,
   TableBody,
@@ -127,15 +128,14 @@ export default async function HoldingsAndDividendsPage({
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
-          { label: 'Holdings / Dividend Status' },
+          { label: 'Holdings' },
         ]}
       />
       <div className="section-gap">
         <MetricGrid
           columns={4}
-          items={[
+          items={presentMetrics([
             {
               label: 'Market Cap',
               value: formatCompactNumber(summary.fundamentalsSummary?.marketCap ?? null, { currency: true }),
@@ -156,7 +156,7 @@ export default async function HoldingsAndDividendsPage({
               label: 'Next Earnings',
               value: formatCalendarDate(summary.nextEarnings?.earningsDate ?? null),
             },
-          ]}
+          ])}
         />
 
         <Card className="section-gap" padding="lg">
@@ -170,12 +170,12 @@ export default async function HoldingsAndDividendsPage({
 
         <MetricGrid
           columns={4}
-          items={[
-            { label: 'Dividend Rate', value: fundamentals.dividendRate ?? '—' },
-            { label: 'Dividend Yield', value: fundamentals.dividendYield ?? '—' },
-            { label: 'Ex-Dividend Date', value: fundamentals.exDividendDate ?? '—' },
-            { label: 'Payout Ratio', value: fundamentals.payoutRatio ?? '—' },
-          ]}
+          items={presentMetrics([
+            { label: 'Dividend Rate', value: fundamentals.dividendRate },
+            { label: 'Dividend Yield', value: fundamentals.dividendYield },
+            { label: 'Ex-Dividend Date', value: fundamentals.exDividendDate },
+            { label: 'Payout Ratio', value: fundamentals.payoutRatio },
+          ])}
         />
 
         <TableShell contentClassName="max-h-[520px]">

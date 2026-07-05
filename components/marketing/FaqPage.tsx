@@ -119,7 +119,7 @@ function FaqRows() {
       {groupsWithNumbers.map((group) => (
         <div key={group.label} className="pt-12 first:pt-0">
           <div className="mb-2 flex items-center gap-4">
-            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-[#0757ff] dark:text-[#f8f200]">
+            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-[#0757ff] dark:text-[#d7dcff]">
               {group.label}
             </span>
             <span className="h-px flex-1 bg-slate-950/10 dark:bg-white/10" />
@@ -129,7 +129,7 @@ function FaqRows() {
               <div key={item.question} className="group relative">
                 <div className="pointer-events-none absolute inset-x-[-1.25rem] inset-y-[0.4rem] rounded-3xl bg-[#0757ff]/0 transition-colors duration-200 group-hover:bg-[#0757ff]/[0.035] dark:group-hover:bg-white/[0.03]" />
                 <div className="relative grid grid-cols-[2.25rem_1fr] gap-x-5 py-7 sm:grid-cols-[4.25rem_1fr] sm:gap-x-8">
-                  <span className="select-none pt-1 text-2xl font-black tabular-nums leading-none text-slate-950/[0.18] transition-colors duration-200 group-hover:text-[#0757ff] dark:text-white/20 dark:group-hover:text-[#f8f200] sm:text-[2.6rem]">
+                  <span className="select-none pt-1 text-2xl font-black tabular-nums leading-none text-slate-950/[0.18] transition-colors duration-200 group-hover:text-[#0757ff] dark:text-white/20 dark:group-hover:text-[#d7dcff] sm:text-[2.6rem]">
                     {item.number}
                   </span>
                   <div className="transition-transform duration-200 ease-out group-hover:translate-x-1">
@@ -169,13 +169,13 @@ export default function FaqPage() {
       secondaryCta={{ label: 'See pricing', href: '/pricing' }}
       heroAside={
         <GlassPanel className="p-7">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#f8f200]">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#d7dcff]">
             The short version
           </p>
           <ul className="mt-6 space-y-4">
             {quickFacts.map((fact) => (
               <li key={fact} className="flex items-start gap-3 text-[0.97rem] leading-6">
-                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.08] dark:text-[#f8f200]">
+                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.08] dark:text-[#d7dcff]">
                   <Check className="size-3" strokeWidth={3} />
                 </span>
                 <span>{fact}</span>
@@ -192,7 +192,7 @@ export default function FaqPage() {
     >
       <section className="mx-auto max-w-[1080px] px-6 py-20 sm:px-10 lg:px-12">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#d7dcff]">
             The questions
           </p>
           <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
@@ -208,7 +208,7 @@ export default function FaqPage() {
       <section className="border-y border-slate-950/10 bg-[radial-gradient(circle_at_85%_0%,rgba(7,87,255,0.1),transparent_45%)] bg-white/24 dark:border-white/10 dark:bg-white/[0.025]">
         <div className="mx-auto grid max-w-[1080px] gap-10 px-6 py-20 sm:px-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:px-12">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#d7dcff]">
               The lounge
             </p>
             <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
@@ -216,7 +216,7 @@ export default function FaqPage() {
               <br />
               not a help desk.
             </h2>
-            <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#ff8b2b]">
+            <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#6f79ff]">
               Real people. Real replies.
             </HandScript>
             <p className="mt-6 max-w-md text-lg leading-8 text-slate-600 dark:text-white/62">

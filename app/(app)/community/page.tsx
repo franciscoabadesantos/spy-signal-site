@@ -15,6 +15,7 @@ import {
   TableRow,
   TableShell,
 } from '@/components/ui/DataTable'
+import { modelSignalsEnabled } from '@/lib/flags'
 import { getScreenerSignals } from '@/lib/signals'
 import { getAllWatchlistTickers, getWatchlistSubscriptionsForTickers } from '@/lib/watchlist'
 
@@ -175,9 +176,13 @@ export default async function CommunityPage() {
               <tr>
                 <TableHeaderCell>Ticker</TableHeaderCell>
                 <TableHeaderCell sortable sortDirection="desc">Watched By</TableHeaderCell>
-                <TableHeaderCell>Live Signal</TableHeaderCell>
-                <TableHeaderCell>Conviction</TableHeaderCell>
-                <TableHeaderCell>Last Signal</TableHeaderCell>
+                {modelSignalsEnabled() ? (
+                  <>
+                    <TableHeaderCell>Live Signal</TableHeaderCell>
+                    <TableHeaderCell>Conviction</TableHeaderCell>
+                    <TableHeaderCell>Last Signal</TableHeaderCell>
+                  </>
+                ) : null}
                 <TableHeaderCell>% Chg</TableHeaderCell>
               </tr>
             </TableHead>
@@ -195,20 +200,24 @@ export default async function CommunityPage() {
                     ) : null}
                   </TableCell>
                   <TableCell className="numeric-tabular text-content-primary">{row.watchers}</TableCell>
-                  <TableCell>
-                    {row.direction ? (
-                      <SignalBlock
-                        direction={row.direction}
-                        conviction={row.conviction}
-                        compact
-                        showLabel={false}
-                      />
-                    ) : (
-                      <span className="text-caption text-content-muted">Unavailable</span>
-                    )}
-                  </TableCell>
-                  <TableCell muted className="numeric-tabular">{formatConviction(row.conviction)}</TableCell>
-                  <TableCell muted className="numeric-tabular">{formatDate(row.signalDate)}</TableCell>
+                  {modelSignalsEnabled() ? (
+                    <>
+                      <TableCell>
+                        {row.direction ? (
+                          <SignalBlock
+                            direction={row.direction}
+                            conviction={row.conviction}
+                            compact
+                            showLabel={false}
+                          />
+                        ) : (
+                          <span className="text-caption text-content-muted">Unavailable</span>
+                        )}
+                      </TableCell>
+                      <TableCell muted className="numeric-tabular">{formatConviction(row.conviction)}</TableCell>
+                      <TableCell muted className="numeric-tabular">{formatDate(row.signalDate)}</TableCell>
+                    </>
+                  ) : null}
                   <TableCell
                     className={
                       (row.changePercent ?? null) === null

@@ -61,7 +61,7 @@ export default async function DashboardWatchlistPage() {
       />
 
       {tickers.length === 0 ? (
-        <Card className="surface-primary">
+        <Card className="material-surface-raised rounded-[28px] p-6">
           <h2 className="text-section-title mb-2 text-content-primary">Your watchlist is empty</h2>
           <p className="text-body mb-5">
             Visit any ticker page and click Add to Watchlist to start building your live coverage list.

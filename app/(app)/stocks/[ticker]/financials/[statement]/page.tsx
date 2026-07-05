@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
 import MetricGrid from '@/components/page/MetricGrid'
+import { presentMetrics } from '@/lib/format'
 import {
   TableBase,
   TableBody,
@@ -204,16 +205,14 @@ export default async function FinancialStatementPage({
       <Breadcrumbs
         items={[
           { label: 'Home', href: '/' },
-          { label: 'Markets', href: '/markets' },
           { label: ticker, href: `/stocks/${ticker}` },
-          { label: 'Financial Summary', href: `/stocks/${ticker}/financials/fund-profile` },
-          { label: 'Financial Data' },
+          { label: 'Financials' },
         ]}
       />
       <div className="section-gap">
         <MetricGrid
           columns={4}
-          items={[
+          items={presentMetrics([
             {
               label: 'Market Cap',
               value:
@@ -222,14 +221,14 @@ export default async function FinancialStatementPage({
             },
             {
               label: 'Dividend Yield',
-              value: fundamentals.dividendYield ?? '—',
+              value: fundamentals.dividendYield,
             },
             {
               label: 'Dividend Rate',
-              value: fundamentals.dividendRate ?? '—',
+              value: fundamentals.dividendRate,
             },
             { label: 'Latest Period End', value: formatCalendarDate(summary.fundamentalsSummary?.periodEnd ?? null) },
-          ]}
+          ])}
         />
 
         <Card className="section-gap" padding="lg">
@@ -238,25 +237,17 @@ export default async function FinancialStatementPage({
             Full financial statements will be available as more data sources are connected.
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <div className="surface-tertiary p-3">
+            <div className="material-surface rounded-[var(--radius-lg)] p-3">
               <div className="text-filter-label">Trailing P/E</div>
               <div className="mt-1 text-data-sm text-content-primary">
                 {summary.fundamentalsSummary?.trailingPe?.toFixed(2) ?? '—'}
               </div>
             </div>
-            <div className="surface-tertiary p-3">
+            <div className="material-surface rounded-[var(--radius-lg)] p-3">
               <div className="text-filter-label">Revenue Growth YoY</div>
               <div className="mt-1 text-data-sm text-content-primary">
                 {formatSignedPercent(summary.fundamentalsSummary?.revenueGrowthYoy ?? null)}
               </div>
-            </div>
-            <div className="surface-tertiary p-3">
-              <div className="text-filter-label">Displayed Metrics</div>
-              <div className="mt-1 text-data-sm text-content-primary">{rows.length}</div>
-            </div>
-            <div className="surface-tertiary p-3">
-              <div className="text-filter-label">Coverage View</div>
-              <div className="mt-1 text-data-sm text-content-primary">{statementMeta.title}</div>
             </div>
           </div>
         </Card>

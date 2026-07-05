@@ -592,7 +592,7 @@ export default function SystemProfileBlob({
 
         {!compact && !mini ? (
           <g
-            fontFamily='"Bradley Hand", "Comic Sans MS", cursive'
+            fontFamily='var(--font-geist-sans), system-ui, sans-serif'
             fill="rgba(245,247,255,0.88)"
             style={{ textShadow: '0 0 12px rgba(255,255,255,0.18)' }}
           >

@@ -141,7 +141,7 @@ export default async function PricingPage() {
         <GlassPanel className="p-7 sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#f8f200]">
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#d7dcff]">
                 Pro
               </p>
               <div className="mt-4 flex items-end gap-2">
@@ -154,12 +154,12 @@ export default async function PricingPage() {
             </div>
           </div>
           <CircleHighlight className="mt-4" tone="orange">
-            <HandScript className="text-[2.1rem] leading-none text-[#ff8b2b]">Simple pricing. Real edge.</HandScript>
+            <HandScript className="text-[2.1rem] leading-none text-[#6f79ff]">Simple pricing. Real edge.</HandScript>
           </CircleHighlight>
           <ul className="mt-7 space-y-3.5">
             {planFeatures.map((feature) => (
               <li key={feature} className="flex items-start gap-3 text-[0.97rem] leading-6">
-                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.08] dark:text-[#f8f200]">
+                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.08] dark:text-[#d7dcff]">
                   <Check className="size-3" strokeWidth={3} />
                 </span>
                 <span>{feature}</span>
@@ -187,7 +187,7 @@ export default async function PricingPage() {
             const Icon = item.icon
             return (
               <GlassPanel key={item.title} className="p-6 sm:p-7">
-                <div className="grid size-12 place-items-center rounded-2xl bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.06] dark:text-[#f8f200]">
+                <div className="grid size-12 place-items-center rounded-2xl bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.06] dark:text-[#d7dcff]">
                   <Icon className="size-6" />
                 </div>
                 <h3 className="mt-6 text-2xl font-semibold tracking-tight">{item.title}</h3>
@@ -235,7 +235,7 @@ export default async function PricingPage() {
             </div>
             <p className="mt-6 text-sm text-slate-600 dark:text-white/62">
               Questions?{' '}
-              <Link href="/faq" className="font-semibold text-[#0757ff] dark:text-[#f8f200]">
+              <Link href="/faq" className="font-semibold text-[#0757ff] dark:text-[#d7dcff]">
                 Read the FAQ.
               </Link>
             </p>
@@ -246,7 +246,7 @@ export default async function PricingPage() {
       <section className="mx-auto max-w-[980px] px-6 py-16 sm:px-10">
         <GlassPanel className="grid gap-5 p-7 md:grid-cols-[1fr_auto] md:items-center">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#f8f200]">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#d7dcff]">
               Start access
             </p>
             <h2 className="mt-3 text-3xl font-black tracking-tight">Start using the signal workspace.</h2>

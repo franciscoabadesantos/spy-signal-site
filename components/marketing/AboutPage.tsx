@@ -51,7 +51,7 @@ export default function AboutPage() {
       secondaryCta={{ label: 'Read the method', href: '/method' }}
       heroAside={
         <GlassPanel className="p-7">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#f8f200]">Who this is for</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#d7dcff]">Who this is for</p>
           <div className="mt-5 grid gap-3">
             {['Investors who want a system', 'People who value calmer execution', 'Users who prefer one clear signal'].map((item) => (
               <div key={item} className="rounded-2xl border border-slate-950/8 bg-white/42 px-4 py-3 text-sm font-semibold dark:border-white/10 dark:bg-white/[0.03]">
@@ -60,7 +60,7 @@ export default function AboutPage() {
             ))}
           </div>
           <CircleHighlight className="mt-6" tone="orange">
-            <HandScript className="text-[2.15rem] leading-none text-[#ff8b2b]">Built for clarity.</HandScript>
+            <HandScript className="text-[2.15rem] leading-none text-[#6f79ff]">Built for clarity.</HandScript>
           </CircleHighlight>
           <ScribbleNote className="mt-6" tone="blue">
             Clear signal.
@@ -81,7 +81,7 @@ export default function AboutPage() {
             const Icon = item.icon
             return (
               <GlassPanel key={item.title} className="p-6">
-                <div className="grid size-12 place-items-center rounded-2xl bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.06] dark:text-[#f8f200]">
+                <div className="grid size-12 place-items-center rounded-2xl bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.06] dark:text-[#d7dcff]">
                   <Icon className="size-6" />
                 </div>
                 <h3 className="mt-6 text-2xl font-semibold">{item.title}</h3>
@@ -106,12 +106,12 @@ export default function AboutPage() {
           </div>
           <GlassPanel className="grid gap-5 p-7 sm:grid-cols-2">
             <div className="rounded-2xl border border-slate-950/8 bg-white/42 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-              <UserRound className="size-6 text-[#0757ff] dark:text-[#f8f200]" />
+              <UserRound className="size-6 text-[#0757ff] dark:text-[#d7dcff]" />
               <h3 className="mt-4 text-lg font-semibold">For disciplined users</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/62">People who want structure around exposure, not endless opinion streams.</p>
             </div>
             <div className="rounded-2xl border border-slate-950/8 bg-white/42 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-              <BarChart3 className="size-6 text-[#0757ff] dark:text-[#f8f200]" />
+              <BarChart3 className="size-6 text-[#0757ff] dark:text-[#d7dcff]" />
               <h3 className="mt-4 text-lg font-semibold">Not for overtrading</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/62">If someone wants constant intraday prompts, this is the wrong shape of product.</p>
             </div>

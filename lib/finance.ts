@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache'
 import { BackendDataError, fetchBackendJson } from './backend'
 import { getCachedTickerSummary } from './ticker-data'
+import { formatRatioAsPercent, parseNumericString } from '@/lib/format'
 
 const YAHOO_API_BASE = 'https://query1.finance.yahoo.com'
 const YAHOO_HEADERS = {
@@ -553,6 +554,17 @@ function parseCachedSectorWeights(value: unknown): TickerSectorWeight[] {
     .filter((row): row is TickerSectorWeight => row !== null)
 }
 
+function formatCachedRatioPercent(value: string | null): string | null {
+  if (value === null) return null
+  return formatRatioAsPercent(value) ?? value
+}
+
+function formatCachedRate(value: string | null): string | null {
+  if (value === null) return null
+  const numeric = parseNumericString(value)
+  return numeric === null ? value : numeric.toFixed(2)
+}
+
 function parseCachedFundamentalsPayload(payload: unknown): TickerFundamentals | null {
   const record = asRecord(payload)
   if (!record) return null
@@ -563,10 +575,10 @@ function parseCachedFundamentalsPayload(payload: unknown): TickerFundamentals | 
     snapshot: parseCachedFinancialRows(record.snapshot),
     holdings: parseCachedHoldings(record.holdings),
     sectorWeights: parseCachedSectorWeights(record.sectorWeights),
-    dividendRate: getString(record.dividendRate),
-    dividendYield: getString(record.dividendYield),
+    dividendRate: formatCachedRate(getString(record.dividendRate)),
+    dividendYield: formatCachedRatioPercent(getString(record.dividendYield)),
     exDividendDate: getString(record.exDividendDate),
-    payoutRatio: getString(record.payoutRatio),
+    payoutRatio: formatCachedRatioPercent(getString(record.payoutRatio)),
     profile: parseCachedFinancialRows(record.profile),
     portfolio: parseCachedFinancialRows(record.portfolio),
     distributions: parseCachedFinancialRows(record.distributions),

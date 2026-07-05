@@ -27,7 +27,7 @@ const NavAuthControls = dynamic(() => import('./NavAuthControls'), {
       <HandScript className="hidden text-[1.35rem] leading-none text-[#7d8cff] xl:block">Live tape.</HandScript>
       <Link
         href="/sign-up"
-        className="group relative inline-flex items-center rounded-full px-2 py-1 text-[1.22rem] leading-none text-[#ffb46a] transition duration-200 hover:text-[#ffd3a3] dark:text-[#ffc27f] dark:hover:text-[#ffe1ba]"
+        className="group relative inline-flex items-center rounded-full px-2 py-1 text-sm font-semibold leading-none text-accent-text transition duration-200 hover:opacity-85"
       >
         <HandScript className="relative z-10 transition duration-200 group-hover:-rotate-[2deg] group-hover:scale-[1.04]">
           Join the lounge

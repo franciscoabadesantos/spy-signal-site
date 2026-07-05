@@ -1,24 +1,18 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { Caveat } from 'next/font/google'
 import { ArrowRight } from 'lucide-react'
 import BrandHomeMenu from '@/components/BrandHomeMenu'
 import HeaderSearch from '@/components/HeaderSearch'
 import { cn } from '@/lib/utils'
 import { BRAND_DESCRIPTION, BRAND_NAME } from '@/components/marketing/site-config'
 
-const caveat = Caveat({
-  subsets: ['latin'],
-  weight: ['600', '700'],
-})
-
 export const sharedHeaderShellClass =
-  'fixed inset-x-0 top-0 z-[90] border-b border-slate-950/8 bg-white/76 backdrop-blur-[28px] saturate-[1.75] dark:border-white/8 dark:bg-[#00040a]/38'
+  'material-glass-bar fixed inset-x-0 top-0 z-[90]'
 
 export const sharedHeaderInnerClass = 'mx-auto max-w-[1500px] px-6 py-3 sm:px-10 lg:px-14'
 
 export const sharedHeaderMenuShellClass =
-  'border border-slate-950/8 bg-white/84 backdrop-blur-[28px] saturate-[1.75] dark:border-white/8 dark:bg-[#00040a]/38'
+  'material-glass'
 
 export const sharedHeaderDesktopSearchClass = 'ml-auto w-full max-w-[520px] lg:max-w-[480px]'
 
@@ -48,9 +42,9 @@ type PageShellProps = {
 
 export function BrandWordmark({ className }: { className?: string }) {
   return (
-    <span className={cn('marketing-logo-type flex items-center gap-3 text-xl tracking-normal md:text-2xl', className)}>
+    <span className={cn('flex items-center gap-3 text-xl tracking-normal md:text-2xl', className)}>
       <span>lb</span>
-      <span className="text-[#ff8b2b]">/</span>
+      <span className="text-[#6f79ff]">/</span>
     </span>
   )
 }
@@ -62,7 +56,7 @@ export function HandScript({
   children: ReactNode
   className?: string
 }) {
-  return <span className={cn(caveat.className, className)}>{children}</span>
+  return <span className={cn('font-medium', className)}>{children}</span>
 }
 
 export function CircleHighlight({
@@ -75,7 +69,7 @@ export function CircleHighlight({
   tone?: 'blue' | 'orange' | 'chalk'
 }) {
   const stroke =
-    tone === 'orange' ? '#ff8b2b' : tone === 'chalk' ? 'rgba(255,255,255,0.72)' : '#6f79ff'
+    tone === 'orange' ? '#6f79ff' : tone === 'chalk' ? 'rgba(255,255,255,0.72)' : '#6f79ff'
 
   return (
     <span className={cn('relative inline-flex items-center justify-center px-4 py-2', className)}>
@@ -104,7 +98,7 @@ export function ScribbleNote({
 }) {
   const toneClass =
     tone === 'orange'
-      ? 'border-[#ff8b2b]/60 text-[#ff8b2b] shadow-[0_0_40px_rgba(255,139,43,0.16)]'
+      ? 'border-[#6f79ff]/60 text-[#6f79ff] shadow-[0_0_40px_rgba(111,121,255,0.16)]'
       : tone === 'chalk'
         ? 'border-white/30 text-white/80 shadow-[0_0_32px_rgba(255,255,255,0.08)]'
         : 'border-[#4a63ff]/55 text-[#4a63ff] shadow-[0_0_40px_rgba(74,99,255,0.18)] dark:text-[#7d8cff]'
@@ -112,8 +106,7 @@ export function ScribbleNote({
   return (
     <div
       className={cn(
-        caveat.className,
-        'relative inline-flex rotate-[-3deg] rounded-[28px] border px-5 py-4 text-[1.85rem] leading-none tracking-tight backdrop-blur-md',
+        'relative inline-flex rounded-[28px] border px-5 py-4 text-lg font-medium leading-snug tracking-tight',
         toneClass,
         className
       )}
@@ -143,7 +136,7 @@ export function GlassPanel({
       <div className="pointer-events-none absolute inset-y-0 left-0 w-[28%] bg-[linear-gradient(90deg,rgba(255,255,255,0.22),transparent)] dark:bg-[linear-gradient(90deg,rgba(255,255,255,0.07),transparent)]" />
       <div className="pointer-events-none absolute -left-12 top-[-14%] h-36 w-36 rounded-full bg-white/24 blur-3xl dark:bg-white/[0.08]" />
       <div className="pointer-events-none absolute -right-12 top-[-18%] h-40 w-40 rounded-full bg-white/20 blur-3xl dark:bg-[#6f79ff]/10" />
-      <div className="pointer-events-none absolute bottom-[-18%] right-[10%] h-28 w-44 rounded-full bg-[#ff8b2b]/10 blur-3xl dark:bg-[#6f79ff]/10" />
+      <div className="pointer-events-none absolute bottom-[-18%] right-[10%] h-28 w-44 rounded-full bg-[#6f79ff]/10 blur-3xl dark:bg-[#6f79ff]/10" />
       <div className="relative z-10">{children}</div>
     </div>
   )
@@ -166,7 +159,7 @@ export function SectionHeading({
 }) {
   return (
     <div className="max-w-3xl">
-      <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">
+      <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#d7dcff]">
         {eyebrow}
       </p>
       <h2 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">{title}</h2>
@@ -181,7 +174,7 @@ export function SectionHeading({
       {href ? (
         <Link
           href={href}
-          className="mt-7 inline-flex items-center gap-3 text-sm font-semibold text-[#0757ff] transition hover:gap-4 dark:text-[#f8f200]"
+          className="mt-7 inline-flex items-center gap-3 text-sm font-semibold text-[#0757ff] transition hover:gap-4 dark:text-[#d7dcff]"
         >
           {label} <ArrowRight className="size-4" />
         </Link>
@@ -211,11 +204,10 @@ export function MarketingHeader({ activeHref }: { activeHref?: string }) {
             <Link
               href="/sign-up"
               className={cn(
-                caveat.className,
-                'group relative inline-flex items-center rounded-full px-2 py-1 text-[1.22rem] leading-none text-[#ffb46a] transition duration-200 hover:text-[#ffd3a3] dark:text-[#ffc27f] dark:hover:text-[#ffe1ba]'
+                'group relative inline-flex items-center rounded-full px-2 py-1 text-sm font-semibold leading-none text-accent-text transition duration-200 hover:opacity-85'
               )}
             >
-              <span className="relative z-10 transition duration-200 group-hover:-rotate-[2deg] group-hover:scale-[1.04]">
+              <span className="relative z-10">
                 Start membership
               </span>
               <span className="pointer-events-none absolute inset-x-2 bottom-0 h-px origin-left scale-x-0 bg-current/70 transition duration-300 group-hover:scale-x-100" />
@@ -245,7 +237,7 @@ export function MarketingPageShell({
 }: PageShellProps) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-white text-slate-950 dark:bg-[#00040a] dark:text-white">
-      <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_18%_8%,rgba(7,87,255,0.14),transparent_28%),radial-gradient(circle_at_83%_0%,rgba(255,139,43,0.12),transparent_30%),linear-gradient(180deg,rgba(232,240,255,0.48),rgba(255,255,255,0)_68%)] dark:bg-[radial-gradient(circle_at_18%_8%,rgba(7,87,255,0.22),transparent_28%),radial-gradient(circle_at_83%_0%,rgba(255,139,43,0.12),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]" />
+      <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_18%_8%,rgba(7,87,255,0.14),transparent_28%),radial-gradient(circle_at_83%_0%,rgba(111,121,255,0.12),transparent_30%),linear-gradient(180deg,rgba(232,240,255,0.48),rgba(255,255,255,0)_68%)] dark:bg-[radial-gradient(circle_at_18%_8%,rgba(7,87,255,0.22),transparent_28%),radial-gradient(circle_at_83%_0%,rgba(111,121,255,0.12),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]" />
       <div className="pointer-events-none absolute left-[-5%] top-[8rem] h-72 w-72 rounded-full border border-white/22 bg-white/12 blur-[2px] dark:border-white/8 dark:bg-white/[0.02]" />
       <div className="pointer-events-none absolute right-[-3%] top-[16rem] h-56 w-56 rounded-full border border-[#6f79ff]/26 bg-[#6f79ff]/8 blur-[2px]" />
       <MarketingHeader activeHref={activeHref} />
@@ -253,7 +245,7 @@ export function MarketingPageShell({
 
       <section className="mx-auto grid max-w-[1500px] gap-8 px-6 pb-16 pt-10 sm:px-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(340px,0.7fr)] lg:px-14 lg:pt-16">
         <div className="max-w-[760px]">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#d7dcff]">
             {eyebrow}
           </p>
           <h1 className="mt-5 text-[clamp(2.7rem,6vw,5rem)] font-black leading-[0.98] tracking-tight">
@@ -285,7 +277,7 @@ export function MarketingPageShell({
                 href={secondaryCta.href}
                 target={secondaryCta.openInNewTab ? '_blank' : undefined}
                 rel={secondaryCta.openInNewTab ? 'noopener noreferrer' : undefined}
-                className="inline-flex h-[52px] items-center justify-center border-b-2 border-slate-950/16 px-1 text-base text-slate-950 transition hover:border-[#0757ff]/28 hover:text-[#0757ff] dark:border-[#f8f200] dark:text-white dark:hover:text-[#fff4c8]"
+                className="inline-flex h-[52px] items-center justify-center border-b-2 border-slate-950/16 px-1 text-base text-slate-950 transition hover:border-[#0757ff]/28 hover:text-[#0757ff] dark:border-[#d7dcff] dark:text-white dark:hover:text-[#fff4c8]"
               >
                 {secondaryCta.label}
               </Link>
@@ -306,7 +298,7 @@ export function MarketingPageOutro() {
     <section className="px-6 py-24 sm:px-10 lg:px-14">
       <GlassPanel className="mx-auto grid max-w-[1280px] gap-6 bg-[radial-gradient(circle_at_80%_0%,rgba(7,87,255,0.14),transparent_32%)] p-8 md:grid-cols-[1fr_auto] md:items-center">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#d7dcff]">
             Membership
           </p>
           <h2 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">Signals, research, and alerts in one workspace.</h2>
@@ -341,7 +333,7 @@ export function BrandSummary() {
     <GlassPanel className="overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#f8f200]">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#d7dcff]">
             {BRAND_NAME}
           </p>
           <h2 className="mt-3 text-3xl font-black tracking-tight">One trade. One edge.</h2>
@@ -349,7 +341,7 @@ export function BrandSummary() {
             {BRAND_DESCRIPTION}
           </p>
           <CircleHighlight className="mt-5" tone="orange">
-            <HandScript className="text-[2rem] leading-none text-[#ff8b2b]">One trade. One edge.</HandScript>
+            <HandScript className="text-[2rem] leading-none text-[#6f79ff]">One trade. One edge.</HandScript>
           </CircleHighlight>
         </div>
         <ScribbleNote tone="blue" className="mt-2 sm:mr-2">

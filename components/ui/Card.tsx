@@ -20,7 +20,7 @@ export default function Card({
   return (
     <div
       className={cn(
-        'surface-secondary relative overflow-hidden text-content-primary',
+        'material-surface relative overflow-hidden rounded-[var(--radius-xl)]',
         paddingClass(padding),
         className
       )}

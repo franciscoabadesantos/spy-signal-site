@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, use, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { Suspense, use, useMemo, useState, type ReactNode } from 'react'
 import AiAnalystPanel from '@/components/AiAnalystPanel'
 import RelationshipOrbit from '@/components/RelationshipOrbit'
 import ScorecardDisc from '@/components/stocks/ScorecardDisc'
@@ -16,6 +16,8 @@ import {
   type TechnicalTimeframe,
 } from '@/lib/technicalSignals'
 import { formatMoney, formatSignedMoney } from '@/lib/currency'
+import PressureBar, { type PressureVerdict } from '@/components/ui/PressureBar'
+import { modelSignalsEnabled } from '@/lib/flags'
 import { cn } from '@/lib/utils'
 import styles from './StockOverviewClient.module.css'
 
@@ -64,7 +66,6 @@ type StockOverviewClientProps = {
   historicalData: PricePoint[]
   ohlcData: OhlcPoint[]
   statStrip: OverviewStat[]
-  heroStats: OverviewStat[]
   relationship126: Promise<TickerRelationships>
   relationship252: Promise<TickerRelationships>
   fundDetails: OverviewFundDetail[]
@@ -162,88 +163,10 @@ function filterChartData(data: PricePoint[], timeframe: ChartTimeframe): PricePo
   return filtered.length >= 2 ? filtered : data
 }
 
-function Gauge({
-  title,
-  position,
-  verdict,
-  verdictAction,
-  counts,
-}: {
-  title: string
-  position: number
-  verdict: string
-  verdictAction: TechnicalAction
-  counts: {
-    buy: number
-    neutral: number
-    sell: number
-  }
-}) {
-  const clamped = Math.max(0, Math.min(100, position))
-  const pressure = Math.round(clamped)
-  const total = Math.max(1, counts.buy + counts.neutral + counts.sell)
-  const sellPct = (counts.sell / total) * 100
-  const neutralPct = (counts.neutral / total) * 100
-  const buyPct = (counts.buy / total) * 100
-  const pressureStyle = {
-    '--pressure': clamped,
-    '--needle-rotation': `${(clamped - 50) * 1.8}deg`,
-    '--sell-share': `${sellPct}%`,
-    '--neutral-share': `${neutralPct}%`,
-    '--buy-share': `${buyPct}%`,
-  } as CSSProperties
-  const toneClass =
-    verdictAction === 'Buy'
-      ? styles.gaugePanelBuy
-      : verdictAction === 'Sell'
-        ? styles.gaugePanelSell
-        : styles.gaugePanelNeutral
-
-  return (
-    <div className={cn(styles.gaugePanel, toneClass)} style={pressureStyle}>
-      <div className={styles.gaugeTopline}>
-        <div className={styles.gaugeLabel}>{title}</div>
-        <div className={styles.gaugePressureValue}>{pressure}</div>
-      </div>
-
-      <div className={styles.pressureDial} aria-hidden="true">
-        <div className={styles.pressureGlow} />
-        <div className={styles.pressureTrack}>
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '-90deg' } as CSSProperties} />
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '-45deg' } as CSSProperties} />
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '0deg' } as CSSProperties} />
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '45deg' } as CSSProperties} />
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '90deg' } as CSSProperties} />
-        </div>
-        <div className={styles.pressureNeedle}>
-          <span />
-        </div>
-        <div className={styles.pressureHub} />
-      </div>
-
-      <div className={styles.gaugeReadout}>
-        <div className={cn(styles.gaugeVerdict, actionTone(verdictAction))}>{verdict}</div>
-        <div className={styles.gaugePressureLabel}>Pressure index</div>
-      </div>
-
-      <div className={styles.gaugeMix} aria-hidden="true">
-        <span className={styles.gaugeMixSell} />
-        <span className={styles.gaugeMixNeutral} />
-        <span className={styles.gaugeMixBuy} />
-      </div>
-      <div className={styles.gaugeCounts}>
-        <span>
-          <span className={styles.gaugeCountDotSell} /> Sell <span className={styles.gaugeCountValue}>{counts.sell}</span>
-        </span>
-        <span>
-          <span className={styles.gaugeCountDotNeutral} /> Neutral <span className={styles.gaugeCountValue}>{counts.neutral}</span>
-        </span>
-        <span>
-          <span className={styles.gaugeCountDotBuy} /> Buy <span className={styles.gaugeCountValue}>{counts.buy}</span>
-        </span>
-      </div>
-    </div>
-  )
+function pressureVerdict(action: TechnicalAction): PressureVerdict {
+  if (action === 'Buy') return 'buy'
+  if (action === 'Sell') return 'sell'
+  return 'neutral'
 }
 
 function HeroPriceChart({
@@ -302,14 +225,14 @@ function HeroPriceChart({
                     y1={y}
                     x2={padding.left + innerWidth}
                     y2={y}
-                    stroke="var(--color-border-light)"
+                    stroke="var(--border-subtle)"
                     strokeWidth="1"
                   />
                 )
               })}
 
-              <path d={areaPath} fill="var(--color-accent-light)" />
-              <path d={linePath} fill="none" stroke="var(--color-accent)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={areaPath} fill="var(--accent-tint)" />
+              <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
 
               {hoverPoint ? (
                 <>
@@ -321,7 +244,7 @@ function HeroPriceChart({
                     stroke="rgba(255,255,255,0.18)"
                     strokeDasharray="3 4"
                   />
-                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4" fill="var(--color-accent)" stroke="var(--bg-surface)" strokeWidth="2" />
+                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4" fill="var(--primary)" stroke="var(--surface-solid)" strokeWidth="2" />
                 </>
               ) : null}
 
@@ -335,7 +258,7 @@ function HeroPriceChart({
                     y={height - 4}
                     textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
                     fontSize="12"
-                    fill="var(--color-text-muted)"
+                    fill="var(--content-muted)"
                   >
                     {formatDate(point.date, { month: 'short', day: 'numeric' })}
                   </text>
@@ -351,7 +274,7 @@ function HeroPriceChart({
                     y={y + 4}
                     textAnchor="end"
                     fontSize="12"
-                    fill="var(--color-text-muted)"
+                    fill="var(--content-muted)"
                   >
                     {formatMoney(tick, currency)}
                   </text>
@@ -565,19 +488,43 @@ function Modal({
   )
 }
 
+function hasAnyRelationships(relationships: TickerRelationships): boolean {
+  return (
+    relationships.residualCoMovers.length > 0 ||
+    relationships.themePeers.length > 0 ||
+    relationships.marketCoMovers.length > 0 ||
+    relationships.probableSpurious.length > 0 ||
+    relationships.leadLag.leaders.length > 0 ||
+    relationships.leadLag.followers.length > 0
+  )
+}
+
 function PeerWebContent({
   ticker,
   displayName,
   relationship126Promise,
   relationship252Promise,
+  relatedAssetsPromise,
 }: {
   ticker: string
   displayName: string
   relationship126Promise: Promise<TickerRelationships>
   relationship252Promise: Promise<TickerRelationships>
+  relatedAssetsPromise: Promise<OverviewRelatedAsset[]>
 }) {
   const relationship126 = use(relationship126Promise)
   const relationship252 = use(relationship252Promise)
+
+  if (!hasAnyRelationships(relationship126) && !hasAnyRelationships(relationship252)) {
+    return (
+      <div className={styles.peerWebFallback}>
+        <div className={styles.emptyState}>Relationship data is not available for this ticker yet.</div>
+        <Suspense fallback={<div className={styles.emptyState}>Loading related assets…</div>}>
+          <RelatedAssetsContent relatedAssetsPromise={relatedAssetsPromise} />
+        </Suspense>
+      </div>
+    )
+  }
 
   return (
     <RelationshipOrbit
@@ -625,7 +572,6 @@ export default function StockOverviewClient({
   historicalData,
   ohlcData,
   statStrip,
-  heroStats,
   relationship126: relationship126Promise,
   relationship252: relationship252Promise,
   fundDetails,
@@ -639,6 +585,7 @@ export default function StockOverviewClient({
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
   const [isOrbitModalOpen, setOrbitModalOpen] = useState(false)
   const [isChartModalOpen, setChartModalOpen] = useState(false)
+  const [isSignalDetailOpen, setSignalDetailOpen] = useState(false)
 
   const filteredChartData = useMemo(() => filterChartData(historicalData, heroTimeframe), [historicalData, heroTimeframe])
   const technicalSummary = useMemo(
@@ -668,6 +615,14 @@ export default function StockOverviewClient({
           <div className={styles.price}>{formatPrice(price, currency)}</div>
           <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>{formatSignedDelta(dailyMoveAmount, currency)}</div>
           <div className={cn(styles.delta, directionToneClass(dailyMovePercent))}>({formatCompactPercent(dailyMovePercent)})</div>
+          <button
+            type="button"
+            className={styles.gradeChip}
+            onClick={() => setOrbitModalOpen(true)}
+            title={`Scorecard: ${scorecard.overall.label}`}
+          >
+            Grade {scorecard.overall.grade}
+          </button>
         </div>
 
         <div className={styles.heroBody}>
@@ -693,31 +648,6 @@ export default function StockOverviewClient({
               <HeroPriceChart data={filteredChartData} currency={currency} />
             </div>
           </div>
-
-          <aside className={styles.heroSidebar}>
-            <button type="button" className={styles.orbitMiniButton} onClick={() => setOrbitModalOpen(true)}>
-              <ScorecardDisc scorecard={scorecard} compact size={160} className={styles.heroOrbitMini} />
-            </button>
-            <div className={styles.heroOrbitMetrics}>
-              <span className={styles.heroOrbitMetricChip}>Grade {scorecard.overall.grade}</span>
-              <span className={styles.heroOrbitMetricChip}>Score {scorecard.overall.score ?? '—'}</span>
-              <span className={styles.heroOrbitMetricChip}>{scorecard.overall.label}</span>
-            </div>
-            <div className={styles.keyStatsGrid}>
-              {heroStats.map((stat) => (
-                <div key={stat.label} className={styles.keyStatCell}>
-                  <div className={styles.keyStatLabel}>{stat.label}</div>
-                  <div className={styles.keyStatValue}>{stat.value}</div>
-                </div>
-              ))}
-            </div>
-            <div className={styles.heroBadgeRow}>
-              <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal?.direction ?? null)}</span>
-              {latestSignal?.signalDate ? (
-                <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
-              ) : null}
-            </div>
-          </aside>
 
           <div className={styles.statStrip}>
             {statStrip.map((stat) => (
@@ -749,33 +679,75 @@ export default function StockOverviewClient({
 
         <div className={styles.signalSplit}>
           <div className={styles.signalLeft}>
-            <Gauge
+            <PressureBar
+              className={styles.pressureCard}
               title="Summary"
-              position={technicalSummary.gauges.summary.position}
-              verdict={technicalSummary.gauges.summary.verdict}
-              verdictAction={technicalSummary.gauges.summary.verdictAction}
-              counts={technicalSummary.gauges.summary.counts}
+              pressure={technicalSummary.gauges.summary.position}
+              verdict={pressureVerdict(technicalSummary.gauges.summary.verdictAction)}
+              verdictLabel={technicalSummary.gauges.summary.verdict}
+              buy={technicalSummary.gauges.summary.counts.buy}
+              neutral={technicalSummary.gauges.summary.counts.neutral}
+              sell={technicalSummary.gauges.summary.counts.sell}
             />
-            <Gauge
+            <PressureBar
+              className={styles.pressureCard}
               title="Oscillators"
-              position={technicalSummary.gauges.oscillators.position}
-              verdict={technicalSummary.gauges.oscillators.verdict}
-              verdictAction={technicalSummary.gauges.oscillators.verdictAction}
-              counts={technicalSummary.gauges.oscillators.counts}
+              pressure={technicalSummary.gauges.oscillators.position}
+              verdict={pressureVerdict(technicalSummary.gauges.oscillators.verdictAction)}
+              verdictLabel={technicalSummary.gauges.oscillators.verdict}
+              buy={technicalSummary.gauges.oscillators.counts.buy}
+              neutral={technicalSummary.gauges.oscillators.counts.neutral}
+              sell={technicalSummary.gauges.oscillators.counts.sell}
             />
-            <Gauge
+            <PressureBar
+              className={styles.pressureCard}
               title="Moving Averages"
-              position={technicalSummary.gauges.movingAverages.position}
-              verdict={technicalSummary.gauges.movingAverages.verdict}
-              verdictAction={technicalSummary.gauges.movingAverages.verdictAction}
-              counts={technicalSummary.gauges.movingAverages.counts}
+              pressure={technicalSummary.gauges.movingAverages.position}
+              verdict={pressureVerdict(technicalSummary.gauges.movingAverages.verdictAction)}
+              verdictLabel={technicalSummary.gauges.movingAverages.verdict}
+              buy={technicalSummary.gauges.movingAverages.counts.buy}
+              neutral={technicalSummary.gauges.movingAverages.counts.neutral}
+              sell={technicalSummary.gauges.movingAverages.counts.sell}
             />
           </div>
-          <div className={styles.signalRight}>
-            <SignalTable title="Oscillators" rows={technicalSummary.oscillatorRows} />
-            <div className={styles.signalDivider} />
-            <SignalTable title="Moving Averages" rows={technicalSummary.movingAverageRows} />
-          </div>
+          <aside className={styles.scorecardPanel}>
+            <button type="button" className={styles.orbitMiniButton} onClick={() => setOrbitModalOpen(true)}>
+              <ScorecardDisc scorecard={scorecard} compact size={150} className={styles.heroOrbitMini} />
+            </button>
+            <div className={styles.heroOrbitMetrics}>
+              <span className={styles.heroOrbitMetricChip}>Grade {scorecard.overall.grade}</span>
+              <span className={styles.heroOrbitMetricChip}>Score {scorecard.overall.score ?? '—'}</span>
+            </div>
+            <p className={cn('text-interpretive', styles.scorecardSentence)}>
+              The fundamental read next to the technical one: {scorecard.overall.label.toLowerCase()}.
+            </p>
+            {modelSignalsEnabled() ? (
+              <div className={styles.heroBadgeRow}>
+                <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal?.direction ?? null)}</span>
+                {latestSignal?.signalDate ? (
+                  <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
+                ) : null}
+              </div>
+            ) : null}
+          </aside>
+        </div>
+
+        <div className={styles.signalDetails}>
+          <button
+            type="button"
+            className={styles.detailsToggle}
+            aria-expanded={isSignalDetailOpen}
+            onClick={() => setSignalDetailOpen((open) => !open)}
+          >
+            {isSignalDetailOpen ? 'Hide indicator details' : 'Show indicator details'}
+          </button>
+          {isSignalDetailOpen ? (
+            <div className={styles.signalRight}>
+              <SignalTable title="Oscillators" rows={technicalSummary.oscillatorRows} />
+              <div className={styles.signalDivider} />
+              <SignalTable title="Moving Averages" rows={technicalSummary.movingAverageRows} />
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -793,29 +765,32 @@ export default function StockOverviewClient({
               displayName={displayName}
               relationship126Promise={relationship126Promise}
               relationship252Promise={relationship252Promise}
+              relatedAssetsPromise={relatedAssetsPromise}
             />
           </Suspense>
         </article>
 
-        <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Regime history</div>
-              <div className={styles.cardHint}>Visible state changes over time</div>
+        {modelSignalsEnabled() ? (
+          <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
+            <div className={styles.cardHeader}>
+              <div>
+                <div className={styles.cardTitle}>Regime history</div>
+                <div className={styles.cardHint}>Visible state changes over time</div>
+              </div>
             </div>
-          </div>
-          <RegimeHistoryChart signals={regimeSignals} />
-        </article>
+            <RegimeHistoryChart signals={regimeSignals} />
+          </article>
+        ) : null}
 
         <article className={cn(styles.zone, styles.dashboardCard)}>
           <div className={styles.cardHeader}>
             <div>
-              <div className={styles.cardTitle}>Fund details</div>
-              <div className={styles.cardHint}>Canonical backend fundamentals</div>
+              <div className={styles.cardTitle}>Company facts</div>
+              <div className={styles.cardHint}>Key figures from the latest data</div>
             </div>
           </div>
           {fundDetails.length === 0 ? (
-            <div className={styles.emptyState}>No additional fund detail rows are available for this asset.</div>
+            <div className={styles.emptyState}>No additional company facts are available for this asset.</div>
           ) : (
             <div className={styles.fundDetails}>
               {fundDetails.map((row) => (
@@ -828,27 +803,19 @@ export default function StockOverviewClient({
           )}
           <div className={styles.actionsRow}>
             <Link href={`/stocks/${ticker}/financials/fund-profile`} className={styles.actionLink}>
-              Financial data
+              All financials
             </Link>
-            <Link href={`/stocks/${ticker}/holdings-dividends`} className={styles.actionLink}>
-              Holdings / dividends
-            </Link>
-            <Link href={`/stocks/${ticker}/signal-history`} className={styles.actionLink}>
-              Full signal history
-            </Link>
+            {assetBadgeLabel === 'ETF' ? (
+              <Link href={`/stocks/${ticker}/holdings-dividends`} className={styles.actionLink}>
+                Holdings / dividends
+              </Link>
+            ) : null}
+            {modelSignalsEnabled() ? (
+              <Link href={`/stocks/${ticker}/signal-history`} className={styles.actionLink}>
+                Full signal history
+              </Link>
+            ) : null}
           </div>
-        </article>
-
-        <article className={cn(styles.zone, styles.dashboardCard)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Related assets</div>
-              <div className={styles.cardHint}>Compact peer shortcuts</div>
-            </div>
-          </div>
-          <Suspense fallback={<div className={styles.emptyState}>Loading related assets…</div>}>
-            <RelatedAssetsContent relatedAssetsPromise={relatedAssetsPromise} />
-          </Suspense>
         </article>
 
         {showCopilot ? (

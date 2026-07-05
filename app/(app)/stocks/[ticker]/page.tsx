@@ -8,6 +8,7 @@ import StockOverviewClient from '@/components/stocks/StockOverviewClient'
 import { getViewerUserId } from '@/lib/auth'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import { currencyForTicker, formatCompactMoney, formatMoney } from '@/lib/currency'
+import { formatCompactNumber, formatFundamentalValue, formatRatioAsPercent, presentMetrics } from '@/lib/format'
 import {
   getOhlcData,
   getStockQuote,
@@ -87,7 +88,7 @@ function findLatestFundamentalValue(
 ): string | null {
   const row = rows.find((item) => matcher(`${item.metric.toLowerCase()} ${item.metricLabel.toLowerCase()}`))
   if (!row) return null
-  return row.valueDisplay ?? (row.valueNumber !== null ? row.valueNumber.toLocaleString() : null)
+  return formatFundamentalValue(row.metricLabel, row.valueDisplay, row.valueNumber)
 }
 
 function looksLikeEtfAsset({
@@ -111,7 +112,7 @@ function looksLikeEtfAsset({
   }
 
   return latestFundamentals.some((row) =>
-    /(expense|holdings|assets|inception|turnover|distribution|fund family|portfolio p\/e)/i.test(
+    /(expense ratio|holdings count|inception date|turnover|fund family|portfolio p\/e)/i.test(
       `${row.metricLabel} ${row.metric}`
     )
   )
@@ -313,10 +314,10 @@ export default async function TickerPage({
     fundamentalsSummary?.trailingPe !== null && fundamentalsSummary?.trailingPe !== undefined
       ? fundamentalsSummary.trailingPe.toFixed(2)
       : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('pe')) ?? '—')
-  const dividendYield =
-    findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('yield')) ?? '—'
-  const volumeValue =
-    findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('volume')) ?? '—'
+  const dividendYieldRaw = findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('yield'))
+  const dividendYield = formatRatioAsPercent(dividendYieldRaw) ?? dividendYieldRaw
+  const volumeRaw = findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('volume'))
+  const volumeValue = formatCompactNumber(volumeRaw) ?? volumeRaw
   const latestRevenueValue =
     fundamentalsSummary?.latestRevenue !== null && fundamentalsSummary?.latestRevenue !== undefined
       ? formatCompactMoney(fundamentalsSummary.latestRevenue, currency)
@@ -326,24 +327,17 @@ export default async function TickerPage({
       ? fundamentalsSummary.latestEps.toFixed(2)
       : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('eps')) ?? '—')
 
-  const statStrip = [
-    { label: 'Open', value: '—' },
-    { label: 'Prev. Close', value: formatMoney(previousClose, currency) },
-    { label: '52w High', value: formatMoney(marketStats?.week52High ?? null, currency) },
-    { label: '52w Low', value: formatMoney(marketStats?.week52Low ?? null, currency) },
-    { label: 'Volume', value: volumeValue },
-    { label: 'Market Cap', value: marketCapValue },
-    { label: 'P/E', value: trailingPe },
-    { label: 'Dividend Yield', value: dividendYield },
-  ]
-  const heroStats = [
+  const statStrip = presentMetrics([
     { label: 'Market Cap', value: marketCapValue },
     { label: 'P/E', value: trailingPe },
     { label: 'Revenue', value: latestRevenueValue },
     { label: 'EPS', value: latestEpsValue },
-    { label: '52W High', value: formatMoney(marketStats?.week52High ?? null, currency) },
-    { label: 'Div Yield', value: dividendYield },
-  ]
+    { label: 'Dividend Yield', value: dividendYield },
+    { label: 'Prev. Close', value: formatMoney(previousClose, currency) },
+    { label: '52w High', value: formatMoney(marketStats?.week52High ?? null, currency) },
+    { label: '52w Low', value: formatMoney(marketStats?.week52Low ?? null, currency) },
+    { label: 'Volume', value: volumeValue },
+  ])
 
   const duplicateLabels = new Set(
     statStrip.map((item) => normalizeFundDetailLabel(item.label)).concat([
@@ -359,10 +353,10 @@ export default async function TickerPage({
     latestFundamentals
       .map((row) => ({
         label: row.metricLabel,
-        value: row.valueDisplay ?? (row.valueNumber !== null ? row.valueNumber.toLocaleString() : '—'),
+        value: formatFundamentalValue(row.metricLabel, row.valueDisplay, row.valueNumber, currency) ?? '',
       }))
-      .filter((row) => !duplicateLabels.has(normalizeFundDetailLabel(row.label)))
-  ).slice(0, 18)
+      .filter((row) => row.value !== '' && !duplicateLabels.has(normalizeFundDetailLabel(row.label)))
+  ).slice(0, 8)
 
   return (
     <div className="space-y-4 md:space-y-5">
@@ -385,6 +379,7 @@ export default async function TickerPage({
           ticker={ticker}
           initialInWatchlist={isInWatchlist}
           signedIn={Boolean(viewerUserId)}
+          variant="icon"
         />
       </div>
 
@@ -400,7 +395,6 @@ export default async function TickerPage({
         historicalData={historicalData}
         ohlcData={ohlcData}
         statStrip={statStrip}
-        heroStats={heroStats}
         relationship126={relationship126Promise}
         relationship252={relationship252Promise}
         fundDetails={fundDetails}

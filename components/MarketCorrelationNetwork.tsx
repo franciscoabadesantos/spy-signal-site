@@ -95,7 +95,7 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
                 step="0.05"
                 value={threshold}
                 onChange={(event) => setThreshold(Number(event.target.value))}
-                className="w-full accent-[var(--color-accent)]"
+                className="w-full accent-[var(--primary)]"
                 aria-label="Minimum absolute correlation"
               />
               <span className="numeric-tabular text-label-sm text-content-primary">{formatPercent(threshold)}</span>
@@ -112,7 +112,7 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
                 step="1"
                 value={topK}
                 onChange={(event) => setTopK(Number(event.target.value))}
-                className="w-full accent-[var(--color-accent)]"
+                className="w-full accent-[var(--primary)]"
                 aria-label="Maximum non-backbone edges per node"
               />
               <span className="numeric-tabular text-label-sm text-content-primary">{topK}</span>

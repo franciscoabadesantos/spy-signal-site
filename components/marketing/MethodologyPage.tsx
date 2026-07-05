@@ -58,7 +58,7 @@ export default function MethodologyPage() {
       secondaryCta={{ label: 'See performance', href: '/performance' }}
       heroAside={
         <GlassPanel className="p-7">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#f8f200]">Signal recipe</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#d7dcff]">Signal recipe</p>
           <div className="mt-5 grid gap-3">
             {['Trend', 'Breadth', 'Volatility', 'Liquidity', 'Regime'].map((item) => (
               <div key={item} className="rounded-2xl border border-slate-950/8 bg-white/42 px-4 py-3 text-sm font-semibold dark:border-white/10 dark:bg-white/[0.03]">
@@ -90,7 +90,7 @@ export default function MethodologyPage() {
             const Icon = step.icon
             return (
               <GlassPanel key={step.title} className="p-6">
-                <div className="grid size-12 place-items-center rounded-2xl bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.06] dark:text-[#f8f200]">
+                <div className="grid size-12 place-items-center rounded-2xl bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.06] dark:text-[#d7dcff]">
                   <Icon className="size-6" />
                 </div>
                 <h3 className="mt-6 text-2xl font-semibold">{step.title}</h3>
@@ -115,7 +115,7 @@ export default function MethodologyPage() {
               const Icon = item.icon
               return (
                 <GlassPanel key={item.title} className="p-6">
-                  <Icon className="size-6 text-[#0757ff] dark:text-[#f8f200]" />
+                  <Icon className="size-6 text-[#0757ff] dark:text-[#d7dcff]" />
                   <h3 className="mt-4 text-xl font-semibold">{item.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/62">{item.body}</p>
                 </GlassPanel>
@@ -128,9 +128,9 @@ export default function MethodologyPage() {
       <section className="mx-auto max-w-[1280px] px-6 py-20 sm:px-10 lg:px-16">
         <GlassPanel className="grid gap-6 p-8 lg:grid-cols-[1fr_320px] lg:items-center">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">Output</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#d7dcff]">Output</p>
             <h2 className="mt-3 text-3xl font-black tracking-tight">One weekly stance, not a thousand intraday temptations.</h2>
-            <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#ff8b2b]">
+            <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#6f79ff]">
               Compress the noise.
             </HandScript>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-white/62">

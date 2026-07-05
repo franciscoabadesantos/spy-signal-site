@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import { forceCenter, forceCollide, forceManyBody, forceRadial, forceX, forceY, type SimulationNodeDatum } from 'd3-force'
 import { ChartTooltipCard } from '@/components/charts/ChartContainer'
 import type { NetworkEdge, NetworkGraph, NetworkNode } from '@/lib/network'
+import { DARK_GRAPH_PALETTE, useGraphPalette, type GraphPalette } from '@/lib/theme-tokens'
 import {
   countryDisplayName,
   nodeColor,
@@ -92,6 +93,8 @@ type NetworkGraphCanvasProps = {
   topK?: number
   width: number
   height: number
+  /** External hover source (e.g. theme-set diagram) highlighting a node. */
+  externalFocusTicker?: string | null
 }
 
 type GraphNode = NetworkNode &
@@ -168,13 +171,17 @@ function peerNodeRadius(strengthScore: number, isCenter: boolean): number {
   return 10.5 + Math.sqrt(normalized) * 6.5
 }
 
-function linkColor(edge: Pick<NetworkEdge, 'correlation' | 'relationshipColor'>, alpha = 1): string {
+function linkColor(
+  edge: Pick<NetworkEdge, 'correlation' | 'relationshipColor'>,
+  alpha = 1,
+  palette: GraphPalette = DARK_GRAPH_PALETTE
+): string {
   if (typeof edge.relationshipColor === 'string') {
     return edge.relationshipColor.includes('rgba(')
       ? edge.relationshipColor
       : hexToRgba(edge.relationshipColor, alpha)
   }
-  return edge.correlation >= 0 ? `rgba(54, 179, 255, ${alpha})` : `rgba(255, 134, 123, ${alpha})`
+  return edge.correlation >= 0 ? hexToRgba(palette.relResidual, alpha) : hexToRgba(palette.relInverse, alpha)
 }
 
 function linkWidth(edge: Pick<NetworkEdge, 'inMst' | 'absCorrelation' | 'relationshipWidthBoost' | 'relationshipConfidence'> & { visualConfidence?: number | null }, mode: 'global' | 'peer'): number {
@@ -456,8 +463,10 @@ export default function NetworkGraphCanvas({
   topK = 5,
   width,
   height,
+  externalFocusTicker = null,
 }: NetworkGraphCanvasProps) {
   const router = useRouter()
+  const graphPalette = useGraphPalette()
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphLink> | undefined>(undefined)
   const [zoomScale, setZoomScale] = useState(1)
@@ -471,7 +480,7 @@ export default function NetworkGraphCanvas({
   )
 
   const nodeByTicker = useMemo(() => new Map(graphData.nodes.map((node) => [node.ticker, node])), [graphData.nodes])
-  const focusedTicker = dragTicker ?? hover?.ticker ?? null
+  const focusedTicker = dragTicker ?? hover?.ticker ?? externalFocusTicker ?? null
   const connectedTickers = useMemo(() => {
     if (!focusedTicker) return null
     const connected = new Set<string>([focusedTicker])
@@ -667,7 +676,7 @@ export default function NetworkGraphCanvas({
   return (
     <div
       ref={wrapperRef}
-      className="relative h-full w-full overflow-hidden rounded-[8px] bg-[#07111f]"
+      className="relative h-full w-full overflow-hidden rounded-[8px] bg-graph-canvas"
       onMouseMove={(event) => {
         if (!hover) return
         updateTooltipPosition(event.clientX, event.clientY, hover.ticker)
@@ -682,7 +691,7 @@ export default function NetworkGraphCanvas({
         graphData={graphData}
         width={width}
         height={height}
-        backgroundColor="#07111f"
+        backgroundColor={graphPalette.canvasBg}
         nodeId="id"
         linkSource="source"
         linkTarget="target"
@@ -700,7 +709,7 @@ export default function NetworkGraphCanvas({
         linkVisibility={(link: GraphLink) => linkIsVisible(link)}
         linkCurvature={(link: GraphLink) => linkCurvature(link, mode)}
         linkWidth={(link: GraphLink) => linkWidth(link, mode)}
-        linkColor={(link: GraphLink) => linkColor(link, linkAlpha(link))}
+        linkColor={(link: GraphLink) => linkColor(link, linkAlpha(link), graphPalette)}
         linkLineDash={(link: GraphLink) => link.relationshipDash ?? (link.inMst ? null : [5, 8])}
         nodeLabel={(node: GraphNode) => `${node.ticker} - ${countryDisplayName(node.country, node.region)} - ${sectorLabel(node.sector)}`}
         linkLabel={(link: GraphLink) =>
@@ -789,13 +798,13 @@ export default function NetworkGraphCanvas({
           ctx.beginPath()
           ctx.moveTo(sx, sy)
           ctx.quadraticCurveTo(cx, cy, tx, ty)
-          ctx.strokeStyle = linkColor(link, alpha)
+          ctx.strokeStyle = linkColor(link, alpha, graphPalette)
           ctx.lineWidth = focused ? linkWidth(link, mode) + 1.4 : linkWidth(link, mode)
           ctx.lineCap = 'round'
           ctx.setLineDash(link.relationshipDash ?? [])
           if (focused) {
             ctx.shadowBlur = NETWORK_GLOW.focusBlur
-            ctx.shadowColor = linkColor(link, 0.85)
+            ctx.shadowColor = linkColor(link, 0.85, graphPalette)
           }
           ctx.stroke()
           ctx.restore()
@@ -818,9 +827,9 @@ export default function NetworkGraphCanvas({
             ctx.lineTo(-arrowLength, -arrowWidth)
             ctx.lineTo(-arrowLength, arrowWidth)
             ctx.closePath()
-            ctx.fillStyle = linkColor(link, Math.min(1, alpha + 0.18))
+            ctx.fillStyle = linkColor(link, Math.min(1, alpha + 0.18), graphPalette)
             ctx.shadowBlur = focused ? NETWORK_GLOW.focusBlur : 0
-            ctx.shadowColor = linkColor(link, 0.75)
+            ctx.shadowColor = linkColor(link, 0.75, graphPalette)
             ctx.fill()
             ctx.restore()
           }
@@ -840,14 +849,14 @@ export default function NetworkGraphCanvas({
             const boxWidth = metrics.width + paddingX * 2
             const boxHeight = fontSize + paddingY * 2
             ctx.globalAlpha = dimmed ? 0.34 : 0.9
-            ctx.fillStyle = 'rgba(7, 17, 31, 0.76)'
-            ctx.strokeStyle = linkColor(link, 0.58)
+            ctx.fillStyle = hexToRgba(graphPalette.labelHalo, 0.76)
+            ctx.strokeStyle = linkColor(link, 0.58, graphPalette)
             ctx.lineWidth = 1 / globalScale
             ctx.beginPath()
             ctx.roundRect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight, 4 / globalScale)
             ctx.fill()
             ctx.stroke()
-            ctx.fillStyle = '#f7fbff'
+            ctx.fillStyle = graphPalette.nodeLabel
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
             ctx.fillText(label, labelX, labelY + 0.5 / globalScale)
@@ -869,7 +878,7 @@ export default function NetworkGraphCanvas({
           if (node.isCenter) {
             ctx.beginPath()
             ctx.arc(x, y, radius + 7, 0, Math.PI * 2)
-            ctx.strokeStyle = `rgba(255, 255, 255, ${dimmed ? 0.22 : 0.62})`
+            ctx.strokeStyle = hexToRgba(graphPalette.nodeStroke, dimmed ? 0.22 : 0.62)
             ctx.lineWidth = 1.6
             ctx.setLineDash([2.5, 4.5])
             ctx.stroke()
@@ -926,8 +935,8 @@ export default function NetworkGraphCanvas({
             ctx.textAlign = 'center'
             ctx.textBaseline = node.isCenter && mode === 'peer' ? 'middle' : 'bottom'
             ctx.lineWidth = 3.6 / globalScale
-            ctx.strokeStyle = '#07111f'
-            ctx.fillStyle = '#f7fbff'
+            ctx.strokeStyle = graphPalette.labelHalo
+            ctx.fillStyle = graphPalette.nodeLabel
             ctx.globalAlpha = dimmed ? 0.34 : 0.96
             const labelY = mode === 'peer' && !node.isCenter ? y - radius - 5 / globalScale : mode === 'peer' ? y : y - radius - 5 / globalScale
             ctx.strokeText(node.ticker, x, labelY)
@@ -961,7 +970,7 @@ export default function NetworkGraphCanvas({
                     {
                       label: centerEdge?.relationshipLabel ? 'Relationship' : center ? `Correlation vs ${center}` : 'Relationship',
                       value: centerEdge?.relationshipLabel ?? centerEdge?.correlation.toFixed(2) ?? '-',
-                      swatchColor: centerEdge ? linkColor(centerEdge, 1) : undefined,
+                      swatchColor: centerEdge ? linkColor(centerEdge, 1, graphPalette) : undefined,
                     },
                     ...(centerEdge?.relationshipThemes?.length
                       ? [{ label: 'Themes', value: centerEdge.relationshipThemes.join(', ') }]
@@ -973,7 +982,7 @@ export default function NetworkGraphCanvas({
                     {
                       label: 'Top correlation',
                       value: strongestEdge?.correlation.toFixed(2) ?? '-',
-                      swatchColor: strongestEdge ? linkColor(strongestEdge, 1) : undefined,
+                      swatchColor: strongestEdge ? linkColor(strongestEdge, 1, graphPalette) : undefined,
                     },
                     { label: 'Strength', value: strongestEdge ? correlationDescriptor(strongestEdge.absCorrelation) : '-' },
                   ]),

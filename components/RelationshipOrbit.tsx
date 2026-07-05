@@ -7,6 +7,7 @@ import NetworkGraphCanvas from '@/components/NetworkGraphCanvas'
 import type { NetworkEdge, NetworkGraph, NetworkNode } from '@/lib/network'
 import type { RelationshipNeighbor, RelationshipThemePeer, TickerRelationships } from '@/lib/relationships'
 import { countryDisplayName } from '@/lib/network-regions'
+import { useGraphPalette, type GraphPalette } from '@/lib/theme-tokens'
 import { cn } from '@/lib/utils'
 
 type RelationshipWindow = 126 | 252
@@ -201,7 +202,8 @@ function buildRelationshipGraph(
   centerTicker: string,
   centerName: string | null,
   activeLayer: ToggleLayer,
-  maxNeighborsPerLayer: number
+  maxNeighborsPerLayer: number,
+  palette: GraphPalette
 ): { graph: NetworkGraph; rows: RelationshipRow[]; counts: Record<ToggleLayer, number>; moreCounts: Record<ToggleLayer, number> } {
   const center = centerTicker.trim().toUpperCase()
   const lookup = new Map<string, NetworkNode>()
@@ -268,7 +270,7 @@ function buildRelationshipGraph(
           strength: neighbor.strength,
           label,
           description: `${center} and ${neighbor.symbol}: ${label}`,
-          color: isInverse ? '#FF867B' : '#36B3FF',
+          color: isInverse ? palette.relInverse : palette.relResidual,
           alpha: isInverse ? 0.78 : 0.86,
           dash: isInverse ? [5, 5] : null,
           curvature: isInverse ? -0.16 : 0.18,
@@ -296,7 +298,7 @@ function buildRelationshipGraph(
           label,
           description: `${center} and ${neighbor.symbol}: ${label}`,
           themes,
-          color: '#A7F3D0',
+          color: palette.relTheme,
           alpha: 0.34,
           dash: [3, 5],
           curvature: 0.12,
@@ -320,7 +322,7 @@ function buildRelationshipGraph(
           strength: neighbor.strength,
           label: 'tende a liderar/seguir',
           description: `${center} tende a liderar ${neighbor.symbol}`,
-          color: '#FFCB47',
+          color: palette.relLeadLag,
           alpha: 0.78,
           directional: true,
           curvature: 0.34,
@@ -342,7 +344,7 @@ function buildRelationshipGraph(
           strength: neighbor.strength,
           label: 'tende a liderar/seguir',
           description: `${neighbor.symbol} tende a liderar ${center}`,
-          color: '#F59E0B',
+          color: palette.relLeadLagIn,
           alpha: 0.74,
           directional: true,
           curvature: -0.34,
@@ -366,7 +368,7 @@ function buildRelationshipGraph(
           strength: neighbor.strength,
           label: 'mexe junto (com o mercado todo)',
           description: `${center} and ${neighbor.symbol}: mexe junto (com o mercado todo)`,
-          color: '#73CBFF',
+          color: palette.relMarket,
           alpha: 0.26,
           dash: [8, 7],
           curvature: 0.06,
@@ -390,7 +392,7 @@ function buildRelationshipGraph(
           strength: neighbor.strength,
           label: 'parece relacionado, mas é só mercado',
           description: `${center} and ${neighbor.symbol}: parece relacionado, mas é só mercado`,
-          color: '#94A3B8',
+          color: palette.relSpurious,
           alpha: 0.18,
           dash: [2, 7],
           curvature: -0.1,
@@ -580,13 +582,19 @@ function ThemeSetDiagram({
   centerTicker,
   centerName,
   relationships,
+  onHoverTicker,
 }: {
   centerTicker: string
   centerName: string | null
   relationships: TickerRelationships
+  onHoverTicker?: (ticker: string | null) => void
 }) {
   const svgId = useId().replace(/:/g, '')
-  const [hover, setHover] = useState<ThemeDiagramPoint | null>(null)
+  const [hover, setHoverState] = useState<ThemeDiagramPoint | null>(null)
+  const setHover = (member: ThemeDiagramPoint | null) => {
+    setHoverState(member)
+    onHoverTicker?.(member ? member.symbol : null)
+  }
   const data = useMemo(() => {
     const nodeLookup = new Map(relationships.nodes.map((node) => [node.ticker, node]))
     const themeScores = new Map<string, { label: string; members: Set<string>; maxStrength: number }>()
@@ -846,7 +854,7 @@ function ThemeSetDiagram({
                     x={region.x}
                     y={y + 3.5}
                     textAnchor="middle"
-                    className={member.isCenter ? 'fill-[#07111f] text-[9px] font-black' : 'fill-content-primary text-[9px] font-bold'}
+                    className={member.isCenter ? 'fill-[var(--graph-node-label-inverse)] text-[9px] font-black' : 'fill-content-primary text-[9px] font-bold'}
                   >
                     {label}
                   </text>
@@ -897,13 +905,18 @@ export default function RelationshipOrbit({
   const normalizedCenter = centerTicker.trim().toUpperCase()
   const [window, setWindow] = useState<RelationshipWindow>(252)
   const [activeLayer, setActiveLayer] = useState<ToggleLayer>('residual')
+  const [rowsView, setRowsView] = useState<'cards' | 'table'>('cards')
+  const [themeFocusTicker, setThemeFocusTicker] = useState<string | null>(null)
   const relationships = relationshipsByWindow[window]
   const renderLimit = Math.max(1, Math.round(maxNeighborsPerLayer))
+  const palette = useGraphPalette()
   const { graph, rows, counts, moreCounts } = useMemo(
-    () => buildRelationshipGraph(relationships, normalizedCenter, centerName, activeLayer, renderLimit),
-    [activeLayer, centerName, normalizedCenter, relationships, renderLimit]
+    () => buildRelationshipGraph(relationships, normalizedCenter, centerName, activeLayer, renderLimit, palette),
+    [activeLayer, centerName, normalizedCenter, palette, relationships, renderLimit]
   )
   const hasVisibleRelationships = graph.edges.length > 0
+  // Few neighbors → compact canvas instead of floating a handful of nodes in a void.
+  const graphHeight = Math.max(240, Math.min(400, 150 + graph.nodes.length * 26))
 
   return (
     <div className="space-y-3">
@@ -956,9 +969,9 @@ export default function RelationshipOrbit({
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="relative min-h-[380px] overflow-hidden rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[var(--bg-surface)] p-3">
+        <div className="relative overflow-hidden rounded-[8px] border border-border bg-[var(--surface-solid)] p-3" style={{ minHeight: graphHeight }}>
           {hasVisibleRelationships ? (
-            <ChartContainer className="h-[380px]" loadingText="Loading relationship map...">
+            <ChartContainer style={{ height: graphHeight }} loadingText="Loading relationship map...">
               {({ width, height }) => (
                 <NetworkGraphCanvas
                   graph={graph}
@@ -966,42 +979,48 @@ export default function RelationshipOrbit({
                   centerTicker={normalizedCenter}
                   width={width}
                   height={height}
+                  externalFocusTicker={themeFocusTicker}
                 />
               )}
             </ChartContainer>
           ) : (
-            <div className="flex h-[380px] items-center justify-center rounded-[8px] border border-dashed border-border p-6 text-sm text-content-muted">
+            <div className="flex items-center justify-center rounded-[8px] border border-dashed border-border p-6 text-sm text-content-muted" style={{ height: graphHeight - 24 }}>
               No relationships in the selected layer for this ticker yet.
             </div>
           )}
         </div>
 
         <aside className="space-y-3 rounded-[8px] border border-border bg-surface-elevated p-4">
-          <ThemeSetDiagram centerTicker={normalizedCenter} centerName={centerName} relationships={relationships} />
+          <ThemeSetDiagram
+            centerTicker={normalizedCenter}
+            centerName={centerName}
+            relationships={relationships}
+            onHoverTicker={setThemeFocusTicker}
+          />
           <div className="text-filter-label">Legend</div>
           <div className="space-y-2 text-caption text-content-secondary">
             <div className="flex items-center gap-2">
-              <span className="h-px w-8 bg-[#36B3FF]" />
+              <span className="h-px w-8 bg-rel-residual" />
               Residual: mexe junto além do mercado
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-px w-8 border-t-2 border-dashed border-[#A7F3D0] opacity-70" />
+              <span className="h-px w-8 border-t-2 border-dashed border-rel-theme opacity-70" />
               Theme peers: same theme basket
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-px w-8 border-t-2 border-dashed border-[#FF867B]" />
+              <span className="h-px w-8 border-t-2 border-dashed border-rel-inverse" />
               Rotates-against: mexe ao contrário idiossincraticamente
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-px w-8 bg-[#FFCB47]" />
+              <span className="h-px w-8 bg-rel-leadlag" />
               Lead-lag: tende a liderar/seguir
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-px w-8 border-t-2 border-dashed border-[#73CBFF] opacity-60" />
+              <span className="h-px w-8 border-t-2 border-dashed border-rel-market opacity-60" />
               Market: mexe junto (com o mercado todo)
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-px w-8 border-t-2 border-dashed border-[#94A3B8] opacity-45" />
+              <span className="h-px w-8 border-t-2 border-dashed border-rel-spurious opacity-45" />
               Spurious: provavelmente só ruído de mercado
             </div>
           </div>
@@ -1014,6 +1033,50 @@ export default function RelationshipOrbit({
       </div>
 
       {rows.length > 0 ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-filter-label">Related companies</div>
+            <div className="flex gap-1">
+              {(['cards', 'table'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setRowsView(option)}
+                  className={cn(
+                    'rounded-[6px] px-2.5 py-1 text-caption transition',
+                    rowsView === option
+                      ? 'bg-primary/15 text-content-primary'
+                      : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
+                  )}
+                  aria-pressed={rowsView === option}
+                >
+                  {option === 'cards' ? 'Cards' : 'Table'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {rowsView === 'cards' ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {rows.map((row) => (
+                <Link
+                  key={`${row.tone}:${row.symbol}`}
+                  href={`/stocks/${row.symbol}`}
+                  className="material-surface state-interactive block rounded-[var(--radius-lg)] p-4"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-label-lg text-content-primary">{row.symbol}</span>
+                    <span className="numeric-tabular text-data-sm text-content-primary">{formatStrength(row.strength)}</span>
+                  </div>
+                  <div className="truncate text-caption text-content-muted">{row.name ?? 'Related asset'}</div>
+                  <p className="text-interpretive mt-2 text-[0.9375rem]">{row.label}</p>
+                  <div className="mt-2 flex items-center justify-between text-caption text-content-muted">
+                    <span>{countryDisplayName(row.country, row.region)}</span>
+                    <span className="numeric-tabular">{formatConfidence(row.confidence)} confidence</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
         <div className="overflow-hidden rounded-[8px] border border-border">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-surface-elevated text-caption uppercase tracking-[0.08em] text-content-muted">
@@ -1042,6 +1105,8 @@ export default function RelationshipOrbit({
               ))}
             </tbody>
           </table>
+        </div>
+          )}
         </div>
       ) : null}
     </div>

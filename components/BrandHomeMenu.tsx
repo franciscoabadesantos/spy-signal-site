@@ -123,7 +123,7 @@ export default function BrandHomeMenu({
       <Link
         href="/"
         className={cn(
-          'marketing-logo-type inline-flex items-center text-xl font-bold tracking-normal transition-opacity hover:opacity-85 md:text-2xl',
+          'inline-flex items-center text-xl font-bold tracking-normal transition-opacity hover:opacity-85 md:text-2xl',
           textClassName
         )}
       >
@@ -143,7 +143,7 @@ export default function BrandHomeMenu({
           }
           setOpen((value) => !value)
         }}
-        className="group relative inline-flex h-10 w-10 cursor-pointer items-center justify-center transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8b2b]/50"
+        className="group relative inline-flex h-10 w-10 cursor-pointer items-center justify-center transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f79ff]/50"
       >
         <svg
           aria-hidden="true"
@@ -159,7 +159,7 @@ export default function BrandHomeMenu({
             strokeWidth="1.7"
             pathLength="100"
             className={cn(
-              'origin-center text-[#0757ff]/70 opacity-0 [stroke-dasharray:100] [stroke-dashoffset:100] group-hover:animate-[brand-menu-scribble-draw_520ms_ease-out_forwards] dark:text-[#f8f200]/75',
+              'origin-center text-[#0757ff]/70 opacity-0 [stroke-dasharray:100] [stroke-dashoffset:100] group-hover:animate-[brand-menu-scribble-draw_520ms_ease-out_forwards] dark:text-[#d7dcff]/75',
               open
                 ? 'opacity-100 [stroke-dashoffset:0]'
                 : ''
@@ -168,7 +168,7 @@ export default function BrandHomeMenu({
         </svg>
         <span
           className={cn(
-            'marketing-logo-type relative z-10 text-[1.7rem] font-bold leading-none text-[#ffb56d] transition duration-300',
+            'relative z-10 text-[1.7rem] font-bold leading-none text-[#9baefc] transition duration-300',
             open
               ? 'translate-x-0 rotate-[22deg] scale-[1.06]'
               : 'group-hover:translate-x-[2px] group-hover:rotate-[16deg] group-hover:scale-[1.04]'
@@ -179,7 +179,7 @@ export default function BrandHomeMenu({
         <span
           aria-hidden="true"
           className={cn(
-            'pointer-events-none absolute bottom-[8px] right-[6px] h-1.5 w-1.5 rounded-full bg-[#0757ff] transition duration-300 dark:bg-[#f8f200]',
+            'pointer-events-none absolute bottom-[8px] right-[6px] h-1.5 w-1.5 rounded-full bg-[#0757ff] transition duration-300 dark:bg-[#d7dcff]',
             open ? 'opacity-0 scale-75' : 'opacity-100 scale-100 group-hover:opacity-0 group-hover:scale-75'
           )}
         />
@@ -192,7 +192,7 @@ export default function BrandHomeMenu({
               aria-hidden={!open}
               className={cn(
                 'fixed z-[120] w-[22rem] origin-top-left overflow-hidden rounded-none transition-all duration-200 ease-out',
-                menuShellClassName ?? 'border border-slate-950/8 bg-white/88 backdrop-blur-[28px] saturate-[1.8] dark:border-white/8 dark:bg-[#020611]/58',
+                menuShellClassName ?? 'material-glass',
                 open
                   ? 'translate-y-0 scale-100 opacity-100 blur-0'
                   : 'pointer-events-none -translate-y-3 scale-[0.97] opacity-0 blur-[2px]'

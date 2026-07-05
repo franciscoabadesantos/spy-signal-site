@@ -118,31 +118,31 @@ export default function StockInsightSummary({
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-3">
-        <div className="emphasis-tertiary">
+        <div className="material-surface rounded-[var(--radius-lg)] px-3 py-2">
           <div className="text-filter-label">Price</div>
           <div className="mt-1 text-data-md numeric-tabular text-content-primary">{formatPrice(price)}</div>
         </div>
-        <div className="emphasis-tertiary">
+        <div className="material-surface rounded-[var(--radius-lg)] px-3 py-2">
           <div className="text-filter-label">Day Move</div>
           <div className={`mt-1 text-data-sm numeric-tabular ${dayMoveTone}`}>{formatSignedMove(dailyMoveAmount, dailyMovePercent)}</div>
         </div>
-        <div className="emphasis-tertiary">
+        <div className="material-surface rounded-[var(--radius-lg)] px-3 py-2">
           <div className="text-filter-label">Conviction</div>
           <div className="mt-1 text-data-sm numeric-tabular text-content-primary">
             {formatConviction(conviction)}
           </div>
         </div>
-        <div className="emphasis-tertiary">
+        <div className="material-surface rounded-[var(--radius-lg)] px-3 py-2">
           <div className="text-filter-label">Horizon</div>
           <div className="mt-1 text-data-sm numeric-tabular text-content-primary">
             {horizonDays === null ? '—' : `${horizonDays}d`}
           </div>
         </div>
-        <div className="emphasis-tertiary">
+        <div className="material-surface rounded-[var(--radius-lg)] px-3 py-2">
           <div className="text-filter-label">Active Share</div>
           <div className="mt-1 text-data-sm numeric-tabular text-content-primary">{activeSignalsPct}%</div>
         </div>
-        <div className="emphasis-tertiary">
+        <div className="material-surface rounded-[var(--radius-lg)] px-3 py-2">
           <div className="text-filter-label">Flip Rate</div>
           <div className="mt-1 text-data-sm numeric-tabular text-content-primary">{flipRatePct}%</div>
         </div>

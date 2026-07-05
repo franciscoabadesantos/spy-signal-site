@@ -14,7 +14,7 @@ export default function StatRowCard({
   valueClassName,
 }: StatRowCardProps) {
   return (
-    <div className={cn('emphasis-tertiary', className)}>
+    <div className={cn('material-surface rounded-[var(--radius-lg)] px-3 py-2', className)}>
       <div className="text-filter-label">{label}</div>
       <div className={cn('text-data-sm numeric-tabular mt-1 text-content-primary', valueClassName)}>
         {value}

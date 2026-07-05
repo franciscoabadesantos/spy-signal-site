@@ -24,8 +24,8 @@ const metrics = [
 ] as const
 
 const cycleCards = [
-  { phase: '2020 crash', takeaway: 'De-risked faster than buy and hold.', tone: 'text-[#ff8b2b]' },
-  { phase: '2022 inflation shock', takeaway: 'Stayed disciplined while volatility expanded.', tone: 'text-[#ff8b2b]' },
+  { phase: '2020 crash', takeaway: 'De-risked faster than buy and hold.', tone: 'text-[#6f79ff]' },
+  { phase: '2022 inflation shock', takeaway: 'Stayed disciplined while volatility expanded.', tone: 'text-[#6f79ff]' },
   { phase: 'Current regime', takeaway: 'Reads the weekly tape without intraday churn.', tone: 'text-[#0757ff]' },
 ] as const
 
@@ -53,7 +53,7 @@ export default function PerformancePage() {
               const Icon = item.icon
               return (
                 <div key={item.label} className="rounded-2xl border border-slate-950/8 bg-white/42 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <Icon className="size-5 text-[#0757ff] dark:text-[#f8f200]" />
+                  <Icon className="size-5 text-[#0757ff] dark:text-[#d7dcff]" />
                   <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-white/45">
                     {item.label}
                   </p>
@@ -63,7 +63,7 @@ export default function PerformancePage() {
             })}
           </div>
           <CircleHighlight className="mt-6" tone="orange">
-            <HandScript className="text-[2.2rem] leading-none text-[#ff8b2b]">Big weeks. Clear bias.</HandScript>
+            <HandScript className="text-[2.2rem] leading-none text-[#6f79ff]">Big weeks. Clear bias.</HandScript>
           </CircleHighlight>
           <ScribbleNote className="mt-6" tone="blue">
             Big weeks.
@@ -126,7 +126,7 @@ export default function PerformancePage() {
       <section className="mx-auto max-w-[1280px] px-6 py-20 sm:px-10 lg:px-16">
         <GlassPanel className="grid gap-6 p-8 lg:grid-cols-[1fr_320px] lg:items-center">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">What to expect</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#d7dcff]">What to expect</p>
             <h2 className="mt-3 text-3xl font-black tracking-tight">Not constant action. Cleaner participation.</h2>
             <HandScript className="mt-4 block text-[2.2rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
               Less churn. Better timing.

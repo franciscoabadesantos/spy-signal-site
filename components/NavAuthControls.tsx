@@ -12,7 +12,7 @@ export default function NavAuthControls() {
     return (
       <Link
         href="/sign-up"
-        className="group relative inline-flex items-center rounded-full px-2 py-1 text-[1.22rem] leading-none text-[#ffb46a] transition duration-200 hover:text-[#ffd3a3] dark:text-[#ffc27f] dark:hover:text-[#ffe1ba]"
+        className="group relative inline-flex items-center rounded-full px-2 py-1 text-sm font-semibold leading-none text-accent-text transition duration-200 hover:opacity-85"
       >
         <HandScript className="relative z-10 transition duration-200 group-hover:-rotate-[2deg] group-hover:scale-[1.04]">
           Join the lounge
@@ -30,7 +30,7 @@ export default function NavAuthControls() {
       <Link href="/dashboard" className={`${buttonClass({ variant: 'ghost', size: 'sm' })} hidden lg:inline-flex`}>
         Today
       </Link>
-      <div className="rounded-full border border-slate-950/8 bg-white/78 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_10px_24px_rgba(20,33,51,0.06)] backdrop-blur-xl dark:border-white/12 dark:bg-white/[0.05] dark:shadow-none">
+      <div className="material-glass rounded-full p-1">
         <UserButton />
       </div>
     </div>

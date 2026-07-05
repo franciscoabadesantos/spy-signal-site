@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation'
+import { modelSignalsEnabled } from '@/lib/flags'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import PageHeader from '@/components/ui/PageHeader'
@@ -114,6 +116,7 @@ export default async function PerformancePage({
 }: {
   params: Promise<{ ticker: string }>
 }) {
+  if (!modelSignalsEnabled()) notFound()
   const resolvedParams = await params
   const ticker = normalizeTicker(resolvedParams.ticker)
 

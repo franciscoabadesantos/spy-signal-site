@@ -744,12 +744,12 @@ export default function TickerSearchCombobox({
 
   const inputClassName =
     variant === 'header'
-      ? 'no-lift-interaction h-12 rounded-full border-slate-950/8 bg-white/80 pl-11 pr-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.84),0_12px_28px_rgba(20,33,51,0.05)] backdrop-blur-xl placeholder:text-content-muted/80 hover:border-slate-950/14 hover:bg-white focus-visible:border-primary/55 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] dark:hover:border-white/18 dark:hover:bg-white/[0.09]'
+      ? 'no-lift-interaction h-12 rounded-full border-border bg-surface-solid-raised pl-11 pr-10 shadow-[var(--shadow-xs)] placeholder:text-content-muted/80 hover:border-divider-strong focus-visible:border-primary/55 focus-visible:ring-primary/30'
       : 'h-11 pr-24 pl-9 uppercase'
 
   const panelClassName =
     variant === 'header'
-      ? 'mt-3 rounded-[26px] border border-slate-950/8 bg-white/96 shadow-[0_28px_90px_rgba(20,33,51,0.14)] ring-1 ring-slate-950/6 backdrop-blur-[32px] dark:border-white/10 dark:bg-[#0a1220]/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.34)] dark:ring-white/8'
+      ? 'material-glass mt-3 rounded-[26px] shadow-[0_28px_90px_rgba(0,0,0,0.22)]'
       : 'mt-1 rounded-xl border border-border bg-surface-card shadow-sm'
 
   return (
