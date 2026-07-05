@@ -54,7 +54,7 @@ export default async function MarketNetworkPage({
     <div className="container-lg section-gap">
       <PageHeader
         title="Correlation network"
-        subtitle="A precomputed market graph where force-directed position comes from return correlations, while country and sector metadata are overlaid as colour and spotlight views."
+        subtitle="Every tracked company, pulled together by how their returns actually move. Companies that trade alike sit close — colour is just geography or sector."
         action={
           <Link href="/markets" className={buttonClass({ variant: 'secondary' })}>
             Back to Markets
