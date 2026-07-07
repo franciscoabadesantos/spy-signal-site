@@ -25,6 +25,13 @@ export type Scorecard = {
   readiness: ScorecardReadiness
   buildStatus: string | null
   missingInputs: string[]
+  coverageState: string | null
+  hasPrices: boolean | null
+  hasTechnicals: boolean | null
+  hasScorecard: boolean | null
+  registryStatus: string | null
+  validationStatus: string | null
+  promotionStatus: string | null
   overall: ScorecardOverall
   axes: ScorecardAxis[]
 }
@@ -126,6 +133,29 @@ function normalizeMissingInputs(value: unknown): string[] {
     .map((item) => item.trim().slice(0, 48))
 }
 
+function readString(record: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim().slice(0, 80)
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  }
+  return null
+}
+
+function readBoolean(record: Record<string, unknown>, keys: string[]): boolean | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'number') return value !== 0
+    if (typeof value === 'string' && value.trim()) {
+      const normalized = value.trim().toLowerCase()
+      if (['true', '1', 'yes', 'y'].includes(normalized)) return true
+      if (['false', '0', 'no', 'n'].includes(normalized)) return false
+    }
+  }
+  return null
+}
+
 export function normalizeScorecard(raw: unknown): Scorecard | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const record = raw as Record<string, unknown>
@@ -190,8 +220,15 @@ export function normalizeScorecard(raw: unknown): Scorecard | null {
   return {
     asOf: typeof record.asOf === 'string' && record.asOf.trim() ? record.asOf.trim() : null,
     readiness: normalizeReadiness(record.readiness ?? record.buildStatus),
-    buildStatus: typeof record.buildStatus === 'string' && record.buildStatus.trim() ? record.buildStatus.trim() : null,
-    missingInputs: normalizeMissingInputs(record.missingInputs),
+    buildStatus: readString(record, ['buildStatus', 'build_status']),
+    missingInputs: normalizeMissingInputs(record.missingInputs ?? record.missing_inputs),
+    coverageState: readString(record, ['coverageState', 'coverage_state']),
+    hasPrices: readBoolean(record, ['hasPrices', 'has_prices', 'pricesReady', 'prices_ready']),
+    hasTechnicals: readBoolean(record, ['hasTechnicals', 'has_technicals', 'technicalsReady', 'technicals_ready']),
+    hasScorecard: readBoolean(record, ['hasScorecard', 'has_scorecard', 'scorecardReady', 'scorecard_ready']),
+    registryStatus: readString(record, ['registryStatus', 'registry_status']),
+    validationStatus: readString(record, ['validationStatus', 'validation_status']),
+    promotionStatus: readString(record, ['promotionStatus', 'promotion_status']),
     overall: {
       score: overallScore,
       grade,
@@ -208,6 +245,13 @@ export function buildFixtureScorecard(ticker: string, seedScore = 62): Scorecard
     readiness: 'ready',
     buildStatus: 'scorecard_ready',
     missingInputs: [],
+    coverageState: 'ready',
+    hasPrices: true,
+    hasTechnicals: true,
+    hasScorecard: true,
+    registryStatus: 'ready',
+    validationStatus: null,
+    promotionStatus: null,
     overall: {
       score,
       grade: scoreGrade(score),
@@ -235,6 +279,13 @@ export function buildUnavailableScorecard(label = 'No data'): Scorecard {
     readiness: 'error',
     buildStatus: 'error',
     missingInputs: [],
+    coverageState: null,
+    hasPrices: null,
+    hasTechnicals: null,
+    hasScorecard: false,
+    registryStatus: null,
+    validationStatus: null,
+    promotionStatus: null,
     overall: {
       score: null,
       grade: '–',

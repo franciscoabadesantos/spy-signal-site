@@ -1,5 +1,6 @@
 import type { ScreenerSignal } from './signals'
 import type { Scorecard } from './scorecard-types'
+import type { TickerReadinessBadge } from './ticker-readiness'
 
 export type SearchSignalTone = 'bullish' | 'neutral' | 'bearish'
 
@@ -8,6 +9,7 @@ export type TickerIndexItem = {
   name: string
   exchange: string | null
   hasSignals: boolean
+  readiness: TickerReadinessBadge | null
 }
 
 export type TickerIndexPayload = {
@@ -29,6 +31,7 @@ export type TickerSearchResult = {
   tone: SearchSignalTone | null
   signalDate: string | null
   scorecard: Scorecard | null
+  readiness: TickerReadinessBadge | null
 }
 
 export type TickerSearchResponse = {
@@ -45,6 +48,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     name: 'SPDR S&P 500 ETF Trust',
     exchange: 'NYSEARCA',
     hasSignals: true,
+    readiness: null,
     convictionPct: 71,
     tone: 'bullish',
     signalDate: null,
@@ -55,6 +59,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     name: 'Invesco QQQ Trust',
     exchange: 'NASDAQ',
     hasSignals: true,
+    readiness: null,
     convictionPct: 69,
     tone: 'bullish',
     signalDate: null,
@@ -65,6 +70,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     name: 'Apple Inc.',
     exchange: 'NASDAQ',
     hasSignals: true,
+    readiness: null,
     convictionPct: 76,
     tone: 'bullish',
     signalDate: null,
@@ -75,6 +81,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     name: 'Microsoft Corporation',
     exchange: 'NASDAQ',
     hasSignals: true,
+    readiness: null,
     convictionPct: 74,
     tone: 'bullish',
     signalDate: null,
@@ -85,6 +92,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     name: 'NVIDIA Corporation',
     exchange: 'NASDAQ',
     hasSignals: true,
+    readiness: null,
     convictionPct: 79,
     tone: 'bullish',
     signalDate: null,
@@ -95,6 +103,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     name: 'Amazon.com, Inc.',
     exchange: 'NASDAQ',
     hasSignals: true,
+    readiness: null,
     convictionPct: 64,
     tone: 'neutral',
     signalDate: null,
@@ -105,6 +114,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     name: 'Meta Platforms, Inc.',
     exchange: 'NASDAQ',
     hasSignals: true,
+    readiness: null,
     convictionPct: 67,
     tone: 'bullish',
     signalDate: null,
@@ -115,6 +125,7 @@ export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
     name: 'Tesla, Inc.',
     exchange: 'NASDAQ',
     hasSignals: true,
+    readiness: null,
     convictionPct: 62,
     tone: 'neutral',
     signalDate: null,
@@ -154,6 +165,7 @@ export function tickerIndexItemToSearchResult(item: TickerIndexItem): TickerSear
     name: item.name,
     exchange: item.exchange,
     hasSignals: item.hasSignals,
+    readiness: item.readiness,
     convictionPct: null,
     tone: null,
     signalDate: null,
@@ -168,6 +180,7 @@ export function mapScreenerRowsToTickerSearchResults(rows: ScreenerSignal[]): Ti
       name: row.name ?? row.ticker,
       exchange: null,
       hasSignals: true,
+      readiness: null,
       convictionPct: row.conviction === null ? null : Math.round(row.conviction * 100),
       tone: row.direction,
       signalDate: row.signalDate,

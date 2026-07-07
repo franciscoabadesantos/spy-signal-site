@@ -16,6 +16,7 @@ import {
   type TechnicalTimeframe,
 } from '@/lib/technicalSignals'
 import { formatMoney, formatSignedMoney } from '@/lib/currency'
+import { tickerReadinessBadge } from '@/lib/ticker-readiness'
 import { cn } from '@/lib/utils'
 import styles from './StockOverviewClient.module.css'
 
@@ -122,13 +123,26 @@ function regimeTone(direction: SignalDirection | null): 'bullish' | 'bearish' | 
 }
 
 function scorecardReadinessMessage(scorecard: Scorecard): string | null {
-  if (scorecard.readiness === 'ready') return null
+  const readiness = tickerReadinessBadge({
+    coverageState: scorecard.coverageState,
+    hasPrices: scorecard.hasPrices,
+    hasTechnicals: scorecard.hasTechnicals,
+    hasScorecard: scorecard.hasScorecard,
+    missingInputs: scorecard.missingInputs,
+    registryStatus: scorecard.registryStatus,
+    validationStatus: scorecard.validationStatus,
+    promotionStatus: scorecard.promotionStatus,
+    scorecardReadiness: scorecard.readiness,
+  })
+
+  if (scorecard.readiness === 'ready' && readiness.label === 'Tracked') return null
   if (scorecard.readiness === 'pending_build') return 'Scorecard pending daily build'
   if (scorecard.readiness === 'not_tracked') return 'Ticker is not tracked yet'
   if (scorecard.readiness === 'unavailable_missing_inputs') {
     const missingInputs = scorecard.missingInputs.length > 0 ? scorecard.missingInputs.join('/') : 'fundamentals/earnings'
     return `Scorecard unavailable: missing ${missingInputs}`
   }
+  if (readiness.label !== 'Tracked') return readiness.label
   return 'Scorecard is temporarily unavailable'
 }
 

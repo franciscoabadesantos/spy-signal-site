@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { BackendDataError, fetchBackendJson } from '@/lib/backend'
 import { getTickerScorecards } from '@/lib/scorecard'
+import type { Scorecard } from '@/lib/scorecard-types'
 import { getScreenerSignalsSafe } from '@/lib/signals'
+import { tickerReadinessBadge, type TickerReadinessBadge } from '@/lib/ticker-readiness'
 import {
   getTemplateFeaturedTickerResults,
   isTickerLikeQuery,
@@ -36,6 +38,24 @@ type SearchCandidate = {
 
 type BackendSummarySearchPayload = {
   ticker?: string | null
+  isTracked?: boolean | null
+  is_tracked?: boolean | null
+  coverageState?: string | null
+  coverage_state?: string | null
+  hasPrices?: boolean | null
+  has_prices?: boolean | null
+  hasTechnicals?: boolean | null
+  has_technicals?: boolean | null
+  hasScorecard?: boolean | null
+  has_scorecard?: boolean | null
+  missingInputs?: string[] | null
+  missing_inputs?: string[] | null
+  registryStatus?: string | null
+  registry_status?: string | null
+  validationStatus?: string | null
+  validation_status?: string | null
+  promotionStatus?: string | null
+  promotion_status?: string | null
   quote?: {
     name?: string | null
     ticker?: string | null
@@ -57,6 +77,66 @@ function normalizeCandidate(candidate: SearchCandidate): SearchCandidate {
     ...candidate,
     symbol: candidate.symbol.trim().toUpperCase(),
   }
+}
+
+function readBoolean(record: Record<string, unknown>, keys: string[]): boolean | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'number') return value !== 0
+    if (typeof value === 'string' && value.trim()) {
+      const normalized = value.trim().toLowerCase()
+      if (['true', '1', 'yes', 'y'].includes(normalized)) return true
+      if (['false', '0', 'no', 'n'].includes(normalized)) return false
+    }
+  }
+  return null
+}
+
+function readString(record: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  }
+  return null
+}
+
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => String(item).trim()).filter(Boolean)
+}
+
+function readinessFromRecord(record: Record<string, unknown>): TickerReadinessBadge | null {
+  const readiness = tickerReadinessBadge({
+    isTracked: readBoolean(record, ['isTracked', 'is_tracked', 'tracked']),
+    coverageState: readString(record, ['coverageState', 'coverage_state', 'readiness', 'readiness_state']),
+    hasPrices: readBoolean(record, ['hasPrices', 'has_prices', 'pricesReady', 'prices_ready']),
+    hasTechnicals: readBoolean(record, ['hasTechnicals', 'has_technicals', 'technicalsReady', 'technicals_ready']),
+    hasScorecard: readBoolean(record, ['hasScorecard', 'has_scorecard', 'scorecardReady', 'scorecard_ready']),
+    missingInputs: readStringList(record.missingInputs ?? record.missing_inputs),
+    registryStatus: readString(record, ['registryStatus', 'registry_status', 'status']),
+    validationStatus: readString(record, ['validationStatus', 'validation_status']),
+    promotionStatus: readString(record, ['promotionStatus', 'promotion_status']),
+    scorecardReadiness: readString(record, ['scorecardReadiness', 'scorecard_readiness', 'buildStatus', 'build_status']),
+  })
+  return readiness.label === 'Tracked' ? null : readiness
+}
+
+function readinessFromScorecard(scorecard: Scorecard | null | undefined): TickerReadinessBadge | null {
+  if (!scorecard) return null
+  const readiness = tickerReadinessBadge({
+    coverageState: scorecard.coverageState,
+    hasPrices: scorecard.hasPrices,
+    hasTechnicals: scorecard.hasTechnicals,
+    hasScorecard: scorecard.hasScorecard,
+    missingInputs: scorecard.missingInputs,
+    registryStatus: scorecard.registryStatus,
+    validationStatus: scorecard.validationStatus,
+    promotionStatus: scorecard.promotionStatus,
+    scorecardReadiness: scorecard.readiness,
+  })
+  return readiness.label === 'Tracked' ? null : readiness
 }
 
 function rankSearchResult(result: TickerSearchResult, query: string, candidateRank: number): number {
@@ -157,6 +237,7 @@ async function resolveBackendCandidate(candidate: SearchCandidate): Promise<{
         name: backendName,
         exchange: candidate.exchange,
         hasSignals: false,
+        readiness: readinessFromRecord(payload as Record<string, unknown>),
         convictionPct: null,
         tone: null,
         signalDate: null,
@@ -211,6 +292,7 @@ async function enrichWithScorecards(results: TickerSearchResult[]): Promise<Tick
     return results.map((result) => ({
       ...result,
       scorecard: scorecardsByTicker[result.symbol] ?? result.scorecard,
+      readiness: readinessFromScorecard(scorecardsByTicker[result.symbol]) ?? result.readiness,
     }))
   } catch {
     return results
@@ -238,6 +320,7 @@ export async function GET(request: Request) {
         name: symbol,
         exchange: null,
         hasSignals: false,
+        readiness: readinessFromScorecard(scorecardsByTicker[symbol]),
         convictionPct: null,
         tone: null,
         signalDate: null,
@@ -301,6 +384,7 @@ export async function GET(request: Request) {
         name: candidate.name,
         exchange: candidate.exchange,
         hasSignals: false,
+        readiness: null,
         convictionPct: null,
         tone: null,
         signalDate: null,
