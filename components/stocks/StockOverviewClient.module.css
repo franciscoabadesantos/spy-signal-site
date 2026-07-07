@@ -304,6 +304,24 @@
   text-transform: uppercase;
 }
 
+.heroScorecardState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 240px);
+  min-height: 112px;
+  margin: 0 auto;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+  text-align: center;
+}
+
 .keyStatsGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -788,6 +806,40 @@
 
 .orbitVisual {
   max-width: 360px;
+}
+
+.scorecardState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 600;
+  text-align: center;
+}
+
+.scorecardState_waiting {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: rgba(245, 158, 11, 0.08);
+  color: #fbbf24;
+}
+
+.scorecardState_blocked {
+  border-color: rgba(220, 38, 38, 0.26);
+  background: rgba(220, 38, 38, 0.08);
+  color: #fca5a5;
+}
+
+.scorecardState_neutral {
+  border-color: rgba(100, 116, 139, 0.32);
+  background: rgba(100, 116, 139, 0.08);
+  color: var(--color-text-muted);
 }
 
 .orbitTooltip {

@@ -1,4 +1,10 @@
 export type ScorecardAxisKey = 'value' | 'potential' | 'health' | 'income' | 'momentum'
+export type ScorecardReadiness =
+  | 'ready'
+  | 'pending_build'
+  | 'unavailable_missing_inputs'
+  | 'not_tracked'
+  | 'error'
 
 export type ScorecardOverall = {
   score: number | null
@@ -16,6 +22,9 @@ export type ScorecardAxis = {
 
 export type Scorecard = {
   asOf: string | null
+  readiness: ScorecardReadiness
+  buildStatus: string | null
+  missingInputs: string[]
   overall: ScorecardOverall
   axes: ScorecardAxis[]
 }
@@ -99,6 +108,24 @@ export function scoreLabel(score: number | null | undefined): string {
   return 'Fragile'
 }
 
+function normalizeReadiness(value: unknown): ScorecardReadiness {
+  if (typeof value !== 'string') return 'ready'
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'scorecard_ready' || normalized === 'ready') return 'ready'
+  if (normalized === 'pending_build') return 'pending_build'
+  if (normalized === 'unavailable_missing_inputs') return 'unavailable_missing_inputs'
+  if (normalized === 'not_tracked') return 'not_tracked'
+  if (normalized === 'error') return 'error'
+  return 'ready'
+}
+
+function normalizeMissingInputs(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    .map((item) => item.trim().slice(0, 48))
+}
+
 export function normalizeScorecard(raw: unknown): Scorecard | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const record = raw as Record<string, unknown>
@@ -162,6 +189,9 @@ export function normalizeScorecard(raw: unknown): Scorecard | null {
 
   return {
     asOf: typeof record.asOf === 'string' && record.asOf.trim() ? record.asOf.trim() : null,
+    readiness: normalizeReadiness(record.readiness ?? record.buildStatus),
+    buildStatus: typeof record.buildStatus === 'string' && record.buildStatus.trim() ? record.buildStatus.trim() : null,
+    missingInputs: normalizeMissingInputs(record.missingInputs),
     overall: {
       score: overallScore,
       grade,
@@ -175,6 +205,9 @@ export function buildFixtureScorecard(ticker: string, seedScore = 62): Scorecard
   const score = Math.max(0, Math.min(100, Math.round(seedScore)))
   return {
     asOf: null,
+    readiness: 'ready',
+    buildStatus: 'scorecard_ready',
+    missingInputs: [],
     overall: {
       score,
       grade: scoreGrade(score),
@@ -199,6 +232,9 @@ export function buildFixtureScorecard(ticker: string, seedScore = 62): Scorecard
 export function buildUnavailableScorecard(label = 'No data'): Scorecard {
   return {
     asOf: null,
+    readiness: 'error',
+    buildStatus: 'error',
+    missingInputs: [],
     overall: {
       score: null,
       grade: '–',

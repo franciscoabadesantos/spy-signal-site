@@ -8,7 +8,7 @@ import ScorecardDisc from '@/components/stocks/ScorecardDisc'
 import ChartContainer from '@/components/charts/ChartContainer'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
 import type { TickerRelationships } from '@/lib/relationships'
-import type { Scorecard } from '@/lib/scorecard-types'
+import type { Scorecard, ScorecardReadiness } from '@/lib/scorecard-types'
 import {
   buildTechnicalSummary,
   type TechnicalAction,
@@ -118,6 +118,23 @@ function regimeCopy(direction: SignalDirection | null): string {
 function regimeTone(direction: SignalDirection | null): 'bullish' | 'bearish' | 'neutral' {
   if (direction === 'bullish') return 'bullish'
   if (direction === 'bearish') return 'bearish'
+  return 'neutral'
+}
+
+function scorecardReadinessMessage(scorecard: Scorecard): string | null {
+  if (scorecard.readiness === 'ready') return null
+  if (scorecard.readiness === 'pending_build') return 'Scorecard pending daily build'
+  if (scorecard.readiness === 'not_tracked') return 'Ticker is not tracked yet'
+  if (scorecard.readiness === 'unavailable_missing_inputs') {
+    const missingInputs = scorecard.missingInputs.length > 0 ? scorecard.missingInputs.join('/') : 'fundamentals/earnings'
+    return `Scorecard unavailable: missing ${missingInputs}`
+  }
+  return 'Scorecard is temporarily unavailable'
+}
+
+function scorecardReadinessTone(readiness: ScorecardReadiness): 'waiting' | 'blocked' | 'neutral' {
+  if (readiness === 'pending_build') return 'waiting'
+  if (readiness === 'unavailable_missing_inputs' || readiness === 'error') return 'blocked'
   return 'neutral'
 }
 
@@ -518,6 +535,18 @@ function OrbitPanel({
 }: {
   scorecard: Scorecard
 }) {
+  const readinessMessage = scorecardReadinessMessage(scorecard)
+
+  if (readinessMessage) {
+    return (
+      <div className={styles.orbitWrap}>
+        <div className={cn(styles.scorecardState, styles[`scorecardState_${scorecardReadinessTone(scorecard.readiness)}`])}>
+          {readinessMessage}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={styles.orbitWrap}>
       <ScorecardDisc
@@ -639,6 +668,8 @@ export default function StockOverviewClient({
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
   const [isOrbitModalOpen, setOrbitModalOpen] = useState(false)
   const [isChartModalOpen, setChartModalOpen] = useState(false)
+  const scorecardMessage = scorecardReadinessMessage(scorecard)
+  const scorecardStateClass = styles[`scorecardState_${scorecardReadinessTone(scorecard.readiness)}`]
 
   const filteredChartData = useMemo(() => filterChartData(historicalData, heroTimeframe), [historicalData, heroTimeframe])
   const technicalSummary = useMemo(
@@ -696,13 +727,21 @@ export default function StockOverviewClient({
 
           <aside className={styles.heroSidebar}>
             <button type="button" className={styles.orbitMiniButton} onClick={() => setOrbitModalOpen(true)}>
-              <ScorecardDisc scorecard={scorecard} compact size={160} className={styles.heroOrbitMini} />
+              {scorecardMessage ? (
+                <span className={cn(styles.heroScorecardState, scorecardStateClass)}>
+                  {scorecardMessage}
+                </span>
+              ) : (
+                <ScorecardDisc scorecard={scorecard} compact size={160} className={styles.heroOrbitMini} />
+              )}
             </button>
-            <div className={styles.heroOrbitMetrics}>
-              <span className={styles.heroOrbitMetricChip}>Grade {scorecard.overall.grade}</span>
-              <span className={styles.heroOrbitMetricChip}>Score {scorecard.overall.score ?? '—'}</span>
-              <span className={styles.heroOrbitMetricChip}>{scorecard.overall.label}</span>
-            </div>
+            {scorecardMessage ? null : (
+              <div className={styles.heroOrbitMetrics}>
+                <span className={styles.heroOrbitMetricChip}>Grade {scorecard.overall.grade}</span>
+                <span className={styles.heroOrbitMetricChip}>Score {scorecard.overall.score ?? '—'}</span>
+                <span className={styles.heroOrbitMetricChip}>{scorecard.overall.label}</span>
+              </div>
+            )}
             <div className={styles.keyStatsGrid}>
               {heroStats.map((stat) => (
                 <div key={stat.label} className={styles.keyStatCell}>
@@ -883,9 +922,11 @@ export default function StockOverviewClient({
         <Modal title="Scorecard" onClose={() => setOrbitModalOpen(false)}>
           <div className={styles.modalOrbitBody}>
             <OrbitPanel scorecard={scorecard} />
-            <p className={styles.modalOrbitCopy}>
-              Each slice is an investment axis. Radius is the backend score, colour is the same green to amber to red verdict scale, and grey dashed slices mean no score is available yet.
-            </p>
+            {scorecardMessage ? null : (
+              <p className={styles.modalOrbitCopy}>
+                Each slice is an investment axis. Radius is the backend score, colour is the same green to amber to red verdict scale, and grey dashed slices mean no score is available yet.
+              </p>
+            )}
           </div>
         </Modal>
       ) : null}

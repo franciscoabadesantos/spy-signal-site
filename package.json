@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsc --module commonjs --target ES2022 --moduleResolution node --outDir /tmp/spy-signal-site-tests --esModuleInterop --skipLibCheck --types node tests/scorecard-types.test.ts lib/scorecard-types.ts && node --test /tmp/spy-signal-site-tests/tests/scorecard-types.test.js"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.11",
