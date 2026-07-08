@@ -8,15 +8,14 @@ import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
 import { buildUnavailableScorecard } from '@/lib/scorecard-types'
 import { ensureTickerOnboarding } from '@/lib/ticker-onboarding'
-import { tickerReadinessBadge, type TickerReadinessBadge } from '@/lib/ticker-readiness'
 import {
   filterTickerIndexItems,
   getFeaturedTickerIndexResults,
   getTemplateFeaturedTickerResults,
   isTickerLikeQuery,
+  normalizeTickerIndexPayload,
   normalizeTickerSearchQuery,
   type CachedTickerIndex,
-  type TickerIndexItem,
   type TickerIndexPayload,
   type TickerSearchResult,
   type TickerSearchResponse,
@@ -50,53 +49,6 @@ const UNAVAILABLE_SEARCH_SCORECARD = buildUnavailableScorecard()
 
 let memoryTickerIndex: CachedTickerIndex | null = null
 let memoryTickerIndexPromise: Promise<CachedTickerIndex | null> | null = null
-
-function normalizeTickerIndexItem(value: unknown): TickerIndexItem | null {
-  if (!value || typeof value !== 'object') return null
-  const row = value as Record<string, unknown>
-  if (readBoolean(row, ['isTracked', 'is_tracked', 'tracked']) === false) return null
-  const symbol =
-    typeof row.symbol === 'string' && /^[A-Z0-9][A-Z0-9.\-]{0,9}$/.test(row.symbol.trim().toUpperCase())
-      ? row.symbol.trim().toUpperCase()
-      : null
-  if (!symbol) return null
-
-  const name =
-    typeof row.name === 'string' && row.name.trim()
-      ? row.name.trim()
-      : symbol
-
-  const exchange =
-    typeof row.exchange === 'string' && row.exchange.trim()
-      ? row.exchange.trim()
-      : null
-
-  return {
-    symbol,
-    name,
-    exchange,
-    hasSignals: row.hasSignals === true,
-    readiness: readinessFromRecord(row),
-  }
-}
-
-function normalizeTickerIndexPayload(payload: unknown, etag: string | null): CachedTickerIndex | null {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
-  const record = payload as Record<string, unknown>
-  const items = Array.isArray(record.items)
-    ? record.items
-        .map((item) => normalizeTickerIndexItem(item))
-        .filter((item): item is TickerIndexItem => item !== null)
-    : []
-
-  return {
-    etag,
-    version: typeof record.version === 'string' && record.version.trim() ? record.version.trim() : null,
-    generatedAt:
-      typeof record.generatedAt === 'string' && record.generatedAt.trim() ? record.generatedAt.trim() : null,
-    items,
-  }
-}
 
 function readSessionTickerIndex(): CachedTickerIndex | null {
   if (typeof window === 'undefined') return null
@@ -874,48 +826,4 @@ export default function TickerSearchCombobox({
       ) : null}
     </div>
   )
-}
-
-function readBoolean(record: Record<string, unknown>, keys: string[]): boolean | null {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value === 'boolean') return value
-    if (typeof value === 'number') return value !== 0
-    if (typeof value === 'string' && value.trim()) {
-      const normalized = value.trim().toLowerCase()
-      if (['true', '1', 'yes', 'y'].includes(normalized)) return true
-      if (['false', '0', 'no', 'n'].includes(normalized)) return false
-    }
-  }
-  return null
-}
-
-function readString(record: Record<string, unknown>, keys: string[]): string | null {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value === 'string' && value.trim()) return value.trim()
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  }
-  return null
-}
-
-function readStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.map((item) => String(item).trim()).filter(Boolean)
-}
-
-function readinessFromRecord(record: Record<string, unknown>): TickerReadinessBadge | null {
-  const readiness = tickerReadinessBadge({
-    isTracked: readBoolean(record, ['isTracked', 'is_tracked', 'tracked']),
-    coverageState: readString(record, ['coverageState', 'coverage_state', 'readiness', 'readiness_state']),
-    hasPrices: readBoolean(record, ['hasPrices', 'has_prices', 'pricesReady', 'prices_ready']),
-    hasTechnicals: readBoolean(record, ['hasTechnicals', 'has_technicals', 'technicalsReady', 'technicals_ready']),
-    hasScorecard: readBoolean(record, ['hasScorecard', 'has_scorecard', 'scorecardReady', 'scorecard_ready']),
-    missingInputs: readStringList(record.missingInputs ?? record.missing_inputs),
-    registryStatus: readString(record, ['registryStatus', 'registry_status', 'status']),
-    validationStatus: readString(record, ['validationStatus', 'validation_status']),
-    promotionStatus: readString(record, ['promotionStatus', 'promotion_status']),
-    scorecardReadiness: readString(record, ['scorecardReadiness', 'scorecard_readiness', 'buildStatus', 'build_status']),
-  })
-  return readiness.label === 'Tracked' ? null : readiness
 }
