@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsc --module commonjs --target ES2022 --moduleResolution node --outDir /tmp/spy-signal-site-tests --esModuleInterop --skipLibCheck --types node tests/scorecard-types.test.ts tests/ticker-readiness.test.ts tests/ticker-search.test.ts lib/scorecard-types.ts lib/ticker-readiness.ts lib/ticker-search.ts && node --test /tmp/spy-signal-site-tests/tests/*.test.js"
+    "test": "tsc --module commonjs --target ES2022 --moduleResolution node --outDir /tmp/spy-signal-site-tests --esModuleInterop --skipLibCheck --types node tests/scorecard-types.test.ts tests/ticker-readiness.test.ts tests/ticker-search.test.ts tests/ticker-index-route.test.ts app/api/tickers/index/route.ts lib/backend.ts lib/ticker-index-proxy.ts lib/scorecard-types.ts lib/ticker-readiness.ts lib/ticker-search.ts && mkdir -p /tmp/spy-signal-site-tests/node_modules/server-only && printf '' > /tmp/spy-signal-site-tests/node_modules/server-only/index.js && node --test /tmp/spy-signal-site-tests/tests/*.test.js"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.11",

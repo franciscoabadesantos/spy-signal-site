@@ -88,7 +88,16 @@ async function fetchTickerIndex(
     return existing
   }
   if (!response.ok) {
-    throw new Error(`ticker index request failed (${response.status})`)
+    let errorCode = ''
+    try {
+      const payload = (await response.clone().json()) as { error?: unknown }
+      if (typeof payload.error === 'string' && payload.error.trim()) {
+        errorCode = `: ${payload.error.trim()}`
+      }
+    } catch {
+      // Keep the status-only error when the proxy response is not JSON.
+    }
+    throw new Error(`ticker index request failed (${response.status})${errorCode}`)
   }
 
   const payload = (await response.json()) as TickerIndexPayload
@@ -276,9 +285,12 @@ export default function TickerSearchCombobox({
         }
 
         setHasLoadedIndexOnce(Boolean(cached?.items.length))
-      } catch {
+      } catch (error) {
         if (!cached) setTickerIndex(null)
         setHasLoadedIndexOnce(Boolean(cached?.items.length))
+        console.warn('[TickerSearchCombobox] ticker index unavailable; autocomplete suggestions may be limited.', {
+          message: error instanceof Error ? error.message : 'Unknown ticker index error',
+        })
       } finally {
         setIsLoading(false)
       }

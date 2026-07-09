@@ -44,8 +44,10 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 Use this checklist when you're ready to move from local/dev to production:
 
 1. Add production env vars in Vercel:
-   - `BACKEND_BASE_URL`
+   - `BACKEND_BASE_URL` (or `FINANCE_BACKEND_URL`)
    - `BACKEND_SHARED_SECRET`
+   - `CF_ACCESS_CLIENT_ID` (required when `BACKEND_BASE_URL` is behind Cloudflare Access)
+   - `CF_ACCESS_CLIENT_SECRET` (required when `BACKEND_BASE_URL` is behind Cloudflare Access)
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
    - `CLERK_SECRET_KEY`
    - `NEXT_PUBLIC_APP_URL`
@@ -73,8 +75,10 @@ Use this checklist when you're ready to move from local/dev to production:
 
 ### Required runtime env vars
 
-- `BACKEND_BASE_URL`
+- `BACKEND_BASE_URL` (or `FINANCE_BACKEND_URL`)
 - `BACKEND_SHARED_SECRET`
+- `CF_ACCESS_CLIENT_ID` (required when `finance-backend` is behind Cloudflare Access)
+- `CF_ACCESS_CLIENT_SECRET` (required when `finance-backend` is behind Cloudflare Access)
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
 

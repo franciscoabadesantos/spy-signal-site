@@ -13,7 +13,7 @@ export class BackendDataError extends Error {
 }
 
 export function backendBaseUrl(): string {
-  const raw = process.env.BACKEND_BASE_URL || ''
+  const raw = process.env.BACKEND_BASE_URL || process.env.FINANCE_BACKEND_URL || ''
   return raw.trim().replace(/\/+$/, '')
 }
 
@@ -41,13 +41,15 @@ function backendCfAccessConfig(): {
 
 export function backendConfigSnapshot(): {
   hasBackendBaseUrl: boolean
+  hasFinanceBackendUrl: boolean
   hasBackendSharedSecret: boolean
   hasCfAccessClientId: boolean
   hasCfAccessClientSecret: boolean
 } {
   const cfAccess = backendCfAccessConfig()
   return {
-    hasBackendBaseUrl: backendBaseUrl().length > 0,
+    hasBackendBaseUrl: (process.env.BACKEND_BASE_URL || '').trim().length > 0,
+    hasFinanceBackendUrl: (process.env.FINANCE_BACKEND_URL || '').trim().length > 0,
     hasBackendSharedSecret: backendSharedSecret().length > 0,
     hasCfAccessClientId: Boolean(cfAccess?.clientId),
     hasCfAccessClientSecret: Boolean(cfAccess?.clientSecret),
@@ -121,6 +123,45 @@ export async function fetchBackendJson<T>(
     allowEmptyBody?: boolean
   }
 ): Promise<T> {
+  const response = await fetchBackendResponse(path, { context, timeoutMs, init })
+
+  if (!response.ok) {
+    throw new BackendDataError(context, `${context} failed with status ${response.status}`, response.status)
+  }
+
+  try {
+    const text = await response.text()
+    if (!text.trim()) {
+      if (allowEmptyBody) return null as T
+      throw new Error('Empty backend response body')
+    }
+    return JSON.parse(text) as T
+  } catch (error) {
+    throw new BackendDataError(
+      context,
+      error instanceof Error ? error.message : 'Invalid backend JSON response',
+      response.status
+    )
+  }
+}
+
+export async function fetchBackendResponse(
+  path: string,
+  {
+    context,
+    timeoutMs = 9000,
+    init,
+  }: {
+    context: string
+    timeoutMs?: number
+    init?: RequestInit & {
+      next?: {
+        revalidate?: number | false
+        tags?: string[]
+      }
+    }
+  }
+): Promise<Response> {
   const base = backendBaseUrl()
   if (!base) {
     throw new BackendDataError(context, 'BACKEND_BASE_URL is not configured')
@@ -148,22 +189,5 @@ export async function fetchBackendJson<T>(
     )
   }
 
-  if (!response.ok) {
-    throw new BackendDataError(context, `${context} failed with status ${response.status}`, response.status)
-  }
-
-  try {
-    const text = await response.text()
-    if (!text.trim()) {
-      if (allowEmptyBody) return null as T
-      throw new Error('Empty backend response body')
-    }
-    return JSON.parse(text) as T
-  } catch (error) {
-    throw new BackendDataError(
-      context,
-      error instanceof Error ? error.message : 'Invalid backend JSON response',
-      response.status
-    )
-  }
+  return response
 }
