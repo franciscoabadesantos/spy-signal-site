@@ -5,6 +5,7 @@ import { Suspense, use, useMemo, useState, type CSSProperties, type ReactNode } 
 import AiAnalystPanel from '@/components/AiAnalystPanel'
 import RelationshipOrbit from '@/components/RelationshipOrbit'
 import ScorecardDisc from '@/components/stocks/ScorecardDisc'
+import SegmentedControl from '@/components/ui/SegmentedControl'
 import ChartContainer from '@/components/charts/ChartContainer'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
 import type { TickerRelationships } from '@/lib/relationships'
@@ -314,12 +315,6 @@ function Gauge({
 }) {
   const clamped = Math.max(0, Math.min(100, position))
   const needleAngle = (clamped / 100) * 180 - 90
-  const total = Math.max(1, counts.buy + counts.neutral + counts.sell)
-  const pressureStyle = {
-    '--sell-share': `${(counts.sell / total) * 100}%`,
-    '--neutral-share': `${(counts.neutral / total) * 100}%`,
-    '--buy-share': `${(counts.buy / total) * 100}%`,
-  } as CSSProperties
   const toneClass =
     verdictAction === 'Buy'
       ? styles.gaugePanelBuy
@@ -328,42 +323,36 @@ function Gauge({
         : styles.gaugePanelNeutral
 
   return (
-    <div className={cn(styles.gaugePanel, toneClass)} style={pressureStyle}>
-      <div className={styles.gaugeTopline}>
-        <div className={styles.gaugeLabel}>{title}</div>
-        <div className={styles.gaugePressureValue}>{Math.round(clamped)}</div>
-      </div>
-
-      <svg viewBox="0 0 120 70" className={styles.gaugeSvg} aria-hidden="true">
+    <div className={cn(styles.gaugeItem, toneClass)}>
+      <svg viewBox="0 0 120 70" className={styles.gaugeDial} aria-hidden="true">
+        <path d={gaugeArcPath(60, 62, 46, -90, 90)} className={styles.gaugeArcTrack} />
         <path d={gaugeArcPath(60, 62, 46, -90, -34)} className={styles.gaugeArcSell} />
         <path d={gaugeArcPath(60, 62, 46, -30, 30)} className={styles.gaugeArcNeutral} />
         <path d={gaugeArcPath(60, 62, 46, 34, 90)} className={styles.gaugeArcBuy} />
         <g className={styles.gaugeNeedle} style={{ transform: `rotate(${needleAngle}deg)` }}>
-          <line x1={60} y1={62} x2={60} y2={25} />
-          <circle cx={60} cy={25} r={2.4} />
+          <path d="M 57.8 62 L 60 24.5 L 62.2 62 Z" />
         </g>
-        <circle cx={60} cy={62} r={5} className={styles.gaugeHub} />
+        <circle cx={60} cy={62} r={5.5} className={styles.gaugeHub} />
+        <circle cx={60} cy={62} r={2.2} className={styles.gaugeHubCore} />
       </svg>
 
-      <div className={styles.gaugeReadout}>
-        <div className={cn(styles.gaugeVerdict, actionTone(verdictAction))}>{verdict}</div>
-      </div>
-
-      <div className={styles.gaugeMix} aria-hidden="true">
-        <span className={styles.gaugeMixSell} />
-        <span className={styles.gaugeMixNeutral} />
-        <span className={styles.gaugeMixBuy} />
-      </div>
-      <div className={styles.gaugeCounts}>
-        <span>
-          <span className={styles.gaugeCountDotSell} /> Sell <span className={styles.gaugeCountValue}>{counts.sell}</span>
-        </span>
-        <span>
-          <span className={styles.gaugeCountDotNeutral} /> Neutral <span className={styles.gaugeCountValue}>{counts.neutral}</span>
-        </span>
-        <span>
-          <span className={styles.gaugeCountDotBuy} /> Buy <span className={styles.gaugeCountValue}>{counts.buy}</span>
-        </span>
+      <div className={styles.gaugeInfo}>
+        <div className={styles.gaugeLabel}>{title}</div>
+        <div className={styles.gaugeVerdictLine}>
+          <span className={cn(styles.gaugeVerdict, actionTone(verdictAction))}>{verdict}</span>
+          <span className={styles.gaugePressureValue}>{Math.round(clamped)}</span>
+        </div>
+        <div className={styles.gaugeCounts}>
+          <span>
+            <span className={styles.gaugeCountDotSell} /> {counts.sell}
+          </span>
+          <span>
+            <span className={styles.gaugeCountDotNeutral} /> {counts.neutral}
+          </span>
+          <span>
+            <span className={styles.gaugeCountDotBuy} /> {counts.buy}
+          </span>
+        </div>
       </div>
     </div>
   )
@@ -409,7 +398,8 @@ function HeroPriceChart({
         const xTicks = buildXTicks(data.map((point) => point.date))
         const yTicks = Array.from({ length: 5 }, (_, index) => floor + ((ceiling - floor) / 4) * index)
         const hoverPoint = hoverIndex === null ? null : points[hoverIndex] ?? null
-        const tooltipLeft = hoverPoint ? Math.min(width - 148, Math.max(8, hoverPoint.x - 60)) : 0
+        const tooltipLeft = hoverPoint ? Math.min(width - 148, Math.max(8, hoverPoint.x + 14)) : 0
+        const tooltipTop = hoverPoint ? Math.max(8, Math.min(height - 92, hoverPoint.y - 76)) : 0
         const chartKey = `${data.length}:${data[0]?.date ?? ''}:${data[data.length - 1]?.date ?? ''}`
         const rangeBaseClose = data[0]?.close ?? null
         const hoverDeltaPct =
@@ -520,7 +510,7 @@ function HeroPriceChart({
             </svg>
 
             {hoverPoint ? (
-              <div className={styles.chartTooltip} style={{ left: tooltipLeft, top: 10 }}>
+              <div className={styles.chartTooltip} style={{ left: tooltipLeft, top: tooltipTop }}>
                 <div className={styles.chartTooltipPrice}>{formatPrice(hoverPoint.close, currency)}</div>
                 <div className={cn(styles.chartTooltipDelta, directionToneClass(hoverDeltaPct))}>
                   {formatCompactPercent(hoverDeltaPct)}
@@ -804,18 +794,12 @@ export default function StockOverviewClient({
         <div className={styles.heroBody}>
           <div className={styles.heroChartColumn}>
             <div className={styles.chartToolbar}>
-              <div className={styles.tabStrip}>
-                {HERO_TIMEFRAMES.map((timeframe) => (
-                  <button
-                    key={timeframe}
-                    type="button"
-                    className={cn(styles.tabButton, heroTimeframe === timeframe ? styles.tabButtonActive : undefined)}
-                    onClick={() => setHeroTimeframe(timeframe)}
-                  >
-                    {timeframe}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                options={HERO_TIMEFRAMES}
+                value={heroTimeframe}
+                onChange={setHeroTimeframe}
+                ariaLabel="Chart timeframe"
+              />
               <button type="button" className={styles.chartExpandButton} onClick={() => setChartModalOpen(true)} aria-label="Expand chart">
                 ⤢
               </button>
@@ -888,26 +872,19 @@ export default function StockOverviewClient({
       </section>
 
       <section className={styles.zone3Grid}>
-        <article className={cn(styles.zone, styles.dashboardCard)}>
+        <article className={cn(styles.zone, styles.dashboardCard, styles.spanNarrow)}>
           <div className={styles.cardHeader}>
             <div>
               <div className={styles.cardTitle}>Technical signals</div>
-              <div className={styles.cardHint}>Oscillator & moving average pressure</div>
             </div>
-            <div className={styles.tabStrip}>
-              {SIGNAL_TIMEFRAMES.map((timeframe) => (
-                <button
-                  key={timeframe}
-                  type="button"
-                  className={cn(styles.tabButton, signalTimeframe === timeframe ? styles.tabButtonActive : undefined)}
-                  onClick={() => setSignalTimeframe(timeframe)}
-                >
-                  {timeframe}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              options={SIGNAL_TIMEFRAMES}
+              value={signalTimeframe}
+              onChange={setSignalTimeframe}
+              ariaLabel="Technical signals timeframe"
+            />
           </div>
-          <div className={styles.gaugeRow}>
+          <div className={styles.gaugeStack}>
             <Gauge
               title="Summary"
               position={technicalSummary.gauges.summary.position}
@@ -930,14 +907,12 @@ export default function StockOverviewClient({
               counts={technicalSummary.gauges.movingAverages.counts}
             />
           </div>
-          <div className={styles.actionsRow}>
-            <button type="button" className={styles.actionLink} onClick={() => setIndicatorsModalOpen(true)}>
-              All indicator details →
-            </button>
-          </div>
+          <button type="button" className="btn-glass mt-3 self-start" onClick={() => setIndicatorsModalOpen(true)}>
+            Indicator details →
+          </button>
         </article>
 
-        <article className={cn(styles.zone, styles.dashboardCard)}>
+        <article className={cn(styles.zone, styles.dashboardCard, styles.spanWide)}>
           <div className={styles.cardHeader}>
             <div>
               <div className={styles.cardTitle}>Regime history</div>

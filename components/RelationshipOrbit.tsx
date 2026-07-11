@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useId, useMemo, useState } from 'react'
 import ChartContainer from '@/components/charts/ChartContainer'
 import NetworkGraphCanvas from '@/components/NetworkGraphCanvas'
+import FilterChip from '@/components/ui/FilterChip'
+import SegmentedControl from '@/components/ui/SegmentedControl'
 import type { NetworkEdge, NetworkGraph, NetworkNode } from '@/lib/network'
 import type { RelationshipNeighbor, RelationshipThemePeer, TickerRelationships } from '@/lib/relationships'
 import { countryDisplayName } from '@/lib/network-regions'
@@ -908,49 +910,38 @@ export default function RelationshipOrbit({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-[8px] border border-border bg-surface p-1">
-          {WINDOW_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setWindow(option)}
-              className={cn(
-                'rounded-[6px] px-3 py-1.5 text-label-sm transition',
-                window === option
-                  ? 'bg-primary/15 text-content-primary'
-                  : 'text-content-muted hover:bg-surface-hover hover:text-content-secondary'
-              )}
-            >
-              {option}d
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          options={WINDOW_OPTIONS.map((option) => `${option}d`) as ReadonlyArray<'126d' | '252d'>}
+          value={`${window}d` as '126d' | '252d'}
+          onChange={(option) => setWindow(option === '126d' ? 126 : 252)}
+          ariaLabel="Correlation window"
+        />
 
         <div className="flex flex-wrap gap-2">
           {(Object.keys(LAYER_COPY) as ToggleLayer[]).map((layer) => (
-            <button
+            <FilterChip
               key={layer}
-              type="button"
+              label={LAYER_COPY[layer].label}
+              active={activeLayer === layer}
               onClick={() => setActiveLayer(layer)}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-[8px] border px-2.5 py-1.5 text-caption transition',
-                activeLayer === layer
-                  ? 'border-primary/70 bg-primary/15 text-content-primary shadow-[0_0_0_1px_rgba(54,179,255,0.18)]'
-                  : 'border-border bg-surface text-content-muted hover:bg-surface-hover hover:text-content-secondary'
-              )}
               title={LAYER_COPY[layer].hint}
-              aria-pressed={activeLayer === layer}
-            >
-              <span
-                className={cn(
-                  'h-2.5 w-2.5 rounded-full border',
-                  activeLayer === layer ? 'border-primary bg-primary' : 'border-content-muted'
-                )}
-              />
-              {LAYER_COPY[layer].label}
-              <span className="numeric-tabular text-content-muted">{counts[layer]}</span>
-              {moreCounts[layer] > 0 ? <span className="numeric-tabular text-content-muted">+{moreCounts[layer]} more</span> : null}
-            </button>
+              leading={
+                <span
+                  className={cn(
+                    'h-2.5 w-2.5 rounded-full border',
+                    activeLayer === layer ? 'border-primary bg-primary' : 'border-content-muted'
+                  )}
+                />
+              }
+              trailing={
+                <>
+                  <span className="numeric-tabular text-content-muted">{counts[layer]}</span>
+                  {moreCounts[layer] > 0 ? (
+                    <span className="numeric-tabular text-content-muted">+{moreCounts[layer]} more</span>
+                  ) : null}
+                </>
+              }
+            />
           ))}
         </div>
       </div>

@@ -214,42 +214,6 @@
   color: var(--color-accent);
 }
 
-.tabStrip {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-pill);
-  background: var(--bg-surface-raised);
-}
-
-.tabButton {
-  appearance: none;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  padding: 4px 10px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color 160ms ease, background 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms ease;
-}
-
-.tabButton:hover {
-  color: var(--color-text-primary);
-}
-
-.tabButton:active {
-  transform: scale(0.95);
-}
-
-.tabButtonActive {
-  background: var(--color-accent-light);
-  color: var(--color-accent);
-  font-weight: 600;
-}
 
 .heroChartWrap {
   border-top: 1px solid var(--color-border-light);
@@ -293,7 +257,7 @@
   color: var(--text-primary);
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
   pointer-events: none;
-  transition: left 90ms ease-out;
+  transition: left 90ms ease-out, top 90ms ease-out;
 }
 
 .chartTooltipPrice {
@@ -553,31 +517,21 @@
   align-items: center;
 }
 
-.gaugeRow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+.gaugeStack {
+  display: flex;
+  flex-direction: column;
 }
 
-.gaugePanel {
-  position: relative;
-  overflow: hidden;
-  padding: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
-    var(--bg-surface-raised);
+.gaugeItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
-.gaugePanel::before {
-  content: "";
-  position: absolute;
-  inset: -42px -44px auto;
-  height: 92px;
-  background: radial-gradient(circle, var(--gauge-glow, rgba(100, 118, 138, 0.18)), transparent 68%);
-  opacity: 0.9;
-  pointer-events: none;
+.gaugeItem:last-child {
+  border-bottom: 0;
 }
 
 .gaugePanelBuy {
@@ -595,34 +549,17 @@
   --gauge-glow: rgba(107, 114, 128, 0.2);
 }
 
-.gaugeTopline {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.gaugeLabel {
-  min-width: 0;
-  font-size: 12px;
-  color: var(--color-text-muted);
-  line-height: 1.2;
-}
-
-.gaugePressureValue {
-  font-variant-numeric: tabular-nums;
-  font-size: 20px;
-  line-height: 1;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.gaugeSvg {
+.gaugeDial {
   display: block;
-  width: min(140px, 100%);
-  margin: 6px auto 0;
+  flex: 0 0 auto;
+  width: 82px;
+}
+
+.gaugeArcTrack {
+  fill: none;
+  stroke: var(--color-border-light);
+  stroke-width: 8;
+  stroke-linecap: round;
 }
 
 .gaugeArcSell,
@@ -635,17 +572,17 @@
 
 .gaugeArcSell {
   stroke: var(--color-negative);
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .gaugeArcNeutral {
   stroke: #f59e0b;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .gaugeArcBuy {
   stroke: var(--color-positive);
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .gaugeNeedle {
@@ -654,76 +591,60 @@
   transition: transform 640ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.gaugeNeedle line {
-  stroke: #ffffff;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-}
-
-.gaugeNeedle circle {
-  fill: #ffffff;
+.gaugeNeedle path {
+  fill: #e8edf7;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.35));
 }
 
 .gaugeHub {
   fill: var(--gauge-tone);
-  stroke: rgba(255, 255, 255, 0.35);
-  stroke-width: 1.6;
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 1.4;
 }
 
-.gaugeReadout {
-  position: relative;
-  z-index: 1;
-  margin-top: 4px;
-  text-align: center;
+.gaugeHubCore {
+  fill: #ffffff;
+}
+
+.gaugeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.gaugeLabel {
+  font-size: 11px;
+  color: var(--color-text-hint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.gaugeVerdictLine {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .gaugeVerdict {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 650;
+}
+
+.gaugePressureValue {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
   line-height: 1.2;
   font-weight: 600;
-}
-
-.gaugeMix {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  height: 8px;
-  overflow: hidden;
-  margin-top: 10px;
-  border-radius: 999px;
-  background: var(--color-border-light);
-}
-
-.gaugeMixSell,
-.gaugeMixNeutral,
-.gaugeMixBuy {
-  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.gaugeMixSell {
-  width: var(--sell-share);
-  background: var(--color-negative);
-}
-
-.gaugeMixNeutral {
-  width: var(--neutral-share);
-  background: #f59e0b;
-}
-
-.gaugeMixBuy {
-  width: var(--buy-share);
-  background: var(--color-positive);
+  color: var(--color-text-muted);
 }
 
 .gaugeCounts {
-  position: relative;
-  z-index: 1;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 10px;
+  gap: 10px;
+  font-size: 11px;
   color: var(--color-text-muted);
 }
 
@@ -839,14 +760,26 @@
 
 .zone3Grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
   margin-top: 0;
   padding-top: 24px;
   border-top: 1px solid var(--color-border-light);
 }
 
-.fullWidth {
+.zone3Grid > * {
+  grid-column: span 3;
+}
+
+.zone3Grid > .spanNarrow {
+  grid-column: span 2;
+}
+
+.zone3Grid > .spanWide {
+  grid-column: span 4;
+}
+
+.zone3Grid > .fullWidth {
   grid-column: 1 / -1;
 }
 
@@ -1126,10 +1059,6 @@
   }
 
   .gaugeNeedle,
-  .gaugeMixSell,
-  .gaugeMixNeutral,
-  .gaugeMixBuy,
-  .tabButton,
   .relatedChip,
   .actionLink,
   .chartExpandButton,
@@ -1147,9 +1076,18 @@
     padding: 16px;
   }
 
-  .heroBody,
+  .heroBody {
+    grid-template-columns: 1fr;
+  }
+
   .zone3Grid {
     grid-template-columns: 1fr;
+  }
+
+  .zone3Grid > *,
+  .zone3Grid > .spanNarrow,
+  .zone3Grid > .spanWide {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1168,10 +1106,6 @@
 
   .heroBadgeRow {
     width: 100%;
-  }
-
-  .gaugeRow {
-    grid-template-columns: 1fr;
   }
 
   .keyStatsGrid {

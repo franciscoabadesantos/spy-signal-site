@@ -5,6 +5,7 @@ import StockChart, { type StockChartSignalMarker } from '@/components/StockChart
 import type { PricePoint } from '@/lib/finance'
 import FilterChip from '@/components/ui/FilterChip'
 import Badge from '@/components/ui/Badge'
+import SegmentedControl from '@/components/ui/SegmentedControl'
 import { useChartPalette } from '@/components/charts/ChartContainer'
 
 type Timeframe = '1M' | '3M' | '6M' | 'YTD' | '1Y' | '5Y' | 'MAX'
@@ -250,16 +251,12 @@ export default function StockChartPanel({
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {TIMEFRAME_OPTIONS.map((option) => (
-              <FilterChip
-                key={option}
-                label={option}
-                active={option === timeframe}
-                onClick={() => setTimeframe(option)}
-              />
-            ))}
-          </div>
+          <SegmentedControl
+            options={TIMEFRAME_OPTIONS}
+            value={timeframe}
+            onChange={setTimeframe}
+            ariaLabel="Chart timeframe"
+          />
         </div>
       </div>
 
