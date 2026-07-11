@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
@@ -6,6 +7,11 @@ import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
 import WatchlistButton from '@/components/WatchlistButton'
 import StockOverviewClient from '@/components/stocks/StockOverviewClient'
 import { getViewerUserId } from '@/lib/auth'
+import {
+  backendErrorDetails,
+  runWithBackendRequestLogContext,
+  type BackendRequestLogContext,
+} from '@/lib/backend-request-log'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import { currencyForTicker, formatCompactMoney, formatMoney } from '@/lib/currency'
 import {
@@ -19,6 +25,7 @@ import {
   type LatestFundamentalsRow,
 } from '@/lib/ticker-data'
 import { getTickerScorecard } from '@/lib/scorecard'
+import { buildUnavailableScorecard } from '@/lib/scorecard-types'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 
 export const dynamic = 'force-dynamic'
@@ -149,6 +156,56 @@ function emptyRelationships(ticker: string, window: number): TickerRelationships
   }
 }
 
+function detectNavigationMode(requestHeaders: Headers): string {
+  if (requestHeaders.get('next-router-prefetch')) return 'soft-prefetch'
+  if (requestHeaders.get('rsc') === '1' || requestHeaders.has('next-router-state-tree')) {
+    return 'soft-navigation'
+  }
+  if ((requestHeaders.get('accept') || '').includes('text/html')) return 'full-request'
+  return 'unknown'
+}
+
+function logStockPageEvent(
+  level: 'info' | 'error',
+  message: string,
+  context: BackendRequestLogContext,
+  details: Record<string, unknown> = {}
+): void {
+  const payload = {
+    ticker: context.ticker,
+    requestId: context.requestId,
+    navigationMode: context.navigationMode,
+    ...details,
+  }
+  if (level === 'error') {
+    console.error(`[stock-page] ${message}`, payload)
+    return
+  }
+  console.info(`[stock-page] ${message}`, payload)
+}
+
+async function loadOptionalStockDataset<T>(
+  context: BackendRequestLogContext,
+  endpoint: string,
+  fallback: T,
+  loader: () => Promise<T>
+): Promise<T> {
+  const startedAt = Date.now()
+  try {
+    return await loader()
+  } catch (error) {
+    const details = backendErrorDetails(error)
+    logStockPageEvent('error', 'optional dataset unavailable', context, {
+      endpoint,
+      durationMs: Date.now() - startedAt,
+      error: details.message,
+      aborted: details.aborted,
+      timeout: details.timeout,
+    })
+    return fallback
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -181,6 +238,14 @@ export default async function TickerPage({
   const resolvedParams = await params
   const resolvedSearchParams = await searchParams
   const ticker = resolvedParams.ticker.toUpperCase()
+  const requestHeaders = await headers()
+  const requestLogContext: BackendRequestLogContext = {
+    ticker,
+    requestId: crypto.randomUUID(),
+    navigationMode: detectNavigationMode(requestHeaders),
+  }
+  logStockPageEvent('info', 'render start', requestLogContext)
+
   const currency = currencyForTicker(ticker)
   const initialAiQuestion = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiQuestion))
   const initialAiPromptLabel = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiPromptLabel))
@@ -200,40 +265,93 @@ export default async function TickerPage({
     : '/sign-up?redirect_url=/stocks/' + ticker
 
   let tickerSummary: Awaited<ReturnType<typeof getTickerPageSummary>>
-  let ohlcData: Awaited<ReturnType<typeof getOhlcData>>
-  let recentSignals: Awaited<ReturnType<typeof getCachedSignalHistoryForTicker>>
-  let latestScreenerRows: Awaited<ReturnType<typeof getCachedLatestScreenerRow>>
-  let scorecard: Awaited<ReturnType<typeof getTickerScorecard>>
 
   try {
-    ;[tickerSummary, ohlcData, recentSignals, latestScreenerRows, scorecard] = await Promise.all([
-      getTickerPageSummary(ticker),
-      getOhlcData(ticker, 3650),
-      getCachedSignalHistoryForTicker(ticker, 180),
-      getCachedLatestScreenerRow(ticker),
-      getTickerScorecard(ticker),
-    ])
-  } catch {
+    tickerSummary = await runWithBackendRequestLogContext(requestLogContext, () => getTickerPageSummary(ticker))
+  } catch (error) {
+    const details = backendErrorDetails(error)
+    logStockPageEvent('error', 'required summary unavailable', requestLogContext, {
+      endpoint: `/tickers/${ticker}/summary`,
+      error: details.message,
+      aborted: details.aborted,
+      timeout: details.timeout,
+    })
     return (
       <EmptyState
         title="Ticker data is temporarily unavailable"
-        description="The frontend could not load summary, history, or signal data from finance-backend for this ticker."
+        description="The frontend could not load the canonical summary from finance-backend for this ticker."
         action={<RetryButton>Retry</RetryButton>}
       />
     )
   }
+
+  const [ohlcData, recentSignals, latestScreenerRows, scorecard] = await runWithBackendRequestLogContext(
+    requestLogContext,
+    () =>
+      Promise.all([
+        loadOptionalStockDataset(
+          requestLogContext,
+          `/tickers/${ticker}/ohlc`,
+          [],
+          () => getOhlcData(ticker, 3650)
+        ),
+        loadOptionalStockDataset(
+          requestLogContext,
+          `/signals/history/${ticker}`,
+          [],
+          () => getCachedSignalHistoryForTicker(ticker, 180)
+        ),
+        loadOptionalStockDataset(
+          requestLogContext,
+          `/screener/signals?tickers=${ticker}`,
+          [],
+          () => getCachedLatestScreenerRow(ticker)
+        ),
+        loadOptionalStockDataset(
+          requestLogContext,
+          `/tickers/${ticker}/scorecard`,
+          buildUnavailableScorecard('Temporarily unavailable'),
+          () => getTickerScorecard(ticker)
+        ),
+      ])
+  )
+
+  logStockPageEvent('info', 'render data ready', requestLogContext, {
+    hasOhlc: ohlcData.length > 0,
+    signalRows: recentSignals.length,
+    screenerRows: latestScreenerRows.length,
+    scorecardReadiness: scorecard.readiness,
+  })
   const historicalData = ohlcData.map((point) => ({ date: point.date, close: point.close }))
 
-  const relationship126Promise = getTickerRelationships(ticker, { window: 126, topK: 50 }).catch(() =>
-    emptyRelationships(ticker, 126)
+  const relationship126Promise = runWithBackendRequestLogContext(requestLogContext, () =>
+    getTickerRelationships(ticker, { window: 126, topK: 50 }).catch((error) => {
+      const details = backendErrorDetails(error)
+      logStockPageEvent('error', 'relationship dataset unavailable', requestLogContext, {
+        endpoint: `/relationships/${ticker}?window=126`,
+        error: details.message,
+        aborted: details.aborted,
+        timeout: details.timeout,
+      })
+      return emptyRelationships(ticker, 126)
+    })
   )
-  const relationship252Promise = getTickerRelationships(ticker, { window: 252, topK: 50 }).catch(() =>
-    emptyRelationships(ticker, 252)
+  const relationship252Promise = runWithBackendRequestLogContext(requestLogContext, () =>
+    getTickerRelationships(ticker, { window: 252, topK: 50 }).catch((error) => {
+      const details = backendErrorDetails(error)
+      logStockPageEvent('error', 'relationship dataset unavailable', requestLogContext, {
+        endpoint: `/relationships/${ticker}?window=252`,
+        error: details.message,
+        aborted: details.aborted,
+        timeout: details.timeout,
+      })
+      return emptyRelationships(ticker, 252)
+    })
   )
 
   const relatedAssetsPromise: Promise<
     Array<{ symbol: string; name: string | null; price: number | null; changePercent: number | null }>
-  > = relationship252Promise
+  > = runWithBackendRequestLogContext(requestLogContext, () => relationship252Promise
     .then((relationships) => {
       const candidates = [
         ...relationships.residualCoMovers,
@@ -261,7 +379,16 @@ export default async function TickerPage({
         }))
       )
     )
-    .catch(() => [])
+    .catch((error) => {
+      const details = backendErrorDetails(error)
+      logStockPageEvent('error', 'related assets unavailable', requestLogContext, {
+        endpoint: `/stocks/${ticker}/related-assets`,
+        error: details.message,
+        aborted: details.aborted,
+        timeout: details.timeout,
+      })
+      return []
+    }))
 
   const marketQuote = tickerSummary.quote
   const marketStats = tickerSummary.marketStats

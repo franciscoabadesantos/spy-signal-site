@@ -41,9 +41,12 @@ test('autocomplete has no network search request for typed queries', () => {
   assert.doesNotMatch(source, /displaySource: 'manual'/)
   assert.doesNotMatch(source, /Open this ticker/)
   assert.doesNotMatch(source, /request onboarding/)
+  assert.doesNotMatch(source, /ensureTickerOnboarding/)
   assert.doesNotMatch(source, /fetchTickerEnrichments/)
   assert.doesNotMatch(source, /tickerEnrichment/)
   assert.doesNotMatch(source, /AbortController/)
+  assert.doesNotMatch(source, /OrbitMini/)
+  assert.doesNotMatch(source, /Sparkles/)
 })
 
 test('autocomplete runtime path contains no Yahoo or external discovery code', () => {

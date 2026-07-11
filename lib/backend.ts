@@ -1,4 +1,5 @@
 import 'server-only'
+import { backendErrorDetails, logBackendRequestEvent } from './backend-request-log'
 
 export class BackendDataError extends Error {
   readonly context: string
@@ -167,6 +168,7 @@ export async function fetchBackendResponse(
     throw new BackendDataError(context, 'BACKEND_BASE_URL is not configured')
   }
 
+  const startedAt = Date.now()
   let response: Response
   try {
     response = await withTimeout(
@@ -182,12 +184,28 @@ export async function fetchBackendResponse(
       context
     )
   } catch (error) {
+    const details = backendErrorDetails(error)
+    logBackendRequestEvent({
+      context,
+      endpoint: path,
+      durationMs: Date.now() - startedAt,
+      error: `${details.aborted ? 'abort: ' : ''}${details.message}`,
+      status: null,
+      timeout: details.timeout,
+    })
     if (error instanceof BackendDataError) throw error
     throw new BackendDataError(
       context,
       error instanceof Error ? error.message : 'Unknown backend fetch failure'
     )
   }
+
+  logBackendRequestEvent({
+    context,
+    endpoint: path,
+    durationMs: Date.now() - startedAt,
+    status: response.status,
+  })
 
   return response
 }

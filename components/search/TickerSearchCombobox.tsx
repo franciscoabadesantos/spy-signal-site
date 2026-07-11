@@ -1,11 +1,10 @@
 'use client'
 
-import { History, Loader2, Radar, Search, Sparkles } from 'lucide-react'
+import { CircleAlert, History, Loader2, Radar, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
-import { ensureTickerOnboarding } from '@/lib/ticker-onboarding'
 import {
   filterTickerIndexItems,
   getFeaturedTickerIndexResults,
@@ -164,6 +163,12 @@ function statusIconClass(item: DisplayItem): string {
   if (item.readiness?.tone === 'partial') return 'border-primary/25 bg-primary/10 text-accent-text'
   if (item.hasSignals) return 'border-primary/25 bg-primary/10 text-accent-text'
   return 'border-border bg-surface-elevated text-content-muted'
+}
+
+function statusIcon(item: DisplayItem): typeof CircleAlert | typeof Radar | null {
+  if (item.readiness?.label === 'Rejected' || item.readiness?.tone === 'missing') return CircleAlert
+  if (item.readiness?.tone === 'partial' || item.hasSignals) return Radar
+  return null
 }
 
 export default function TickerSearchCombobox({
@@ -400,21 +405,20 @@ export default function TickerSearchCombobox({
     }
   }
 
-  function navigateToTicker(tickerRaw: string, exchange?: string | null) {
+  function navigateToTicker(tickerRaw: string) {
     const symbol = tickerRaw.trim().toUpperCase()
     if (!symbol) return
     pushRecentTicker(symbol)
     setSearch(symbol)
     setIsOpen(false)
     setHighlightedIndex(-1)
-    void ensureTickerOnboarding(symbol, exchange)
     router.push(routeForTicker(symbol))
   }
 
   function submitSearch() {
     const firstResult = resultSuggestions[0]
     if (firstResult) {
-      navigateToTicker(firstResult.symbol, firstResult.exchange)
+      navigateToTicker(firstResult.symbol)
       return
     }
   }
@@ -446,7 +450,7 @@ export default function TickerSearchCombobox({
       event.preventDefault()
       if (isOpen && highlightedIndex >= 0 && highlightedIndex < selectableItems.length) {
         const selected = selectableItems[highlightedIndex]
-        if (selected) navigateToTicker(selected.symbol, selected.exchange)
+        if (selected) navigateToTicker(selected.symbol)
         return
       }
 
@@ -457,13 +461,13 @@ export default function TickerSearchCombobox({
   function renderSuggestion(item: DisplayItem, index: number, withBorder: boolean) {
     const labelText = sourceLabel(item)
     const subLabelText = rightSubLabel(item)
-    const StatusIcon = item.hasSignals ? Radar : Sparkles
+    const StatusIcon = statusIcon(item)
     return (
       <li key={`${item.displaySource}-${item.symbol}-${index}`}>
         <button
           type="button"
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => navigateToTicker(item.symbol, item.exchange)}
+          onClick={() => navigateToTicker(item.symbol)}
           className={cn(
             'state-interactive grid w-full cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset',
             withBorder ? 'border-b border-border' : '',
@@ -472,7 +476,11 @@ export default function TickerSearchCombobox({
         >
           <div className="flex items-center justify-center">
             <span className={cn('flex h-10 w-10 items-center justify-center rounded-full border', statusIconClass(item))}>
-              <StatusIcon className="h-4 w-4" />
+              {StatusIcon ? (
+                <StatusIcon className="h-4 w-4" />
+              ) : (
+                <span className="text-micro font-semibold">{item.symbol.slice(0, 1)}</span>
+              )}
             </span>
           </div>
           <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
@@ -486,7 +494,7 @@ export default function TickerSearchCombobox({
                 </span>
               ) : item.displaySource === 'featured' && item.hasSignals ? (
                 <span className="ml-2 inline-flex items-center gap-1 text-content-muted">
-                  <Sparkles className="h-3.5 w-3.5" />
+                  <Radar className="h-3.5 w-3.5" />
                   Tracked
                 </span>
               ) : item.hasSignals ? (
