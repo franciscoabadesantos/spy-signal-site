@@ -24,8 +24,7 @@ import {
   getTickerPageSummary,
   type LatestFundamentalsRow,
 } from '@/lib/ticker-data'
-import { getTickerScorecard } from '@/lib/scorecard'
-import { buildUnavailableScorecard } from '@/lib/scorecard-types'
+import { scorecardFromTickerSummary } from '@/lib/ticker-page-scorecard'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 
 export const dynamic = 'force-dynamic'
@@ -285,7 +284,8 @@ export default async function TickerPage({
     )
   }
 
-  const [ohlcData, recentSignals, latestScreenerRows, scorecard] = await runWithBackendRequestLogContext(
+  const scorecard = scorecardFromTickerSummary(tickerSummary)
+  const [ohlcData, recentSignals, latestScreenerRows] = await runWithBackendRequestLogContext(
     requestLogContext,
     () =>
       Promise.all([
@@ -306,12 +306,6 @@ export default async function TickerPage({
           `/screener/signals?tickers=${ticker}`,
           [],
           () => getCachedLatestScreenerRow(ticker)
-        ),
-        loadOptionalStockDataset(
-          requestLogContext,
-          `/tickers/${ticker}/scorecard`,
-          buildUnavailableScorecard('Temporarily unavailable'),
-          () => getTickerScorecard(ticker)
         ),
       ])
   )

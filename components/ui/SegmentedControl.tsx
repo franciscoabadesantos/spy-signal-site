@@ -37,7 +37,8 @@ export default function SegmentedControl<T extends string>({
   }, [])
 
   useLayoutEffect(() => {
-    updateThumb()
+    const frame = window.requestAnimationFrame(updateThumb)
+    return () => window.cancelAnimationFrame(frame)
   }, [updateThumb, value, options])
 
   useEffect(() => {
