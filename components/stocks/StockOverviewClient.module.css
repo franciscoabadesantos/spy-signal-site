@@ -35,7 +35,7 @@
   border-radius: 0;
   box-shadow: none;
   padding: 4px 0 0;
-  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .heroHeader {
@@ -233,7 +233,7 @@
 
 .crosshairGroup,
 .hoverDotGroup {
-  transition: transform 80ms ease-out;
+  transition: transform 110ms ease-out;
 }
 
 .chartLine {
@@ -254,9 +254,11 @@
   animation: fadeIn 130ms ease forwards;
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  background: rgba(16, 20, 30, 0.94);
-  backdrop-filter: blur(20px) saturate(1.7);
-  -webkit-backdrop-filter: blur(20px) saturate(1.7);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015) 45%),
+    rgba(22, 28, 41, 0.72);
+  backdrop-filter: blur(30px) saturate(1.8);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
   padding: 9px 12px;
   font-size: 12px;
   line-height: 1.35;
@@ -265,6 +267,7 @@
     inset 0 1px 0 var(--glass-highlight),
     0 12px 36px rgba(0, 0, 0, 0.45);
   pointer-events: none;
+  transition: left 80ms ease-out, top 80ms ease-out;
 }
 
 .chartTooltipPrice {
@@ -531,20 +534,35 @@
 
 .gaugeItem {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: 12px;
   align-items: center;
-  padding: 12px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--color-border-light);
 }
 
 .gaugeItem:last-child {
   border-bottom: 0;
-  padding-bottom: 4px;
+  padding-bottom: 2px;
 }
 
 .gaugeItem:first-child {
-  padding-top: 4px;
+  padding-top: 2px;
+}
+
+.gaugeRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.gaugeScore {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
 }
 
 .gaugePanelBuy {
@@ -564,7 +582,7 @@
 
 .gaugeDial {
   display: block;
-  width: 92px;
+  width: 72px;
 }
 
 .gaugeArcTrack {
@@ -633,24 +651,10 @@
   line-height: 1.2;
 }
 
-.gaugeVerdictLine {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
 .gaugeVerdict {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.2;
   font-weight: 650;
-}
-
-.gaugePressureValue {
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  line-height: 1.2;
-  font-weight: 600;
-  color: var(--color-text-muted);
 }
 
 .gaugeCounts {
@@ -782,7 +786,7 @@
 
 .openPanel {
   padding: 0;
-  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .zone3Grid > * {
@@ -804,7 +808,7 @@
 .dashboardCard {
   padding: 16px;
   box-shadow: none;
-  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .zone3Grid > *:nth-child(1) { animation-delay: 120ms; }

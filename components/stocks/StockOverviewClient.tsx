@@ -338,10 +338,11 @@ function Gauge({
 
       <div className={styles.gaugeInfo}>
         <div className={styles.gaugeLabel}>{title}</div>
-        <div className={styles.gaugeVerdictLine}>
-          <span className={cn(styles.gaugeVerdict, actionTone(verdictAction))}>{verdict}</span>
-          <span className={styles.gaugePressureValue}>{Math.round(clamped)}</span>
-        </div>
+        <div className={cn(styles.gaugeVerdict, actionTone(verdictAction))}>{verdict}</div>
+      </div>
+
+      <div className={styles.gaugeRight}>
+        <div className={styles.gaugeScore}>{Math.round(clamped)}</div>
         <div className={styles.gaugeCounts}>
           <span>
             <span className={styles.gaugeCountDotSell} /> {counts.sell}
@@ -573,12 +574,13 @@ function RegimeHistoryChart({
     [signals]
   )
 
+  if (ordered.length === 0) {
+    return <div className={styles.emptyState}>Regime history is not available yet.</div>
+  }
+
   return (
     <ChartContainer className={styles.regimeChart} loadingText="Loading regime history...">
       {({ width, height }) => {
-        if (ordered.length === 0) {
-          return <div className={styles.emptyState}>Regime history is not available yet.</div>
-        }
 
         const padding = { top: 12, right: 32, bottom: 24, left: 32 }
         const innerWidth = Math.max(1, width - padding.left - padding.right)
@@ -924,7 +926,7 @@ export default function StockOverviewClient({
               counts={technicalSummary.gauges.movingAverages.counts}
             />
           </div>
-          <button type="button" className="btn-glass mt-3" onClick={() => setIndicatorsModalOpen(true)}>
+          <button type="button" className="btn-glass btn-glass-sm mt-2" onClick={() => setIndicatorsModalOpen(true)}>
             Indicator details →
           </button>
         </article>

@@ -669,6 +669,12 @@
     transform: scale(0.94);
   }
 
+  .btn-glass-sm {
+    min-height: 24px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
   .text-display-xl {
     font-size: 3.5rem;
     line-height: 4rem;
