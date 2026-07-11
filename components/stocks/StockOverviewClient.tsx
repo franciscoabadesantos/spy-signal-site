@@ -889,7 +889,7 @@ export default function StockOverviewClient({
           <RegimeHistoryChart signals={regimeSignals} />
         </article>
 
-        <article className={cn(styles.zone, styles.dashboardCard, styles.spanNarrow)}>
+        <article className={cn(styles.openPanel, styles.spanNarrow)}>
           <div className={styles.cardHeader}>
             <div>
               <div className={styles.cardTitle}>Technical signals</div>
