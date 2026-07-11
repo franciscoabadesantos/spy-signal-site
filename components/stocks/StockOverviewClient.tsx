@@ -284,6 +284,17 @@ function filterChartData(data: PricePoint[], timeframe: ChartTimeframe): PricePo
   return filtered.length >= 2 ? filtered : data
 }
 
+function gaugeArcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: number): string {
+  const toPoint = (deg: number) => {
+    const rad = ((deg - 90) * Math.PI) / 180
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
+  }
+  const start = toPoint(startDeg)
+  const end = toPoint(endDeg)
+  const largeArc = endDeg - startDeg > 180 ? 1 : 0
+  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`
+}
+
 function Gauge({
   title,
   position,
@@ -302,17 +313,12 @@ function Gauge({
   }
 }) {
   const clamped = Math.max(0, Math.min(100, position))
-  const pressure = Math.round(clamped)
+  const needleAngle = (clamped / 100) * 180 - 90
   const total = Math.max(1, counts.buy + counts.neutral + counts.sell)
-  const sellPct = (counts.sell / total) * 100
-  const neutralPct = (counts.neutral / total) * 100
-  const buyPct = (counts.buy / total) * 100
   const pressureStyle = {
-    '--pressure': clamped,
-    '--needle-rotation': `${(clamped - 50) * 1.8}deg`,
-    '--sell-share': `${sellPct}%`,
-    '--neutral-share': `${neutralPct}%`,
-    '--buy-share': `${buyPct}%`,
+    '--sell-share': `${(counts.sell / total) * 100}%`,
+    '--neutral-share': `${(counts.neutral / total) * 100}%`,
+    '--buy-share': `${(counts.buy / total) * 100}%`,
   } as CSSProperties
   const toneClass =
     verdictAction === 'Buy'
@@ -325,27 +331,22 @@ function Gauge({
     <div className={cn(styles.gaugePanel, toneClass)} style={pressureStyle}>
       <div className={styles.gaugeTopline}>
         <div className={styles.gaugeLabel}>{title}</div>
-        <div className={styles.gaugePressureValue}>{pressure}</div>
+        <div className={styles.gaugePressureValue}>{Math.round(clamped)}</div>
       </div>
 
-      <div className={styles.pressureDial} aria-hidden="true">
-        <div className={styles.pressureGlow} />
-        <div className={styles.pressureTrack}>
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '-90deg' } as CSSProperties} />
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '-45deg' } as CSSProperties} />
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '0deg' } as CSSProperties} />
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '45deg' } as CSSProperties} />
-          <span className={styles.pressureTick} style={{ '--tick-rotation': '90deg' } as CSSProperties} />
-        </div>
-        <div className={styles.pressureNeedle}>
-          <span />
-        </div>
-        <div className={styles.pressureHub} />
-      </div>
+      <svg viewBox="0 0 120 70" className={styles.gaugeSvg} aria-hidden="true">
+        <path d={gaugeArcPath(60, 62, 46, -90, -34)} className={styles.gaugeArcSell} />
+        <path d={gaugeArcPath(60, 62, 46, -30, 30)} className={styles.gaugeArcNeutral} />
+        <path d={gaugeArcPath(60, 62, 46, 34, 90)} className={styles.gaugeArcBuy} />
+        <g className={styles.gaugeNeedle} style={{ transform: `rotate(${needleAngle}deg)` }}>
+          <line x1={60} y1={62} x2={60} y2={25} />
+          <circle cx={60} cy={25} r={2.4} />
+        </g>
+        <circle cx={60} cy={62} r={5} className={styles.gaugeHub} />
+      </svg>
 
       <div className={styles.gaugeReadout}>
         <div className={cn(styles.gaugeVerdict, actionTone(verdictAction))}>{verdict}</div>
-        <div className={styles.gaugePressureLabel}>Pressure index</div>
       </div>
 
       <div className={styles.gaugeMix} aria-hidden="true">
@@ -408,8 +409,11 @@ function HeroPriceChart({
         const xTicks = buildXTicks(data.map((point) => point.date))
         const yTicks = Array.from({ length: 5 }, (_, index) => floor + ((ceiling - floor) / 4) * index)
         const hoverPoint = hoverIndex === null ? null : points[hoverIndex] ?? null
-        const tooltipLeft = hoverPoint ? Math.min(width - 132, Math.max(8, hoverPoint.x - 52)) : 0
+        const tooltipLeft = hoverPoint ? Math.min(width - 148, Math.max(8, hoverPoint.x - 60)) : 0
         const chartKey = `${data.length}:${data[0]?.date ?? ''}:${data[data.length - 1]?.date ?? ''}`
+        const rangeBaseClose = data[0]?.close ?? null
+        const hoverDeltaPct =
+          hoverPoint && rangeBaseClose ? ((hoverPoint.close - rangeBaseClose) / rangeBaseClose) * 100 : null
 
         return (
           <div className="relative h-full w-full">
@@ -442,6 +446,14 @@ function HeroPriceChart({
                 strokeLinejoin="round"
               />
 
+              <defs>
+                <linearGradient id="lbCrosshairGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor="var(--color-accent)" stopOpacity="0" />
+                  <stop offset="0.2" stopColor="var(--color-accent)" stopOpacity="0.55" />
+                  <stop offset="1" stopColor="var(--color-accent)" stopOpacity="0.06" />
+                </linearGradient>
+              </defs>
+
               {hoverPoint ? (
                 <>
                   <line
@@ -449,10 +461,11 @@ function HeroPriceChart({
                     y1={padding.top}
                     x2={hoverPoint.x}
                     y2={padding.top + innerHeight}
-                    stroke="rgba(255,255,255,0.18)"
-                    strokeDasharray="3 4"
+                    stroke="url(#lbCrosshairGradient)"
+                    strokeWidth="1.4"
                   />
-                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4" fill="var(--color-accent)" stroke="var(--bg-surface)" strokeWidth="2" />
+                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="9" fill="var(--color-accent)" opacity="0.16" />
+                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4.2" fill="var(--color-accent)" stroke="var(--bg-surface)" strokeWidth="2" />
                 </>
               ) : null}
 
@@ -508,7 +521,11 @@ function HeroPriceChart({
 
             {hoverPoint ? (
               <div className={styles.chartTooltip} style={{ left: tooltipLeft, top: 10 }}>
-                <div>{formatPrice(hoverPoint.close, currency)}</div>
+                <div className={styles.chartTooltipPrice}>{formatPrice(hoverPoint.close, currency)}</div>
+                <div className={cn(styles.chartTooltipDelta, directionToneClass(hoverDeltaPct))}>
+                  {formatCompactPercent(hoverDeltaPct)}
+                  <span className={styles.chartTooltipSubtle}> in range</span>
+                </div>
                 <div className={styles.chartTooltipSubtle}>{formatDate(hoverPoint.date)}</div>
               </div>
             ) : null}
@@ -742,6 +759,7 @@ export default function StockOverviewClient({
   const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1Y')
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
   const [isChartModalOpen, setChartModalOpen] = useState(false)
+  const [isIndicatorsModalOpen, setIndicatorsModalOpen] = useState(false)
   const scorecardMessage = scorecardReadinessMessage(scorecard)
   const scorecardStateClass = styles[`scorecardState_${scorecardReadinessTone(scorecard.readiness)}`]
 
@@ -834,7 +852,26 @@ export default function StockOverviewClient({
                   ))}
                 </div>
                 <div className={styles.scorecardPopover} aria-hidden="true">
-                  <ScorecardDisc scorecard={scorecard} compact size={260} />
+                  <ScorecardDisc scorecard={scorecard} compact size={230} />
+                  <div className={styles.popoverAxes}>
+                    {scorecard.axes.map((axis, index) => {
+                      const available = axis.available && axis.score !== null
+                      const fillStyle = {
+                        '--axis-fill': `${available ? Math.max(0, Math.min(100, axis.score ?? 0)) : 0}%`,
+                        '--axis-delay': `${120 + index * 70}ms`,
+                        '--axis-color': available ? scoreColor(axis.score ?? 0) : 'var(--color-neutral)',
+                      } as CSSProperties
+                      return (
+                        <div key={axis.key} className={styles.popoverAxisRow} style={fillStyle}>
+                          <span className={styles.popoverAxisLabel}>{axis.label}</span>
+                          <span className={styles.popoverAxisTrack}>
+                            <span className={styles.popoverAxisFill} />
+                          </span>
+                          <span className={styles.popoverAxisValue}>{available ? axis.score : '—'}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -850,25 +887,27 @@ export default function StockOverviewClient({
         </div>
       </section>
 
-      <section className={styles.signalZone}>
-        <div className={styles.signalHeader}>
-          <div className={styles.eyebrow}>Technical Signals · {signalTimeframe}</div>
-          <div className={styles.tabStrip}>
-            {SIGNAL_TIMEFRAMES.map((timeframe) => (
-              <button
-                key={timeframe}
-                type="button"
-                className={cn(styles.tabButton, signalTimeframe === timeframe ? styles.tabButtonActive : undefined)}
-                onClick={() => setSignalTimeframe(timeframe)}
-              >
-                {timeframe}
-              </button>
-            ))}
+      <section className={styles.zone3Grid}>
+        <article className={cn(styles.zone, styles.dashboardCard)}>
+          <div className={styles.cardHeader}>
+            <div>
+              <div className={styles.cardTitle}>Technical signals</div>
+              <div className={styles.cardHint}>Oscillator & moving average pressure</div>
+            </div>
+            <div className={styles.tabStrip}>
+              {SIGNAL_TIMEFRAMES.map((timeframe) => (
+                <button
+                  key={timeframe}
+                  type="button"
+                  className={cn(styles.tabButton, signalTimeframe === timeframe ? styles.tabButtonActive : undefined)}
+                  onClick={() => setSignalTimeframe(timeframe)}
+                >
+                  {timeframe}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-
-        <div className={styles.signalSplit}>
-          <div className={styles.signalLeft}>
+          <div className={styles.gaugeRow}>
             <Gauge
               title="Summary"
               position={technicalSummary.gauges.summary.position}
@@ -891,15 +930,23 @@ export default function StockOverviewClient({
               counts={technicalSummary.gauges.movingAverages.counts}
             />
           </div>
-          <div className={styles.signalRight}>
-            <SignalTable title="Oscillators" rows={technicalSummary.oscillatorRows} />
-            <div className={styles.signalDivider} />
-            <SignalTable title="Moving Averages" rows={technicalSummary.movingAverageRows} />
+          <div className={styles.actionsRow}>
+            <button type="button" className={styles.actionLink} onClick={() => setIndicatorsModalOpen(true)}>
+              All indicator details →
+            </button>
           </div>
-        </div>
-      </section>
+        </article>
 
-      <section className={styles.zone3Grid}>
+        <article className={cn(styles.zone, styles.dashboardCard)}>
+          <div className={styles.cardHeader}>
+            <div>
+              <div className={styles.cardTitle}>Regime history</div>
+              <div className={styles.cardHint}>Visible state changes over time</div>
+            </div>
+          </div>
+          <RegimeHistoryChart signals={regimeSignals} />
+        </article>
+
         <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
           <div className={styles.cardHeader}>
             <div>
@@ -915,16 +962,6 @@ export default function StockOverviewClient({
               relationship252Promise={relationship252Promise}
             />
           </Suspense>
-        </article>
-
-        <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Regime history</div>
-              <div className={styles.cardHint}>Visible state changes over time</div>
-            </div>
-          </div>
-          <RegimeHistoryChart signals={regimeSignals} />
         </article>
 
         <article className={cn(styles.zone, styles.dashboardCard)}>
@@ -1002,6 +1039,15 @@ export default function StockOverviewClient({
       {isChartModalOpen ? (
         <Modal title="Expanded Price Chart" onClose={() => setChartModalOpen(false)}>
           <HeroPriceChart data={filteredChartData} className={styles.expandedChart} currency={currency} />
+        </Modal>
+      ) : null}
+
+      {isIndicatorsModalOpen ? (
+        <Modal title={`Indicator details · ${signalTimeframe}`} onClose={() => setIndicatorsModalOpen(false)}>
+          <div className={styles.indicatorModalGrid}>
+            <SignalTable title="Oscillators" rows={technicalSummary.oscillatorRows} />
+            <SignalTable title="Moving Averages" rows={technicalSummary.movingAverageRows} />
+          </div>
         </Modal>
       ) : null}
     </div>
