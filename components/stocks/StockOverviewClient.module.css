@@ -308,6 +308,7 @@
 }
 
 .scorecardCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -324,13 +325,33 @@
   gap: 14px;
 }
 
-.scorecardDisc {
+.gradeRing {
   flex: 0 0 auto;
-  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.scorecardCard:hover .scorecardDisc {
-  transform: scale(1.12);
+.scorecardPopover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  padding: 22px 30px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-raised);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-8px) scale(0.94);
+  transform-origin: top center;
+  transition: opacity 200ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.scorecardCard:hover .scorecardPopover,
+.scorecardCard:focus-within .scorecardPopover {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
 }
 
 .scorecardMeta {
@@ -1163,6 +1184,7 @@
   .actionLink,
   .chartExpandButton,
   .scorecardCard,
+  .scorecardPopover,
   .dashboardCard {
     transition: none;
   }

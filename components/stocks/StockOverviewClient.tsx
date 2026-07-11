@@ -8,7 +8,7 @@ import ScorecardDisc from '@/components/stocks/ScorecardDisc'
 import ChartContainer from '@/components/charts/ChartContainer'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
 import type { TickerRelationships } from '@/lib/relationships'
-import type { Scorecard, ScorecardReadiness } from '@/lib/scorecard-types'
+import { scoreColor, type Scorecard, type ScorecardReadiness } from '@/lib/scorecard-types'
 import {
   buildTechnicalSummary,
   type TechnicalAction,
@@ -71,6 +71,7 @@ type StockOverviewClientProps = {
   relatedAssets: Promise<OverviewRelatedAsset[]>
   regimeSignals: OverviewRegimePoint[]
   scorecard: Scorecard
+  watchlistSlot?: ReactNode
   showCopilot: boolean
   copilot: {
     isPro: boolean
@@ -166,6 +167,97 @@ function directionToneClass(value: number | null): string {
 
 function parseChartDate(value: string): number {
   return new Date(`${value}T00:00:00Z`).getTime()
+}
+
+type XTick = {
+  index: number
+  label: string
+}
+
+function thinTicks(ticks: XTick[], max: number): XTick[] {
+  if (ticks.length <= max) return ticks
+  const step = Math.ceil(ticks.length / max)
+  return ticks.filter((_, position) => position % step === 0)
+}
+
+function buildXTicks(dates: string[]): XTick[] {
+  const total = dates.length
+  if (total === 0) return []
+  if (total === 1) return [{ index: 0, label: formatDate(dates[0], { month: 'short', day: 'numeric' }) }]
+
+  const spanDays = (parseChartDate(dates[total - 1]) - parseChartDate(dates[0])) / 86_400_000
+
+  if (spanDays > 700) {
+    const ticks: XTick[] = []
+    let previousYear: number | null = null
+    dates.forEach((date, index) => {
+      const year = new Date(`${date}T00:00:00Z`).getUTCFullYear()
+      if (previousYear !== null && year !== previousYear) {
+        ticks.push({ index, label: String(year) })
+      }
+      previousYear = year
+    })
+    return thinTicks(ticks, 10)
+  }
+
+  if (spanDays > 45) {
+    const ticks: XTick[] = []
+    let previousMonth: number | null = null
+    dates.forEach((date, index) => {
+      const parsed = new Date(`${date}T00:00:00Z`)
+      const monthKey = parsed.getUTCFullYear() * 12 + parsed.getUTCMonth()
+      if (previousMonth !== null && monthKey !== previousMonth) {
+        ticks.push({
+          index,
+          label:
+            parsed.getUTCMonth() === 0
+              ? String(parsed.getUTCFullYear())
+              : parsed.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }),
+        })
+      }
+      previousMonth = monthKey
+    })
+    return thinTicks(ticks, 8)
+  }
+
+  const count = Math.min(6, total)
+  const ticks: XTick[] = []
+  for (let position = 0; position < count; position++) {
+    const index = Math.round((position / Math.max(1, count - 1)) * (total - 1))
+    if (!ticks.some((tick) => tick.index === index)) {
+      ticks.push({ index, label: formatDate(dates[index], { month: 'short', day: 'numeric' }) })
+    }
+  }
+  return ticks
+}
+
+function GradeRing({ grade, score }: { grade: string; score: number | null }) {
+  const radius = 24
+  const circumference = 2 * Math.PI * radius
+  const clamped = score === null ? 0 : Math.max(0, Math.min(100, score))
+  const color = score === null ? 'var(--color-neutral)' : scoreColor(clamped)
+
+  return (
+    <svg width={60} height={60} viewBox="0 0 60 60" role="img" aria-label={`Grade ${grade}`} className={styles.gradeRing}>
+      <circle cx={30} cy={30} r={radius} fill="none" stroke="var(--color-border-light)" strokeWidth={4.5} />
+      {score !== null ? (
+        <circle
+          cx={30}
+          cy={30}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={4.5}
+          strokeLinecap="round"
+          strokeDasharray={`${(circumference * clamped) / 100} ${circumference}`}
+          transform="rotate(-90 30 30)"
+        />
+      ) : null}
+      <text x={30} y={35} textAnchor="middle" fontSize={15} fontWeight={750} fill="var(--color-text-primary)">
+        {grade}
+      </text>
+    </svg>
+  )
 }
 
 function startDateForHeroTimeframe(timeframe: ChartTimeframe, latestDate: Date): number | null {
@@ -313,9 +405,7 @@ function HeroPriceChart({
           .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
           .join(' ')
         const areaPath = `${linePath} L${points[points.length - 1]?.x.toFixed(2)} ${(padding.top + innerHeight).toFixed(2)} L${points[0]?.x.toFixed(2)} ${(padding.top + innerHeight).toFixed(2)} Z`
-        const xTicks = [0, Math.floor((points.length - 1) / 2), points.length - 1].filter(
-          (value, index, array) => array.indexOf(value) === index
-        )
+        const xTicks = buildXTicks(data.map((point) => point.date))
         const yTicks = Array.from({ length: 5 }, (_, index) => floor + ((ceiling - floor) / 4) * index)
         const hoverPoint = hoverIndex === null ? null : points[hoverIndex] ?? null
         const tooltipLeft = hoverPoint ? Math.min(width - 132, Math.max(8, hoverPoint.x - 52)) : 0
@@ -366,19 +456,20 @@ function HeroPriceChart({
                 </>
               ) : null}
 
-              {xTicks.map((index) => {
+              {xTicks.map(({ index, label }) => {
                 const point = points[index]
                 if (!point) return null
+                const clampedX = Math.max(padding.left + 14, Math.min(padding.left + innerWidth - 14, point.x))
                 return (
                   <text
-                    key={point.date}
-                    x={point.x}
+                    key={`${point.date}-${index}`}
+                    x={clampedX}
                     y={height - 4}
-                    textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
-                    fontSize="12"
+                    textAnchor="middle"
+                    fontSize="11"
                     fill="var(--color-text-muted)"
                   >
-                    {formatDate(point.date, { month: 'short', day: 'numeric' })}
+                    {label}
                   </text>
                 )
               })}
@@ -644,6 +735,7 @@ export default function StockOverviewClient({
   relatedAssets: relatedAssetsPromise,
   regimeSignals,
   scorecard,
+  watchlistSlot,
   showCopilot,
   copilot,
 }: StockOverviewClientProps) {
@@ -680,6 +772,7 @@ export default function StockOverviewClient({
             {latestSignal?.signalDate ? (
               <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
             ) : null}
+            {watchlistSlot}
           </div>
         </div>
 
@@ -722,7 +815,7 @@ export default function StockOverviewClient({
             ) : (
               <div className={styles.scorecardCard}>
                 <div className={styles.scorecardTop}>
-                  <ScorecardDisc scorecard={scorecard} mini size={84} className={styles.scorecardDisc} />
+                  <GradeRing grade={scorecard.overall.grade || '–'} score={scorecard.overall.score} />
                   <div className={styles.scorecardMeta}>
                     <span className={styles.scorecardGrade}>Grade {scorecard.overall.grade}</span>
                     <span className={styles.scorecardScore}>
@@ -739,6 +832,9 @@ export default function StockOverviewClient({
                       </span>
                     </div>
                   ))}
+                </div>
+                <div className={styles.scorecardPopover} aria-hidden="true">
+                  <ScorecardDisc scorecard={scorecard} compact size={260} />
                 </div>
               </div>
             )}

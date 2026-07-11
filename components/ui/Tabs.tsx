@@ -55,7 +55,7 @@ export default function Tabs({
     <div className={cn(className)}>
       <nav
         className={cn(
-          'flex items-center overflow-x-auto whitespace-nowrap',
+          'flex items-center overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           isUnderline ? 'gap-6 border-b border-[var(--color-border-light)]' : 'gap-2'
         )}
       >
@@ -64,7 +64,7 @@ export default function Tabs({
           const sharedClass = cn(
             'state-interactive inline-flex items-center text-label-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg',
             isUnderline
-              ? cn('h-10 border-b-2 px-0.5 -mb-px', underlineClass(active, Boolean(item.disabled)))
+              ? cn('h-10 border-b-2 px-0.5', underlineClass(active, Boolean(item.disabled)))
               : cn('h-9 rounded-[var(--radius-pill)] border px-3', pillClass(active, Boolean(item.disabled)))
           )
 

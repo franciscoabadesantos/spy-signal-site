@@ -496,17 +496,12 @@ export default async function TickerPage({
         }}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      {modelTag || screenerTag ? (
         <div className="flex flex-wrap items-center gap-2">
           {modelTag ? <Badge variant="neutral">{modelTag}</Badge> : null}
           {screenerTag ? <Badge variant="neutral">{screenerTag}</Badge> : null}
         </div>
-        <WatchlistButton
-          ticker={ticker}
-          initialInWatchlist={isInWatchlist}
-          signedIn={Boolean(viewerUserId)}
-        />
-      </div>
+      ) : null}
 
       <StockOverviewClient
         ticker={ticker}
@@ -530,6 +525,13 @@ export default async function TickerPage({
           prob_side: signal.prob_side,
         }))}
         scorecard={scorecard}
+        watchlistSlot={
+          <WatchlistButton
+            ticker={ticker}
+            initialInWatchlist={isInWatchlist}
+            signedIn={Boolean(viewerUserId)}
+          />
+        }
         showCopilot
         copilot={{
           isPro: viewerAccess.isPro,
