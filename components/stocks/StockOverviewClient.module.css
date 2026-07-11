@@ -309,34 +309,28 @@
 
 .scorecardCard {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.scorecardTop {
+  display: flex;
   align-items: center;
   gap: 14px;
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-raised);
-  cursor: pointer;
-  text-align: left;
-  transition: border-color 140ms ease;
 }
 
-.scorecardCard:hover {
-  border-color: var(--color-accent);
-}
-
-.scorecardCardPlain {
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.scorecardCardPlain .heroScorecardState {
-  width: 100%;
-}
-
-.heroOrbitMini {
+.scorecardDisc {
   flex: 0 0 auto;
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.scorecardCard:hover .scorecardDisc {
+  transform: scale(1.12);
 }
 
 .scorecardMeta {
@@ -359,10 +353,39 @@
   color: var(--color-text-muted);
 }
 
-.scorecardHint {
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--color-accent);
+.scorecardAxes {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.scorecardAxis {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.scorecardAxisLabel {
+  font-size: 9px;
+  line-height: 1.2;
+  color: var(--color-text-hint);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scorecardAxisValue {
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
 }
 
 .heroScorecardState {
@@ -383,35 +406,43 @@
   text-align: center;
 }
 
-.keyStatsList {
+.keyStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.keyStatCell {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  transition: border-color 140ms ease;
 }
 
-.keyStatRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 2px;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.keyStatRow:last-child {
-  border-bottom: 0;
+.keyStatCell:hover {
+  border-color: var(--color-border);
 }
 
 .keyStatLabel {
-  font-size: 12px;
-  line-height: 1.3;
-  color: var(--color-text-muted);
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--color-text-hint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .keyStatValue {
   min-width: 0;
-  font-size: 13px;
-  line-height: 1.3;
+  font-size: 14px;
+  line-height: 1.2;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
@@ -888,30 +919,6 @@
   width: 100%;
 }
 
-.orbitWrap {
-  position: relative;
-}
-
-.orbitVisual {
-  max-width: 360px;
-}
-
-.scorecardState {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 260px;
-  padding: 18px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-raised);
-  color: var(--color-text-secondary);
-  font-size: 15px;
-  line-height: 1.4;
-  font-weight: 600;
-  text-align: center;
-}
-
 .scorecardState_waiting {
   border-color: rgba(245, 158, 11, 0.32);
   background: rgba(245, 158, 11, 0.08);
@@ -928,59 +935,6 @@
   border-color: rgba(100, 116, 139, 0.32);
   background: rgba(100, 116, 139, 0.08);
   color: var(--color-text-muted);
-}
-
-.orbitTooltip {
-  position: absolute;
-  z-index: 2;
-  width: 160px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  background: rgba(13, 17, 23, 0.92);
-  padding: 10px;
-  font-size: 12px;
-  color: #e5e7eb;
-  pointer-events: none;
-}
-
-.orbitTooltipTitle {
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #f9fafb;
-}
-
-.orbitTooltipRow {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.orbitStats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.orbitStat {
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 8px 10px;
-  background: var(--color-surface);
-}
-
-.orbitStatLabel {
-  display: block;
-  font-size: 12px;
-  color: var(--color-text-hint);
-}
-
-.orbitStatValue {
-  display: block;
-  margin-top: 4px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-primary);
 }
 
 .peerTableWrap {
@@ -1178,17 +1132,6 @@
   cursor: pointer;
 }
 
-.modalOrbitBody {
-  display: grid;
-  gap: 16px;
-}
-
-.modalOrbitCopy {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--color-text-secondary);
-}
-
 .expandedChart {
   height: min(70vh, 560px);
 }
@@ -1239,10 +1182,6 @@
   .signalLeft {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-
-  .orbitVisual {
-    max-width: 100%;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1266,6 +1205,10 @@
     grid-template-columns: 1fr;
   }
 
+  .keyStatsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .fundDetails {
     grid-template-columns: 1fr;
   }
@@ -1274,9 +1217,5 @@
     text-align: left;
     padding-top: 0;
     padding-bottom: 10px;
-  }
-
-  .orbitStats {
-    grid-template-columns: 1fr 1fr;
   }
 }

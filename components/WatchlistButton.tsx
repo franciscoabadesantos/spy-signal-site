@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { buttonClass } from '@/components/ui/Button'
+import { Star } from 'lucide-react'
 
 type WatchlistButtonProps = {
   ticker: string
@@ -51,19 +51,23 @@ export default function WatchlistButton({
     }
   }
 
+  const label = inWatchlist ? 'Remove from watchlist' : 'Add to watchlist'
+
   return (
     <div className="flex flex-col items-start md:items-end gap-1.5">
       <button
         type="button"
         onClick={onClick}
         disabled={pending}
-        className={buttonClass({ variant: 'secondary' })}
+        aria-label={label}
+        title={label}
+        aria-pressed={inWatchlist}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--bg-surface-raised)] text-[var(--color-text-secondary)] transition-[border-color,color,transform] duration-150 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] active:scale-90 disabled:opacity-60"
       >
-        {pending
-          ? 'Saving...'
-          : inWatchlist
-            ? 'In Watchlist'
-            : 'Add to Watchlist'}
+        <Star
+          size={16}
+          className={inWatchlist ? 'fill-amber-400 text-amber-400' : undefined}
+        />
       </button>
       {error && <span className="text-[12px] text-red-600">{error}</span>}
     </div>

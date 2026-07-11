@@ -8,14 +8,17 @@ export type TabItem = {
   disabled?: boolean
 }
 
+type TabsVariant = 'pill' | 'underline'
+
 type TabsProps = {
   items: TabItem[]
   activeKey: string
   className?: string
+  variant?: TabsVariant
   onChange?: (key: string) => void
 }
 
-function tabClass(active: boolean, disabled: boolean): string {
+function pillClass(active: boolean, disabled: boolean): string {
   if (disabled) {
     return 'cursor-not-allowed text-content-muted opacity-70'
   }
@@ -27,20 +30,42 @@ function tabClass(active: boolean, disabled: boolean): string {
   return 'border-transparent bg-surface-elevated text-content-secondary hover:bg-[var(--accent-50)] hover:text-[var(--accent-700)]'
 }
 
+function underlineClass(active: boolean, disabled: boolean): string {
+  if (disabled) {
+    return 'border-transparent cursor-not-allowed text-content-muted opacity-70'
+  }
+
+  if (active) {
+    return 'border-[var(--color-accent)] font-semibold text-[var(--color-accent)]'
+  }
+
+  return 'border-transparent text-content-secondary hover:text-content-primary'
+}
+
 export default function Tabs({
   items,
   activeKey,
   className,
+  variant = 'pill',
   onChange,
 }: TabsProps) {
+  const isUnderline = variant === 'underline'
+
   return (
     <div className={cn(className)}>
-      <nav className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+      <nav
+        className={cn(
+          'flex items-center overflow-x-auto whitespace-nowrap',
+          isUnderline ? 'gap-6 border-b border-[var(--color-border-light)]' : 'gap-2'
+        )}
+      >
         {items.map((item) => {
           const active = item.key === activeKey
           const sharedClass = cn(
-            'state-interactive inline-flex h-9 items-center rounded-[var(--radius-pill)] border px-3 text-label-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg',
-            tabClass(active, Boolean(item.disabled))
+            'state-interactive inline-flex items-center text-label-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg',
+            isUnderline
+              ? cn('h-10 border-b-2 px-0.5 -mb-px', underlineClass(active, Boolean(item.disabled)))
+              : cn('h-9 rounded-[var(--radius-pill)] border px-3', pillClass(active, Boolean(item.disabled)))
           )
 
           if (item.href && !item.disabled) {

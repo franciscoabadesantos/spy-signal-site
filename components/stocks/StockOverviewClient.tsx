@@ -554,46 +554,6 @@ function RegimeHistoryChart({
   )
 }
 
-function OrbitPanel({
-  scorecard,
-}: {
-  scorecard: Scorecard
-}) {
-  const readinessMessage = scorecardReadinessMessage(scorecard)
-
-  if (readinessMessage) {
-    return (
-      <div className={styles.orbitWrap}>
-        <div className={cn(styles.scorecardState, styles[`scorecardState_${scorecardReadinessTone(scorecard.readiness)}`])}>
-          {readinessMessage}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className={styles.orbitWrap}>
-      <ScorecardDisc
-        scorecard={scorecard}
-        compact
-        size={360}
-        className={styles.orbitVisual}
-      />
-
-      <div className={styles.orbitStats}>
-        {scorecard.axes.map((axis) => (
-          <div key={axis.key} className={styles.orbitStat}>
-            <span className={styles.orbitStatLabel}>{axis.label}</span>
-            <span className={styles.orbitStatValue}>
-              {axis.available && axis.score !== null ? axis.score : 'No data'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function Modal({
   title,
   onClose,
@@ -689,7 +649,6 @@ export default function StockOverviewClient({
 }: StockOverviewClientProps) {
   const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1Y')
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
-  const [isOrbitModalOpen, setOrbitModalOpen] = useState(false)
   const [isChartModalOpen, setChartModalOpen] = useState(false)
   const scorecardMessage = scorecardReadinessMessage(scorecard)
   const scorecardStateClass = styles[`scorecardState_${scorecardReadinessTone(scorecard.readiness)}`]
@@ -756,31 +715,36 @@ export default function StockOverviewClient({
           </div>
 
           <aside className={styles.heroSidebar}>
-            <button
-              type="button"
-              className={cn(styles.scorecardCard, scorecardMessage ? styles.scorecardCardPlain : undefined)}
-              onClick={() => setOrbitModalOpen(true)}
-            >
-              {scorecardMessage ? (
-                <span className={cn(styles.heroScorecardState, scorecardStateClass)}>
-                  {scorecardMessage}
-                </span>
-              ) : (
-                <>
-                  <ScorecardDisc scorecard={scorecard} compact size={112} className={styles.heroOrbitMini} />
-                  <span className={styles.scorecardMeta}>
+            {scorecardMessage ? (
+              <div className={cn(styles.heroScorecardState, scorecardStateClass)}>
+                {scorecardMessage}
+              </div>
+            ) : (
+              <div className={styles.scorecardCard}>
+                <div className={styles.scorecardTop}>
+                  <ScorecardDisc scorecard={scorecard} mini size={84} className={styles.scorecardDisc} />
+                  <div className={styles.scorecardMeta}>
                     <span className={styles.scorecardGrade}>Grade {scorecard.overall.grade}</span>
                     <span className={styles.scorecardScore}>
                       Score {scorecard.overall.score ?? '—'} · {scorecard.overall.label}
                     </span>
-                    <span className={styles.scorecardHint}>View breakdown →</span>
-                  </span>
-                </>
-              )}
-            </button>
-            <div className={styles.keyStatsList}>
+                  </div>
+                </div>
+                <div className={styles.scorecardAxes}>
+                  {scorecard.axes.map((axis) => (
+                    <div key={axis.key} className={styles.scorecardAxis}>
+                      <span className={styles.scorecardAxisLabel}>{axis.label}</span>
+                      <span className={styles.scorecardAxisValue}>
+                        {axis.available && axis.score !== null ? axis.score : '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className={styles.keyStatsGrid}>
               {keyStats.map((stat) => (
-                <div key={stat.label} className={styles.keyStatRow}>
+                <div key={stat.label} className={styles.keyStatCell}>
                   <span className={styles.keyStatLabel}>{stat.label}</span>
                   <span className={styles.keyStatValue}>{stat.value}</span>
                 </div>
@@ -938,19 +902,6 @@ export default function StockOverviewClient({
           </article>
         ) : null}
       </section>
-
-      {isOrbitModalOpen ? (
-        <Modal title="Scorecard" onClose={() => setOrbitModalOpen(false)}>
-          <div className={styles.modalOrbitBody}>
-            <OrbitPanel scorecard={scorecard} />
-            {scorecardMessage ? null : (
-              <p className={styles.modalOrbitCopy}>
-                Each slice is an investment axis. Radius is the backend score, colour is the same green to amber to red verdict scale, and grey dashed slices mean no score is available yet.
-              </p>
-            )}
-          </div>
-        </Modal>
-      ) : null}
 
       {isChartModalOpen ? (
         <Modal title="Expanded Price Chart" onClose={() => setChartModalOpen(false)}>

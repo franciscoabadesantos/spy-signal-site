@@ -10,5 +10,5 @@ type StockTabsProps = {
 export type { StockTabKey }
 
 export default function StockTabs({ ticker, active, className }: StockTabsProps) {
-  return <Tabs className={className} items={stockTabItems(ticker)} activeKey={active} />
+  return <Tabs className={className} variant="underline" items={stockTabItems(ticker)} activeKey={active} />
 }
