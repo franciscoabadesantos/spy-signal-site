@@ -1,7 +1,7 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
   color: var(--color-text-primary);
 }
 
@@ -12,14 +12,36 @@
   box-shadow: var(--shadow-card);
 }
 
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
 .heroZone {
-  padding: 16px 16px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 4px 0 0;
+  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .heroHeader {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
@@ -27,26 +49,37 @@
 .heroIdentity {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
-}
-
-.ticker {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .name {
   min-width: 0;
-  font-size: 14px;
-  color: var(--color-text-hint);
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.2px;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tickerBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .exchangeBadge,
@@ -69,22 +102,24 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 14px;
-  margin-top: 8px;
+  gap: 12px;
+  margin-top: 10px;
 }
 
 .price {
-  font-size: 32px;
+  font-size: 38px;
   font-weight: 700;
   line-height: 1;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.8px;
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
 }
 
 .delta {
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .deltaPositive {
@@ -167,6 +202,11 @@
   color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.chartExpandButton:active {
+  transform: scale(0.94);
 }
 
 .chartExpandButton:hover {
@@ -182,15 +222,29 @@
 }
 
 .tabButton {
+  position: relative;
   appearance: none;
   border: 0;
-  border-bottom: 2px solid transparent;
   background: transparent;
   padding: 0 0 6px;
   font-size: 12px;
   line-height: 1.2;
   color: var(--color-text-muted);
   cursor: pointer;
+  transition: color 140ms ease;
+}
+
+.tabButton::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tabButton:hover {
@@ -198,9 +252,12 @@
 }
 
 .tabButtonActive {
-  border-bottom-color: var(--color-accent);
   color: var(--color-accent);
   font-weight: 600;
+}
+
+.tabButtonActive::after {
+  transform: scaleX(1);
 }
 
 .heroChartWrap {
@@ -209,13 +266,32 @@
 }
 
 .heroChart {
-  height: 260px;
+  height: 320px;
   width: 100%;
+}
+
+@keyframes drawLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.chartLine {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: drawLine 780ms cubic-bezier(0.4, 0, 0.2, 1) 120ms forwards;
+}
+
+.chartArea {
+  opacity: 0;
+  animation: fadeIn 420ms ease 480ms forwards;
 }
 
 .chartTooltip {
   position: absolute;
   min-width: 112px;
+  opacity: 0;
+  animation: fadeIn 130ms ease forwards;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: rgba(26, 29, 38, 0.96);
@@ -231,77 +307,62 @@
   color: var(--color-text-muted);
 }
 
-.statStrip {
-  display: flex;
-  flex-wrap: wrap;
-  margin-top: 10px;
-  border-top: 1px solid var(--color-border);
-  grid-column: 1 / -1;
-}
-
-.statCell {
-  min-width: 100px;
-  flex: 1 1 100px;
-  padding: 12px 14px 14px;
-}
-
-.statCell + .statCell {
-  border-left: 1px solid var(--color-border);
-}
-
-.statLabel {
-  font-size: 12px;
-  line-height: 1.2;
-  color: var(--color-text-hint);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.statValue {
-  margin-top: 6px;
-  font-size: 14px;
-  line-height: 1.2;
-  color: var(--color-text-primary);
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.orbitMiniButton {
+.scorecardCard {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 14px;
   width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-raised);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 140ms ease;
+}
+
+.scorecardCard:hover {
+  border-color: var(--color-accent);
+}
+
+.scorecardCardPlain {
   padding: 0;
   border: 0;
   background: transparent;
-  cursor: pointer;
+}
+
+.scorecardCardPlain .heroScorecardState {
+  width: 100%;
 }
 
 .heroOrbitMini {
-  margin: 0 auto;
+  flex: 0 0 auto;
 }
 
-.heroOrbitMetrics {
+.scorecardMeta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.heroOrbitMetricChip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: var(--bg-surface-raised);
-  color: var(--text-secondary);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.scorecardGrade {
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 650;
+  color: var(--color-text-primary);
+}
+
+.scorecardScore {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--color-text-muted);
+}
+
+.scorecardHint {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--color-accent);
 }
 
 .heroScorecardState {
@@ -322,30 +383,38 @@
   text-align: center;
 }
 
-.keyStatsGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 12px;
+.keyStatsList {
+  display: flex;
+  flex-direction: column;
 }
 
-.keyStatCell {
-  min-width: 0;
+.keyStatRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.keyStatRow:last-child {
+  border-bottom: 0;
 }
 
 .keyStatLabel {
-  font-size: 10px;
-  line-height: 1.2;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 .keyStatValue {
-  margin-top: 4px;
-  font-size: 15px;
-  line-height: 1.2;
-  font-weight: 500;
-  color: var(--text-primary);
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -359,8 +428,13 @@
 }
 
 .signalZone {
-  padding: 16px;
-  background: var(--bg-surface);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 24px 0 0;
+  border-top: 1px solid var(--color-border-light);
+  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) 90ms both;
 }
 
 .signalHeader {
@@ -620,6 +694,12 @@
   background: var(--color-border-light);
 }
 
+.gaugeMixSell,
+.gaugeMixNeutral,
+.gaugeMixBuy {
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .gaugeMixSell {
   width: var(--sell-share);
   background: var(--color-negative);
@@ -760,8 +840,8 @@
 .zone3Grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 24px;
+  gap: 14px;
+  margin-top: 0;
 }
 
 .fullWidth {
@@ -770,7 +850,15 @@
 
 .dashboardCard {
   padding: 16px;
+  box-shadow: none;
+  animation: fadeUp 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+.zone3Grid > *:nth-child(1) { animation-delay: 150ms; }
+.zone3Grid > *:nth-child(2) { animation-delay: 210ms; }
+.zone3Grid > *:nth-child(3) { animation-delay: 270ms; }
+.zone3Grid > *:nth-child(4) { animation-delay: 330ms; }
+.zone3Grid > *:nth-child(5) { animation-delay: 390ms; }
 
 .cardHeader {
   display: flex;
@@ -973,10 +1061,13 @@
   color: var(--color-text-secondary);
   font-size: 13px;
   text-decoration: none;
+  transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
 }
 
 .relatedChip:hover {
   background: var(--bg-surface);
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
 }
 
 .chipTicker {
@@ -1003,6 +1094,11 @@
   color: var(--color-text-secondary);
   font-size: 12px;
   text-decoration: none;
+  transition: border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.actionLink:hover {
+  transform: translateY(-1px);
 }
 
 .actionLink:hover {
@@ -1028,9 +1124,23 @@
   padding: 20px;
   background: rgba(3, 6, 12, 0.72);
   backdrop-filter: blur(8px);
+  opacity: 0;
+  animation: fadeIn 160ms ease forwards;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .modalPanel {
+  animation: modalIn 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
   width: min(920px, 100%);
   max-height: calc(100vh - 40px);
   overflow: auto;
@@ -1083,9 +1193,39 @@
   height: min(70vh, 560px);
 }
 
-@media (max-width: 768px) {
+@media (prefers-reduced-motion: reduce) {
   .heroZone,
   .signalZone,
+  .dashboardCard,
+  .chartLine,
+  .chartArea,
+  .chartTooltip,
+  .modalBackdrop,
+  .modalPanel {
+    animation: none;
+    opacity: 1;
+  }
+
+  .chartLine {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+
+  .pressureNeedle,
+  .gaugeMixSell,
+  .gaugeMixNeutral,
+  .gaugeMixBuy,
+  .tabButton::after,
+  .relatedChip,
+  .actionLink,
+  .chartExpandButton,
+  .scorecardCard,
+  .dashboardCard {
+    transition: none;
+  }
+}
+
+@media (max-width: 768px) {
   .dashboardCard {
     padding: 16px;
   }
@@ -1096,40 +1236,12 @@
     grid-template-columns: 1fr;
   }
 
-  .heroSidebar {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-
-  .orbitMiniButton {
-    width: auto;
-  }
-
-  .keyStatsGrid {
-    flex: 1 1 280px;
-  }
-
-  .heroBadgeRow {
-    width: 100%;
-  }
-
   .signalLeft {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .orbitVisual {
     max-width: 100%;
-  }
-
-  .statCell {
-    flex: 0 0 25%;
-    min-width: 0;
-    border-top: 1px solid var(--color-border-light);
-  }
-
-  .statCell:nth-child(4n + 1) {
-    border-left: 0;
   }
 }
 
@@ -1139,33 +1251,19 @@
   }
 
   .price {
-    font-size: 28px;
+    font-size: 30px;
   }
 
   .heroChart {
     height: 220px;
   }
 
-  .heroSidebar {
-    flex-direction: column;
+  .heroBadgeRow {
+    width: 100%;
   }
 
   .signalLeft {
     grid-template-columns: 1fr;
-  }
-
-  .statStrip {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .statCell {
-    flex: initial;
-    border-left: 0;
-  }
-
-  .statCell:nth-child(n + 3) {
-    border-top: 1px solid var(--color-border-light);
   }
 
   .fundDetails {

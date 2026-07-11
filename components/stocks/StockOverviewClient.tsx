@@ -64,8 +64,7 @@ type StockOverviewClientProps = {
   latestSignal: OverviewSignal | null
   historicalData: PricePoint[]
   ohlcData: OhlcPoint[]
-  statStrip: OverviewStat[]
-  heroStats: OverviewStat[]
+  keyStats: OverviewStat[]
   relationship126: Promise<TickerRelationships>
   relationship252: Promise<TickerRelationships>
   fundDetails: OverviewFundDetail[]
@@ -320,6 +319,7 @@ function HeroPriceChart({
         const yTicks = Array.from({ length: 5 }, (_, index) => floor + ((ceiling - floor) / 4) * index)
         const hoverPoint = hoverIndex === null ? null : points[hoverIndex] ?? null
         const tooltipLeft = hoverPoint ? Math.min(width - 132, Math.max(8, hoverPoint.x - 52)) : 0
+        const chartKey = `${data.length}:${data[0]?.date ?? ''}:${data[data.length - 1]?.date ?? ''}`
 
         return (
           <div className="relative h-full w-full">
@@ -339,8 +339,18 @@ function HeroPriceChart({
                 )
               })}
 
-              <path d={areaPath} fill="var(--color-accent-light)" />
-              <path d={linePath} fill="none" stroke="var(--color-accent)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+              <path key={`area-${chartKey}`} className={styles.chartArea} d={areaPath} fill="var(--color-accent-light)" />
+              <path
+                key={`line-${chartKey}`}
+                className={styles.chartLine}
+                d={linePath}
+                pathLength={1}
+                fill="none"
+                stroke="var(--color-accent)"
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
 
               {hoverPoint ? (
                 <>
@@ -667,8 +677,7 @@ export default function StockOverviewClient({
   latestSignal,
   historicalData,
   ohlcData,
-  statStrip,
-  heroStats,
+  keyStats,
   relationship126: relationship126Promise,
   relationship252: relationship252Promise,
   fundDetails,
@@ -700,19 +709,26 @@ export default function StockOverviewClient({
 
   return (
     <div className={styles.page}>
-      <section className={cn(styles.zone, styles.heroZone)}>
+      <section className={styles.heroZone}>
         <div className={styles.heroHeader}>
           <div className={styles.heroIdentity}>
-            <span className={styles.ticker}>{ticker}</span>
-            <span className={styles.name}>{displayName}</span>
+            <h1 className={styles.name}>{displayName}</h1>
+            <span className={styles.tickerBadge}>{ticker}</span>
             <span className={styles.exchangeBadge}>{assetBadgeLabel}</span>
+          </div>
+          <div className={styles.heroBadgeRow}>
+            <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal?.direction ?? null)}</span>
+            {latestSignal?.signalDate ? (
+              <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
+            ) : null}
           </div>
         </div>
 
         <div className={styles.priceBlock}>
           <div className={styles.price}>{formatPrice(price, currency)}</div>
-          <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>{formatSignedDelta(dailyMoveAmount, currency)}</div>
-          <div className={cn(styles.delta, directionToneClass(dailyMovePercent))}>({formatCompactPercent(dailyMovePercent)})</div>
+          <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>
+            {formatSignedDelta(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
+          </div>
         </div>
 
         <div className={styles.heroBody}>
@@ -740,50 +756,41 @@ export default function StockOverviewClient({
           </div>
 
           <aside className={styles.heroSidebar}>
-            <button type="button" className={styles.orbitMiniButton} onClick={() => setOrbitModalOpen(true)}>
+            <button
+              type="button"
+              className={cn(styles.scorecardCard, scorecardMessage ? styles.scorecardCardPlain : undefined)}
+              onClick={() => setOrbitModalOpen(true)}
+            >
               {scorecardMessage ? (
                 <span className={cn(styles.heroScorecardState, scorecardStateClass)}>
                   {scorecardMessage}
                 </span>
               ) : (
-                <ScorecardDisc scorecard={scorecard} compact size={160} className={styles.heroOrbitMini} />
+                <>
+                  <ScorecardDisc scorecard={scorecard} compact size={112} className={styles.heroOrbitMini} />
+                  <span className={styles.scorecardMeta}>
+                    <span className={styles.scorecardGrade}>Grade {scorecard.overall.grade}</span>
+                    <span className={styles.scorecardScore}>
+                      Score {scorecard.overall.score ?? '—'} · {scorecard.overall.label}
+                    </span>
+                    <span className={styles.scorecardHint}>View breakdown →</span>
+                  </span>
+                </>
               )}
             </button>
-            {scorecardMessage ? null : (
-              <div className={styles.heroOrbitMetrics}>
-                <span className={styles.heroOrbitMetricChip}>Grade {scorecard.overall.grade}</span>
-                <span className={styles.heroOrbitMetricChip}>Score {scorecard.overall.score ?? '—'}</span>
-                <span className={styles.heroOrbitMetricChip}>{scorecard.overall.label}</span>
-              </div>
-            )}
-            <div className={styles.keyStatsGrid}>
-              {heroStats.map((stat) => (
-                <div key={stat.label} className={styles.keyStatCell}>
-                  <div className={styles.keyStatLabel}>{stat.label}</div>
-                  <div className={styles.keyStatValue}>{stat.value}</div>
+            <div className={styles.keyStatsList}>
+              {keyStats.map((stat) => (
+                <div key={stat.label} className={styles.keyStatRow}>
+                  <span className={styles.keyStatLabel}>{stat.label}</span>
+                  <span className={styles.keyStatValue}>{stat.value}</span>
                 </div>
               ))}
             </div>
-            <div className={styles.heroBadgeRow}>
-              <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal?.direction ?? null)}</span>
-              {latestSignal?.signalDate ? (
-                <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
-              ) : null}
-            </div>
           </aside>
-
-          <div className={styles.statStrip}>
-            {statStrip.map((stat) => (
-              <div key={stat.label} className={styles.statCell}>
-                <div className={styles.statLabel}>{stat.label}</div>
-                <div className={styles.statValue}>{stat.value}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
-      <section className={cn(styles.zone, styles.signalZone)}>
+      <section className={styles.signalZone}>
         <div className={styles.signalHeader}>
           <div className={styles.eyebrow}>Technical Signals · {signalTimeframe}</div>
           <div className={styles.tabStrip}>

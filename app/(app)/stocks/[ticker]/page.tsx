@@ -453,27 +453,20 @@ export default async function TickerPage({
       ? fundamentalsSummary.latestEps.toFixed(2)
       : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('eps')) ?? '—')
 
-  const statStrip = [
-    { label: 'Open', value: '—' },
+  const keyStats = [
+    { label: 'Market Cap', value: marketCapValue },
     { label: 'Prev. Close', value: formatMoney(previousClose, currency) },
-    { label: '52w High', value: formatMoney(marketStats?.week52High ?? null, currency) },
-    { label: '52w Low', value: formatMoney(marketStats?.week52Low ?? null, currency) },
-    { label: 'Volume', value: volumeValue },
-    { label: 'Market Cap', value: marketCapValue },
-    { label: 'P/E', value: trailingPe },
-    { label: 'Dividend Yield', value: dividendYield },
-  ]
-  const heroStats = [
-    { label: 'Market Cap', value: marketCapValue },
     { label: 'P/E', value: trailingPe },
     { label: 'Revenue', value: latestRevenueValue },
     { label: 'EPS', value: latestEpsValue },
+    { label: 'Dividend Yield', value: dividendYield },
     { label: '52W High', value: formatMoney(marketStats?.week52High ?? null, currency) },
-    { label: 'Div Yield', value: dividendYield },
+    { label: '52W Low', value: formatMoney(marketStats?.week52Low ?? null, currency) },
+    { label: 'Volume', value: volumeValue },
   ]
 
   const duplicateLabels = new Set(
-    statStrip.map((item) => normalizeFundDetailLabel(item.label)).concat([
+    keyStats.map((item) => normalizeFundDetailLabel(item.label)).concat([
       '52 week high',
       '52 week low',
       'week 52 high',
@@ -526,8 +519,7 @@ export default async function TickerPage({
         latestSignal={latestSignal}
         historicalData={historicalData}
         ohlcData={ohlcData}
-        statStrip={statStrip}
-        heroStats={heroStats}
+        keyStats={keyStats}
         relationship126={relationship126Promise}
         relationship252={relationship252Promise}
         fundDetails={fundDetails}
