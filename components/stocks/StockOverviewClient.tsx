@@ -446,16 +446,23 @@ function HeroPriceChart({
 
               {hoverPoint ? (
                 <>
-                  <line
-                    x1={hoverPoint.x}
-                    y1={padding.top}
-                    x2={hoverPoint.x}
-                    y2={padding.top + innerHeight}
-                    stroke="url(#lbCrosshairGradient)"
-                    strokeWidth="1.4"
-                  />
-                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="9" fill="var(--color-accent)" opacity="0.16" />
-                  <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4.2" fill="var(--color-accent)" stroke="var(--bg-surface)" strokeWidth="2" />
+                  <g className={styles.crosshairGroup} style={{ transform: `translateX(${hoverPoint.x}px)` }}>
+                    <line
+                      x1={0}
+                      y1={padding.top}
+                      x2={0}
+                      y2={padding.top + innerHeight}
+                      stroke="url(#lbCrosshairGradient)"
+                      strokeWidth="1.4"
+                    />
+                  </g>
+                  <g
+                    className={styles.hoverDotGroup}
+                    style={{ transform: `translate(${hoverPoint.x}px, ${hoverPoint.y}px)` }}
+                  >
+                    <circle r="9" fill="var(--color-accent)" opacity="0.16" />
+                    <circle r="4.2" fill="var(--color-accent)" stroke="var(--bg-surface)" strokeWidth="2" />
+                  </g>
                 </>
               ) : null}
 
@@ -872,6 +879,16 @@ export default function StockOverviewClient({
       </section>
 
       <section className={styles.zone3Grid}>
+        <article className={cn(styles.zone, styles.dashboardCard, styles.spanWide)}>
+          <div className={styles.cardHeader}>
+            <div>
+              <div className={styles.cardTitle}>Regime history</div>
+              <div className={styles.cardHint}>Visible state changes over time</div>
+            </div>
+          </div>
+          <RegimeHistoryChart signals={regimeSignals} />
+        </article>
+
         <article className={cn(styles.zone, styles.dashboardCard, styles.spanNarrow)}>
           <div className={styles.cardHeader}>
             <div>
@@ -907,19 +924,9 @@ export default function StockOverviewClient({
               counts={technicalSummary.gauges.movingAverages.counts}
             />
           </div>
-          <button type="button" className="btn-glass mt-3 self-start" onClick={() => setIndicatorsModalOpen(true)}>
+          <button type="button" className="btn-glass mt-3" onClick={() => setIndicatorsModalOpen(true)}>
             Indicator details →
           </button>
-        </article>
-
-        <article className={cn(styles.zone, styles.dashboardCard, styles.spanWide)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Regime history</div>
-              <div className={styles.cardHint}>Visible state changes over time</div>
-            </div>
-          </div>
-          <RegimeHistoryChart signals={regimeSignals} />
         </article>
 
         <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>

@@ -55,7 +55,7 @@ export default function SegmentedControl<T extends string>({
       {thumb ? (
         <span
           aria-hidden="true"
-          className="glass-thumb absolute top-1 bottom-1 rounded-full transition-[left,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+          className="glass-thumb absolute top-1 bottom-1 rounded-full transition-[left,width] duration-[420ms] ease-[cubic-bezier(0.34,1.45,0.44,1)] motion-reduce:transition-none"
           style={{ left: thumb.left, width: thumb.width }}
         />
       ) : null}
@@ -70,7 +70,7 @@ export default function SegmentedControl<T extends string>({
             data-active={active ? 'true' : 'false'}
             onClick={() => onChange(option)}
             className={cn(
-              'relative z-10 rounded-full px-2.5 py-1 text-[12px] leading-none transition-colors duration-150',
+              'relative z-10 cursor-pointer rounded-full px-2.5 py-1 text-[12px] leading-none transition-[color,transform] duration-150 active:scale-90',
               active
                 ? 'font-semibold text-[var(--color-accent)]'
                 : 'text-content-secondary hover:text-content-primary'
