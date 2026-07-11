@@ -10,6 +10,7 @@ const payload = {
     { symbol: 'GME', name: 'GameStop Corp.', exchange: null, hasSignals: false },
     { symbol: 'ABNB', name: 'Airbnb, Inc.', exchange: 'NASDAQ', hasSignals: false },
     { symbol: 'AF.PA', name: 'Air France-KLM SA', exchange: 'PAR', hasSignals: false },
+    { symbol: 'BCP.LS', name: 'Banco Comercial Portugues, S.A.', exchange: 'Euronext Lisbon', hasSignals: false },
   ],
 }
 
@@ -25,7 +26,7 @@ test('ticker index payload uses items with symbol fields', () => {
   assert.ok(index)
   assert.deepEqual(
     index.items.map((item) => item.symbol),
-    ['GME', 'ABNB', 'AF.PA']
+    ['GME', 'ABNB', 'AF.PA', 'BCP.LS']
   )
 })
 
@@ -42,4 +43,9 @@ test('autocomplete matches company names with punctuation and spacing tolerance'
   assert.ok(symbolsFor('air').includes('AF.PA'))
   assert.deepEqual(symbolsFor('airbnb'), ['ABNB'])
   assert.deepEqual(symbolsFor('air france'), ['AF.PA'])
+})
+
+test('autocomplete matches exchanges from the local index', () => {
+  assert.ok(symbolsFor('lisbon').includes('BCP.LS'))
+  assert.ok(symbolsFor('euronext').includes('BCP.LS'))
 })

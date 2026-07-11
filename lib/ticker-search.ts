@@ -48,106 +48,8 @@ type NormalizedSearchText = {
   tokens: string[]
 }
 
-export const FALLBACK_TICKER_SUGGESTIONS: TickerSearchResult[] = [
-  {
-    symbol: 'SPY',
-    name: 'SPDR S&P 500 ETF Trust',
-    exchange: 'NYSEARCA',
-    hasSignals: true,
-    readiness: null,
-    convictionPct: 71,
-    tone: 'bullish',
-    signalDate: null,
-    scorecard: null,
-  },
-  {
-    symbol: 'QQQ',
-    name: 'Invesco QQQ Trust',
-    exchange: 'NASDAQ',
-    hasSignals: true,
-    readiness: null,
-    convictionPct: 69,
-    tone: 'bullish',
-    signalDate: null,
-    scorecard: null,
-  },
-  {
-    symbol: 'AAPL',
-    name: 'Apple Inc.',
-    exchange: 'NASDAQ',
-    hasSignals: true,
-    readiness: null,
-    convictionPct: 76,
-    tone: 'bullish',
-    signalDate: null,
-    scorecard: null,
-  },
-  {
-    symbol: 'MSFT',
-    name: 'Microsoft Corporation',
-    exchange: 'NASDAQ',
-    hasSignals: true,
-    readiness: null,
-    convictionPct: 74,
-    tone: 'bullish',
-    signalDate: null,
-    scorecard: null,
-  },
-  {
-    symbol: 'NVDA',
-    name: 'NVIDIA Corporation',
-    exchange: 'NASDAQ',
-    hasSignals: true,
-    readiness: null,
-    convictionPct: 79,
-    tone: 'bullish',
-    signalDate: null,
-    scorecard: null,
-  },
-  {
-    symbol: 'AMZN',
-    name: 'Amazon.com, Inc.',
-    exchange: 'NASDAQ',
-    hasSignals: true,
-    readiness: null,
-    convictionPct: 64,
-    tone: 'neutral',
-    signalDate: null,
-    scorecard: null,
-  },
-  {
-    symbol: 'META',
-    name: 'Meta Platforms, Inc.',
-    exchange: 'NASDAQ',
-    hasSignals: true,
-    readiness: null,
-    convictionPct: 67,
-    tone: 'bullish',
-    signalDate: null,
-    scorecard: null,
-  },
-  {
-    symbol: 'TSLA',
-    name: 'Tesla, Inc.',
-    exchange: 'NASDAQ',
-    hasSignals: true,
-    readiness: null,
-    convictionPct: 62,
-    tone: 'neutral',
-    signalDate: null,
-    scorecard: null,
-  },
-]
-
 export function normalizeTickerSearchQuery(raw: string): string {
   return raw.trim().toLowerCase().replace(/\s+/g, ' ')
-}
-
-export function isTickerLikeQuery(raw: string): boolean {
-  const normalized = raw.trim().toUpperCase()
-  if (!/^[A-Z0-9][A-Z0-9.\-]{0,9}$/.test(normalized)) return false
-  if (normalized.includes('.') || normalized.includes('-')) return true
-  return normalized.length <= 5
 }
 
 export function dedupeTickerSearchResults(results: TickerSearchResult[]): TickerSearchResult[] {
@@ -176,6 +78,22 @@ export function tickerIndexItemToSearchResult(item: TickerIndexItem): TickerSear
     tone: null,
     signalDate: null,
     scorecard: null,
+  }
+}
+
+export function mergeTickerEnrichmentResult(
+  item: TickerSearchResult,
+  enrichment: TickerSearchResult | null | undefined
+): TickerSearchResult {
+  if (!enrichment) return item
+  return {
+    ...item,
+    hasSignals: item.hasSignals || enrichment.hasSignals,
+    convictionPct: enrichment.convictionPct ?? item.convictionPct,
+    tone: enrichment.tone ?? item.tone,
+    signalDate: enrichment.signalDate ?? item.signalDate,
+    scorecard: enrichment.scorecard ?? item.scorecard,
+    readiness: enrichment.readiness ?? item.readiness,
   }
 }
 
@@ -314,6 +232,7 @@ function searchTier(item: TickerIndexItem, normalizedQuery: string): number {
 
   const symbol = normalizeSearchText(item.symbol)
   const name = normalizeSearchText(item.name)
+  const exchange = normalizeSearchText(item.exchange ?? '')
 
   if (symbol.compact === query.compact) return 6
   if (symbol.compact.startsWith(query.compact)) return 5
@@ -322,6 +241,7 @@ function searchTier(item: TickerIndexItem, normalizedQuery: string): number {
   if (name.spaced.startsWith(query.spaced) || name.compact.startsWith(query.compact)) return 3
   if (name.spaced.includes(query.spaced) || name.compact.includes(query.compact)) return 2
   if (tokensMatchQuery(name, query)) return 1
+  if (exchange.compact && (exchange.compact.startsWith(query.compact) || exchange.compact.includes(query.compact))) return 0.75
   return 0
 }
 
@@ -366,40 +286,4 @@ export function getFeaturedTickerIndexResults(
   const preferred = items.filter((item) => item.hasSignals)
   const source = preferred.length > 0 ? preferred : items
   return source.slice(0, limit).map(tickerIndexItemToSearchResult)
-}
-
-function scoreTemplateResult(result: TickerSearchResult, normalizedQuery: string): number {
-  const symbol = result.symbol.toUpperCase()
-  const name = result.name.toLowerCase()
-  const upperQuery = normalizedQuery.toUpperCase()
-  const lowerQuery = normalizedQuery.toLowerCase()
-
-  let score = 0
-  if (symbol === upperQuery) score += 100
-  else if (symbol.startsWith(upperQuery)) score += 70
-  else if (symbol.includes(upperQuery)) score += 36
-
-  if (name.startsWith(lowerQuery)) score += 22
-  else if (name.includes(lowerQuery)) score += 12
-
-  score += (result.convictionPct ?? 50) / 10
-  return score
-}
-
-export function filterTemplateTickerResults(rawQuery: string, limit = 8): TickerSearchResult[] {
-  const normalizedQuery = normalizeTickerSearchQuery(rawQuery)
-  if (!normalizedQuery) return FALLBACK_TICKER_SUGGESTIONS.slice(0, limit)
-
-  const upperQuery = normalizedQuery.toUpperCase()
-  const lowerQuery = normalizedQuery.toLowerCase()
-
-  return FALLBACK_TICKER_SUGGESTIONS.filter((result) => {
-    return result.symbol.includes(upperQuery) || result.name.toLowerCase().includes(lowerQuery)
-  })
-    .sort((a, b) => scoreTemplateResult(b, normalizedQuery) - scoreTemplateResult(a, normalizedQuery))
-    .slice(0, limit)
-}
-
-export function getTemplateFeaturedTickerResults(limit = 8): TickerSearchResult[] {
-  return FALLBACK_TICKER_SUGGESTIONS.slice(0, limit)
 }

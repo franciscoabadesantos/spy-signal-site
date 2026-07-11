@@ -73,6 +73,8 @@ Use this checklist when you're ready to move from local/dev to production:
 
 `spy-signal-site` no longer talks to Supabase directly at runtime. The site now fetches screener, ticker summary, watchlist, alerts, AI research, and analytics data through `finance-backend`.
 
+See `DATA_SOURCE_POLICY.md` before changing ticker autocomplete, ticker enrichment, stock-page data loading, or backend proxy routes.
+
 ### Required runtime env vars
 
 - `BACKEND_BASE_URL` (or `FINANCE_BACKEND_URL`)
@@ -124,13 +126,13 @@ Call `/api/market/refresh` every 1-5 minutes for quotes and periodically (for ex
 
 ### Optional: Seed From Local Finance Cache
 
-If Yahoo is rate-limited from this runtime, you can bootstrap Supabase from your existing local Finance repo parquet cache:
+You can bootstrap Supabase from your existing local Finance repo parquet cache:
 
 ```bash
 /home/franciscosantos/Finance/.venv/bin/python scripts/seed_market_cache_from_finance.py --tickers SPY
 ```
 
-This is a legacy maintenance utility for direct Supabase cache seeding. It is not part of the site runtime path anymore.
+This is a maintenance utility for direct Supabase cache seeding. It is not part of the site runtime path.
 
 ## Multi-Ticker Signal Source (Screener/Dashboard)
 
