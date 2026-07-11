@@ -4,8 +4,8 @@ import path from 'node:path'
 import test from 'node:test'
 import {
   filterTickerIndexItems,
-  mergeTickerEnrichmentResult,
   normalizeTickerIndexPayload,
+  tickerIndexItemToSearchResult,
 } from '../lib/ticker-search'
 
 function readRepoFile(relativePath: string): string {
@@ -33,13 +33,17 @@ test('autocomplete has no network search request for typed queries', () => {
   const source = readRepoFile('components/search/TickerSearchCombobox.tsx')
 
   assert.match(source, /\/api\/tickers\/index/)
-  assert.match(source, /\/api\/tickers\/enrich\?symbols=/)
   assert.doesNotMatch(source, /\/api\/search/)
-  assert.doesNotMatch(source, /\/api\/tickers\/enrich\?q=/)
+  assert.doesNotMatch(source, /\/api\/tickers\/enrich/)
   assert.doesNotMatch(source, /fetch\([^)]*[?&]q=/s)
+  assert.doesNotMatch(source, /scorecard/)
+  assert.doesNotMatch(source, /\/api\/tickers\/\$\{/)
   assert.doesNotMatch(source, /displaySource: 'manual'/)
   assert.doesNotMatch(source, /Open this ticker/)
   assert.doesNotMatch(source, /request onboarding/)
+  assert.doesNotMatch(source, /fetchTickerEnrichments/)
+  assert.doesNotMatch(source, /tickerEnrichment/)
+  assert.doesNotMatch(source, /AbortController/)
 })
 
 test('autocomplete runtime path contains no Yahoo or external discovery code', () => {
@@ -52,6 +56,7 @@ test('autocomplete runtime path contains no Yahoo or external discovery code', (
   ]
   const source = files.map((file) => readRepoFile(file)).join('\n')
 
+  assert.doesNotMatch(source, /\/api\/tickers\/enrich/)
   assert.doesNotMatch(source, /query2\.finance\.yahoo\.com\/v1\/finance\/search/)
   assert.doesNotMatch(source, /enableFuzzyQuery/)
   assert.doesNotMatch(source, /YahooSearch/)
@@ -64,6 +69,7 @@ test('local index suggestions are available without enrichment', () => {
       items: [
         { symbol: 'GME', name: 'GameStop Corp.', exchange: 'NYSE', hasSignals: false },
         { symbol: 'ABNB', name: 'Airbnb, Inc.', exchange: 'NASDAQ', hasSignals: false },
+        { symbol: 'BCP', name: 'Banco Comercial Portugues, S.A.', exchange: 'EURONEXT', hasSignals: false },
       ],
     },
     null
@@ -78,20 +84,76 @@ test('local index suggestions are available without enrichment', () => {
     })),
     [{ name: 'GameStop Corp.', scorecard: null, symbol: 'GME' }]
   )
+  assert.deepEqual(
+    filterTickerIndexItems(index.items, 'bcp', 8).map((item) => item.symbol),
+    ['BCP']
+  )
 })
 
-test('missing enrichment does not remove or replace a base suggestion', () => {
-  const base = {
-    symbol: 'ABNB',
-    name: 'Airbnb, Inc.',
-    exchange: 'NASDAQ',
-    hasSignals: false,
-    convictionPct: null,
-    tone: null,
-    signalDate: null,
-    scorecard: null,
-    readiness: null,
-  }
+test('index rows carry autocomplete status without enrichment', () => {
+  const index = normalizeTickerIndexPayload(
+    {
+      items: [
+        {
+          symbol: 'IBER',
+          name: 'Iberdrola, S.A.',
+          exchange: 'BME',
+          hasSignals: true,
+          coverageState: 'partial',
+        },
+      ],
+    },
+    null
+  )
 
-  assert.deepEqual(mergeTickerEnrichmentResult(base, null), base)
+  assert.ok(index)
+  const result = tickerIndexItemToSearchResult(index.items[0])
+  assert.equal(result.symbol, 'IBER')
+  assert.equal(result.name, 'Iberdrola, S.A.')
+  assert.equal(result.exchange, 'BME')
+  assert.equal(result.hasSignals, true)
+  assert.equal(result.readiness?.label, 'Partial data')
+})
+
+test('recent symbols can be hydrated by joining against the ticker index', () => {
+  const index = normalizeTickerIndexPayload(
+    {
+      items: [
+        { symbol: 'ABNB', name: 'Airbnb, Inc.', exchange: 'NASDAQ', hasSignals: true },
+        { symbol: 'GME', name: 'GameStop Corp.', exchange: 'NYSE', hasSignals: false },
+      ],
+    },
+    null
+  )
+
+  assert.ok(index)
+  const bySymbol = new Map(index.items.map((item) => [item.symbol, tickerIndexItemToSearchResult(item)]))
+  const recentSymbols = ['ABNB', 'GME', 'MISSING']
+  assert.deepEqual(
+    recentSymbols.flatMap((symbol) => bySymbol.get(symbol) ?? []),
+    [
+      {
+        symbol: 'ABNB',
+        name: 'Airbnb, Inc.',
+        exchange: 'NASDAQ',
+        hasSignals: true,
+        readiness: null,
+        convictionPct: null,
+        tone: null,
+        signalDate: null,
+        scorecard: null,
+      },
+      {
+        symbol: 'GME',
+        name: 'GameStop Corp.',
+        exchange: 'NYSE',
+        hasSignals: false,
+        readiness: null,
+        convictionPct: null,
+        tone: null,
+        signalDate: null,
+        scorecard: null,
+      },
+    ]
+  )
 })

@@ -8,10 +8,10 @@ Ticker autocomplete is intentionally narrow:
 
 - Load `/api/tickers/index` once.
 - Filter that index locally by symbol, company name, and exchange.
-- Optionally enrich visible indexed symbols with `/api/tickers/enrich?symbols=...`.
-- Keep base index suggestions visible if enrichment is slow or unavailable.
+- Render names, exchanges, tracked/status badges, signal state, and coverage state directly from the index.
+- Do not call scorecard, per-symbol, or enrichment endpoints while typing, opening, or rendering suggestions.
 
-`/api/tickers/enrich` accepts only existing symbols from the caller, validates and deduplicates them server-side, caps requests at eight symbols, applies a short timeout, and returns basic rows when enrichment fails.
+The ticker index must include every field the autocomplete needs. Do not add a background enrichment path to the autocomplete.
 
 ## Stock Page Data
 
@@ -22,5 +22,5 @@ Stock pages should use backend summary/profile/scorecard/history routes exposed 
 - Do not create public free-text ticker lookup endpoints.
 - Do not add autocomplete sources outside `/api/tickers/index`.
 - Do not add direct-open/manual ticker suggestions that bypass the index.
-- Keep optional enrichment background-only and fail-soft.
-- Add or update tests when changing ticker autocomplete, enrichment, or data-source behavior.
+- Do not add autocomplete enrichment, scorecard, or per-symbol fetches.
+- Add or update tests when changing ticker autocomplete or data-source behavior.

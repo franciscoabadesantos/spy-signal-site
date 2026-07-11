@@ -6,4 +6,4 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Runtime Data Sources
 
-Read `DATA_SOURCE_POLICY.md` before changing ticker autocomplete, ticker enrichment, stock-page data loading, or backend proxy routes. Ticker autocomplete uses `/api/tickers/index` as its source of truth and may only call `/api/tickers/enrich?symbols=...` for background enrichment of already-indexed symbols.
+Read `DATA_SOURCE_POLICY.md` before changing ticker autocomplete, stock-page data loading, or backend proxy routes. Ticker autocomplete uses `/api/tickers/index` as its only runtime source and must not call enrichment, scorecard, or per-symbol endpoints while opening, typing, or rendering suggestions.

@@ -34,14 +34,6 @@ export type TickerSearchResult = {
   readiness: TickerReadinessBadge | null
 }
 
-export type TickerSearchResponse = {
-  featured: TickerSearchResult[]
-  fallbackUsed: boolean
-  query: string
-  results: TickerSearchResult[]
-  source: 'backend' | 'fallback'
-}
-
 type NormalizedSearchText = {
   compact: string
   spaced: string
@@ -78,22 +70,6 @@ export function tickerIndexItemToSearchResult(item: TickerIndexItem): TickerSear
     tone: null,
     signalDate: null,
     scorecard: null,
-  }
-}
-
-export function mergeTickerEnrichmentResult(
-  item: TickerSearchResult,
-  enrichment: TickerSearchResult | null | undefined
-): TickerSearchResult {
-  if (!enrichment) return item
-  return {
-    ...item,
-    hasSignals: item.hasSignals || enrichment.hasSignals,
-    convictionPct: enrichment.convictionPct ?? item.convictionPct,
-    tone: enrichment.tone ?? item.tone,
-    signalDate: enrichment.signalDate ?? item.signalDate,
-    scorecard: enrichment.scorecard ?? item.scorecard,
-    readiness: enrichment.readiness ?? item.readiness,
   }
 }
 
