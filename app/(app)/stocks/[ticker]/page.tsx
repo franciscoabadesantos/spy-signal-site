@@ -12,17 +12,26 @@ import {
   runWithBackendRequestLogContext,
   type BackendRequestLogContext,
 } from '@/lib/backend-request-log'
+import { BackendDataError } from '@/lib/backend'
 import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import { currencyForTicker, formatCompactMoney, formatMoney } from '@/lib/currency'
 import {
   getOhlcData,
   getStockQuote,
 } from '@/lib/finance'
+import {
+  ohlcBackendFailureResult,
+  ohlcMalformedResult,
+  OhlcPayloadError,
+  STOCK_OHLC_CACHE_KEY,
+  type OhlcLoadResult,
+} from '@/lib/ohlc-data'
 import { getTickerRelationships, type TickerRelationships } from '@/lib/relationships'
 import { getCachedLatestScreenerRow, getCachedSignalHistoryForTicker } from '@/lib/signals'
 import {
   getTickerPageSummary,
   type LatestFundamentalsRow,
+  type SymbolCoverageRow,
 } from '@/lib/ticker-data'
 import { scorecardFromTickerSummary } from '@/lib/ticker-page-scorecard'
 import { isTickerInWatchlist } from '@/lib/watchlist'
@@ -165,7 +174,7 @@ function detectNavigationMode(requestHeaders: Headers): string {
 }
 
 function logStockPageEvent(
-  level: 'info' | 'error',
+  level: 'info' | 'warn' | 'error',
   message: string,
   context: BackendRequestLogContext,
   details: Record<string, unknown> = {}
@@ -178,6 +187,10 @@ function logStockPageEvent(
   }
   if (level === 'error') {
     console.error(`[stock-page] ${message}`, payload)
+    return
+  }
+  if (level === 'warn') {
+    console.warn(`[stock-page] ${message}`, payload)
     return
   }
   console.info(`[stock-page] ${message}`, payload)
@@ -202,6 +215,56 @@ async function loadOptionalStockDataset<T>(
       timeout: details.timeout,
     })
     return fallback
+  }
+}
+
+function coverageExpectsPrices(coverage: SymbolCoverageRow): boolean {
+  return coverage.hasPrices === true || (typeof coverage.priceRows === 'number' && coverage.priceRows > 0)
+}
+
+async function loadStockOhlcDataset(
+  context: BackendRequestLogContext,
+  coverage: SymbolCoverageRow
+): Promise<OhlcLoadResult> {
+  const expectsPrices = coverageExpectsPrices(coverage)
+
+  try {
+    return await getOhlcData(context.ticker, 3650, expectsPrices)
+  } catch (error) {
+    const details = backendErrorDetails(error)
+    const result =
+      error instanceof OhlcPayloadError
+        ? error.result
+        : error instanceof BackendDataError && error.status === 200
+          ? ohlcMalformedResult({
+              reason: details.message,
+              backendStatus: error.status,
+            })
+        : ohlcBackendFailureResult({
+            reason: details.message,
+            backendStatus: error instanceof BackendDataError ? error.status : null,
+          })
+
+    const logLevel = expectsPrices ? 'warn' : 'error'
+    logStockPageEvent(logLevel, 'ohlc dataset unavailable', context, {
+      endpoint: `/tickers/${context.ticker}/ohlc?period_days=3650`,
+      coverageHasPrices: coverage.hasPrices,
+      coveragePriceRows: coverage.priceRows,
+      coverageFirstPriceDate: coverage.firstPriceDate,
+      coverageLastPriceDate: coverage.lastPriceDate,
+      ohlcStatus: result.status,
+      ohlcReason: result.reason,
+      ohlcRawRows: result.rawRows,
+      ohlcValidRows: result.validRows,
+      cacheKey: result.cacheKey,
+      expectedCacheKey: STOCK_OHLC_CACHE_KEY,
+      backendStatus: result.backendStatus,
+      error: details.message,
+      aborted: details.aborted,
+      timeout: details.timeout,
+    })
+
+    return result
   }
 }
 
@@ -285,16 +348,11 @@ export default async function TickerPage({
   }
 
   const scorecard = scorecardFromTickerSummary(tickerSummary)
-  const [ohlcData, recentSignals, latestScreenerRows] = await runWithBackendRequestLogContext(
+  const [ohlcResult, recentSignals, latestScreenerRows] = await runWithBackendRequestLogContext(
     requestLogContext,
     () =>
       Promise.all([
-        loadOptionalStockDataset(
-          requestLogContext,
-          `/tickers/${ticker}/ohlc`,
-          [],
-          () => getOhlcData(ticker, 3650)
-        ),
+        loadStockOhlcDataset(requestLogContext, tickerSummary.coverage),
         loadOptionalStockDataset(
           requestLogContext,
           `/signals/history/${ticker}`,
@@ -310,13 +368,23 @@ export default async function TickerPage({
       ])
   )
 
+  const ohlcData = ohlcResult.rows
   logStockPageEvent('info', 'render data ready', requestLogContext, {
     hasOhlc: ohlcData.length > 0,
+    ohlcStatus: ohlcResult.status,
+    ohlcReason: ohlcResult.reason,
+    ohlcCacheKey: ohlcResult.cacheKey,
     signalRows: recentSignals.length,
     screenerRows: latestScreenerRows.length,
     scorecardReadiness: scorecard.readiness,
   })
   const historicalData = ohlcData.map((point) => ({ date: point.date, close: point.close }))
+  const historicalChartState =
+    ohlcResult.status === 'loaded'
+      ? 'loaded'
+      : ohlcResult.status === 'empty'
+        ? 'empty'
+        : 'error'
 
   const relationship126Promise = runWithBackendRequestLogContext(requestLogContext, () =>
     getTickerRelationships(ticker, { window: 126, topK: 50 }).catch((error) => {
@@ -507,6 +575,7 @@ export default async function TickerPage({
         dailyMovePercent={marketQuote?.changePercent ?? quote?.changePercent ?? null}
         latestSignal={latestSignal}
         historicalData={historicalData}
+        historicalChartState={historicalChartState}
         ohlcData={ohlcData}
         keyStats={keyStats}
         relationship126={relationship126Promise}

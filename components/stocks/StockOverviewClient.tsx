@@ -23,6 +23,7 @@ import styles from './StockOverviewClient.module.css'
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
 type ChartTimeframe = '1D' | '5D' | '1M' | '3M' | 'YTD' | '1Y' | '5Y'
+type HistoricalChartState = 'loaded' | 'empty' | 'error'
 
 type OverviewStat = {
   label: string
@@ -64,6 +65,7 @@ type StockOverviewClientProps = {
   dailyMovePercent: number | null
   latestSignal: OverviewSignal | null
   historicalData: PricePoint[]
+  historicalChartState: HistoricalChartState
   ohlcData: OhlcPoint[]
   keyStats: OverviewStat[]
   relationship126: Promise<TickerRelationships>
@@ -361,10 +363,12 @@ function Gauge({
 
 function HeroPriceChart({
   data,
+  state,
   className,
   currency,
 }: {
   data: PricePoint[]
+  state: HistoricalChartState
   className?: string
   currency: string
 }) {
@@ -374,7 +378,13 @@ function HeroPriceChart({
     <ChartContainer className={cn(styles.heroChart, className)} loadingText="Loading chart...">
       {({ width, height }) => {
         if (data.length === 0) {
-          return <div className={styles.emptyState}>Historical price data is unavailable.</div>
+          return (
+            <div className={styles.emptyState}>
+              {state === 'error'
+                ? 'Historical price data could not be loaded.'
+                : 'Historical price data is unavailable.'}
+            </div>
+          )
         }
 
         const padding = { top: 12, right: 52, bottom: 22, left: 6 }
@@ -743,6 +753,7 @@ export default function StockOverviewClient({
   dailyMovePercent,
   latestSignal,
   historicalData,
+  historicalChartState,
   ohlcData,
   keyStats,
   relationship126: relationship126Promise,
@@ -814,7 +825,7 @@ export default function StockOverviewClient({
               </button>
             </div>
             <div className={styles.heroChartWrap}>
-              <HeroPriceChart data={filteredChartData} currency={currency} />
+              <HeroPriceChart data={filteredChartData} state={historicalChartState} currency={currency} />
             </div>
           </div>
 
@@ -1022,7 +1033,12 @@ export default function StockOverviewClient({
 
       {isChartModalOpen ? (
         <Modal title="Expanded Price Chart" onClose={() => setChartModalOpen(false)}>
-          <HeroPriceChart data={filteredChartData} className={styles.expandedChart} currency={currency} />
+          <HeroPriceChart
+            data={filteredChartData}
+            state={historicalChartState}
+            className={styles.expandedChart}
+            currency={currency}
+          />
         </Modal>
       ) : null}
 

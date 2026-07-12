@@ -28,9 +28,16 @@ export type MarketStatsSnapshot = {
 export type SymbolCoverageRow = {
   ticker: string
   hasMarketData: boolean
+  hasPrices: boolean | null
+  priceRows: number | null
+  technicalRows: number | null
+  firstPriceDate: string | null
+  lastPriceDate: string | null
+  hasTechnicals: boolean | null
   hasFundamentals: boolean
   hasEarnings: boolean
   hasSignals: boolean
+  hasScorecard: boolean | null
   marketDataLastDate: string | null
   fundamentalsLastDate: string | null
   nextEarningsDate: string | null
