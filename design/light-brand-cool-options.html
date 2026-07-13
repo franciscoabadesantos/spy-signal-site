@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Marca em light — opções frias/neutras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--font-display:"Sora",sans-serif;--font-body:"Inter",sans-serif;--font-mono:"JetBrains Mono",monospace;
+  --bg:#e8ebf1;--panel:#eef1f6;--text:#0d1017;--text-2:#454b57;--text-3:#828a99;
+  --green:#0e9f5b;--red:#e23d2e;--hairline:rgba(20,25,35,.10)}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-body);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1000px;margin:0 auto;padding:40px 26px 80px}
+.ey{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-3)}
+h1{font-family:var(--font-display);font-weight:600;font-size:32px;letter-spacing:-.02em;margin:8px 0 6px}
+.lede{color:var(--text-2);max-width:64ch;line-height:1.6;margin:0 0 30px;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--hairline);border-radius:20px;padding:24px;
+  box-shadow:0 20px 44px -28px rgba(20,28,45,.35)}
+.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:11px}
+.logo{width:30px;height:30px;border-radius:8px;position:relative;
+  background:linear-gradient(150deg,var(--a),var(--a2));box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 6px 16px -8px var(--a)}
+.logo:after{content:"";position:absolute;inset:0;border-radius:8px;background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.85),transparent 48%)}
+.bname{font-family:var(--font-display);font-weight:600;font-size:16px}
+.hex{font-family:var(--font-mono);font-size:11px;color:var(--text-3)}
+.name{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--a);font-weight:600}
+.row{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+/* brand badge = neutral identity; signal badges stay green/red */
+.badge{display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:12px;padding:6px 11px;border-radius:999px;
+  color:var(--a);background:color-mix(in srgb,var(--a) 12%,transparent);border:1px solid color-mix(in srgb,var(--a) 36%,transparent)}
+.badge .d{width:7px;height:7px;border-radius:99px;background:currentColor}
+.sig{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px;padding:6px 10px;border-radius:999px}
+.sig.b{color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent);border:1px solid color-mix(in srgb,var(--green) 36%,transparent)}
+.btn{font-weight:600;font-size:13.5px;padding:10px 18px;border-radius:12px;border:none;cursor:pointer;color:#fff;
+  background:linear-gradient(140deg,var(--a),var(--a2));box-shadow:0 10px 22px -12px var(--a),inset 0 1px 0 rgba(255,255,255,.3)}
+.link{font-weight:600;font-size:13.5px;color:var(--a);text-decoration:none}
+.meta{margin-top:16px;padding-top:13px;border-top:1px solid var(--hairline);font-size:12.5px;color:var(--text-2);line-height:1.5}
+.tag{font-size:11px;color:var(--text-3);margin-top:6px}
+
+.opt1{--a:#17224d;--a2:#2a3a72}   /* Ink navy */
+.opt2{--a:#1a46c7;--a2:#3a63e8}   /* Cobalt puro */
+.opt3{--a:#3d5a83;--a2:#557aae}   /* Steel/slate */
+.opt4{--a:#0d9488;--a2:#14b5a6}   /* Teal (cool, quase-neutro) */
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="ey">Light mode · marca semanticamente segura</div>
+  <h1>Frio/neutro — fora da zona dos sinais.</h1>
+  <p class="lede">Estas não colidem com bull/bear/indeciso. Em cada card, a marca (logo/botão/link) e um badge de sinal <b>verde</b> convivem — repara se a identidade se distingue bem do significado do sinal.</p>
+
+  <div class="grid">
+    <div class="card opt1">
+      <div class="head"><div class="brand"><div class="logo"></div><div><div class="name">Ink navy</div><div class="bname">Meridian</div></div></div><div class="hex">#17224D</div></div>
+      <div class="row"><span class="badge"><span class="d"></span>Marca</span><span class="sig b">● Alocado 80%</span></div>
+      <div class="row"><button class="btn">Ver sinal</button><a class="link" href="#">Como funciona →</a></div>
+      <div class="meta">Quase grafite, mas com alma azul. Muito premium, discreto.<div class="tag">Menos "cor", mais sofisticação.</div></div>
+    </div>
+
+    <div class="card opt2">
+      <div class="head"><div class="brand"><div class="logo"></div><div><div class="name">Cobalto puro</div><div class="bname">Meridian</div></div></div><div class="hex">#1A46C7</div></div>
+      <div class="row"><span class="badge"><span class="d"></span>Marca</span><span class="sig b">● Alocado 80%</span></div>
+      <div class="row"><button class="btn">Ver sinal</button><a class="link" href="#">Como funciona →</a></div>
+      <div class="meta">Azul verdadeiro, sem deriva roxa. Mais presença que o v3 anterior.<div class="tag">Se o problema era o tom, este é o teste.</div></div>
+    </div>
+
+    <div class="card opt3">
+      <div class="head"><div class="brand"><div class="logo"></div><div><div class="name">Steel / slate</div><div class="bname">Meridian</div></div></div><div class="hex">#3D5A83</div></div>
+      <div class="row"><span class="badge"><span class="d"></span>Marca</span><span class="sig b">● Alocado 80%</span></div>
+      <div class="row"><button class="btn">Ver sinal</button><a class="link" href="#">Como funciona →</a></div>
+      <div class="meta">Azul dessaturado, sóbrio e maduro. Menos "tech berrante".<div class="tag">Meio-termo entre cor e neutro.</div></div>
+    </div>
+
+    <div class="card opt4">
+      <div class="head"><div class="brand"><div class="logo"></div><div><div class="name">Teal</div><div class="bname">Meridian</div></div></div><div class="hex">#0D9488</div></div>
+      <div class="row"><span class="badge"><span class="d"></span>Marca</span><span class="sig b">● Alocado 80%</span></div>
+      <div class="row"><button class="btn">Ver sinal</button><a class="link" href="#">Como funciona →</a></div>
+      <div class="meta">Frio, distinto do verde-relva do sinal. Risco: alguém ler como "verde".<div class="tag">Único não-azul que sobra, mas há ambiguidade.</div></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

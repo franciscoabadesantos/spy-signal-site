@@ -1,7 +1,14 @@
+import SiteChromeMotion from '@/components/marketing/SiteChromeMotion'
+
 type MarketingLayoutProps = {
   children: React.ReactNode
 }
 
 export default function MarketingLayout({ children }: MarketingLayoutProps) {
-  return children
+  return (
+    <>
+      <SiteChromeMotion />
+      {children}
+    </>
+  )
 }

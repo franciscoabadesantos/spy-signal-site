@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Caveat } from 'next/font/google'
 import { ArrowUpRight } from 'lucide-react'
 import { BRAND_NAME, CONTACT_EMAIL, FOOTER_SECONDARY_LINKS, MARKETING_NAV_ITEMS } from '@/components/marketing/site-config'
+import FooterBrandReveal from '@/components/FooterBrandReveal'
 
 const caveat = Caveat({
   subsets: ['latin'],
@@ -13,7 +14,7 @@ export default function SiteFooter() {
   const askHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('A question for the lounge')}`
 
   return (
-    <footer className="mt-auto border-t border-slate-950/8 bg-white text-slate-600 dark:border-white/10 dark:bg-[#02050d] dark:text-white/72">
+    <footer className="relative isolate z-[60] mt-auto border-t border-slate-950/8 bg-white text-slate-600 dark:border-white/10 dark:bg-[#02050d] dark:text-white/72">
       <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-10 px-5 py-12 md:px-10">
         <div className="flex flex-col gap-6 border-b border-slate-950/8 pb-10 dark:border-white/10 md:flex-row md:items-end md:justify-between">
           <div>
@@ -72,6 +73,10 @@ export default function SiteFooter() {
             ))}
           </div>
           <span>© {year} {BRAND_NAME}. All rights reserved.</span>
+        </div>
+
+        <div className="overflow-hidden pt-6 text-slate-950/90 dark:text-white/85">
+          <FooterBrandReveal />
         </div>
       </div>
     </footer>

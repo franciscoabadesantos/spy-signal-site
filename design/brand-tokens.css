@@ -1,0 +1,133 @@
+/* ============================================================================
+   MERIDIAN — BRAND TOKENS  ·  fonte única de verdade
+   ----------------------------------------------------------------------------
+   Muda a marca a partir DAQUI. Estes são os tokens "semânticos": o resto do
+   site (componentes, utilities, @theme do Tailwind) deve apontar para eles,
+   nunca para hex diretos. Trocar --brand-spark uma vez muda o site inteiro.
+
+   Modelo de cor:
+     • BASE  = cor fria e calma que carrega a maioria da UI (não cansa)
+               → electric no dark, ink navy no light
+     • SPARK = teal, a "faísca" de marca; SÓ em momentos-chave
+               (logo, CTA primário, estado ativo, 1 dado em destaque)
+     • SINAIS = verde/vermelho/âmbar; significado de mercado, nunca identidade
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   LIGHT (default)
+   --------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  /* —— BASE (fria/neutra) —— */
+  --brand-base:        #17224d;   /* ink navy */
+  --brand-base-strong: #0f1836;
+  --brand-base-soft:   #2a3a72;
+  --brand-base-ink:    #17224d;   /* uso em texto/links de marca */
+
+  /* —— SPARK (teal) — a faísca —— */
+  --brand-spark:        #0d9488;
+  --brand-spark-strong: #0b7f75;
+  --brand-spark-soft:   #12b5a6;
+  --brand-spark-on:     #04201d;  /* texto sobre fills de spark */
+
+  /* —— BACKGROUND / SUPERFÍCIES —— */
+  --bg:            #e8ebf1;
+  --panel:         #eef1f6;
+  --glass-tint:    rgba(255,255,255,.42);
+  --glass-border:  rgba(255,255,255,.80);
+  --spec-a:        rgba(255,255,255,1);      /* specular claro */
+  --spec-b:        rgba(20,25,35,.06);       /* specular sombra */
+  --hairline:      rgba(20,25,35,.10);
+
+  /* —— CONTEÚDO —— */
+  --content-primary:   #0d1017;
+  --content-secondary: #454b57;
+  --content-muted:     #828a99;
+
+  /* —— SINAIS (mercado — não usar como identidade) —— */
+  --signal-bull: #0e9f5b;  --signal-bull-tint: color-mix(in srgb, #0e9f5b 12%, transparent);
+  --signal-bear: #e23d2e;  --signal-bear-tint: color-mix(in srgb, #e23d2e 12%, transparent);
+  --signal-warn: #b9820a;  --signal-warn-tint: color-mix(in srgb, #b9820a 14%, transparent);
+  --signal-neutral: #64768a;
+
+  /* —— TIPOGRAFIA —— */
+  --font-display: "Sora", system-ui, sans-serif;   /* alt: "Space Grotesk" */
+  --font-body:    "Inter", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+
+  /* —— RAIO / SOMBRA / MOTION —— (mantém os teus valores atuais) */
+  --radius-card: 24px;  --radius-chip: 16px;  --radius-pill: 999px;
+  --shadow-panel: 0 30px 60px -26px rgba(20,28,45,.34);
+  --motion-fast: 120ms;  --motion-normal: 180ms;  --motion-slow: 280ms;
+  --ease-standard: cubic-bezier(.2,.8,.2,1);
+}
+
+/* ---------------------------------------------------------------------------
+   DARK  (— aprofundado: menos azul-claro/pastel que antes —)
+   Aplica com <html data-theme="dark"> ou prefers-color-scheme.
+   --------------------------------------------------------------------------- */
+:root[data-theme="dark"],
+:root.dark {
+  color-scheme: dark;
+
+  /* —— BASE (electric, agora mais profundo) —— */
+  --brand-base:        #3f63e6;   /* era #5b83ff — menos claro */
+  --brand-base-strong: #2f4fcf;
+  --brand-base-soft:   #6f8cf5;   /* era #8ea2ff */
+  --brand-base-ink:    #c6d2ff;   /* texto de marca sobre fundo escuro */
+
+  /* —— SPARK (teal) —— */
+  --brand-spark:        #19c9b6;
+  --brand-spark-strong: #12ab9b;
+  --brand-spark-soft:   #3fe0cd;
+  --brand-spark-on:     #04201d;
+
+  /* —— BACKGROUND / SUPERFÍCIES —— */
+  --bg:            #05070d;
+  --panel:         #080b13;
+  --glass-tint:    rgba(255,255,255,.05);
+  --glass-border:  rgba(255,255,255,.16);
+  --spec-a:        rgba(255,255,255,.90);
+  --spec-b:        rgba(255,255,255,.08);
+  --hairline:      rgba(255,255,255,.10);
+
+  /* —— CONTEÚDO —— */
+  --content-primary:   #eaf0ff;
+  --content-secondary: #9fb0d0;
+  --content-muted:     #5f6f8e;
+
+  /* —— SINAIS —— */
+  --signal-bull: #34d399;  --signal-bull-tint: color-mix(in srgb, #34d399 15%, transparent);
+  --signal-bear: #fb7185;  --signal-bear-tint: color-mix(in srgb, #fb7185 15%, transparent);
+  --signal-warn: #fbbf24;  --signal-warn-tint: color-mix(in srgb, #fbbf24 15%, transparent);
+  --signal-neutral: #94a3b8;
+
+  --shadow-panel: 0 30px 70px -24px rgba(0,0,0,.8);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* ...mesmos valores do bloco dark acima (duplicar ou usar @custom-media) */
+  }
+}
+
+/* ============================================================================
+   PONTE PARA O TEU globals.css  (single source of truth)
+   ----------------------------------------------------------------------------
+   Em vez de reescrever componentes, aponta os tokens EXISTENTES do globals.css
+   para estes tokens de marca. Assim tudo o que já usa --primary / --surface-card
+   passa a obedecer a esta fonte, e mudas só aqui.
+
+     --primary:        var(--brand-spark);      // CTA primário = spark
+     --accent-text:    var(--brand-base-ink);
+     --brand-electric: var(--brand-base);
+     --brand-cyan:     var(--brand-spark);
+     --surface-card:   var(--glass-tint);
+     --border:         var(--hairline);
+     --content-primary / secondary / muted  → já batem certo
+     --signal-bullish: var(--signal-bull);  (idem bear/neutral/warn)
+
+   Depois, no @theme do Tailwind, mantém os mapeamentos --color-* → var(--token).
+   Regra de ouro: componentes referenciam SEMPRE var(--token), nunca hex.
+   ========================================================================== */

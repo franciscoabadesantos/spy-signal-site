@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cores de marca — light mode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--font-display:"Sora",sans-serif;--font-body:"Inter",sans-serif;--font-mono:"JetBrains Mono",monospace;
+  --bg:#e8ebf1;--panel:#eef1f6;--text:#0d1017;--text-2:#454b57;--text-3:#828a99;
+  --green:#0e9f5b;--hairline:rgba(20,25,35,.10)}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font-body);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1000px;margin:0 auto;padding:40px 26px 80px}
+.ey{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-3)}
+h1{font-family:var(--font-display);font-weight:600;font-size:32px;letter-spacing:-.02em;margin:8px 0 6px}
+.lede{color:var(--text-2);max-width:60ch;line-height:1.6;margin:0 0 30px;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--hairline);border-radius:20px;padding:24px;
+  box-shadow:0 20px 44px -28px rgba(20,28,45,.35)}
+.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.brand{display:flex;align-items:center;gap:11px}
+.logo{width:30px;height:30px;border-radius:8px;position:relative;
+  background:linear-gradient(150deg,var(--a),var(--a2));box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 6px 16px -8px var(--a)}
+.logo:after{content:"";position:absolute;inset:0;border-radius:8px;background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.85),transparent 48%)}
+.bname{font-family:var(--font-display);font-weight:600;font-size:16px}
+.hex{font-family:var(--font-mono);font-size:11px;color:var(--text-3)}
+.name{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--a);font-weight:600}
+.row{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:12px;padding:6px 11px;border-radius:999px;
+  color:var(--a);background:color-mix(in srgb,var(--a) 12%,transparent);border:1px solid color-mix(in srgb,var(--a) 38%,transparent)}
+.badge .d{width:7px;height:7px;border-radius:99px;background:currentColor}
+.btn{font-weight:600;font-size:13.5px;padding:10px 18px;border-radius:12px;border:none;cursor:pointer;color:#fff;
+  background:linear-gradient(140deg,var(--a),var(--a2));box-shadow:0 10px 22px -12px var(--a),inset 0 1px 0 rgba(255,255,255,.35)}
+.link{font-weight:600;font-size:13.5px;color:var(--a);text-decoration:none}
+.link:hover{text-decoration:underline}
+.meta{margin-top:18px;padding-top:14px;border-top:1px solid var(--hairline);font-size:12.5px;color:var(--text-2);line-height:1.5}
+
+.opt1{--a:#0d9488;--a2:#12b5a6}      /* Teal */
+.opt2{--a:#c8820c;--a2:#e0a020}      /* Âmbar / ouro */
+.opt3{--a:#c81e78;--a2:#e8459a}      /* Magenta */
+.opt4{--a:#e1543b;--a2:#f47a56}      /* Coral / tangerina */
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="ey">Light mode · cor de marca</div>
+  <h1>Quatro candidatas, sem azul.</h1>
+  <p class="lede">Todas fogem da família do azul/roxo e mantêm os sinais (verde/vermelho) intactos. O dark mode continua electric blue — isto é só a expressão em claro. Qual te fala mais?</p>
+
+  <div class="grid">
+    <div class="card opt1">
+      <div class="head"><div class="brand"><div class="logo"></div><div><div class="name">Teal</div><div class="bname">Meridian</div></div></div><div class="hex">#0D9488</div></div>
+      <div class="row"><span class="badge"><span class="d"></span>Alocado · 80%</span><button class="btn">Ver sinal</button><a class="link" href="#">Como funciona →</a></div>
+      <div class="meta">Techy e fresco, distinto do verde de sinal. Sensação de precisão.</div>
+    </div>
+
+    <div class="card opt2">
+      <div class="head"><div class="brand"><div class="logo"></div><div><div class="name">Âmbar / ouro</div><div class="bname">Meridian</div></div></div><div class="hex">#C8820C</div></div>
+      <div class="row"><span class="badge"><span class="d"></span>Alocado · 80%</span><button class="btn">Ver sinal</button><a class="link" href="#">Como funciona →</a></div>
+      <div class="meta">Quente, premium, conotação de dinheiro. Cuidado: perto do amarelo de "warn".</div>
+    </div>
+
+    <div class="card opt3">
+      <div class="head"><div class="brand"><div class="logo"></div><div><div class="name">Magenta</div><div class="bname">Meridian</div></div></div><div class="hex">#C81E78</div></div>
+      <div class="row"><span class="badge"><span class="d"></span>Alocado · 80%</span><button class="btn">Ver sinal</button><a class="link" href="#">Como funciona →</a></div>
+      <div class="meta">Ousado e memorável, energia moderna. Não é roxo — puxa ao rosa/vermelho.</div>
+    </div>
+
+    <div class="card opt4">
+      <div class="head"><div class="brand"><div class="logo"></div><div><div class="name">Coral / tangerina</div><div class="bname">Meridian</div></div></div><div class="hex">#E1543B</div></div>
+      <div class="row"><span class="badge"><span class="d"></span>Alocado · 80%</span><button class="btn">Ver sinal</button><a class="link" href="#">Como funciona →</a></div>
+      <div class="meta">Vivo e humano, calor sem ser papel. Cuidado: perto do vermelho de sinal.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

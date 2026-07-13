@@ -6,7 +6,7 @@ type ButtonSize = 'sm' | 'md'
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'border border-[#0757ff]/20 bg-[#0757ff] text-white shadow-[0_18px_42px_rgba(7,87,255,0.18)] hover:border-[#1a66ff]/28 hover:bg-[#1a66ff] dark:border-[#f5df57]/45 dark:bg-[linear-gradient(180deg,rgba(245,223,87,0.22),rgba(245,223,87,0.12))] dark:text-[#fff8cc] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_18px_42px_rgba(245,223,87,0.08)] dark:hover:border-[#ffe97d]/58 dark:hover:bg-[linear-gradient(180deg,rgba(245,223,87,0.28),rgba(245,223,87,0.16))] dark:hover:text-white',
+    'border border-black/5 bg-brand-spark text-[#04201d] shadow-[0_16px_38px_rgba(13,148,136,0.24)] hover:brightness-[1.08] dark:border-white/10 dark:text-[#04201d] dark:shadow-[0_16px_38px_rgba(25,201,182,0.22)]',
   secondary:
     'border border-slate-950/10 bg-white/78 text-content-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_12px_32px_rgba(20,33,51,0.06)] backdrop-blur-xl hover:border-slate-950/16 hover:bg-white dark:border-white/12 dark:bg-white/[0.06] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] dark:hover:border-white/18 dark:hover:bg-white/[0.1]',
   ghost:

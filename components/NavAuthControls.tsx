@@ -12,12 +12,9 @@ export default function NavAuthControls() {
     return (
       <Link
         href="/sign-up"
-        className="group relative inline-flex items-center rounded-full px-2 py-1 text-[1.22rem] leading-none text-[#ffb46a] transition duration-200 hover:text-[#ffd3a3] dark:text-[#ffc27f] dark:hover:text-[#ffe1ba]"
+        className="inline-flex h-9 items-center justify-center rounded-full bg-brand-spark px-4 text-sm font-semibold text-[#04201d] shadow-[0_12px_28px_rgba(13,148,136,0.24)] transition duration-200 hover:brightness-[1.08]"
       >
-        <HandScript className="relative z-10 transition duration-200 group-hover:-rotate-[2deg] group-hover:scale-[1.04]">
-          Join the lounge
-        </HandScript>
-        <span className="pointer-events-none absolute inset-x-2 bottom-0 h-px origin-left scale-x-0 bg-current/70 transition duration-300 group-hover:scale-x-100" />
+        Start membership
       </Link>
     )
   }

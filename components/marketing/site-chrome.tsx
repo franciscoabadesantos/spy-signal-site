@@ -2,8 +2,8 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Caveat } from 'next/font/google'
 import { ArrowRight } from 'lucide-react'
-import BrandHomeMenu from '@/components/BrandHomeMenu'
 import HeaderSearch from '@/components/HeaderSearch'
+import HeaderBar from '@/components/marketing/HeaderBar'
 import { cn } from '@/lib/utils'
 import { BRAND_DESCRIPTION, BRAND_NAME } from '@/components/marketing/site-config'
 
@@ -12,8 +12,7 @@ const caveat = Caveat({
   weight: ['600', '700'],
 })
 
-export const sharedHeaderShellClass =
-  'fixed inset-x-0 top-0 z-[90] border-b border-slate-950/8 bg-white/76 backdrop-blur-[28px] saturate-[1.75] dark:border-white/8 dark:bg-[#00040a]/38'
+export const sharedHeaderShellClass = 'fixed inset-x-0 top-0 z-[90]'
 
 export const sharedHeaderInnerClass = 'mx-auto max-w-[1500px] px-6 py-3 sm:px-10 lg:px-14'
 
@@ -142,8 +141,8 @@ export function GlassPanel({
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.48),rgba(255,255,255,0.18)_18%,rgba(255,255,255,0.05)_42%,transparent_72%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.06)_20%,rgba(255,255,255,0.02)_42%,transparent_72%)]" />
       <div className="pointer-events-none absolute inset-y-0 left-0 w-[28%] bg-[linear-gradient(90deg,rgba(255,255,255,0.22),transparent)] dark:bg-[linear-gradient(90deg,rgba(255,255,255,0.07),transparent)]" />
       <div className="pointer-events-none absolute -left-12 top-[-14%] h-36 w-36 rounded-full bg-white/24 blur-3xl dark:bg-white/[0.08]" />
-      <div className="pointer-events-none absolute -right-12 top-[-18%] h-40 w-40 rounded-full bg-white/20 blur-3xl dark:bg-[#6f79ff]/10" />
-      <div className="pointer-events-none absolute bottom-[-18%] right-[10%] h-28 w-44 rounded-full bg-[#ff8b2b]/10 blur-3xl dark:bg-[#6f79ff]/10" />
+      <div className="pointer-events-none absolute -right-12 top-[-18%] h-40 w-40 rounded-full bg-white/20 blur-3xl dark:bg-[color:color-mix(in_srgb,var(--brand-spark)_10%,transparent)]" />
+      <div className="pointer-events-none absolute bottom-[-18%] right-[10%] h-28 w-44 rounded-full bg-[color:color-mix(in_srgb,var(--brand-spark)_10%,transparent)] blur-3xl dark:bg-[color:color-mix(in_srgb,var(--brand-spark)_12%,transparent)]" />
       <div className="relative z-10">{children}</div>
     </div>
   )
@@ -191,42 +190,20 @@ export function SectionHeading({
 }
 
 export function MarketingHeader({ activeHref }: { activeHref?: string }) {
+  const isHome = activeHref === '/'
   return (
     <header
       data-active-href={activeHref ?? undefined}
-      className={sharedHeaderShellClass}
+      className={cn(sharedHeaderShellClass, 'site-header')}
     >
-      <div className={sharedHeaderInnerClass}>
-        <div className="flex items-center justify-between gap-4">
-          <BrandHomeMenu
-            textClassName="text-slate-950 dark:text-white"
-            menuShellClassName={sharedHeaderMenuShellClass}
-          />
-
-          <div className="hidden min-w-0 flex-1 md:block">
-            <HeaderSearch className={sharedHeaderDesktopSearchClass} />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/sign-up"
-              className={cn(
-                caveat.className,
-                'group relative inline-flex items-center rounded-full px-2 py-1 text-[1.22rem] leading-none text-[#ffb46a] transition duration-200 hover:text-[#ffd3a3] dark:text-[#ffc27f] dark:hover:text-[#ffe1ba]'
-              )}
-            >
-              <span className="relative z-10 transition duration-200 group-hover:-rotate-[2deg] group-hover:scale-[1.04]">
-                Start membership
-              </span>
-              <span className="pointer-events-none absolute inset-x-2 bottom-0 h-px origin-left scale-x-0 bg-current/70 transition duration-300 group-hover:scale-x-100" />
-            </Link>
-          </div>
-        </div>
+      <div className={cn(sharedHeaderInnerClass, 'site-header__inner')}>
+        <HeaderBar isHome={isHome} />
 
         <div className="mt-3 md:hidden">
           <HeaderSearch className={sharedHeaderMobileSearchClass} />
         </div>
       </div>
+      <div className="site-header__backdrop" aria-hidden="true" />
     </header>
   )
 }

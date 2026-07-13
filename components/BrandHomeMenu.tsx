@@ -143,7 +143,7 @@ export default function BrandHomeMenu({
           }
           setOpen((value) => !value)
         }}
-        className="group relative inline-flex h-10 w-10 cursor-pointer items-center justify-center transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff8b2b]/50"
+        className="group relative inline-flex h-10 w-10 cursor-pointer items-center justify-center transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-spark/50"
       >
         <svg
           aria-hidden="true"
@@ -159,7 +159,7 @@ export default function BrandHomeMenu({
             strokeWidth="1.7"
             pathLength="100"
             className={cn(
-              'origin-center text-[#0757ff]/70 opacity-0 [stroke-dasharray:100] [stroke-dashoffset:100] group-hover:animate-[brand-menu-scribble-draw_520ms_ease-out_forwards] dark:text-[#f8f200]/75',
+              'origin-center text-brand-spark/70 opacity-0 [stroke-dasharray:100] [stroke-dashoffset:100] group-hover:animate-[brand-menu-scribble-draw_520ms_ease-out_forwards] dark:text-brand-spark/75',
               open
                 ? 'opacity-100 [stroke-dashoffset:0]'
                 : ''
@@ -168,7 +168,7 @@ export default function BrandHomeMenu({
         </svg>
         <span
           className={cn(
-            'marketing-logo-type relative z-10 text-[1.7rem] font-bold leading-none text-[#ffb56d] transition duration-300',
+            'marketing-logo-type relative z-10 text-[1.7rem] font-bold leading-none text-brand-spark transition duration-300',
             open
               ? 'translate-x-0 rotate-[22deg] scale-[1.06]'
               : 'group-hover:translate-x-[2px] group-hover:rotate-[16deg] group-hover:scale-[1.04]'
@@ -179,7 +179,7 @@ export default function BrandHomeMenu({
         <span
           aria-hidden="true"
           className={cn(
-            'pointer-events-none absolute bottom-[8px] right-[6px] h-1.5 w-1.5 rounded-full bg-[#0757ff] transition duration-300 dark:bg-[#f8f200]',
+            'pointer-events-none absolute bottom-[8px] right-[6px] h-1.5 w-1.5 rounded-full bg-brand-spark transition duration-300 dark:bg-brand-spark',
             open ? 'opacity-0 scale-75' : 'opacity-100 scale-100 group-hover:opacity-0 group-hover:scale-75'
           )}
         />

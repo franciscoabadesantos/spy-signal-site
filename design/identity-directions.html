@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Identity Directions — Longbrunch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Inter:wght@400;500;600;700&family=Instrument+Serif&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f7f5f0; --ink:#14140f; --muted:#6b6a62; --line:rgba(20,20,15,.12);
+    --green:#0e7a35; --red:#c62f22; --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1240px;margin:0 auto;padding:64px 32px 96px}
+  .topbar{display:flex;justify-content:space-between;align-items:baseline;gap:24px;
+    border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:8px}
+  .kicker{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--muted)}
+  h1{font-family:Fraunces,serif;font-weight:600;font-size:clamp(30px,4vw,52px);
+    line-height:1.02;letter-spacing:-.02em;margin:20px 0 10px}
+  .lede{font-size:17px;line-height:1.6;color:var(--muted);max-width:60ch;margin:0 0 8px}
+  .brief{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 56px}
+  .chip{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;border:1px solid var(--line);border-radius:999px;
+    padding:6px 12px;color:var(--muted);background:var(--card)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .col{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    box-shadow:0 1px 2px rgba(20,20,15,.03),0 24px 48px -32px rgba(20,20,15,.28);display:flex;flex-direction:column}
+  .col-head{padding:22px 22px 18px;border-bottom:1px solid var(--line)}
+  .col-tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--muted)}
+  .col-name{font-size:14px;color:var(--muted);margin-top:6px}
+  .lockup{margin:14px 0 4px;min-height:52px;display:flex;align-items:center;gap:10px}
+  .section{padding:20px 22px;border-bottom:1px solid var(--line)}
+  .section:last-child{border-bottom:0}
+  .lbl{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .sw{display:flex;gap:8px;flex-wrap:wrap}
+  .dot{width:34px;height:34px;border-radius:9px;border:1px solid rgba(0,0,0,.08)}
+  .names{display:flex;flex-wrap:wrap;gap:7px}
+  .nm{font-size:13px;border:1px dashed var(--line);border-radius:8px;padding:5px 9px;color:var(--ink)}
+  .voice{font-size:14px;line-height:1.55;color:#33322c}
+  .voice b{font-weight:600}
+  /* mini hero mockups */
+  .hero{padding:26px 22px 28px;position:relative;min-height:172px;display:flex;flex-direction:column;justify-content:center}
+  .badge{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:600;
+    border-radius:999px;padding:5px 10px;width:fit-content}
+  .badge .d{width:7px;height:7px;border-radius:99px;background:var(--green)}
+  .foot{max-width:1240px;margin:56px auto 0;padding:0 32px;color:var(--muted);font-size:13px;line-height:1.6}
+
+  /* ---- A: The One Line (editorial-minimal) ---- */
+  .a .lockup{font-family:"Instrument Serif",serif;font-size:34px;letter-spacing:-.01em}
+  .a .dotmark{width:9px;height:9px;border-radius:99px;background:var(--green);display:inline-block;transform:translateY(2px)}
+  .a .hero{background:#faf9f5}
+  .a .hero h3{font-family:"Instrument Serif",serif;font-weight:400;font-size:30px;line-height:1.05;margin:12px 0 8px}
+  .a .hero p{font-size:13px;color:var(--muted);margin:0}
+  .a .badge{background:rgba(14,122,53,.1);color:var(--green)}
+
+  /* ---- B: Instrument (premium fintech) ---- */
+  .b{--accent:#0757ff}
+  .b .lockup{font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:26px;letter-spacing:-.02em}
+  .b .gauge{width:30px;height:30px;border-radius:50%;border:2px solid var(--ink);position:relative}
+  .b .gauge:after{content:"";position:absolute;width:2px;height:12px;background:var(--accent);
+    left:50%;top:3px;transform-origin:bottom;transform:translateX(-50%) rotate(38deg)}
+  .b .hero{background:linear-gradient(180deg,#0e1424,#0b1120);color:#eef2ff}
+  .b .hero h3{font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:24px;line-height:1.08;margin:12px 0 8px;letter-spacing:-.01em}
+  .b .hero p{font-size:12.5px;color:#9fb0d6;margin:0;font-family:"IBM Plex Mono",monospace}
+  .b .badge{background:rgba(7,87,255,.16);color:#8fb0ff;border:1px solid rgba(120,150,255,.3)}
+  .b .badge .d{background:#4ea1ff}
+
+  /* ---- C: The Brief (editorial research) ---- */
+  .c{--accent:#8a2b1f}
+  .c .lockup{font-family:Fraunces,serif;font-weight:600;font-size:27px;letter-spacing:-.01em}
+  .c .seal{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-family:Fraunces,serif;font-size:15px;font-weight:600}
+  .c .hero{background:#f4efe4}
+  .c .hero h3{font-family:Fraunces,serif;font-weight:600;font-size:25px;line-height:1.1;margin:12px 0 8px}
+  .c .hero p{font-family:Newsreader,serif;font-size:15px;color:#59544a;margin:0;font-style:italic}
+  .c .rule{height:1px;background:var(--ink);opacity:.75;margin:0 0 12px}
+  .c .badge{background:rgba(14,122,53,.1);color:var(--green)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="kicker">Brand Identity · Exploração</div>
+    <div class="kicker">3 territórios · 1 promessa</div>
+  </div>
+  <h1>Uma resposta por dia,<br>três formas de a dizer.</h1>
+  <p class="lede">Todos os territórios partilham a mesma promessa — reduzir o ruído do mercado a uma decisão clara e diária — mas expressam-na com personalidades diferentes. A fundação técnica (tokens, cores de sinal, dark mode) mantém-se; o que muda é a camada de marca.</p>
+  <div class="brief">
+    <span class="chip">Promessa · Clareza</span>
+    <span class="chip">Ref · Fintech premium</span>
+    <span class="chip">Ref · Editorial / research</span>
+    <span class="chip">Naming · aberto</span>
+    <span class="chip">Sinal · verde = alocado · vermelho = cash</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- A -->
+    <div class="col a">
+      <div class="col-head">
+        <div class="col-tag">Território A</div>
+        <div class="lockup"><span>Plainline</span><span class="dotmark"></span></div>
+        <div class="col-name">“The One Line” — editorial minimalista</div>
+      </div>
+      <div class="hero">
+        <span class="badge"><span class="d"></span>Alocado · 80%</span>
+        <h3>Hoje, mantém-te dentro.</h3>
+        <p>Sinal de exposição ao S&amp;P 500 · atualizado após o fecho</p>
+      </div>
+      <div class="section">
+        <div class="lbl">A ideia</div>
+        <div class="voice">O produto <b>é</b> uma frase. Uma manchete serif que responde à única pergunta que interessa, ponto final. Silêncio à volta. Papel, tinta, um verde contido. O ponto no logo = “a resposta, ponto.”</div>
+      </div>
+      <div class="section">
+        <div class="lbl">Paleta</div>
+        <div class="sw">
+          <span class="dot" style="background:#faf9f5"></span>
+          <span class="dot" style="background:#14140f"></span>
+          <span class="dot" style="background:#0e7a35"></span>
+          <span class="dot" style="background:#c62f22"></span>
+          <span class="dot" style="background:#6b6a62"></span>
+        </div>
+      </div>
+      <div class="section">
+        <div class="lbl">Tipografia</div>
+        <div class="voice" style="font-family:'Instrument Serif',serif;font-size:22px;line-height:1.1">Instrument Serif</div>
+        <div class="voice" style="margin-top:4px;color:var(--muted)">+ Inter para dados e UI</div>
+      </div>
+      <div class="section">
+        <div class="lbl">Nomes possíveis</div>
+        <div class="names"><span class="nm">Plainline</span><span class="nm">Onecast</span><span class="nm">Verdict</span><span class="nm">Daily Read</span><span class="nm">Longbrunch*</span></div>
+      </div>
+      <div class="section">
+        <div class="lbl">Voz</div>
+        <div class="voice">Declarativa e curta. “Hoje, mantém-te dentro.” Nunca explica a mais.</div>
+      </div>
+    </div>
+
+    <!-- B -->
+    <div class="col b">
+      <div class="col-head">
+        <div class="col-tag">Território B</div>
+        <div class="lockup"><span class="gauge"></span><span>Meridian</span></div>
+        <div class="col-name">“Instrument” — fintech de precisão</div>
+      </div>
+      <div class="hero">
+        <span class="badge"><span class="d"></span>ALLOCATED · 80%</span>
+        <h3>Exposure: hold position.</h3>
+        <p>SPY · updated 16:15 ET · conf. high</p>
+      </div>
+      <div class="section">
+        <div class="lbl">A ideia</div>
+        <div class="voice">Um <b>instrumento de precisão</b>. Confiança fria, muito espaço, hairlines, numéricos tabulares. O mark é um ponteiro numa única posição — a leitura do dia. Linear/Mercury em espírito.</div>
+      </div>
+      <div class="section">
+        <div class="lbl">Paleta</div>
+        <div class="sw">
+          <span class="dot" style="background:#0b1120"></span>
+          <span class="dot" style="background:#0757ff"></span>
+          <span class="dot" style="background:#eef2ff"></span>
+          <span class="dot" style="background:#0e7a35"></span>
+          <span class="dot" style="background:#c62f22"></span>
+        </div>
+      </div>
+      <div class="section">
+        <div class="lbl">Tipografia</div>
+        <div class="voice" style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:600">Space Grotesk</div>
+        <div class="voice" style="margin-top:4px;color:var(--muted)">+ IBM Plex Mono para dados</div>
+      </div>
+      <div class="section">
+        <div class="lbl">Nomes possíveis</div>
+        <div class="names"><span class="nm">Meridian</span><span class="nm">Cardinal</span><span class="nm">Truenorth</span><span class="nm">Signalclock</span></div>
+      </div>
+      <div class="section">
+        <div class="lbl">Voz</div>
+        <div class="voice">Precisa, técnica mas humana. “Exposure: hold position.” Sem adjetivos a mais.</div>
+      </div>
+    </div>
+
+    <!-- C -->
+    <div class="col c">
+      <div class="col-head">
+        <div class="col-tag">Território C</div>
+        <div class="lockup"><span class="seal">L</span><span>The Exposure</span></div>
+        <div class="col-name">“The Brief” — research editorial</div>
+      </div>
+      <div class="hero">
+        <div class="rule"></div>
+        <span class="badge"><span class="d"></span>Alocado · 80%</span>
+        <h3>The read for today: stay invested.</h3>
+        <p>Same process. Every day. No overrides.</p>
+      </div>
+      <div class="section">
+        <div class="lbl">A ideia</div>
+        <div class="voice">Um <b>desk de research respeitado</b>. Masthead serif, fios editoriais, um selo diário que carimba o sinal. Mais voz e autoridade intelectual, mantendo a disciplina.</div>
+      </div>
+      <div class="section">
+        <div class="lbl">Paleta</div>
+        <div class="sw">
+          <span class="dot" style="background:#f4efe4"></span>
+          <span class="dot" style="background:#14140f"></span>
+          <span class="dot" style="background:#8a2b1f"></span>
+          <span class="dot" style="background:#0e7a35"></span>
+          <span class="dot" style="background:#59544a"></span>
+        </div>
+      </div>
+      <div class="section">
+        <div class="lbl">Tipografia</div>
+        <div class="voice" style="font-family:Fraunces,serif;font-size:22px;font-weight:600">Fraunces</div>
+        <div class="voice" style="margin-top:4px;color:var(--muted)">+ Newsreader / Inter no corpo</div>
+      </div>
+      <div class="section">
+        <div class="lbl">Nomes possíveis</div>
+        <div class="names"><span class="nm">The Exposure</span><span class="nm">Broadside</span><span class="nm">The Ledger</span><span class="nm">Longbrunch Research*</span></div>
+      </div>
+      <div class="section">
+        <div class="lbl">Voz</div>
+        <div class="voice">Considerada, ensaística mas disciplinada. “The read for today: stay invested.”</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div class="foot">* Opções marcadas mantêm o nome atual, caso decidas não renomear. Estes territórios são pontos de partida para reagir — o próximo passo é escolher um (ou cruzar dois) e desenvolvê-lo em logo final, paleta completa e um mockup navegável da homepage.</div>
+</body>
+</html>

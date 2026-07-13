@@ -21,6 +21,9 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-accent-text: var(--accent-text);
+  --color-brand-spark: var(--brand-spark);
+  --color-brand-spark-soft: var(--brand-spark-soft);
+  --color-brand-base: var(--brand-base);
   
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -115,6 +118,11 @@
     --accent-text: #0757ff;
     --brand-electric: #0757ff;
     --brand-cyan: #6f79ff;
+    /* brand system — fonte única (light): base fria + teal spark */
+    --brand-base: #17224d;
+    --brand-spark: #0d9488;
+    --brand-spark-soft: #12b5a6;
+    --brand-spark-on: #04201d;
     --brand-electric-glow: rgba(7, 87, 255, 0.18);
     --brand-cyan-glow: rgba(111, 121, 255, 0.12);
     --surface-card: rgba(255, 255, 255, 0.52);
@@ -310,11 +318,15 @@
       --border: rgba(255, 255, 255, 0.1);
       --divider-strong: rgba(255, 255, 255, 0.14);
       --input: rgba(255, 255, 255, 0.12);
-      --primary: #6f79ff;
+      --primary: #3f63e6;
       --accent-text: #d7dcff;
-      --brand-electric: #6f79ff;
+      --brand-electric: #3f63e6;
       --brand-cyan: #ff8b2b;
-      --brand-electric-glow: rgba(111, 121, 255, 0.24);
+    --brand-base: #3f63e6;
+    --brand-spark: #19c9b6;
+    --brand-spark-soft: #3fe0cd;
+    --brand-spark-on: #04201d;
+      --brand-electric-glow: rgba(63, 99, 230, 0.24);
       --brand-cyan-glow: rgba(255, 139, 43, 0.16);
       --surface-card: rgba(255, 255, 255, 0.058);
       --surface-elevated: rgba(255, 255, 255, 0.038);
@@ -353,7 +365,8 @@
   }
 
   :root.dark,
-  :root[data-theme="dark"] {
+  :root[data-theme="dark"],
+  [data-theme="dark"] {
     color-scheme: dark;
     --nl-bg: #020c12;
     --nl-card: rgba(10, 22, 29, 0.56);
@@ -424,11 +437,15 @@
     --border: rgba(255, 255, 255, 0.1);
     --divider-strong: rgba(255, 255, 255, 0.14);
     --input: rgba(255, 255, 255, 0.12);
-    --primary: #6f79ff;
+    --primary: #3f63e6;
     --accent-text: #d7dcff;
-    --brand-electric: #6f79ff;
+    --brand-electric: #3f63e6;
     --brand-cyan: #ff8b2b;
-    --brand-electric-glow: rgba(111, 121, 255, 0.24);
+    --brand-base: #3f63e6;
+    --brand-spark: #19c9b6;
+    --brand-spark-soft: #3fe0cd;
+    --brand-spark-on: #04201d;
+    --brand-electric-glow: rgba(63, 99, 230, 0.24);
     --brand-cyan-glow: rgba(255, 139, 43, 0.16);
     --surface-card: rgba(255, 255, 255, 0.058);
     --surface-elevated: rgba(255, 255, 255, 0.038);
@@ -1118,3 +1135,462 @@
   transform-origin: center;
   transform-box: fill-box;
 }
+
+/* =========================================================================
+   Site chrome scroll motion
+   JS only maintains state classes on <html> (chrome-scrolled / chrome-past-fold
+   / chrome-scroll-down / chrome-scroll-up); everything below is CSS-owned.
+   Inspired by wolverineworldwide.com's header + footer-logo behaviour.
+   ========================================================================= */
+:root {
+  --chrome-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --chrome-dur: 0.5s;
+}
+
+/* --- Header: hide on scroll-down, reveal on scroll-up + condense to a pill ---
+   The shell is a transparent positioning container only — it carries no
+   background or divider line, so nothing shows through behind the pill while it
+   morphs. The single glass surface lives on .site-header__row (below), present
+   in BOTH states, so condensing is one continuous surface (no grey band). */
+.site-header {
+  transition: transform var(--chrome-dur) var(--chrome-ease);
+  will-change: transform;
+}
+
+/* Slide the whole bar away while actively scrolling down past the fold.
+   :focus-within keeps it in place if the user is tabbing through the nav. */
+html.chrome-past-fold.chrome-scroll-down .site-header:not(:focus-within) {
+  transform: translateY(-100%);
+}
+
+/* The header row is ONE glass container that morphs between states:
+   TOP (not scrolled): boxless bar. SCROLLED: a compact liquid-glass pill.
+   MENU OPEN: it grows — wider + taller — into a mega-panel, the bar staying at
+   the top and a tile grid revealed below it (Wolverine-style: a single surface
+   that expands, not a detached dropdown). */
+.site-header__row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1500px;
+  border-radius: var(--radius-pill);
+  transition:
+    max-width var(--chrome-dur) var(--chrome-ease),
+    border-radius var(--chrome-dur) var(--chrome-ease);
+}
+
+/* Horizontal bar (brand / search / nav / Join) — always the top row. */
+.site-header__bar {
+  gap: 16px;
+  padding: 10px 12px;
+  transition:
+    gap var(--chrome-dur) var(--chrome-ease),
+    padding var(--chrome-dur) var(--chrome-ease);
+}
+
+.site-header__brand {
+  font-size: 19px;
+  line-height: 1;
+  transition: font-size var(--chrome-dur) var(--chrome-ease);
+}
+html.chrome-scrolled .site-header__row:not([data-menu-open]) .site-header__brand {
+  font-size: 16px;
+}
+
+/* Liquid-glass surface on ::before so it fades in as one unit. Repo recipe,
+   theme-adaptive via --glass-* tokens; z-index:-1 keeps it behind the content. */
+.site-header__row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  border: 1px solid var(--glass-border);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--glass-highlight) 60%, transparent),
+      transparent 62%
+    ),
+    var(--glass-bg);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 color-mix(in srgb, var(--glass-highlight) 28%, transparent),
+    var(--glass-shadow);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  backdrop-filter: blur(30px) saturate(1.8);
+  opacity: 0;
+  transition: opacity var(--chrome-dur) var(--chrome-ease);
+  pointer-events: none;
+}
+html.chrome-scrolled .site-header__row::before,
+.site-header__row[data-menu-open]::before {
+  opacity: 1;
+}
+
+/* SCROLLED: compact pill (the bar padding shrinks). */
+html.chrome-scrolled .site-header__row {
+  max-width: 1040px;
+}
+html.chrome-scrolled .site-header__bar {
+  gap: 12px;
+  padding: 3px 5px 3px 14px;
+}
+
+/* MENU OPEN: grow into a wide, tall panel (beats the scrolled/home widths). */
+.site-header__row[data-menu-open],
+html.chrome-scrolled .site-header__row[data-menu-open],
+html.chrome-scrolled .site-header__row[data-home][data-menu-open] {
+  max-width: 1160px;
+  border-radius: var(--radius-2xl);
+}
+.site-header__row[data-menu-open] .site-header__bar {
+  gap: 16px;
+  padding: 10px 14px;
+}
+
+/* Search field height: comfortable at top, thin once condensed. */
+.site-header__row [data-header-search] :is(input) {
+  height: 44px;
+  transition: height var(--chrome-dur) var(--chrome-ease);
+}
+html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search] :is(input) {
+  height: 32px;
+}
+
+/* Nav links (Today / Correlation) */
+.site-header__navlink {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--content-secondary);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.site-header__navlink:hover {
+  color: var(--content-primary);
+  background-color: color-mix(in srgb, var(--content-primary) 7%, transparent);
+}
+.site-nav__trigger {
+  gap: 4px;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+.site-nav__chev {
+  transition: transform 0.25s var(--chrome-ease);
+}
+.site-nav__trigger[aria-expanded='true'] {
+  color: var(--content-primary);
+  background-color: color-mix(in srgb, var(--content-primary) 8%, transparent);
+}
+.site-nav__trigger[aria-expanded='true'] .site-nav__chev {
+  transform: rotate(180deg);
+}
+
+/* --- The expanding dropdowns area + tile grid --- */
+.site-header__dropdowns {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-height 0.42s var(--chrome-ease),
+    opacity 0.28s var(--chrome-ease);
+}
+.site-header__row[data-menu-open] .site-header__dropdowns {
+  max-height: 340px;
+  opacity: 1;
+}
+.site-header__dropgrid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 2px 12px 12px;
+}
+
+.site-header__tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 250px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  isolation: isolate;
+}
+/* media tile: gradient placeholder "photo" + dark bottom scrim + hover scale */
+.site-header__tile-media {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: var(--tile-grad, linear-gradient(150deg, #0f9e8e, #0a3a44));
+  transition: transform 0.5s var(--chrome-ease);
+}
+.site-header__tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.12) 46%, transparent 72%);
+}
+.site-header__tile:hover .site-header__tile-media {
+  transform: scale(1.05);
+}
+.site-header__tile-label {
+  font-family: var(--font-display, 'Sora', ui-sans-serif, sans-serif);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+/* text tile */
+.site-header__tile--text {
+  justify-content: space-between;
+  border: 1px solid var(--glass-border);
+  background-color: color-mix(in srgb, var(--content-primary) 5%, transparent);
+}
+.site-header__tile--text::after {
+  display: none;
+}
+.site-header__tile-eyebrow {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--brand-spark);
+}
+.site-header__tile-blurb {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--content-secondary);
+}
+.site-header__tile-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--content-primary);
+  border: 1px solid var(--glass-border);
+  background-color: color-mix(in srgb, var(--content-primary) 6%, transparent);
+  transition: gap 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.site-header__tile-view:hover {
+  gap: 12px;
+  color: var(--brand-spark);
+  border-color: color-mix(in srgb, var(--brand-spark) 45%, transparent);
+}
+
+/* Page backdrop while a menu is open (part of the fixed header, above the page). */
+.site-header__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(4, 6, 12, 0.42);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s var(--chrome-ease);
+}
+html.has-header-menu .site-header__backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header__dropdowns,
+  .site-nav__chev,
+  .site-header__backdrop {
+    transition: opacity 0.2s ease;
+  }
+}
+
+/* Join button — compact, shrinks a touch when condensed */
+.site-header__join {
+  height: 36px;
+  font-size: 13px;
+  transition: height var(--chrome-dur) var(--chrome-ease);
+}
+html.chrome-scrolled .site-header__join {
+  height: 30px;
+}
+
+/* Brand wordmark ↔ logo: full name at the top / when a menu is open, short "lb"
+   only when condensed to the pill. */
+.site-header__brand-short {
+  display: none;
+}
+html.chrome-scrolled .site-header__row:not([data-menu-open]) .site-header__brand-full {
+  display: none;
+}
+html.chrome-scrolled .site-header__row:not([data-menu-open]) .site-header__brand-short {
+  display: inline;
+}
+
+/* Homepage condensed pill = a tight, centred cluster: brand + a small in-flow
+   search + nav, hugged by the glass. The nav cluster's auto margin absorbs the
+   free space, so as the pill's max-width shrinks the whole thing gathers in
+   smoothly (no justify snap). */
+.site-header__row[data-home] .site-header__bar {
+  gap: 10px;
+}
+.site-header__cluster {
+  margin-left: auto;
+}
+html.chrome-scrolled .site-header__row[data-home] {
+  max-width: 418px;
+}
+/* Focus widens the pill so the field can grow AND the neighbours spread apart. */
+html.chrome-scrolled .site-header__row[data-home]:focus-within {
+  max-width: 600px;
+}
+
+/* In-flow homepage search: collapsed at the top (the big DockingSearch overlay
+   is showing), a small field once docked, expanding a touch on focus. */
+.site-header__pill-search {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    max-width 0.55s var(--chrome-ease),
+    opacity 0.35s ease;
+}
+.site-header__pill-search :is(input) {
+  height: 32px;
+  font-size: 13px;
+}
+html.chrome-scrolled .site-header__pill-search {
+  max-width: 150px;
+  opacity: 1;
+  pointer-events: auto;
+}
+html.chrome-scrolled .site-header__row[data-home]:focus-within .site-header__pill-search {
+  max-width: 280px;
+}
+
+/* =========================================================================
+   Homepage hero search — big & centred at the top; on scroll it lifts and
+   fades as the small in-flow pill search takes over.
+   ========================================================================= */
+.dock-search {
+  position: fixed;
+  z-index: 80;
+  left: 50%;
+  top: 42vh;
+  width: min(560px, 88vw);
+  transform: translate(-50%, -50%);
+  transition:
+    opacity 0.45s var(--chrome-ease),
+    transform 0.5s var(--chrome-ease);
+}
+.dock-search__field {
+  width: 100%;
+}
+.dock-search__field :is(input) {
+  height: 54px;
+  font-size: 16px;
+}
+/* eyebrow + CTA are absolutely anchored to the field so fading them never
+   shifts the field's position. */
+.dock-search__eyebrow {
+  position: absolute;
+  bottom: calc(100% + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--brand-spark);
+  transition: opacity 0.4s ease;
+}
+.dock-search__cta {
+  position: absolute;
+  top: calc(100% + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--content-primary);
+  border: 1px solid var(--glass-border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--glass-highlight) 55%, transparent), transparent 60%),
+    var(--glass-bg);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  backdrop-filter: blur(22px) saturate(1.8);
+  transition:
+    opacity 0.4s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.dock-search__cta:hover {
+  color: var(--brand-spark);
+  border-color: color-mix(in srgb, var(--brand-spark) 45%, transparent);
+}
+
+/* On scroll: lift + fade the whole hero search away; the in-flow pill takes over. */
+html.chrome-scrolled .dock-search {
+  opacity: 0;
+  transform: translate(-50%, -80px) scale(0.96);
+  pointer-events: none;
+}
+
+/* --- Generic scroll reveal (footer logo, etc.) --- */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0) scale(0.96);
+  transition:
+    opacity 0.9s var(--chrome-ease),
+    transform 0.9s var(--chrome-ease);
+  will-change: opacity, transform;
+}
+[data-reveal].is-inview {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header,
+  .site-header__row {
+    transition: none;
+  }
+  html.chrome-scroll-down .site-header:not(:focus-within) {
+    transform: none;
+  }
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+
+
+
+
+
+
+
+
