@@ -10,7 +10,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "rm -rf /tmp/spy-signal-site-tests && tsc --module commonjs --target ES2022 --moduleResolution node --outDir /tmp/spy-signal-site-tests --esModuleInterop --skipLibCheck --types node tests/scorecard-types.test.ts tests/ticker-readiness.test.ts tests/ticker-search.test.ts tests/ticker-index-route.test.ts tests/ticker-autocomplete-architecture.test.ts tests/ticker-page-scorecard.test.ts tests/ohlc-data.test.ts app/api/tickers/index/route.ts lib/backend.ts lib/ticker-index-proxy.ts lib/scorecard-types.ts lib/ticker-readiness.ts lib/ticker-search.ts lib/ticker-page-scorecard.ts lib/ohlc-data.ts && mkdir -p /tmp/spy-signal-site-tests/node_modules/server-only && printf '' > /tmp/spy-signal-site-tests/node_modules/server-only/index.js && node --test /tmp/spy-signal-site-tests/tests/*.test.js"
+    "test": "rm -rf /tmp/spy-signal-site-tests && tsc --module commonjs --target ES2022 --moduleResolution node --outDir /tmp/spy-signal-site-tests --esModuleInterop --skipLibCheck --types node tests/scorecard-types.test.ts tests/ticker-readiness.test.ts tests/ticker-search.test.ts tests/ticker-index-route.test.ts tests/ticker-autocomplete-architecture.test.ts tests/ticker-page-scorecard.test.ts tests/ohlc-data.test.ts app/api/tickers/index/route.ts lib/backend.ts lib/ticker-index-proxy.ts lib/scorecard-types.ts lib/ticker-readiness.ts lib/ticker-search.ts lib/ticker-page-scorecard.ts lib/ohlc-data.ts && mkdir -p /tmp/spy-signal-site-tests/node_modules/server-only && printf '' > /tmp/spy-signal-site-tests/node_modules/server-only/index.js && node --test /tmp/spy-signal-site-tests/tests/*.test.js",
+    "test:e2e": "playwright test",
+    "test:e2e:screenshots": "PLAYWRIGHT_CAPTURE=1 playwright test"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.11",
@@ -35,6 +37,7 @@
     "yahoo-finance2": "^2.14.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
