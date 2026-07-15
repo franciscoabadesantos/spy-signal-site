@@ -1,0 +1,42 @@
+# Available Frontend-Backend Integrations
+
+Code is authoritative. This inventory records observed local routes and server helpers; verify the referenced implementation before changing a contract. Browser code should call local `/api/*` routes, while server helpers use `finance-backend` through `lib/backend.ts`.
+
+Any pull request that creates, removes, or changes a route or its observable contract must update this inventory in the same diff. Unknown or unconfirmed behavior stays explicitly marked as such.
+
+## Local route handlers
+
+| Method and route | Purpose / consumer | Auth | Confirmed contract and errors | Relevant files |
+| --- | --- | --- | --- | --- |
+| `GET /api/tickers/index` | Sole runtime source for ticker autocomplete | Public browser route; shared secret and optional CF Access upstream | `TickerIndexPayload`; ETag/304; 502/503 error codes for backend configuration/access/availability | `app/api/tickers/index/route.ts`, `lib/ticker-search.ts`, `components/search/TickerSearchCombobox.tsx` |
+| `POST /api/tickers/request` | Request ticker onboarding | Public; server authenticates upstream | Body `{ticker, region, exchange?}`; region `us|eu|apac`; backend failures may intentionally return 202 with status. Success shape is not fully confirmed here | `app/api/tickers/request/route.ts`, `lib/ticker-onboarding.ts` |
+| `GET /api/tickers/status` | Poll onboarding status | Public; server authenticates upstream | Query `ticker`, `region`, `exchange?`; input 400; backend failures can return 200 status objects. Normal success beyond `status` is unknown | `app/api/tickers/status/route.ts`, `lib/ticker-onboarding.ts` |
+| `POST`, `DELETE /api/watchlist` | Add/remove a ticker | Clerk user | Body `{ticker}`; success `{ok:true,ticker}`; 400/401/500/502 `{error}` | `app/api/watchlist/route.ts`, `components/WatchlistButton.tsx`, `lib/watchlist.ts` |
+| `GET /api/export-signals?ticker=` | Download signal history CSV | Clerk user plus Pro plan | CSV success; 400/401/403/404/502 JSON error, 403 may include `upgradeUrl` | `app/api/export-signals/route.ts`, `lib/signals.ts`, `lib/types.ts` |
+| `POST /api/models/validate` | Validate a single-stock model against history | No handler auth confirmed | Input based on `ModelDraftInput`; success `{model: ModelRecord}`; 400/422/500 `{error}` | `app/api/models/validate/route.ts`, `lib/model-builder.ts`, `lib/model-store-client.ts` |
+| `POST /api/ai-analyst` | Stream Perplexity analysis | Public request; optional Clerk user for run persistence; server API key | Ticker/signal/news/question input; SSE stream plus `run_id`; 400/502/503 JSON before streaming. Perplexity request has no explicit local timeout | `app/api/ai-analyst/route.ts`, `components/AiAnalystPanel.tsx`, `lib/ai-research.ts` |
+| `POST /api/ai-analyst/feedback` | Save research feedback | Clerk user | `{ticker, category, note?, runId?}`; `{ok:true}` or 400/401/500 `{error}` | `app/api/ai-analyst/feedback/route.ts`, `lib/ai-research.ts` |
+| `POST /api/analytics/event` | Forward product analytics | Public; backend service auth | Input normalized in route; 400 invalid JSON. Missing backend and upstream failures intentionally fail open as 204 | `app/api/analytics/event/route.ts`, `lib/analytics.ts` |
+| `GET /api/market/refresh` | Read/aggregate market data for requested tickers | Bearer token only when `MARKET_REFRESH_TOKEN` is configured | Query `tickers`, `periodDays`; 401 or `{ok,tickers,periodDays,refreshedAt,results}`. Current helper does not call a distinct backend refresh route | `app/api/market/refresh/route.ts`, `lib/finance.ts` |
+| `GET /api/cron/check-signals` | Detect flips and send alert email | Bearer cron token when configured, falling back to refresh token | Query `date`, `dryRun=1`; response variants are defined in route, not a shared type | `app/api/cron/check-signals/route.ts`, `lib/alerts.ts`, `lib/watchlist.ts` |
+| `POST /api/webhooks/stripe` | Activate Pro metadata after checkout | Stripe HMAC signature and timestamp tolerance | Handles `checkout.session.completed`; 400/500 `{error}`; success `{received,eventId}` | `app/api/webhooks/stripe/route.ts`, `lib/billing.ts` |
+
+## Server-side backend paths
+
+`lib/backend.ts` applies a default 9-second timeout, no-store by default, `x-backend-shared-secret`, and optional Cloudflare Access headers. The following paths are present in current helpers:
+
+| Area | Observed paths | Types/consumers |
+| --- | --- | --- |
+| Tickers | `GET /tickers/index`, `/tickers/:ticker/summary`, `/profile`, `/scorecard`, `/history`, `/ohlc` | `lib/ticker-search.ts`, `ticker-data.ts`, `finance.ts`, `scorecard.ts`, `ohlc-data.ts` |
+| Signals | `GET /signals/history/:ticker`, `/signals/last-flips`, `/signals/flips`, `/screener/signals` | `lib/signals.ts`, `lib/types.ts` |
+| Market network | `GET /network`, `GET /relationships/:ticker` | `lib/network.ts`, `lib/relationships.ts`; network may use a local fixture for selected failures |
+| Watchlists | `GET/POST/DELETE /site/watchlist`, plus `/all-tickers` and `/subscriptions` | `lib/watchlist.ts`, dashboard/server views |
+| AI research | `POST/GET /site/ai-research/runs`, `GET/PATCH /runs/:id`, `POST /feedback` | `lib/ai-research.ts` |
+| Alerts | `POST /site/alerts/reserve`, `/record` | `lib/alerts.ts` |
+| Analytics | `POST /site/analytics/events` | local analytics route |
+
+## Contract status
+
+Contracts are handwritten TypeScript plus tolerant normalizers; there is no OpenAPI document, shared runtime schema, or generated client in this repository. Several upstream payloads enter as `unknown` and are normalized, while some are asserted directly. The request/status success payloads and some cron result variants are not fully specified here.
+
+OpenAPI or generated types would be useful after `finance-backend` publishes a stable canonical schema and ownership/versioning are agreed. Adding generation now would create a second, potentially divergent source of truth. Prefer focused contract tests around existing high-risk routes in the meantime.
