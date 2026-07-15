@@ -22,11 +22,12 @@ Do not create every role by default. A role should answer a distinct question th
 
 ## Context and ownership
 
-- Give each agent: objective, non-goals, constraints, exact paths/symbols, expected output, and token/length limit.
-- Repo Architect reads `app/`, relevant shells, types, and configuration. Design reads the target view, `app/globals.css`, primitives, and `docs/design`. API Contract reads the consumer, route/helper, types, `DATA_SOURCE_POLICY.md`, and `docs/api`. QA reads the brief, diff, and `docs/qa`.
+- Give each agent only: objective, constraints/non-goals, exact paths/symbols, expected output, and response limit. Do not send the full conversation, raw exploration, or extensive reports.
+- Repo Explorer reads the supplied architecture paths. Design reads the target view, `app/globals.css`, primitives, and `docs/design`. API Contract reads the consumer, route/helper, types, `DATA_SOURCE_POLICY.md`, and `docs/api`. QA reads the brief, diff, and `docs/qa`.
 - Declare file ownership before edits. One implementation agent owns a target area; no other agent edits it until handoff is accepted.
 - Research and review agents are read-only unless Main explicitly transfers ownership after the previous editor stops.
 - Deliver results with `handoff-template.md`. Link evidence; do not paste large source files, logs, screenshots, or the original request.
+- Main stops an agent as soon as its question overlaps another agent's completed or active work. Use the persistent role defaults in `roles.md`; do not substitute Sol for routine execution or QA.
 
 ## Value check
 

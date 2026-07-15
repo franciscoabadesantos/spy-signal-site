@@ -2,6 +2,10 @@
 
 No optional context tool is required for this repository today. Prefer built-in shell search, repository docs, Playwright, and narrowly scoped agents until a recurring bottleneck is measured.
 
+## Codex roles
+
+The persistent role configuration is local and versioned in `docs/agents/codex/`; it adds no MCP server, connector, dependency, browser binary, or network permission. Roles inherit the parent tool surface. Read-only role files set a read-only sandbox default, but Main must keep the parent session compatible because a live parent sandbox override can be inherited by spawned agents. See `setup.md` for installation and `roles.md` for when to use each role.
+
 | Option | Purpose and expected benefit | Complexity / risk | Data it may store | Recommendation |
 | --- | --- | --- | --- | --- |
 | RTK | Compress or structure terminal/repository context | Extra wrapper and operational convention; compression can omit decisive errors | Command inputs/outputs or summaries, depending on setup | Evaluate only after measuring repeated large-output cost; never treat savings as guaranteed |

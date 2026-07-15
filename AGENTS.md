@@ -45,9 +45,11 @@ This version has breaking changes; APIs, conventions, and file structure may dif
 
 ## Agents and context
 
+- Persistent Codex role definitions are versioned in `docs/agents/codex/`. Install them as `.codex/` in a trusted clone as described in `docs/agents/setup.md`; do not change user-global Codex configuration for this repository.
 - Small changes: Main inspects, implements, validates, and reports.
 - Meaningful visual work: Main coordinates a read-only design/research pass, one implementation editor, and read-only browser QA. Main integrates fixes.
 - Complex pages: create only the roles justified by risk from `docs/agents/roles.md`; do not instantiate the full roster by default.
+- Main is the Product Lead and chooses roles. A task brief contains only the objective, constraints, exact paths, expected output, and response limit. Stop agents that duplicate work; never send the full conversation or long transcripts.
 - One agent owns edits to a file area at a time. Other agents receive task goal, constraints, exact files to inspect, and a compact output schema. Handoffs follow `docs/agents/handoff-template.md` and should report decisions, evidence, blockers, and next action without replaying the prompt.
 - A subagent adds value only if it finds evidence, reduces uncertainty, performs independent validation, or shortens the critical path. Stop it when its work duplicates Main.
 - Prefer `rg --files`, targeted `rg`, small excerpts, and `git diff --stat` before a full diff. Reuse prior findings, keep command output bounded, and pass summaries rather than raw transcripts.

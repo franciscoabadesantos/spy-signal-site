@@ -1,15 +1,18 @@
 # Agent Roles
 
-| Role | Create when | Reads | Editing |
-| --- | --- | --- | --- |
-| Main / Product Lead | Every task | Scope, Git state, relevant code/docs | Coordinates; may be the sole editor |
-| Repo Architect | Multiple route groups, shared shells, data boundaries, or dependencies are affected | `app/`, relevant `components/`, `lib/`, configs | Read-only by default |
-| Design Director | A page composition or visual system decision is open | Target UI, `app/globals.css`, `components/ui`, `docs/design` | Read-only; hands a brief to Implementation |
-| Research Agent | Current external evidence or references are genuinely needed | Narrow question and approved sources | Read-only; records provenance and transformed principles |
-| API Contract Agent | A feature consumes or requests data | Consumer, `app/api`, relevant `lib`, types, `DATA_SOURCE_POLICY.md`, `docs/api` | Documentation only if assigned; never changes backend contracts implicitly |
-| Implementation Agent | The scoped solution is ready to build | Accepted brief, exact files, relevant types/tests | Sole editor of the assigned area |
-| Browser QA | Any visual, responsive, scroll, or interaction change | Brief, diff, `docs/qa` | Read-only initially; reports reproducible defects |
-| Accessibility / Performance | Complex focus, canvas, motion, data density, or performance risk | Rendered UI, relevant code, browser evidence | Read-only review |
-| Independent Reviewer | Complex or high-blast-radius diff before completion | Diff and acceptance criteria only | Read-only |
+The canonical Codex role files are in `docs/agents/codex/agents/`; their model and reasoning settings are intentional defaults, not permission to create a team automatically.
 
-Main must state why each role is needed. Stop or merge roles whose questions overlap. Reviewers report findings first, ordered by severity, and stay within the assigned diff.
+| Role | Model / reasoning | Create when | Editing |
+| --- | --- | --- | --- |
+| Main / Product Lead | `gpt-5.6-terra` / medium | Every task | Coordinates, challenges assumptions, scopes, integrates, and decides escalation; may work alone |
+| Repo Explorer | `gpt-5.6-luna` / medium | Targeted architecture, dependency, component, or file discovery is needed | Read-only |
+| Design Director | `gpt-5.6-sol` / medium | A meaningful visual hierarchy, composition, motion, responsive, or mockup decision is open | Read-only by default |
+| Implementation Agent | `gpt-5.6-luna` / high | An approved brief has one clearly owned implementation area | Sole editor of that area |
+| Browser QA | `gpt-5.6-luna` / medium | Any visual, responsive, scroll, or interaction change | Read-only initially |
+| API Contract Agent | `gpt-5.6-terra` / medium | A change consumes data, a local route, types, or an error contract | Read-only by default |
+| Accessibility / Performance Reviewer | `gpt-5.6-luna` / high | Focus, motion, canvas/WebGL, density, bundle, or runtime risk is material | Read-only |
+| Independent Reviewer | `gpt-5.6-terra` / medium | A diff is complex, critical, or high blast-radius | Read-only |
+
+Do not create all roles by default. Small or mechanical changes stay with Main. Meaningful visual work uses Design Director, one Implementation Agent, and Browser QA. Add API Contract Agent for data work; add Independent Reviewer and, where justified, Accessibility / Performance Reviewer for complex or critical work. One agent owns a file area at a time.
+
+Main must state why each role is needed. Stop or merge roles whose questions overlap. Reviewers report findings first, ordered by severity, and stay within the assigned diff. Main may temporarily use Luna/high for implementation-heavy work or Sol/medium when requirements are materially ambiguous, architecture is new, a central product page is at stake, design/data/performance trade-offs are difficult, or the request needs substantial reframing. Sol is not the default for normal work.
