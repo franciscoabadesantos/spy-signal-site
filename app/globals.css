@@ -1170,6 +1170,7 @@ html.chrome-past-fold.chrome-scroll-down .site-header:not(:focus-within) {
    that expands, not a detached dropdown). */
 .site-header__row {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   margin-inline: auto;
@@ -1320,6 +1321,8 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search
   justify-content: flex-end;
   min-height: 250px;
   padding: 16px;
+  border: 1px solid var(--menu-tile-border, transparent);
+  background: var(--menu-tile-bg, transparent);
   border-radius: var(--radius-lg);
   overflow: hidden;
   isolation: isolate;
@@ -1330,6 +1333,7 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search
   inset: 0;
   z-index: -2;
   background: var(--tile-grad, linear-gradient(150deg, #0f9e8e, #0a3a44));
+  opacity: var(--menu-media-opacity, 1);
   transition: transform 0.5s var(--chrome-ease);
 }
 .site-header__tile::after {
@@ -1337,7 +1341,7 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.12) 46%, transparent 72%);
+  background: var(--menu-tile-scrim, linear-gradient(to top, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.12) 46%, transparent 72%));
 }
 .site-header__tile:hover .site-header__tile-media {
   transform: scale(1.05);
@@ -1347,7 +1351,7 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search
   font-weight: 800;
   font-size: 26px;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--menu-tile-label, #fff);
 }
 /* text tile */
 .site-header__tile--text {
@@ -1396,8 +1400,8 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search
 .site-header__backdrop {
   position: fixed;
   inset: 0;
-  z-index: -1;
-  background: rgba(4, 6, 12, 0.42);
+  z-index: 0;
+  background: var(--menu-backdrop, rgba(4, 6, 12, 0.42));
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
   opacity: 0;
@@ -1485,16 +1489,190 @@ html.chrome-scrolled .site-header__row[data-home]:focus-within .site-header__pil
    Homepage hero search — big & centred at the top; on scroll it lifts and
    fades as the small in-flow pill search takes over.
    ========================================================================= */
+main.marketing-home {
+  color-scheme: light;
+  --page-bg: #f3efe6;
+  --background: var(--page-bg);
+  --foreground: #142943;
+  --content-primary: #142943;
+  --content-secondary: #53657b;
+  --content-muted: #7c8994;
+  --muted: #ebe6dc;
+  --muted-foreground: #6b7888;
+  --border: rgba(20, 41, 67, 0.14);
+  --divider-strong: rgba(20, 41, 67, 0.2);
+  --input: rgba(20, 41, 67, 0.18);
+  --primary: #0b8178;
+  --accent-text: #075f59;
+  --brand-base: #14345a;
+  --brand-spark: #0b8178;
+  --brand-spark-soft: #1ba69a;
+  --brand-spark-on: #ffffff;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(20, 41, 67, 0.13);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 16px 56px rgba(25, 40, 53, 0.1);
+  --surface-card: rgba(255, 255, 255, 0.72);
+  --surface-elevated: rgba(255, 255, 255, 0.58);
+  --surface-hover: rgba(20, 41, 67, 0.06);
+  --card: var(--surface-card);
+  --card-foreground: var(--content-primary);
+  --menu-backdrop: rgba(20, 41, 67, 0.12);
+  --menu-tile-bg: rgba(255, 255, 255, 0.68);
+  --menu-tile-border: rgba(20, 41, 67, 0.13);
+  --menu-tile-scrim: linear-gradient(to top, rgba(20, 41, 67, 0.16), rgba(255, 255, 255, 0.02) 55%, transparent 78%);
+  --menu-tile-label: #142943;
+  --menu-media-opacity: 0.86;
+  background-color: var(--page-bg);
+}
+
+main.marketing-home[data-theme="dark"],
+html[data-theme="dark"] main.marketing-home {
+  color-scheme: dark;
+  --page-bg: #00040a;
+  --background: var(--page-bg);
+  --foreground: #eef3ff;
+  --content-primary: #eef3ff;
+  --content-secondary: #c1c9df;
+  --content-muted: #8d99b6;
+  --muted: #0b111d;
+  --muted-foreground: #8d99b6;
+  --border: rgba(255, 255, 255, 0.1);
+  --divider-strong: rgba(255, 255, 255, 0.14);
+  --input: rgba(255, 255, 255, 0.12);
+  --primary: #3f63e6;
+  --accent-text: #d7dcff;
+  --brand-base: #3f63e6;
+  --brand-spark: #19c9b6;
+  --brand-spark-soft: #3fe0cd;
+  --brand-spark-on: #04201d;
+  --glass-bg: rgba(22, 28, 41, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.16);
+  --glass-shadow: 0 18px 70px rgba(0, 0, 0, 0.34);
+  --surface-card: rgba(255, 255, 255, 0.058);
+  --surface-elevated: rgba(255, 255, 255, 0.038);
+  --surface-hover: rgba(255, 255, 255, 0.09);
+  --card: var(--surface-card);
+  --card-foreground: var(--content-primary);
+  --menu-backdrop: rgba(4, 6, 12, 0.42);
+  --menu-tile-bg: transparent;
+  --menu-tile-border: rgba(255, 255, 255, 0.1);
+  --menu-tile-scrim: linear-gradient(to top, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.12) 46%, transparent 72%);
+  --menu-tile-label: #fff;
+  --menu-media-opacity: 1;
+}
+
+.marketing-home .site-header__brand {
+  color: var(--content-primary);
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--page-bg) 70%, transparent);
+}
+
+.marketing-home .site-header__dropdowns {
+  background: color-mix(in srgb, var(--page-bg) 88%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--content-primary) 8%, transparent);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+.marketing-home .site-header__dropgrid {
+  gap: 10px;
+  padding: 12px;
+}
+.marketing-home .site-header__tile {
+  min-height: 190px;
+  border-radius: 16px;
+}
+.marketing-home .site-header__tile--text {
+  background-color: var(--menu-tile-bg);
+}
+.marketing-home .site-header__tile-media {
+  transition: transform 0.35s var(--chrome-ease), opacity 0.25s ease;
+}
+.marketing-home:not([data-theme="dark"]) .site-header__tile-media {
+  background: var(--tile-grad-light, var(--tile-grad));
+}
+html[data-theme="light"] .marketing-home .site-header__tile-media {
+  background: var(--tile-grad-light, var(--tile-grad));
+}
+html[data-theme="dark"] .marketing-home .site-header__tile-media,
+.marketing-home[data-theme="dark"] .site-header__tile-media {
+  background: var(--tile-grad);
+}
+.marketing-home .site-header__tile-label {
+  font-size: clamp(21px, 2.1vw, 28px);
+}
+.marketing-home .site-header__backdrop {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.marketing-home .ticker-search__panel {
+  border-color: rgba(20, 41, 67, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 20px 48px rgba(20, 41, 67, 0.12);
+}
+.marketing-home[data-theme="dark"] .ticker-search__panel,
+html[data-theme="dark"] .marketing-home .ticker-search__panel {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(10, 18, 32, 0.92);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+}
+
+@media (max-width: 1024px) {
+  .marketing-home .site-header__dropgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .marketing-home .site-header__row[data-menu-open] .site-header__dropdowns {
+    max-height: 520px;
+  }
+  .marketing-home .site-header__tile {
+    min-height: 170px;
+  }
+}
+
+@media (max-width: 767px) {
+  .marketing-home .site-header__dropdowns {
+    display: none;
+  }
+}
+
 .dock-search {
   position: fixed;
   z-index: 80;
   left: 50%;
   top: 42vh;
-  width: min(560px, 88vw);
+  width: min(700px, calc(100vw - 48px));
   transform: translate(-50%, -50%);
   transition:
     opacity 0.45s var(--chrome-ease),
     transform 0.5s var(--chrome-ease);
+}
+.dock-search__intro {
+  margin: 0 auto 24px;
+  text-align: center;
+}
+.dock-search__kicker {
+  margin: 0;
+  color: var(--brand-spark);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  line-height: 1.4;
+}
+.dock-search__title {
+  margin: 10px 0 0;
+  color: var(--content-primary);
+  font-family: var(--font-display, ui-sans-serif, sans-serif);
+  font-size: clamp(2.2rem, 5vw, 4.1rem);
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+.dock-search__description {
+  margin: 12px auto 0;
+  color: var(--content-secondary);
+  font-size: 15px;
+  line-height: 1.5;
 }
 .dock-search__field {
   width: 100%;
@@ -1502,52 +1680,52 @@ html.chrome-scrolled .site-header__row[data-home]:focus-within .site-header__pil
 .dock-search__field :is(input) {
   height: 54px;
   font-size: 16px;
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--content-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--page-bg) 68%, white);
+  box-shadow: 0 14px 32px rgba(25, 40, 53, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
-/* eyebrow + CTA are absolutely anchored to the field so fading them never
-   shifts the field's position. */
-.dock-search__eyebrow {
-  position: absolute;
-  bottom: calc(100% + 18px);
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--brand-spark);
-  transition: opacity 0.4s ease;
+.dock-search__field :is(input):hover {
+  border-color: color-mix(in srgb, var(--content-primary) 28%, transparent);
+}
+.dock-search__field :is(input):focus-visible {
+  border-color: var(--brand-spark);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-spark) 18%, transparent), 0 14px 32px rgba(25, 40, 53, 0.08);
+}
+.marketing-home[data-theme="dark"] .dock-search__field :is(input),
+html[data-theme="dark"] .marketing-home .dock-search__field :is(input) {
+  background: rgba(22, 28, 41, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 45px rgba(0, 0, 0, 0.22);
+}
+.dock-search__support {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
 }
 .dock-search__cta {
-  position: absolute;
-  top: calc(100% + 18px);
-  left: 50%;
-  transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 44px;
-  padding: 0 20px;
-  border-radius: var(--radius-pill);
+  padding: 4px 0;
   white-space: nowrap;
   font-size: 14px;
   font-weight: 600;
   color: var(--content-primary);
-  border: 1px solid var(--glass-border);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--glass-highlight) 55%, transparent), transparent 60%),
-    var(--glass-bg);
-  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
-  -webkit-backdrop-filter: blur(22px) saturate(1.8);
-  backdrop-filter: blur(22px) saturate(1.8);
   transition:
-    opacity 0.4s ease,
+    gap 0.15s ease,
     color 0.15s ease,
     border-color 0.15s ease;
 }
 .dock-search__cta:hover {
+  gap: 12px;
   color: var(--brand-spark);
-  border-color: color-mix(in srgb, var(--brand-spark) 45%, transparent);
+}
+.dock-search__helper {
+  color: var(--content-muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 /* On scroll: lift + fade the whole hero search away; the in-flow pill takes over. */
@@ -1555,6 +1733,52 @@ html.chrome-scrolled .dock-search {
   opacity: 0;
   transform: translate(-50%, -80px) scale(0.96);
   pointer-events: none;
+}
+
+@media (max-width: 1024px) {
+  .dock-search {
+    width: min(680px, calc(100vw - 48px));
+  }
+}
+
+@media (max-width: 767px) {
+  .marketing-home .site-header__inner > .mt-3 {
+    display: none;
+  }
+  .dock-search {
+    position: absolute;
+    top: clamp(210px, 44vh, 370px);
+    width: calc(100vw - 32px);
+    transition: none;
+  }
+  .dock-search__intro {
+    margin-bottom: 20px;
+  }
+  .dock-search__title {
+    font-size: clamp(2rem, 10vw, 2.8rem);
+  }
+  .dock-search__description {
+    font-size: 14px;
+  }
+  .dock-search__support {
+    align-items: center;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 389px) {
+  .dock-search__kicker {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+  .dock-search__description {
+    max-width: 28ch;
+  }
+  .dock-search__field :is(input) {
+    height: 52px;
+  }
 }
 
 /* --- Generic scroll reveal (footer logo, etc.) --- */
@@ -1584,13 +1808,24 @@ html.chrome-scrolled .dock-search {
     transform: none;
     transition: none;
   }
+
+  /* Keep the static story readable: the hero search must join document flow
+     when the pinned/animated constellation is disabled. */
+  main.marketing-home .dock-search {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: min(700px, calc(100vw - 32px));
+    margin: 0 auto;
+    padding-top: clamp(150px, 24vh, 220px);
+    padding-bottom: 48px;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+    transition: none;
+  }
+
+  html.chrome-scrolled main.marketing-home .dock-search {
+    transform: none;
+  }
 }
-
-
-
-
-
-
-
-
-

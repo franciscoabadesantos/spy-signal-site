@@ -70,14 +70,14 @@ function Sections() {
 export default function MarketingHomePage() {
   return (
     <main
-      data-theme="dark"
+      data-theme="light"
       style={{
         ['--font-display' as never]: sora.style.fontFamily,
         ['--font-body' as never]: inter.style.fontFamily,
         ['--font-mono' as never]: mono.style.fontFamily,
         fontFamily: 'var(--font-body)',
       }}
-      className="min-h-screen bg-[#04060c] text-content-primary"
+      className="marketing-home relative min-h-screen bg-[var(--page-bg)] text-content-primary"
     >
       <MarketingHeader activeHref="/" />
       <DockingSearch />

@@ -10,17 +10,36 @@ const sora = Sora({ subsets: ['latin'], weight: ['400', '600', '700', '800'], di
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 const mono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], display: 'swap' })
 
+type HcNode = {
+  bx: number; by: number; bz: number; r: number; label: string | null; signal: boolean
+  rgb: [number, number, number]
+  A1: number; A2: number; A3: number; S1: number; S2: number; S3: number
+  P1: number; P2: number; P3: number; ph: number; sx: number; sy: number; sc: number
+  da: number; hover: number; clar: number
+}
+type HcPulse = { a: number; b: number; t: number; sp: number }
+
 const CSS = `
 .hc-root{
   --font-display:"Sora",system-ui,sans-serif;--font-body:"Inter",system-ui,sans-serif;--font-mono:"JetBrains Mono",ui-monospace,monospace;
+  --bg:#f3efe6;--text:#142943;--text-2:#5b6978;--text-3:#87929b;
+  --spark:#0b8178;--spark-2:#1ba69a;--green:#1d7f52;--red:#bd514d;
+  --glass:rgba(255,255,255,.66);--glass-border:rgba(20,41,67,.16);--hairline:rgba(20,41,67,.12);
+  --focus-bg:#142943;--focus-text:#f6f2e9;--focus-muted:#b8c5d0;--focus-border:rgba(246,242,233,.18);--focus-stat:rgba(246,242,233,.08);--focus-shadow:0 28px 80px rgba(20,41,67,.28);
+  position:relative;background:var(--bg);color:var(--text);font-family:var(--font-body);
+}
+.hc-root[data-theme="dark"],[data-theme="dark"] .hc-root{
   --bg:#04060c;--text:#eaf0ff;--text-2:#9fb0d0;--text-3:#61708f;
   --spark:#19c9b6;--spark-2:#3fe0cd;--green:#34d399;--red:#fb7185;
   --glass:rgba(255,255,255,.05);--glass-border:rgba(255,255,255,.14);--hairline:rgba(255,255,255,.10);
-  position:relative;background:var(--bg);color:var(--text);font-family:var(--font-body);
+  --focus-bg:rgba(10,14,22,.94);--focus-text:#eef3ff;--focus-muted:#9fb0d0;--focus-border:rgba(255,255,255,.14);--focus-stat:rgba(255,255,255,.04);--focus-shadow:0 40px 100px -30px #000;
 }
 .hc-root *{box-sizing:border-box}
-.hc-root #hc-bg{position:fixed;inset:0;z-index:0;display:block}
+.hc-root #hc-bg{position:fixed;inset:0;z-index:0;display:block;background:var(--bg)}
 .hc-root .hc-veil{position:fixed;inset:0;z-index:1;pointer-events:none;background:
+  linear-gradient(90deg,rgba(243,239,230,.76),rgba(243,239,230,.34) 34%,rgba(243,239,230,.08) 60%,transparent 80%),
+  radial-gradient(120% 90% at 50% 50%,transparent 55%,rgba(243,239,230,.24))}
+.hc-root[data-theme="dark"] .hc-veil,[data-theme="dark"] .hc-root .hc-veil{background:
   linear-gradient(90deg,rgba(4,6,12,.93),rgba(4,6,12,.58) 34%,rgba(4,6,12,.16) 60%,transparent 80%),
   radial-gradient(120% 90% at 50% 50%,transparent 55%,rgba(4,6,12,.55))}
 .hc-root .hc-progress{position:fixed;left:0;top:0;height:2px;width:0;background:linear-gradient(90deg,var(--spark),var(--spark-2));z-index:60;box-shadow:0 0 12px var(--spark)}
@@ -29,36 +48,46 @@ const CSS = `
 .hc-root .hc-in{max-width:1080px;width:100%;margin:0 auto}
 .hc-root .hc-in a,.hc-root .hc-in button{pointer-events:auto}
 .hc-root .hc-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--spark)}
-.hc-root .hc-h1{font-family:var(--font-display);font-weight:800;font-size:clamp(40px,7.4vw,92px);line-height:.95;letter-spacing:-.04em;margin:14px 0 12px;text-shadow:0 4px 40px rgba(4,6,12,.7)}
+.hc-root .hc-h1{font-family:var(--font-display);font-weight:800;font-size:clamp(40px,7.4vw,92px);line-height:.95;letter-spacing:-.04em;margin:14px 0 12px;text-shadow:0 4px 40px rgba(20,41,67,.16)}
 .hc-root .hc-h1 em{font-style:normal;color:var(--spark)}
 .hc-root .hc-sub{color:var(--text-2);font-size:clamp(16px,1.8vw,20px);max-width:44ch;line-height:1.5;margin:0}
 .hc-root .hc-card{display:flex;align-items:center;gap:16px;width:fit-content;margin-top:26px;padding:14px 18px;border-radius:18px;background:var(--glass);border:1px solid var(--glass-border);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 24px 60px -24px #000;backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5)}
 .hc-root .hc-badge{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:12px;padding:6px 11px;border-radius:999px;color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent);border:1px solid color-mix(in srgb,var(--green) 40%,transparent)}
 .hc-root .hc-badge .d{width:7px;height:7px;border-radius:99px;background:currentColor;box-shadow:0 0 10px currentColor}
 .hc-root .hc-card .v{font-family:var(--font-display);font-weight:700;font-size:20px}
-.hc-root .hc-h2{font-family:var(--font-display);font-weight:700;font-size:clamp(28px,4.6vw,54px);line-height:1.0;letter-spacing:-.03em;margin:10px 0 14px;text-shadow:0 4px 40px rgba(4,6,12,.7)}
+.hc-root .hc-h2{font-family:var(--font-display);font-weight:700;font-size:clamp(28px,4.6vw,54px);line-height:1.0;letter-spacing:-.03em;margin:10px 0 14px;text-shadow:0 4px 40px rgba(20,41,67,.16)}
 .hc-root .hc-body{color:var(--text-2);font-size:17px;line-height:1.6;max-width:52ch}
 .hc-root .hc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:26px;max-width:620px}
 @media(max-width:820px){.hc-root .hc-grid{grid-template-columns:1fr}}
-.hc-root .hc-panel{background:rgba(8,11,19,.62);border:1px solid var(--hairline);border-radius:16px;padding:18px;backdrop-filter:blur(8px)}
+.hc-root .hc-panel{background:rgba(255,255,255,.56);border:1px solid var(--hairline);border-radius:16px;padding:18px;backdrop-filter:blur(8px)}
 .hc-root .hc-panel .k{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px}
 .hc-root .hc-big{font-family:var(--font-display);font-weight:800;font-size:clamp(28px,3.6vw,44px);font-variant-numeric:tabular-nums}
 .hc-root .hc-spark{color:var(--spark)} .hc-root .hc-grn{color:var(--green)}
 .hc-root .hc-cta{display:inline-block;margin-top:24px;padding:13px 22px;font-size:15px;font-weight:600;border-radius:999px;background:var(--spark);color:#04201d;text-decoration:none}
 .hc-root .hc-scrollcue{position:fixed;bottom:16px;left:0;right:0;text-align:center;z-index:40;font-family:var(--font-mono);font-size:11px;color:var(--text-3);pointer-events:none}
 .hc-root #hc-focusLayer{position:fixed;inset:0;z-index:70;opacity:0;pointer-events:none}
-.hc-root #hc-focusDim{position:absolute;inset:0;background:transparent}
-.hc-root #hc-focusCard{position:absolute;left:54%;top:50%;width:min(360px,46vw);padding:24px;border-radius:22px;background:rgba(10,14,22,.62);border:1px solid var(--glass-border);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 40px 100px -30px #000;backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4)}
-.hc-root #hc-focusBack{background:none;border:none;color:var(--text-2);font-family:var(--font-mono);font-size:12px;cursor:pointer;padding:0;margin-bottom:14px}
+.hc-root #hc-focusDim{position:absolute;inset:0;background:rgba(20,41,67,.16)}
+.hc-root #hc-focusCard{position:absolute;left:54%;top:50%;width:min(360px,46vw);padding:22px;border-radius:20px;background:var(--focus-bg);color:var(--focus-text);border:1px solid var(--focus-border);box-shadow:var(--focus-shadow);backdrop-filter:blur(18px) saturate(1.15);-webkit-backdrop-filter:blur(18px) saturate(1.15)}
+.hc-root #hc-focusBack{background:none;border:none;color:var(--focus-muted);font-family:var(--font-mono);font-size:12px;cursor:pointer;padding:0;margin-bottom:14px}
 .hc-root #hc-focusBack:hover{color:var(--text)}
+.hc-root #hc-focusBack:focus-visible,.hc-root .hc-fc-open:focus-visible{outline:2px solid var(--spark-2);outline-offset:4px}
 .hc-root .hc-fc-ticker{font-family:var(--font-display);font-weight:800;font-size:36px;letter-spacing:-.03em;line-height:1}
-.hc-root .hc-fc-name{color:var(--text-3);font-size:13px;margin-top:3px}
+.hc-root .hc-fc-name{color:var(--focus-muted);font-size:13px;margin-top:3px}
 .hc-root .hc-fc-badge{margin-top:14px}
 .hc-root .hc-fc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:16px}
-.hc-root .hc-fc-stats .s{background:rgba(255,255,255,.04);border:1px solid var(--hairline);border-radius:12px;padding:10px}
+.hc-root .hc-fc-stats .s{background:var(--focus-stat);border:1px solid var(--focus-border);border-radius:12px;padding:10px}
 .hc-root .hc-fc-stats .s .k{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
 .hc-root .hc-fc-stats .s .v{font-family:var(--font-display);font-weight:700;font-size:17px;font-variant-numeric:tabular-nums;margin-top:4px}
 .hc-root .hc-fc-open{display:inline-block;margin-top:18px;font-weight:600;font-size:14px;color:#04201d;background:var(--spark);padding:11px 18px;border-radius:12px;text-decoration:none}
+.hc-root[data-theme="dark"] .hc-h1,.hc-root[data-theme="dark"] .hc-h2,[data-theme="dark"] .hc-root .hc-h1,[data-theme="dark"] .hc-root .hc-h2{text-shadow:0 4px 40px rgba(4,6,12,.7)}
+.hc-root[data-theme="dark"] .hc-panel,[data-theme="dark"] .hc-root .hc-panel{background:rgba(8,11,19,.62)}
+html[data-theme="dark"] .hc-root #hc-focusDim,.hc-root[data-theme="dark"] #hc-focusDim{background:rgba(0,4,10,.52)}
+@media(max-width:720px){.hc-root #hc-focusCard{left:12px;right:12px;top:auto;bottom:16px;width:auto;padding:20px}.hc-root .hc-fc-ticker{font-size:30px}.hc-root .hc-fc-stats{gap:6px}.hc-root .hc-fc-stats .s{padding:9px 8px}}
+.hc-root[data-reduced-motion="true"] #hc-focusCard{transition:none}
+.hc-root[data-reduced-motion="true"] #hc-stage{height:auto;min-height:0}
+.hc-root[data-reduced-motion="true"] .hc-beat{position:relative;inset:auto;min-height:0;padding-block:clamp(48px,8vh,80px);opacity:1!important;transform:none!important}
+.hc-root[data-reduced-motion="true"] .hc-beat:first-child{display:none}
+.hc-root[data-reduced-motion="true"] .hc-scrollcue{display:none}
 `
 
 export default function HeroConstellation() {
@@ -71,17 +100,25 @@ export default function HeroConstellation() {
     const c = $('hc-bg') as HTMLCanvasElement
     const x = c.getContext('2d')!
     const stageEl = $('hc-stage')
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const darkMode = Boolean(root.closest('[data-theme="dark"]') || document.documentElement.matches('[data-theme="dark"]'))
+    root.dataset.reducedMotion = String(reducedMotion)
 
     let W = 0, H = 0, DPR = 1, cx = 0, cy = 0, R = 0, cam = 0
-    let nodes: any[] = [], pairs: number[] = [], pulses: any[] = []
+    let nodes: HcNode[] = [], pairs: number[] = []
+    const pulses: HcPulse[] = []
     let mx = 0, my = 0, tmx = 0, tmy = 0, mpx = -1e4, mpy = -1e4
-    let lenis: any = null, rafId = 0
+    let lenis: Lenis | null = null, rafId = 0
     let heroVisible = true
     let scrollTrigger: ScrollTrigger | null = null, hideTrigger: ScrollTrigger | null = null
 
     const TICKERS = ['SPY','NVDA','AAPL','MSFT','QQQ','AMZN','META','TSLA','GOOGL','JPM','XOM','AVGO','AMD','LLY','V','COST','NFLX','HD','BRK.B','GLD']
-    const COLORS = [[25,201,182],[63,224,205],[139,123,255],[110,168,255]]
-    const G = [52,211,153]
+    const COLORS: [number, number, number][] = darkMode ? [[25,201,182],[63,224,205],[139,123,255],[110,168,255]] : [[43,73,96],[78,103,119],[110,110,128],[86,106,123]]
+    const G: [number, number, number] = darkMode ? [52,211,153] : [11,129,120]
+    const spark = darkMode ? '#3fe0cd' : '#0b8178'
+    const sparkRgb = darkMode ? '25,201,182' : '11,129,120'
+    const lineRgb = darkMode ? '25,201,182' : '30,57,79'
+    const labelColor = darkMode ? 'rgba(234,240,255,0.82)' : 'rgba(20,41,67,0.62)'
     const smooth = (a: number, b: number, t: number) => { t = Math.min(1, Math.max(0, (t - a) / (b - a))); return t * t * (3 - 2 * t) }
     const fib = (i: number, n: number) => { const y = 1 - (i / Math.max(1, n - 1)) * 2; const r = Math.sqrt(Math.max(0, 1 - y * y)); const th = i * 2.399963; return [Math.cos(th) * r, y, Math.sin(th) * r] }
 
@@ -113,59 +150,59 @@ export default function HeroConstellation() {
 
     let tt = 0, p = 0, targetP = 0
     let searchMode = 0, searchModeTarget = 0, dismissingSearch = false
-    const focus = { i: -1, t: 0, tone: '#3fe0cd' as string }
+    const focus = { i: -1, t: 0, tone: spark as string }
     const oc = document.createElement('canvas'); const octx = oc.getContext('2d')!
 
     function drawScene(g: CanvasRenderingContext2D, sig: number, mode: string) {
-      if (mode !== 'conn') { const gg = g.createRadialGradient(cx, cy, 0, cx, cy, R); gg.addColorStop(0, 'rgba(25,201,182,' + ((0.08 + 0.06 * p) * (1 - focus.t)) + ')'); gg.addColorStop(1, 'rgba(25,201,182,0)'); g.fillStyle = gg; g.fillRect(0, 0, W, H) }
+      if (mode !== 'conn') { const gg = g.createRadialGradient(cx, cy, 0, cx, cy, R); gg.addColorStop(0, 'rgba(' + sparkRgb + ',' + ((darkMode ? 0.08 : 0.018) + (darkMode ? 0.06 : 0.012) * p) * (1 - focus.t) + ')'); gg.addColorStop(1, 'rgba(' + sparkRgb + ',0)'); g.fillStyle = gg; g.fillRect(0, 0, W, H) }
       for (let k = 0; k < pairs.length; k += 2) {
         const ia = pairs[k], ib = pairs[k + 1], conn = (ia === focus.i || ib === focus.i)
         if (mode === 'conn' && !conn) continue; if (mode === 'bg' && conn) continue
         const a = nodes[ia], b = nodes[ib], da = Math.min(a.da, b.da), hv = Math.max(a.hover, b.hover)
         const clar = conn ? 1 : Math.min(a.clar, b.clar), ld = 1 - focus.t * (1 - (0.06 + 0.94 * clar))
         const aA = conn ? (0.32 + 0.5 * focus.t) : ((0.03 + 0.11 * da + 0.05 * p + 0.25 * hv) * ld)
-        g.strokeStyle = (conn ? 'rgba(150,245,228,' : 'rgba(25,201,182,') + aA + ')'; g.lineWidth = 1 + hv * 0.5 + (conn ? focus.t * 2 : 0)
+        g.strokeStyle = (conn ? (darkMode ? 'rgba(150,245,228,' : 'rgba(19,128,119,') : 'rgba(' + lineRgb + ',') + aA + ')'; g.lineWidth = 1 + hv * 0.5 + (conn ? focus.t * 2 : 0)
         g.beginPath(); g.moveTo(a.sx, a.sy); g.lineTo(b.sx, b.sy); g.stroke()
       }
       if (mode !== 'conn' && focus.i < 0) {
-        if (Math.random() < 0.03 && pairs.length) { const k = ((Math.random() * pairs.length / 2) | 0) * 2; pulses.push({ a: pairs[k], b: pairs[k + 1], t: 0, sp: .006 + Math.random() * .006 }) }
-        for (let i = pulses.length - 1; i >= 0; i--) { const P = pulses[i]; P.t += P.sp; if (P.t >= 1) { pulses.splice(i, 1); continue } const a = nodes[P.a], b = nodes[P.b]; const px = a.sx + (b.sx - a.sx) * P.t, py = a.sy + (b.sy - a.sy) * P.t; g.beginPath(); g.arc(px, py, 2, 0, 6.28); g.fillStyle = '#3fe0cd'; g.shadowColor = '#3fe0cd'; g.shadowBlur = 12; g.fill(); g.shadowBlur = 0 }
+        if (!reducedMotion && Math.random() < 0.03 && pairs.length) { const k = ((Math.random() * pairs.length / 2) | 0) * 2; pulses.push({ a: pairs[k], b: pairs[k + 1], t: 0, sp: .006 + Math.random() * .006 }) }
+        for (let i = pulses.length - 1; i >= 0; i--) { const P = pulses[i]; P.t += P.sp; if (P.t >= 1) { pulses.splice(i, 1); continue } const a = nodes[P.a], b = nodes[P.b]; const px = a.sx + (b.sx - a.sx) * P.t, py = a.sy + (b.sy - a.sy) * P.t; g.beginPath(); g.arc(px, py, 2, 0, 6.28); g.fillStyle = spark; g.shadowColor = spark; g.shadowBlur = darkMode ? 12 : 4; g.fill(); g.shadowBlur = 0 }
       }
       if (mode !== 'conn') {
         for (let idx = 0; idx < nodes.length; idx++) { const n = nodes[idx]
           if (idx === focus.i) continue
-          n.ph += focus.i < 0 ? 0.006 : 0.002; const glow = 0.6 + Math.sin(n.ph) * 0.4
+          n.ph += reducedMotion ? 0 : (focus.i < 0 ? 0.006 : 0.002); const glow = reducedMotion ? 1 : 0.6 + Math.sin(n.ph) * 0.4
           let col: string; if (n.signal) col = 'rgb(52,211,153)'; else { const bias = sig * (n.label ? 0.55 : 0.25); col = 'rgb(' + Math.round(n.rgb[0] + (G[0] - n.rgb[0]) * bias) + ',' + Math.round(n.rgb[1] + (G[1] - n.rgb[1]) * bias) + ',' + Math.round(n.rgb[2] + (G[2] - n.rgb[2]) * bias) + ')' }
           const r = Math.min(24, Math.max(0.5, ((n.signal ? (n.r + sig * 6) : n.r) + n.hover * 5) * n.sc))
           const dim = 1 - focus.t * (1 - (0.10 + 0.90 * n.clar))
           g.globalAlpha = Math.min(1, (n.da + n.hover * 0.6) * dim)
-          g.beginPath(); g.arc(n.sx, n.sy, r, 0, 6.28); g.fillStyle = col; g.shadowColor = col; g.shadowBlur = ((n.label ? 12 : 5) + n.hover * 16) * glow; g.fill(); g.shadowBlur = 0
+          g.beginPath(); g.arc(n.sx, n.sy, r, 0, 6.28); g.fillStyle = col; g.shadowColor = col; g.shadowBlur = (darkMode ? (n.label ? 12 : 5) + n.hover * 16 : (n.label ? 2 : 0) + n.hover * 5) * glow; g.fill(); g.shadowBlur = 0
           const lab = n.label
-          if (lab && (n.da > 0.4 || n.hover > 0.25)) { g.globalAlpha = Math.min(1, (n.da * 0.8 + n.hover) * dim); g.font = '600 10px JetBrains Mono, monospace'; g.fillStyle = 'rgba(234,240,255,0.82)'; g.fillText(lab, n.sx + r + 4, n.sy + 3) }
+          if (lab && (n.da > 0.4 || n.hover > 0.25)) { g.globalAlpha = Math.min(1, (n.da * 0.8 + n.hover) * dim); g.font = '600 10px JetBrains Mono, monospace'; g.fillStyle = labelColor; g.fillText(lab, n.sx + r + 4, n.sy + 3) }
           g.globalAlpha = 1
         }
       }
     }
     function orb(g: CanvasRenderingContext2D, aX: number, aY: number) {
-      const fn = nodes[focus.i], tone = focus.tone || '#3fe0cd', rr = 6 + focus.t * 15
+      const fn = nodes[focus.i], tone = focus.tone || spark, rr = 6 + focus.t * 15
       g.globalAlpha = Math.min(1, focus.t) * 0.28; g.beginPath(); g.arc(aX, aY, rr * 3, 0, 6.28); g.fillStyle = tone; g.fill()
       g.globalAlpha = Math.min(1, focus.t * 1.8); g.beginPath(); g.arc(aX, aY, rr * 1.1, 0, 6.28); g.fillStyle = tone; g.shadowColor = tone; g.shadowBlur = 50; g.fill(); g.shadowBlur = 0
-      g.globalAlpha = Math.min(1, focus.t * 2); g.beginPath(); g.arc(aX, aY, rr * 0.66, 0, 6.28); g.fillStyle = '#ffffff'; g.shadowColor = '#ffffff'; g.shadowBlur = 26; g.fill(); g.shadowBlur = 0
-      const lab = fn.label; if (lab) { g.globalAlpha = Math.min(1, focus.t); g.font = '700 14px JetBrains Mono, monospace'; g.fillStyle = '#eef3ff'; g.fillText(lab, aX + rr + 14, aY + 5) }
+      g.globalAlpha = Math.min(1, focus.t * 2); g.beginPath(); g.arc(aX, aY, rr * 0.66, 0, 6.28); g.fillStyle = darkMode ? '#ffffff' : '#fffdf7'; g.shadowColor = g.fillStyle; g.shadowBlur = darkMode ? 26 : 8; g.fill(); g.shadowBlur = 0
+      const lab = fn.label; if (lab) { g.globalAlpha = Math.min(1, focus.t); g.font = '700 14px JetBrains Mono, monospace'; g.fillStyle = darkMode ? '#eef3ff' : '#142943'; g.fillText(lab, aX + rr + 14, aY + 5) }
       g.globalAlpha = 1
     }
     function render() {
       if (!heroVisible && focus.i < 0 && focus.t < 0.01) { rafId = requestAnimationFrame(render); return }
-      tt += focus.i < 0 ? 0.016 : 0.016 * 0.22
+      tt += reducedMotion ? 0 : (focus.i < 0 ? 0.016 : 0.016 * 0.22)
       p += (targetP - p) * 0.07; if (focus.i < 0) { mx += (tmx - mx) * 0.03; my += (tmy - my) * 0.03 }
       searchMode += (searchModeTarget - searchMode) * 0.08
       const sig = smooth(0.15, 0.95, p)
-      const breathe = 1 + 0.07 * Math.sin(tt * 0.10)
+      const breathe = reducedMotion ? 1 : 1 + 0.07 * Math.sin(tt * 0.10)
       // Start a touch closer (base 1.2), keeping the scrolled-in end roughly the
       // same; pull the camera back while searching ("scanning the universe").
       const zoom = breathe * (1.2 + smooth(0, 1, p) * 0.95) * (1 - 0.42 * searchMode)
-      const ay = tt * 0.016 + p * Math.PI * 1.4 + mx * 0.4
-      const ax = 0.16 + Math.sin(tt * 0.028) * 0.05 + my * 0.26
+      const ay = (reducedMotion ? 0 : tt * 0.016) + p * Math.PI * 1.4 + mx * 0.4
+      const ax = 0.16 + (reducedMotion ? 0 : Math.sin(tt * 0.028) * 0.05) + my * 0.26
       const cA = Math.cos(ax), sA = Math.sin(ax), cB = Math.cos(ay), sB = Math.sin(ay)
       for (const n of nodes) {
         const bx = n.bx + Math.sin(tt * n.S1 + n.P1) * n.A1, by = n.by + Math.cos(tt * n.S2 + n.P2) * n.A2, bz = n.bz + Math.sin(tt * n.S3 + n.P3) * n.A3
@@ -200,24 +237,26 @@ export default function HeroConstellation() {
           const o = (ia === focus.i) ? nodes[ib] : nodes[ia]
           const ox = aX + (o.sx - fn.sx) * fs, oy = aY + (o.sy - fn.sy) * fs
           const gr = x.createLinearGradient(aX, aY, ox, oy)
-          gr.addColorStop(0, 'rgba(190,252,240,' + (0.68 * focus.t) + ')')
-          gr.addColorStop(0.45, 'rgba(150,245,228,' + (0.2 * focus.t) + ')')
-          gr.addColorStop(1, 'rgba(150,245,228,0)')
+          gr.addColorStop(0, (darkMode ? 'rgba(190,252,240,' : 'rgba(19,128,119,') + (0.68 * focus.t) + ')')
+          gr.addColorStop(0.45, (darkMode ? 'rgba(150,245,228,' : 'rgba(19,128,119,') + (0.2 * focus.t) + ')')
+          gr.addColorStop(1, darkMode ? 'rgba(150,245,228,0)' : 'rgba(19,128,119,0)')
           x.strokeStyle = gr; x.lineWidth = 1.4
           x.beginPath(); x.moveTo(aX, aY); x.lineTo(ox, oy); x.stroke()
         }
         orb(x, aX, aY)
       }
-      rafId = requestAnimationFrame(render)
+      if (!reducedMotion) rafId = requestAnimationFrame(render)
     }
 
     const onMove = (e: MouseEvent) => { tmx = (e.clientX / window.innerWidth - .5); tmy = (e.clientY / window.innerHeight - .5); mpx = e.clientX; mpy = e.clientY }
     const onOut = () => { mpx = -1e4; mpy = -1e4 }
-    const onResize = () => { resize(); build() }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseout', onOut)
+    const onResize = () => { resize(); build(); if (reducedMotion) render() }
+    if (!reducedMotion) {
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseout', onOut)
+    }
     window.addEventListener('resize', onResize)
-    resize(); build(); rafId = requestAnimationFrame(render)
+    resize(); build(); if (reducedMotion) render(); else rafId = requestAnimationFrame(render)
 
     // beats
     const beats = Array.from(root.querySelectorAll<HTMLElement>('.hc-beat'))
@@ -226,35 +265,59 @@ export default function HeroConstellation() {
     updateBeats(0)
     const setP = (v: number) => { targetP = v; $('hc-prog').style.width = (v * 100) + '%'; const cue = $('hc-cue'); if (cue) cue.style.opacity = v > 0.02 ? '0' : '1'; updateBeats(v) }
 
-    gsap.registerPlugin(ScrollTrigger)
-    lenis = new Lenis({ lerp: 0.1, smoothWheel: true })
-    lenis.on('scroll', ScrollTrigger.update)
-    const tickerFn = (t: number) => lenis.raf(t * 1000)
-    gsap.ticker.add(tickerFn); gsap.ticker.lagSmoothing(0)
-    const s = { p: 0 }
-    const tween = gsap.to(s, { p: 1, ease: 'none', scrollTrigger: { trigger: stageEl, start: 'top top', end: '+=3200', scrub: 1, pin: true, anticipatePin: 1, onUpdate: self => setP(self.progress) } })
-    scrollTrigger = tween.scrollTrigger || null
-    // esconder o canvas quando saímos do hero
-    hideTrigger = ScrollTrigger.create({ trigger: stageEl, start: 'top top', end: '+=3400', onUpdate: self => { const vis = self.progress < 0.999; heroVisible = vis; c.style.opacity = vis ? '1' : '0'; c.style.pointerEvents = vis ? 'auto' : 'none'; const veil = root.querySelector<HTMLElement>('.hc-veil'); if (veil) veil.style.opacity = vis ? '1' : '0'; const prog = root.querySelector<HTMLElement>('.hc-progress'); if (prog) prog.style.opacity = vis ? '1' : '0' } })
+    let tickerFn: ((t: number) => void) | null = null
+    if (!reducedMotion) {
+      gsap.registerPlugin(ScrollTrigger)
+      const activeLenis = new Lenis({ lerp: 0.1, smoothWheel: true })
+      lenis = activeLenis
+      activeLenis.on('scroll', ScrollTrigger.update)
+      tickerFn = (t: number) => activeLenis.raf(t * 1000)
+      gsap.ticker.add(tickerFn); gsap.ticker.lagSmoothing(0)
+      const s = { p: 0 }
+      const tween = gsap.to(s, { p: 1, ease: 'none', scrollTrigger: { trigger: stageEl, start: 'top top', end: '+=3200', scrub: 1, pin: true, anticipatePin: 1, onUpdate: self => setP(self.progress) } })
+      scrollTrigger = tween.scrollTrigger || null
+      // esconder o canvas quando saímos do hero
+      hideTrigger = ScrollTrigger.create({ trigger: stageEl, start: 'top top', end: '+=3400', onUpdate: self => { const vis = self.progress < 0.999; heroVisible = vis; c.style.opacity = vis ? '1' : '0'; c.style.pointerEvents = vis ? 'auto' : 'none'; const veil = root.querySelector<HTMLElement>('.hc-veil'); if (veil) veil.style.opacity = vis ? '1' : '0'; const prog = root.querySelector<HTMLElement>('.hc-progress'); if (prog) prog.style.opacity = vis ? '1' : '0' } })
+    }
 
     // focus / zoom-into-node
     const NAMES: Record<string, string> = { SPY:'S&P 500 ETF',NVDA:'NVIDIA',AAPL:'Apple',MSFT:'Microsoft',QQQ:'Nasdaq 100 ETF',AMZN:'Amazon',META:'Meta Platforms',TSLA:'Tesla',GOOGL:'Alphabet',JPM:'JPMorgan',XOM:'Exxon Mobil',AVGO:'Broadcom',AMD:'AMD',LLY:'Eli Lilly',V:'Visa',COST:'Costco',NFLX:'Netflix',HD:'Home Depot','BRK.B':'Berkshire H.','GLD':'Gold ETF' }
     const hashStr = (str: string) => { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h }
     const stock = (t: string) => { const h = hashStr(t); const sigs = [['Buy', '#34d399'], ['Cash', '#fb7185'], ['Scaled', '#19c9b6']]; const sg = sigs[h % 3]; return { name: NAMES[t] || t, sig: sg[0], tone: sg[1], score: 40 + h % 55, price: (80 + h % 900) + '.' + String(h % 90).padStart(2, '0'), chg: ((h % 400) / 100 - 2).toFixed(2) } }
     const fL = $('hc-focusLayer'), fCard = $('hc-focusCard'), fDim = $('hc-focusDim')
-    const updateCard = () => { fL.style.opacity = focus.t > 0.001 ? '1' : '0'; fCard.style.opacity = String(Math.max(0, (focus.t - 0.45) / 0.55)); fCard.style.transform = 'translateY(-50%) translateX(' + ((1 - focus.t) * -20) + 'px)' }
+    let focusReturn: HTMLElement | null = null
+    const updateCard = () => {
+      fL.style.opacity = focus.t > 0.001 ? '1' : '0'
+      fCard.style.opacity = String(Math.max(0, (focus.t - 0.45) / 0.55))
+      const narrow = window.matchMedia('(max-width:720px)').matches
+      fCard.style.transform = (narrow ? 'translateY(0)' : 'translateY(-50%)') + ' translateX(' + ((1 - focus.t) * -20) + 'px)'
+    }
     const openFocus = (idx: number) => {
+      gsap.killTweensOf(focus)
       const n = nodes[idx]; if (!n.label) n.label = TICKERS[idx % TICKERS.length]
       const sk = stock(n.label); focus.tone = sk.tone as string
       const T = $('hc-fcT'); T.textContent = n.label; T.style.color = sk.tone as string
       $('hc-fcN').textContent = sk.name
       $('hc-fcB').innerHTML = '<span class="hc-badge" style="color:' + sk.tone + ';background:color-mix(in srgb,' + sk.tone + ' 15%,transparent);border-color:color-mix(in srgb,' + sk.tone + ' 40%,transparent)"><span class="d"></span>' + sk.sig + '</span>'
-      $('hc-fcS').innerHTML = '<div class="s"><div class="k">Price</div><div class="v">$' + sk.price + '</div></div><div class="s"><div class="k">Δ day</div><div class="v" style="color:' + ((sk.chg as any) >= 0 ? '#34d399' : '#fb7185') + '">' + ((sk.chg as any) >= 0 ? '+' : '') + sk.chg + '%</div></div><div class="s"><div class="k">Score</div><div class="v" style="color:#19c9b6">' + sk.score + '</div></div>'
+      const change = Number(sk.chg)
+      $('hc-fcS').innerHTML = '<div class="s"><div class="k">Price</div><div class="v">$' + sk.price + '</div></div><div class="s"><div class="k">Δ day</div><div class="v" style="color:' + (change >= 0 ? '#34d399' : '#fb7185') + '">' + (change >= 0 ? '+' : '') + sk.chg + '%</div></div><div class="s"><div class="k">Score</div><div class="v" style="color:#19c9b6">' + sk.score + '</div></div>'
       ;($('hc-fcO') as HTMLAnchorElement).href = '/stocks/' + encodeURIComponent(n.label)
-      focus.i = idx; fL.style.pointerEvents = 'auto'; if (lenis) lenis.stop()
-      gsap.to(focus, { t: 1, duration: 1.7, ease: 'power2.inOut', onUpdate: updateCard })
+      focusReturn = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      focus.i = idx; fL.setAttribute('aria-hidden', 'false'); fL.style.pointerEvents = 'auto'; if (lenis) lenis.stop()
+      if (reducedMotion) { focus.t = 1; updateCard(); backBtn.focus() } else gsap.to(focus, { t: 1, duration: 0.55, ease: 'power2.out', onUpdate: updateCard, onComplete: () => backBtn.focus() })
     }
-    const closeFocus = () => { fL.style.pointerEvents = 'none'; if (lenis) lenis.start(); gsap.to(focus, { t: 0, duration: 1.05, ease: 'power2.inOut', onUpdate: updateCard, onComplete: () => { focus.i = -1 } }) }
+    const closeFocus = () => {
+      if (focus.i < 0 && focus.t < 0.01) return
+      gsap.killTweensOf(focus)
+      fL.style.pointerEvents = 'none'
+      const finishClose = () => {
+        focus.t = 0; focus.i = -1; fL.setAttribute('aria-hidden', 'true'); updateCard()
+        if (lenis) lenis.start()
+        if (focusReturn?.isConnected) focusReturn.focus()
+        focusReturn = null
+      }
+      if (reducedMotion) { finishClose(); render() } else gsap.to(focus, { t: 0, duration: 0.28, ease: 'power2.in', onUpdate: updateCard, onComplete: finishClose })
+    }
     const backBtn = $('hc-focusBack'); backBtn.addEventListener('click', closeFocus)
     fDim.addEventListener('click', closeFocus)
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && focus.i >= 0) closeFocus() }
@@ -289,7 +352,7 @@ export default function HeroConstellation() {
       window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClick, true)
       window.removeEventListener('mousedown', onDown, true); window.removeEventListener('meridian:search-focus', onSearchFocus)
       backBtn.removeEventListener('click', closeFocus); fDim.removeEventListener('click', closeFocus)
-      gsap.ticker.remove(tickerFn)
+      if (tickerFn) gsap.ticker.remove(tickerFn)
       if (scrollTrigger) scrollTrigger.kill(); if (hideTrigger) hideTrigger.kill()
       if (lenis) lenis.destroy()
     }
@@ -298,7 +361,7 @@ export default function HeroConstellation() {
   return (
     <div className="hc-root" ref={rootRef} style={{ ['--font-display' as never]: sora.style.fontFamily, ['--font-body' as never]: inter.style.fontFamily, ['--font-mono' as never]: mono.style.fontFamily }}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <canvas id="hc-bg" />
+      <canvas id="hc-bg" aria-hidden="true" />
       <div className="hc-veil" />
       <div className="hc-progress" id="hc-prog" />
 
@@ -330,19 +393,19 @@ export default function HeroConstellation() {
           </div>
         </div></div>
         <div className="hc-beat" style={{ opacity: 0 }}><div className="hc-in">
-          <div className="hc-eyebrow">Today's answer</div>
+          <div className="hc-eyebrow">Today&apos;s answer</div>
           <div className="hc-h1">Stay <em>in</em>.</div>
-          <p className="hc-sub">You've reached the center. One clear decision, every day.</p>
-          <a className="hc-cta" href="/screener">See today's signal →</a>
+          <p className="hc-sub">You&apos;ve reached the center. One clear decision, every day.</p>
+          <a className="hc-cta" href="/screener">See today&apos;s signal →</a>
         </div></div>
       </div>
 
       <div className="hc-scrollcue" id="hc-cue">▸ scroll · click a particle</div>
 
-      <div id="hc-focusLayer">
+      <div id="hc-focusLayer" aria-hidden="true">
         <div id="hc-focusDim" />
-        <div id="hc-focusCard">
-          <button id="hc-focusBack">← back</button>
+        <div id="hc-focusCard" role="dialog" aria-modal="true" aria-labelledby="hc-fcT" aria-describedby="hc-fcN">
+          <button id="hc-focusBack" type="button">← back</button>
           <div className="hc-fc-ticker" id="hc-fcT" />
           <div className="hc-fc-name" id="hc-fcN" />
           <div className="hc-fc-badge" id="hc-fcB" />

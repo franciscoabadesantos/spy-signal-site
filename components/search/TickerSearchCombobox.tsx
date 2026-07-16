@@ -186,6 +186,7 @@ export default function TickerSearchCombobox({
   const [recentTickers, setRecentTickers] = useState<string[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [hasLoadedIndexOnce, setHasLoadedIndexOnce] = useState(Boolean(memoryTickerIndex?.items.length))
   const [loadAttemptToken, setLoadAttemptToken] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
@@ -244,6 +245,7 @@ export default function TickerSearchCombobox({
     if (cached?.items.length && hasLoadedIndexOnce && !memoryTickerIndexPromise) return
 
     setIsLoading(true)
+    setLoadError(null)
 
     void (async () => {
       try {
@@ -261,6 +263,7 @@ export default function TickerSearchCombobox({
         if (!isCurrent) return
         if (!cached) setTickerIndex(null)
         setHasLoadedIndexOnce(Boolean(cached?.items.length))
+        setLoadError('The ticker index is unavailable right now.')
         console.warn('[TickerSearchCombobox] ticker index unavailable; autocomplete suggestions may be limited.', {
           message: error instanceof Error ? error.message : 'Unknown ticker index error',
         })
@@ -360,8 +363,7 @@ export default function TickerSearchCombobox({
   ])
 
   const selectableItems = useMemo(() => sections.flatMap((section) => section.items), [sections])
-  const shouldShowDropdown =
-    isOpen && (sections.length > 0 || isLoading || normalizedSearch.length > 0)
+  const shouldShowDropdown = isOpen && (sections.length > 0 || normalizedSearch.length > 0)
 
   function queueTickerIndexLoad() {
     const cached = memoryTickerIndex ?? tickerIndex ?? readSessionTickerIndex()
@@ -378,6 +380,7 @@ export default function TickerSearchCombobox({
     if (hasUsableIndex && hasLoadedIndexOnce) return
     if (isLoading) return
 
+    setLoadError(null)
     setLoadAttemptToken((value) => value + 1)
   }
 
@@ -421,6 +424,12 @@ export default function TickerSearchCombobox({
       navigateToTicker(firstResult.symbol)
       return
     }
+  }
+
+  function cancelBlurClose() {
+    if (!blurTimeoutRef.current) return
+    clearTimeout(blurTimeoutRef.current)
+    blurTimeoutRef.current = null
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -525,7 +534,7 @@ export default function TickerSearchCombobox({
 
   const panelClassName =
     variant === 'header'
-      ? 'mt-3 rounded-[26px] border border-slate-950/8 bg-white/96 shadow-[0_28px_90px_rgba(20,33,51,0.14)] ring-1 ring-slate-950/6 backdrop-blur-[32px] dark:border-white/10 dark:bg-[#0a1220]/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.34)] dark:ring-white/8'
+      ? 'ticker-search__panel mt-2 rounded-[18px] border border-slate-950/8 bg-white/96 shadow-[0_20px_48px_rgba(20,33,51,0.12)] ring-1 ring-slate-950/6 backdrop-blur-[24px] dark:border-white/10 dark:bg-[#0a1220]/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.34)] dark:ring-white/8'
       : 'mt-1 rounded-xl border border-border bg-surface-card shadow-sm'
 
   return (
@@ -545,12 +554,15 @@ export default function TickerSearchCombobox({
         onChange={(event) => handleSearchChange(event.target.value)}
         onKeyDown={onKeyDown}
         onFocus={() => {
+          cancelBlurClose()
           setIsOpen(true)
           queueTickerIndexLoad()
         }}
         onBlur={() => {
+          cancelBlurClose()
           blurTimeoutRef.current = setTimeout(() => {
             setIsOpen(false)
+            blurTimeoutRef.current = null
           }, 120)
         }}
         placeholder={placeholder}
@@ -614,7 +626,21 @@ export default function TickerSearchCombobox({
               )
             })}
 
-            {!isLoading && normalizedSearch.length > 0 && resultSuggestions.length === 0 ? (
+            {isLoading && normalizedSearch.length > 0 ? (
+              <div role="status" className="flex items-center gap-2 border-t border-border/70 px-4 py-4 text-body-sm text-content-secondary">
+                <Loader2 className="h-4 w-4 animate-spin text-brand-spark" aria-hidden="true" />
+                Loading indexed tickers…
+              </div>
+            ) : null}
+
+            {!isLoading && loadError && normalizedSearch.length > 0 && resultSuggestions.length === 0 ? (
+              <div className="border-t border-border/70 px-4 py-4">
+                <div className="text-body-sm text-content-primary">Ticker search is unavailable.</div>
+                <div className="mt-1 text-caption text-content-muted">{loadError} Try again in a moment.</div>
+              </div>
+            ) : null}
+
+            {!isLoading && !loadError && normalizedSearch.length > 0 && resultSuggestions.length === 0 ? (
               <div className="border-t border-border/70 px-4 py-4">
                 <div className="text-body-sm text-content-primary">No exact match found.</div>
                 <div className="mt-1 text-caption text-content-muted">

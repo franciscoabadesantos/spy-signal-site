@@ -7,7 +7,7 @@ import HeaderSearch from '@/components/HeaderSearch'
 import { cn } from '@/lib/utils'
 import { BRAND_NAME } from '@/components/marketing/site-config'
 
-type Tile = { label: string; href: string; grad: string }
+type Tile = { label: string; href: string; grad: string; lightGrad: string }
 type Menu = { key: string; label: string; href: string; blurb: string; tiles: Tile[] }
 
 // Placeholder content — the media tiles use gradient placeholders instead of
@@ -19,9 +19,9 @@ const MENUS: Menu[] = [
     href: '/dashboard',
     blurb: 'Placeholder — your daily read: the signal, market context, and what moved overnight.',
     tiles: [
-      { label: 'Signal', href: '/screener', grad: 'linear-gradient(150deg,#0f9e8e,#0a3a44)' },
-      { label: 'Markets', href: '/markets', grad: 'linear-gradient(150deg,#3a4d8f,#0b1730)' },
-      { label: 'Watchlist', href: '/dashboard/watchlist', grad: 'linear-gradient(150deg,#5b3d8c,#160c30)' },
+      { label: 'Signal', href: '/screener', grad: 'linear-gradient(150deg,#0f9e8e,#0a3a44)', lightGrad: 'linear-gradient(145deg,#d9eee9,#f4efe5 72%)' },
+      { label: 'Markets', href: '/markets', grad: 'linear-gradient(150deg,#3a4d8f,#0b1730)', lightGrad: 'linear-gradient(145deg,#dfe8ee,#f4efe5 72%)' },
+      { label: 'Watchlist', href: '/dashboard/watchlist', grad: 'linear-gradient(150deg,#5b3d8c,#160c30)', lightGrad: 'linear-gradient(145deg,#e8e2ee,#f4efe5 72%)' },
     ],
   },
   {
@@ -30,9 +30,9 @@ const MENUS: Menu[] = [
     href: '/markets/network',
     blurb: 'Placeholder — how names move together: the network, correlated pairs, and sector clusters.',
     tiles: [
-      { label: 'Network', href: '/markets/network', grad: 'linear-gradient(150deg,#0f9e8e,#0a3a44)' },
-      { label: 'Pairs', href: '/markets', grad: 'linear-gradient(150deg,#8a5a37,#301a0b)' },
-      { label: 'Sectors', href: '/markets', grad: 'linear-gradient(150deg,#3a4d8f,#0b1730)' },
+      { label: 'Network', href: '/markets/network', grad: 'linear-gradient(150deg,#0f9e8e,#0a3a44)', lightGrad: 'linear-gradient(145deg,#d9eee9,#f4efe5 72%)' },
+      { label: 'Pairs', href: '/markets', grad: 'linear-gradient(145deg,#8a5a37,#301a0b)', lightGrad: 'linear-gradient(145deg,#eee4d9,#f4efe5 72%)' },
+      { label: 'Sectors', href: '/markets', grad: 'linear-gradient(150deg,#3a4d8f,#0b1730)', lightGrad: 'linear-gradient(145deg,#dfe8ee,#f4efe5 72%)' },
     ],
   },
 ]
@@ -45,16 +45,23 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
 
   // Keep the last menu mounted through the close transition.
   useEffect(() => {
-    if (open) {
-      if (clearTimer.current) clearTimeout(clearTimer.current)
-      setDisplayed(MENUS.find((m) => m.key === open) ?? null)
-    } else if (displayed) {
-      clearTimer.current = setTimeout(() => setDisplayed(null), 400)
+    if (!open && displayed) {
+      clearTimer.current = setTimeout(() => setDisplayed(null), 440)
     }
     return () => {
       if (clearTimer.current) clearTimeout(clearTimer.current)
     }
   }, [open, displayed])
+
+  function toggleMenu(key: string) {
+    if (open === key) {
+      setOpen(null)
+      return
+    }
+    if (clearTimer.current) clearTimeout(clearTimer.current)
+    setDisplayed(MENUS.find((m) => m.key === key) ?? null)
+    setOpen(key)
+  }
 
   // Backdrop dim over the page.
   useEffect(() => {
@@ -133,7 +140,7 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
                 type="button"
                 aria-expanded={open === m.key}
                 aria-haspopup="menu"
-                onClick={() => setOpen((v) => (v === m.key ? null : m.key))}
+                onClick={() => toggleMenu(m.key)}
                 className="site-header__navlink site-nav__trigger"
               >
                 {m.label}
@@ -150,7 +157,7 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
         </div>
       </div>
 
-      <div className="site-header__dropdowns" aria-hidden={!open}>
+      <div className="site-header__dropdowns" aria-hidden={!open} inert={!open ? true : undefined}>
         {displayed ? (
           <div className="site-header__dropgrid">
             <div className="site-header__tile site-header__tile--text">
@@ -169,7 +176,7 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
                 href={t.href}
                 onClick={() => setOpen(null)}
                 className="site-header__tile"
-                style={{ ['--tile-grad' as string]: t.grad }}
+                style={{ ['--tile-grad' as string]: t.grad, ['--tile-grad-light' as string]: t.lightGrad }}
               >
                 <span className="site-header__tile-media" aria-hidden="true" />
                 <span className="site-header__tile-label">{t.label}</span>

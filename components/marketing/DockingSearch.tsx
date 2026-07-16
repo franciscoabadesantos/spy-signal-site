@@ -9,7 +9,7 @@ import HeaderSearch from '@/components/HeaderSearch'
  * Homepage hero search.
  *
  * At the top it's the centrepiece of the first screen — a large centred search
- * with an eyebrow above and a "See correlations" CTA below. On scroll it lifts
+ * with an editorial heading above and a "See correlations" action below. On scroll it lifts
  * and fades as the small in-flow header pill search takes over (see .dock-search
  * in globals.css).
  *
@@ -29,14 +29,21 @@ export default function DockingSearch() {
 
   return (
     <div data-dock-search className="dock-search" onFocus={onFocus} onBlur={onBlur}>
-      <span className="dock-search__eyebrow">The market is a network</span>
+      <div className="dock-search__intro">
+        <p className="dock-search__kicker">A clearer read on the market.</p>
+        <h1 className="dock-search__title">Search the signal.</h1>
+        <p className="dock-search__description">Find a ticker, then read the context around it.</p>
+      </div>
       <div className="dock-search__field">
         <HeaderSearch className="w-full" placeholder="Search a ticker or company…" />
       </div>
-      <Link href="/markets/network" className="dock-search__cta">
-        See correlations
-        <ArrowRight className="size-4" />
-      </Link>
+      <div className="dock-search__support">
+        <Link href="/markets/network" className="dock-search__cta">
+          See correlations
+          <ArrowRight className="size-4" />
+        </Link>
+        <span className="dock-search__helper">Compare the names moving together.</span>
+      </div>
     </div>
   )
 }
