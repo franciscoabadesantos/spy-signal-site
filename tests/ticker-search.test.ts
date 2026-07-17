@@ -158,6 +158,115 @@ test('single or missing sibling lists never render as entity listings', () => {
   assert.deepEqual(tickerEntitySiblingListings({ siblingSymbols: ['SAP', 'SAP.DE'] }), ['SAP', 'SAP.DE'])
 })
 
+test('duplicate rows sharing an entity collapse into one selectable row', () => {
+  const index = normalizeTickerIndexPayload(
+    {
+      items: [
+        {
+          symbol: 'SAP',
+          name: 'SAP SE-Sponsored ADR',
+          exchange: 'NYSE',
+          hasSignals: false,
+          entity_id: 'ent-sap',
+          legal_name: 'SAP SE',
+          sibling_symbols: ['SAP', 'SAP.DE'],
+        },
+        {
+          symbol: 'SAP.DE',
+          name: 'SAP SE',
+          exchange: 'XETRA',
+          hasSignals: true,
+          entity_id: 'ent-sap',
+          lei: '529900D6BF99LW9R2E68',
+          sibling_symbols: ['SAP', 'SAP.DE'],
+        },
+      ],
+    },
+    null
+  )
+
+  assert.ok(index)
+  assert.equal(index.items.length, 1)
+  const [sap] = index.items
+  assert.equal(sap.symbol, 'SAP')
+  assert.equal(sap.legalName, 'SAP SE')
+  assert.equal(sap.lei, '529900D6BF99LW9R2E68')
+  assert.equal(sap.hasSignals, true)
+  assert.deepEqual(sap.siblingSymbols, ['SAP', 'SAP.DE'])
+
+  assert.deepEqual(filterTickerIndexItems(index.items, 'sap', 8).map((item) => item.symbol), ['SAP'])
+  assert.deepEqual(filterTickerIndexItems(index.items, 'sap.de', 8).map((item) => item.symbol), ['SAP'])
+})
+
+test('duplicate entity rows without sibling lists still collapse and merge listings', () => {
+  const index = normalizeTickerIndexPayload(
+    {
+      items: [
+        { symbol: 'GOOG', name: 'Alphabet Inc.', exchange: 'NASDAQ', hasSignals: true, entity_id: 'ent-alphabet' },
+        { symbol: 'GOOGL', name: 'Alphabet Inc. Class A', exchange: 'NASDAQ', hasSignals: false, entity_id: 'ent-alphabet' },
+      ],
+    },
+    null
+  )
+
+  assert.ok(index)
+  assert.equal(index.items.length, 1)
+  assert.equal(index.items[0].symbol, 'GOOG')
+  assert.deepEqual(index.items[0].siblingSymbols, ['GOOG', 'GOOGL'])
+})
+
+test('plain rows already listed as a sibling of a resolved row are dropped', () => {
+  const index = normalizeTickerIndexPayload(
+    {
+      items: [
+        {
+          symbol: 'NOVO-B.CO',
+          name: 'Novo Nordisk A/S',
+          exchange: 'CPH',
+          hasSignals: false,
+          entity_id: 'ent-novo',
+          sibling_symbols: ['NVO', 'NOVO-B.CO'],
+        },
+        { symbol: 'NVO', name: 'Novo Nordisk A/S ADR', exchange: 'NYSE', hasSignals: false },
+      ],
+    },
+    null
+  )
+
+  assert.ok(index)
+  assert.deepEqual(index.items.map((item) => item.symbol), ['NOVO-B.CO'])
+})
+
+test('rows without entity fields never collapse (flag off keeps old behavior)', () => {
+  const index = normalizeTickerIndexPayload(
+    {
+      items: [
+        { symbol: 'SAP', name: 'SAP SE-Sponsored ADR', exchange: 'NYSE', hasSignals: false },
+        { symbol: 'SAP.DE', name: 'SAP SE', exchange: 'XETRA', hasSignals: false },
+      ],
+    },
+    null
+  )
+
+  assert.ok(index)
+  assert.deepEqual(index.items.map((item) => item.symbol), ['SAP', 'SAP.DE'])
+})
+
+test('distinct entities never merge', () => {
+  const index = normalizeTickerIndexPayload(
+    {
+      items: [
+        { symbol: 'ASML', name: 'ASML Holding N.V.', exchange: 'NASDAQ', hasSignals: true, entity_id: 'ent-asml', sibling_symbols: ['ASML', 'ASML.AS'] },
+        { symbol: '0005.HK', name: 'HSBC Holdings plc', exchange: 'HKEX', hasSignals: false, entity_id: 'ent-hsbc', sibling_symbols: ['0005.HK', 'HSBA.L'] },
+      ],
+    },
+    null
+  )
+
+  assert.ok(index)
+  assert.deepEqual(index.items.map((item) => item.symbol), ['ASML', '0005.HK'])
+})
+
 test('malformed sibling entries are dropped during normalization', () => {
   const index = normalizeTickerIndexPayload(
     {

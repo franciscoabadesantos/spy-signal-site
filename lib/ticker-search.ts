@@ -191,13 +191,59 @@ export function normalizeTickerIndexItem(value: unknown): TickerIndexItem | null
   }
 }
 
+export function dedupeCollapsedEntityRows(items: TickerIndexItem[]): TickerIndexItem[] {
+  const keptByEntity = new Map<string, TickerIndexItem>()
+  const merged: TickerIndexItem[] = []
+
+  for (const item of items) {
+    if (!item.entityId) {
+      merged.push(item)
+      continue
+    }
+
+    const existing = keptByEntity.get(item.entityId)
+    if (!existing) {
+      const kept = { ...item }
+      keptByEntity.set(item.entityId, kept)
+      merged.push(kept)
+      continue
+    }
+
+    if (!existing.lei && item.lei) existing.lei = item.lei
+    if (!existing.legalName && item.legalName) existing.legalName = item.legalName
+    if (item.hasSignals) existing.hasSignals = true
+
+    const siblings = new Set([
+      ...(existing.siblingSymbols ?? [existing.symbol]),
+      item.symbol,
+      ...(item.siblingSymbols ?? []),
+    ])
+    siblings.add(existing.symbol)
+    existing.siblingSymbols = [...siblings]
+  }
+
+  const siblingOwners = new Map<string, string>()
+  for (const item of merged) {
+    if (!item.entityId || !item.siblingSymbols) continue
+    for (const sibling of item.siblingSymbols) siblingOwners.set(sibling, item.symbol)
+  }
+
+  return merged.filter((item) => {
+    if (item.entityId) return true
+    const owner = siblingOwners.get(item.symbol)
+    return owner === undefined || owner === item.symbol
+  })
+}
+
 export function normalizeTickerIndexPayload(payload: unknown, etag: string | null): CachedTickerIndex | null {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
   const record = payload as Record<string, unknown>
   const items = Array.isArray(record.items)
-    ? record.items
-        .map((item) => normalizeTickerIndexItem(item))
-        .filter((item): item is TickerIndexItem => item !== null)
+    ? dedupeCollapsedEntityRows(
+        record.items
+          .map((item) => normalizeTickerIndexItem(item))
+          .filter((item): item is TickerIndexItem => item !== null)
+      )
     : []
 
   return {
