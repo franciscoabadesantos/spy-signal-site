@@ -4,7 +4,14 @@ import { tickerReadinessBadge, type TickerReadinessBadge } from './ticker-readin
 
 export type SearchSignalTone = 'bullish' | 'neutral' | 'bearish'
 
-export type TickerIndexItem = {
+export type TickerEntityFields = {
+  entityId?: string
+  lei?: string
+  legalName?: string
+  siblingSymbols?: string[]
+}
+
+export type TickerIndexItem = TickerEntityFields & {
   symbol: string
   name: string
   exchange: string | null
@@ -22,7 +29,7 @@ export type CachedTickerIndex = TickerIndexPayload & {
   etag: string | null
 }
 
-export type TickerSearchResult = {
+export type TickerSearchResult = TickerEntityFields & {
   symbol: string
   name: string
   exchange: string | null
@@ -70,7 +77,26 @@ export function tickerIndexItemToSearchResult(item: TickerIndexItem): TickerSear
     tone: null,
     signalDate: null,
     scorecard: null,
+    ...pickEntityFields(item),
   }
+}
+
+function pickEntityFields(item: TickerEntityFields): TickerEntityFields {
+  return {
+    ...(item.entityId !== undefined ? { entityId: item.entityId } : {}),
+    ...(item.lei !== undefined ? { lei: item.lei } : {}),
+    ...(item.legalName !== undefined ? { legalName: item.legalName } : {}),
+    ...(item.siblingSymbols !== undefined ? { siblingSymbols: item.siblingSymbols } : {}),
+  }
+}
+
+export function tickerEntityDisplayName(item: TickerEntityFields & { name: string }): string {
+  return item.legalName ?? item.name
+}
+
+export function tickerEntitySiblingListings(item: TickerEntityFields): string[] | null {
+  if (!item.siblingSymbols || item.siblingSymbols.length <= 1) return null
+  return item.siblingSymbols
 }
 
 function readBoolean(record: Record<string, unknown>, keys: string[]): boolean | null {
@@ -117,11 +143,22 @@ function readinessFromRecord(record: Record<string, unknown>): TickerReadinessBa
   return readiness.label === 'Tracked' ? null : readiness
 }
 
+const TICKER_SYMBOL_PATTERN = /^[A-Z0-9][A-Z0-9.\-]{0,9}$/
+
+function normalizeSiblingSymbols(value: unknown): string[] {
+  const seen = new Set<string>()
+  for (const raw of readStringList(value)) {
+    const symbol = raw.toUpperCase()
+    if (TICKER_SYMBOL_PATTERN.test(symbol)) seen.add(symbol)
+  }
+  return [...seen]
+}
+
 export function normalizeTickerIndexItem(value: unknown): TickerIndexItem | null {
   if (!value || typeof value !== 'object') return null
   const row = value as Record<string, unknown>
   const symbol =
-    typeof row.symbol === 'string' && /^[A-Z0-9][A-Z0-9.\-]{0,9}$/.test(row.symbol.trim().toUpperCase())
+    typeof row.symbol === 'string' && TICKER_SYMBOL_PATTERN.test(row.symbol.trim().toUpperCase())
       ? row.symbol.trim().toUpperCase()
       : null
   if (!symbol) return null
@@ -136,12 +173,21 @@ export function normalizeTickerIndexItem(value: unknown): TickerIndexItem | null
       ? row.exchange.trim()
       : null
 
+  const entityId = readString(row, ['entityId', 'entity_id'])
+  const lei = readString(row, ['lei'])
+  const legalName = readString(row, ['legalName', 'legal_name'])
+  const siblingSymbols = normalizeSiblingSymbols(row.siblingSymbols ?? row.sibling_symbols)
+
   return {
     symbol,
     name,
     exchange,
     hasSignals: row.hasSignals === true,
     readiness: readinessFromRecord(row),
+    ...(entityId !== null ? { entityId } : {}),
+    ...(lei !== null ? { lei } : {}),
+    ...(legalName !== null ? { legalName } : {}),
+    ...(siblingSymbols.length > 0 ? { siblingSymbols } : {}),
   }
 }
 
@@ -206,17 +252,17 @@ function searchTier(item: TickerIndexItem, normalizedQuery: string): number {
   const query = normalizeSearchText(normalizedQuery)
   if (!query.compact) return 0
 
-  const symbol = normalizeSearchText(item.symbol)
-  const name = normalizeSearchText(item.name)
+  const symbols = [item.symbol, ...(item.siblingSymbols ?? [])].map(normalizeSearchText)
+  const names = [item.name, ...(item.legalName ? [item.legalName] : [])].map(normalizeSearchText)
   const exchange = normalizeSearchText(item.exchange ?? '')
 
-  if (symbol.compact === query.compact) return 6
-  if (symbol.compact.startsWith(query.compact)) return 5
-  if (symbol.compact.includes(query.compact)) return 4
-  if (name.compact === query.compact) return 3.5
-  if (name.spaced.startsWith(query.spaced) || name.compact.startsWith(query.compact)) return 3
-  if (name.spaced.includes(query.spaced) || name.compact.includes(query.compact)) return 2
-  if (tokensMatchQuery(name, query)) return 1
+  if (symbols.some((symbol) => symbol.compact === query.compact)) return 6
+  if (symbols.some((symbol) => symbol.compact.startsWith(query.compact))) return 5
+  if (symbols.some((symbol) => symbol.compact.includes(query.compact))) return 4
+  if (names.some((name) => name.compact === query.compact)) return 3.5
+  if (names.some((name) => name.spaced.startsWith(query.spaced) || name.compact.startsWith(query.compact))) return 3
+  if (names.some((name) => name.spaced.includes(query.spaced) || name.compact.includes(query.compact))) return 2
+  if (names.some((name) => tokensMatchQuery(name, query))) return 1
   if (exchange.compact && (exchange.compact.startsWith(query.compact) || exchange.compact.includes(query.compact))) return 0.75
   return 0
 }

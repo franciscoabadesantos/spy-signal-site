@@ -10,6 +10,8 @@ import {
   getFeaturedTickerIndexResults,
   normalizeTickerIndexPayload,
   normalizeTickerSearchQuery,
+  tickerEntityDisplayName,
+  tickerEntitySiblingListings,
   tickerIndexItemToSearchResult,
   type CachedTickerIndex,
   type TickerIndexPayload,
@@ -471,6 +473,7 @@ export default function TickerSearchCombobox({
     const labelText = sourceLabel(item)
     const subLabelText = rightSubLabel(item)
     const StatusIcon = statusIcon(item)
+    const siblingListings = tickerEntitySiblingListings(item)
     return (
       <li key={`${item.displaySource}-${item.symbol}-${index}`}>
         <button
@@ -492,10 +495,10 @@ export default function TickerSearchCombobox({
               )}
             </span>
           </div>
-          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
             <div className="text-data-sm numeric-tabular text-content-primary">{item.symbol}</div>
             <div className="truncate text-body-sm text-content-secondary">
-              {item.name}
+              {tickerEntityDisplayName(item)}
               {item.displaySource === 'recent' ? (
                 <span className="ml-2 inline-flex items-center gap-1 text-content-muted">
                   <History className="h-3.5 w-3.5" />
@@ -513,6 +516,11 @@ export default function TickerSearchCombobox({
                 </span>
               ) : null}
             </div>
+            {siblingListings ? (
+              <div className="col-span-2 mt-0.5 truncate text-micro text-content-muted">
+                Listings: {siblingListings.join(', ')}
+              </div>
+            ) : null}
           </div>
           <div className="shrink-0 text-right">
             {labelText ? (
