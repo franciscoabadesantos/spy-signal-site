@@ -33,8 +33,7 @@
     "react-force-graph-3d": "^1.29.1",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.5.0",
-    "three": "^0.185.1",
-    "yahoo-finance2": "^2.14.0"
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

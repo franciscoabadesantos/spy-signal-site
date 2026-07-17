@@ -1,5 +1,16 @@
 # Data Source Policy
 
+## Removed Legacy Search (do not reintroduce)
+
+The site previously shipped a Yahoo-backed autocomplete at `/api/search`
+(`query2.finance.yahoo.com/v1/finance/search`) with a follow-up enrichment
+route at `/api/tickers/enrich` that decorated suggestions with price, quote
+type, and regime data. Both were deleted (commits `2cc0333` and `dc5e563`)
+and no longer exist in this repo or in production. If you see search rows
+carrying price/regime/asset-type data, you are looking at a stale build or
+cached bundle — not at current code. Do not recreate these routes or any
+third-party symbol lookup for autocomplete.
+
 ## Canonical Runtime Sources
 
 The frontend reads ticker data from our backend-facing routes only. Do not add browser or route-handler calls to third-party symbol lookup services.

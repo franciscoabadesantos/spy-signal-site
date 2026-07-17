@@ -73,7 +73,7 @@ Use this checklist when you're ready to move from local/dev to production:
 
 `spy-signal-site` no longer talks to Supabase directly at runtime. The site now fetches screener, ticker summary, watchlist, alerts, AI research, and analytics data through `finance-backend`.
 
-See `DATA_SOURCE_POLICY.md` before changing ticker autocomplete, ticker enrichment, stock-page data loading, or backend proxy routes.
+See `DATA_SOURCE_POLICY.md` before changing ticker autocomplete, stock-page data loading, or backend proxy routes. Ticker autocomplete is index-only: it loads `/api/tickers/index` and filters locally. The old Yahoo-backed `/api/search` autocomplete and its enrichment path were removed and must not be reintroduced.
 
 ### Required runtime env vars
 
