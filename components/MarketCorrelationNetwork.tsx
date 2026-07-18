@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import ChartContainer from '@/components/charts/ChartContainer'
 import NetworkGraphCanvas, { selectGlobalEdges } from '@/components/NetworkGraphCanvas'
 import type { NetworkGraph } from '@/lib/network'
@@ -24,9 +25,18 @@ function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`
 }
 
-export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGraph }) {
-  const [threshold, setThreshold] = useState(0.5)
-  const [topK, setTopK] = useState(5)
+export default function MarketCorrelationNetwork({
+  graph,
+  initialMinAbsCorrelation,
+  initialTopK,
+}: {
+  graph: NetworkGraph
+  initialMinAbsCorrelation: number
+  initialTopK: number
+}) {
+  const router = useRouter()
+  const [threshold, setThreshold] = useState(initialMinAbsCorrelation)
+  const [topK, setTopK] = useState(initialTopK)
   const [colorMode, setColorMode] = useState<ColorMode>('zone')
   const [sectorFilter, setSectorFilter] = useState<GicsSectorKey | null>(null)
   const [enabledLayers, setEnabledLayers] = useState<Set<string>>(() => new Set(RELATIONSHIP_LAYERS.map((layer) => layer.key)))
@@ -36,11 +46,26 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
   )
   const visibleEdges = useMemo(() => selectGlobalEdges(layerEdges, threshold, topK), [layerEdges, threshold, topK])
   const visibleGraph = useMemo(() => ({ ...graph, edges: layerEdges }), [graph, layerEdges])
+  const selectedNodeCount = useMemo(() => {
+    const ids = new Set<string>()
+    for (const edge of visibleEdges) {
+      ids.add(edge.source)
+      ids.add(edge.target)
+    }
+    return ids.size
+  }, [visibleEdges])
   const countryLegend = useMemo(() => buildCountryLegend(graph.nodes), [graph.nodes])
   const sectorLegend = useMemo(() => buildSectorLegend(graph.nodes), [graph.nodes])
   const sectorFilterOptions = sectorLegend.filter((item) => item.key !== 'unknown')
   const hasSectorData = sectorFilterOptions.length > 0
   const activeColorLegend = colorMode === 'field' && hasSectorData ? sectorLegend : countryLegend
+
+  function updateSourceParams(nextThreshold: number, nextTopK: number) {
+    const params = new URLSearchParams()
+    params.set('minAbsCorrelation', String(nextThreshold))
+    params.set('topK', String(nextTopK))
+    router.replace(`/markets/network?${params.toString()}`, { scroll: false })
+  }
 
   function setRequestedColorMode(mode: ColorMode) {
     if (mode === 'field' && !hasSectorData) return
@@ -132,15 +157,19 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
           </div>
 
           <div>
-            <div className="text-filter-label">Strength threshold</div>
+            <div className="text-filter-label">Source strength threshold</div>
             <div className="mt-2 flex items-center gap-3">
               <input
                 type="range"
-                min="0.2"
-                max="0.95"
+                min="0"
+                max="1"
                 step="0.05"
                 value={threshold}
-                onChange={(event) => setThreshold(Number(event.target.value))}
+                onChange={(event) => {
+                  const nextThreshold = Number(event.target.value)
+                  setThreshold(nextThreshold)
+                  updateSourceParams(nextThreshold, topK)
+                }}
                 className="w-full accent-[var(--color-accent)]"
                 aria-label="Minimum relationship strength"
               />
@@ -149,15 +178,19 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
           </div>
 
           <div>
-            <div className="text-filter-label">Top-K density</div>
+            <div className="text-filter-label">Source Top-K</div>
             <div className="mt-2 flex items-center gap-3">
               <input
                 type="range"
-                min="2"
-                max="10"
+                min="1"
+                max="50"
                 step="1"
                 value={topK}
-                onChange={(event) => setTopK(Number(event.target.value))}
+                onChange={(event) => {
+                  const nextTopK = Number(event.target.value)
+                  setTopK(nextTopK)
+                  updateSourceParams(threshold, nextTopK)
+                }}
                 className="w-full accent-[var(--color-accent)]"
                 aria-label="Maximum non-backbone edges per node"
               />
@@ -168,11 +201,19 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
           <div className="grid grid-cols-2 gap-2 text-caption text-content-muted">
             <div>
               <div className="text-label-sm text-content-primary">{graph.nodes.length}</div>
-              Nodes
+              Payload nodes
+            </div>
+            <div>
+              <div className="text-label-sm text-content-primary">{graph.edges.length}</div>
+              Payload edges
+            </div>
+            <div>
+              <div className="text-label-sm text-content-primary">{selectedNodeCount}</div>
+              Selected nodes
             </div>
             <div>
               <div className="text-label-sm text-content-primary">{visibleEdges.length}</div>
-              Visible edges
+              Selected edges
             </div>
             <div>
               <div className="text-label-sm text-content-primary">{enabledLayers.size}</div>
@@ -252,6 +293,9 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
               <span className="inline-block h-1.5 w-8 rounded bg-[#36B3FF]" />
               Thickness and opacity follow confidence when available
             </div>
+            <p className="mt-2">
+              Payload totals are returned by the backend. Selected totals reflect the active layer and source controls; the canvas uses zoom-level detail to keep dense maps usable.
+            </p>
           </div>
         </aside>
       </div>

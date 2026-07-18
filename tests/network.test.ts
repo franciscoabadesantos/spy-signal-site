@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { normalizeNetworkGraph } from '../lib/network'
+import { marketNetworkPath, normalizeNetworkGraph } from '../lib/network'
+
+test('forwards global-map source controls to the backend endpoint', () => {
+  assert.equal(
+    marketNetworkPath({ window: '252', minAbsCorrelation: 0, topK: 50 }),
+    '/network?window=252&minAbsCorrelation=0&topK=50'
+  )
+})
 
 test('normalizes the relationship-map payload with entity graph ids and representative listings', () => {
   const graph = normalizeNetworkGraph(

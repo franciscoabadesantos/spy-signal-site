@@ -61,8 +61,6 @@ export type TickerNetworkOptions = {
   minAbsCorrelation?: number
 }
 
-const NETWORK_REVALIDATE_SECONDS = 900
-
 function appendNetworkParams(path: string, params: Record<string, string | number | null | undefined>): string {
   const searchParams = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
@@ -73,13 +71,12 @@ function appendNetworkParams(path: string, params: Record<string, string | numbe
   return query ? `${path}?${query}` : path
 }
 
-function cachedNetworkInit(): RequestInit & { next: { revalidate: number; tags: string[] } } {
+function currentNetworkInit(): RequestInit {
   return {
-    cache: 'force-cache',
-    next: {
-      revalidate: NETWORK_REVALIDATE_SECONDS,
-      tags: ['market-network'],
-    },
+    // The backend owns its short-lived relationship-map cache. Keeping a second
+    // Next cache here leaves the page serving the prior graph after a republish
+    // or a source-control change.
+    cache: 'no-store',
   }
 }
 
@@ -172,23 +169,27 @@ export function normalizeNetworkGraph(graph: BackendNetworkGraph, focus: string 
   }
 }
 
+export function marketNetworkPath(options: MarketNetworkOptions = {}): string {
+  return appendNetworkParams('/network', {
+    window: options.window,
+    minAbsCorrelation: options.minAbsCorrelation,
+    topK: options.topK,
+  })
+}
+
 function shouldUseFixture(error: unknown): boolean {
   if (!(error instanceof BackendDataError)) return false
   return error.status === null || error.status === 404 || error.status === 501 || error.status === 503
 }
 
 export async function getMarketNetwork(options: MarketNetworkOptions = {}): Promise<NetworkGraph> {
-  const path = appendNetworkParams('/network', {
-    window: options.window,
-    minAbsCorrelation: options.minAbsCorrelation,
-    topK: options.topK,
-  })
+  const path = marketNetworkPath(options)
 
   try {
     const graph = await fetchBackendJson<BackendNetworkGraph>(path, {
       context: 'market.network',
       timeoutMs: 9000,
-      init: cachedNetworkInit(),
+      init: currentNetworkInit(),
     })
     return normalizeNetworkGraph(graph, null)
   } catch (error) {
@@ -218,7 +219,7 @@ export async function getTickerNetwork(
     const graph = await fetchBackendJson<BackendNetworkGraph>(path, {
       context: `ticker.network.${ticker}`,
       timeoutMs: 9000,
-      init: cachedNetworkInit(),
+      init: currentNetworkInit(),
     })
     return normalizeNetworkGraph(graph, ticker)
   } catch (error) {

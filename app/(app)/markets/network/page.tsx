@@ -35,10 +35,16 @@ export default async function MarketNetworkPage({
 }) {
   const resolvedSearchParams = await searchParams
   const window = singleSearchParam(resolvedSearchParams.window) ?? undefined
-  const minAbsCorrelation = parseNumberParam(singleSearchParam(resolvedSearchParams.minAbsCorrelation), 0.2, 0.95)
-  const topK = parseNumberParam(singleSearchParam(resolvedSearchParams.topK), 2, 10)
+  const minAbsCorrelation = parseNumberParam(singleSearchParam(resolvedSearchParams.minAbsCorrelation), 0, 1)
+  const topK = parseNumberParam(singleSearchParam(resolvedSearchParams.topK), 1, 50)
+  const requestedMinAbsCorrelation = minAbsCorrelation ?? 0.3
+  const requestedTopK = topK ?? 6
 
-  const graph = await getMarketNetwork({ window, minAbsCorrelation, topK }).catch(() => null)
+  const graph = await getMarketNetwork({
+    window,
+    minAbsCorrelation: requestedMinAbsCorrelation,
+    topK: requestedTopK,
+  }).catch(() => null)
 
   if (!graph) {
     return (
@@ -62,7 +68,12 @@ export default async function MarketNetworkPage({
         }
       />
 
-      <MarketCorrelationNetwork graph={graph} />
+      <MarketCorrelationNetwork
+        key={`${requestedMinAbsCorrelation}:${requestedTopK}`}
+        graph={graph}
+        initialMinAbsCorrelation={requestedMinAbsCorrelation}
+        initialTopK={requestedTopK}
+      />
     </div>
   )
 }
