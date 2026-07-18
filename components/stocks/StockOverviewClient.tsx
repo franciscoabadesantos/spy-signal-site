@@ -17,7 +17,7 @@ import {
   type TechnicalTimeframe,
 } from '@/lib/technicalSignals'
 import { formatMoney, formatSignedMoney } from '@/lib/currency'
-import { tickerReadinessBadge } from '@/lib/ticker-readiness'
+import { hasUsableMaterializedScorecard } from '@/lib/ticker-page-scorecard'
 import { cn } from '@/lib/utils'
 import styles from './StockOverviewClient.module.css'
 
@@ -126,26 +126,14 @@ function regimeTone(direction: SignalDirection | null): 'bullish' | 'bearish' | 
 }
 
 function scorecardReadinessMessage(scorecard: Scorecard): string | null {
-  const readiness = tickerReadinessBadge({
-    coverageState: scorecard.coverageState,
-    hasPrices: scorecard.hasPrices,
-    hasTechnicals: scorecard.hasTechnicals,
-    hasScorecard: scorecard.hasScorecard,
-    missingInputs: scorecard.missingInputs,
-    registryStatus: scorecard.registryStatus,
-    validationStatus: scorecard.validationStatus,
-    promotionStatus: scorecard.promotionStatus,
-    scorecardReadiness: scorecard.readiness,
-  })
-
-  if (scorecard.readiness === 'ready' && readiness.label === 'Tracked') return null
+  if (hasUsableMaterializedScorecard(scorecard)) return null
+  if (scorecard.hasScorecard !== true || scorecard.overall.score === null) return 'Missing scorecard'
   if (scorecard.readiness === 'pending_build') return 'Scorecard pending daily build'
   if (scorecard.readiness === 'not_tracked') return 'Ticker is not tracked yet'
   if (scorecard.readiness === 'unavailable_missing_inputs') {
-    const missingInputs = scorecard.missingInputs.length > 0 ? scorecard.missingInputs.join('/') : 'fundamentals/earnings'
+    const missingInputs = scorecard.buildMissingInputs.length > 0 ? scorecard.buildMissingInputs.join('/') : 'required inputs'
     return `Scorecard unavailable: missing ${missingInputs}`
   }
-  if (readiness.label !== 'Tracked') return readiness.label
   return 'Scorecard is temporarily unavailable'
 }
 
@@ -843,6 +831,9 @@ export default function StockOverviewClient({
                     <span className={styles.scorecardScore}>
                       Score {scorecard.overall.score ?? '—'} · {scorecard.overall.label}
                     </span>
+                    {scorecard.buildReadiness === 'partial' ? (
+                      <span className={styles.scorecardPartialBadge}>Partial inputs</span>
+                    ) : null}
                   </div>
                 </div>
                 <div className={styles.scorecardAxes}>

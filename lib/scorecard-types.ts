@@ -6,6 +6,8 @@ export type ScorecardReadiness =
   | 'not_tracked'
   | 'error'
 
+export type ScorecardBuildReadiness = 'full' | 'partial' | 'unknown'
+
 export type ScorecardOverall = {
   score: number | null
   grade: string
@@ -25,6 +27,9 @@ export type Scorecard = {
   readiness: ScorecardReadiness
   buildStatus: string | null
   missingInputs: string[]
+  materializationReadiness: string | null
+  buildReadiness: ScorecardBuildReadiness
+  buildMissingInputs: string[]
   coverageState: string | null
   hasPrices: boolean | null
   hasTechnicals: boolean | null
@@ -133,6 +138,12 @@ function normalizeMissingInputs(value: unknown): string[] {
     .map((item) => item.trim().slice(0, 48))
 }
 
+function normalizeBuildReadiness(value: unknown): ScorecardBuildReadiness {
+  if (typeof value !== 'string') return 'unknown'
+  const normalized = value.trim().toLowerCase()
+  return normalized === 'full' || normalized === 'partial' ? normalized : 'unknown'
+}
+
 function readString(record: Record<string, unknown>, keys: string[]): string | null {
   for (const key of keys) {
     const value = record[key]
@@ -159,6 +170,10 @@ function readBoolean(record: Record<string, unknown>, keys: string[]): boolean |
 export function normalizeScorecard(raw: unknown): Scorecard | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const record = raw as Record<string, unknown>
+  const buildMetadata =
+    record.buildMetadata && typeof record.buildMetadata === 'object' && !Array.isArray(record.buildMetadata)
+      ? (record.buildMetadata as Record<string, unknown>)
+      : null
   const overallRecord =
     record.overall && typeof record.overall === 'object' && !Array.isArray(record.overall)
       ? (record.overall as Record<string, unknown>)
@@ -222,6 +237,9 @@ export function normalizeScorecard(raw: unknown): Scorecard | null {
     readiness: normalizeReadiness(record.readiness ?? record.buildStatus),
     buildStatus: readString(record, ['buildStatus', 'build_status']),
     missingInputs: normalizeMissingInputs(record.missingInputs ?? record.missing_inputs),
+    materializationReadiness: readString(record, ['materializationReadiness', 'materialization_readiness']),
+    buildReadiness: normalizeBuildReadiness(record.buildReadiness ?? buildMetadata?.readiness),
+    buildMissingInputs: normalizeMissingInputs(record.buildMissingInputs ?? record.build_missing_inputs),
     coverageState: readString(record, ['coverageState', 'coverage_state']),
     hasPrices: readBoolean(record, ['hasPrices', 'has_prices', 'pricesReady', 'prices_ready']),
     hasTechnicals: readBoolean(record, ['hasTechnicals', 'has_technicals', 'technicalsReady', 'technicals_ready']),
@@ -245,6 +263,9 @@ export function buildFixtureScorecard(ticker: string, seedScore = 62): Scorecard
     readiness: 'ready',
     buildStatus: 'scorecard_ready',
     missingInputs: [],
+    materializationReadiness: 'scorecard_ready',
+    buildReadiness: 'full',
+    buildMissingInputs: [],
     coverageState: 'ready',
     hasPrices: true,
     hasTechnicals: true,
@@ -279,6 +300,9 @@ export function buildUnavailableScorecard(label = 'No data'): Scorecard {
     readiness: 'error',
     buildStatus: 'error',
     missingInputs: [],
+    materializationReadiness: null,
+    buildReadiness: 'unknown',
+    buildMissingInputs: [],
     coverageState: null,
     hasPrices: null,
     hasTechnicals: null,

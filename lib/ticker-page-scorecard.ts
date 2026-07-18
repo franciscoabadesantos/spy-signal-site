@@ -14,3 +14,11 @@ export function scorecardFromTickerSummary(
 ): Scorecard {
   return normalizeScorecard(summary.scorecard) ?? buildUnavailableScorecard(unavailableLabel)
 }
+
+export function hasUsableMaterializedScorecard(scorecard: Scorecard): boolean {
+  return (
+    scorecard.hasScorecard === true &&
+    scorecard.readiness === 'ready' &&
+    scorecard.overall.score !== null
+  )
+}

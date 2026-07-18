@@ -7,6 +7,9 @@ const readyPayload = {
   readiness: 'scorecard_ready',
   buildStatus: 'scorecard_ready',
   missingInputs: [],
+  materializationReadiness: 'scorecard_ready',
+  buildReadiness: 'full',
+  buildMissingInputs: [],
   overall: { score: 74.4, grade: 'B+', label: 'Solid' },
   axes: [
     { key: 'value', label: 'Value', score: 71.2, available: true },
@@ -24,6 +27,9 @@ test('ready scorecard preserves current layout fields', () => {
   assert.equal(scorecard.readiness, 'ready')
   assert.equal(scorecard.buildStatus, 'scorecard_ready')
   assert.deepEqual(scorecard.missingInputs, [])
+  assert.equal(scorecard.materializationReadiness, 'scorecard_ready')
+  assert.equal(scorecard.buildReadiness, 'full')
+  assert.deepEqual(scorecard.buildMissingInputs, [])
   assert.equal(scorecard.asOf, '2026-07-06')
   assert.deepEqual(scorecard.overall, { score: 74, grade: 'B+', label: 'Solid' })
   assert.deepEqual(

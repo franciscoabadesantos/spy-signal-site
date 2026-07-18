@@ -34,6 +34,7 @@ import {
   type SymbolCoverageRow,
 } from '@/lib/ticker-data'
 import { scorecardFromTickerSummary } from '@/lib/ticker-page-scorecard'
+import { canonicalTickerStats } from '@/lib/ticker-page-stats'
 import { isTickerInWatchlist } from '@/lib/watchlist'
 
 export const dynamic = 'force-dynamic'
@@ -485,11 +486,19 @@ export default async function TickerPage({
           }
         : null
 
-  const marketCapNumeric = fundamentalsSummary?.marketCap ?? parseCompactCurrencyNumber(marketQuote?.marketCapText ?? null)
+  const canonicalStats = canonicalTickerStats({
+    profileMarketCap: tickerSummary.profile?.marketCap,
+    fundamentalsMarketCap: fundamentalsSummary?.marketCap,
+    quoteMarketCapText: marketQuote?.marketCapText,
+    fundamentalsTrailingPe: fundamentalsSummary?.trailingPe,
+    profileTrailingPe: tickerSummary.profile?.trailingPe,
+    marketStatsVolume: marketStats?.volume,
+  })
+  const marketCapNumeric = canonicalStats.marketCap ?? parseCompactCurrencyNumber(canonicalStats.marketCapText)
   const marketCapValue =
     marketCapNumeric !== null
       ? formatCompactMoney(marketCapNumeric, currency)
-      : marketQuote?.marketCapText ?? '—'
+      : canonicalStats.marketCapText ?? '—'
   const previousClose =
     marketQuote?.price !== null &&
     marketQuote?.price !== undefined &&
@@ -498,22 +507,18 @@ export default async function TickerPage({
       ? marketQuote.price - marketQuote.change
       : null
 
-  const trailingPe =
-    fundamentalsSummary?.trailingPe !== null && fundamentalsSummary?.trailingPe !== undefined
-      ? fundamentalsSummary.trailingPe.toFixed(2)
-      : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('pe')) ?? '—')
+  const trailingPe = canonicalStats.trailingPe !== null ? canonicalStats.trailingPe.toFixed(2) : '—'
   const dividendYield =
     findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('yield')) ?? '—'
-  const volumeValue =
-    findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('volume')) ?? '—'
+  const volumeValue = canonicalStats.volume !== null ? Math.round(canonicalStats.volume).toLocaleString() : '—'
   const latestRevenueValue =
     fundamentalsSummary?.latestRevenue !== null && fundamentalsSummary?.latestRevenue !== undefined
       ? formatCompactMoney(fundamentalsSummary.latestRevenue, currency)
-      : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('revenue')) ?? '—')
+      : '—'
   const latestEpsValue =
     fundamentalsSummary?.latestEps !== null && fundamentalsSummary?.latestEps !== undefined
       ? fundamentalsSummary.latestEps.toFixed(2)
-      : (findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('eps')) ?? '—')
+      : '—'
 
   const keyStats = [
     { label: 'Market Cap', value: marketCapValue },

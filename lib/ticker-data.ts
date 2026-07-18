@@ -13,6 +13,13 @@ export type MarketQuoteSnapshot = {
 
 export type MarketStatsSnapshot = {
   ticker: string
+  lastPrice: number | null
+  asOfDate: string | null
+  volume: number | null
+  change1D: number | null
+  change1M: number | null
+  change3M: number | null
+  change1Y: number | null
   return1d: number | null
   return1m: number | null
   return3m: number | null
@@ -23,6 +30,11 @@ export type MarketStatsSnapshot = {
   distanceFrom52wHighPct: number | null
   distanceFrom52wLowPct: number | null
   asOf: string | null
+}
+
+export type TickerProfileSummary = {
+  marketCap: number | null
+  trailingPe: number | null
 }
 
 export type SymbolCoverageRow = {
@@ -99,8 +111,9 @@ export type TickerPageSummary = {
   latestFundamentals: LatestFundamentalsRow[]
   nextEarnings: NextEarningsRow | null
   earningsHistory: EarningsHistoryRow[]
+  componentMissingInputs: string[]
   scorecard?: unknown
-  profile?: unknown
+  profile?: TickerProfileSummary | null
 }
 
 function normalizeTicker(tickerRaw: string): string {
@@ -121,7 +134,7 @@ async function fetchTickerPageSummaryFromBackend(tickerRaw: string): Promise<Tic
 export const getCachedTickerSummary = unstable_cache(
   async (ticker: string): Promise<TickerPageSummary | null> =>
     fetchTickerPageSummaryFromBackend(ticker),
-  ['ticker-page-summary-v1'],
+  ['ticker-page-summary-v2'],
   { revalidate: 120 }
 )
 

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
-import { scorecardFromTickerSummary } from '../lib/ticker-page-scorecard'
+import { hasUsableMaterializedScorecard, scorecardFromTickerSummary } from '../lib/ticker-page-scorecard'
 
 function readRepoFile(relativePath: string): string {
   return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8')
@@ -57,6 +57,45 @@ test('partial summary scorecards keep available axes and unavailable states', ()
   assert.deepEqual(scorecard.missingInputs, ['income'])
   assert.equal(scorecard.axes.find((axis) => axis.key === 'value')?.available, true)
   assert.equal(scorecard.axes.find((axis) => axis.key === 'income')?.available, false)
+})
+
+test('materialized partial scorecard remains visible when page components are missing', () => {
+  const scorecard = scorecardFromTickerSummary({
+    scorecard: {
+      asOf: '2026-07-17',
+      readiness: 'scorecard_ready',
+      buildStatus: 'scorecard_ready',
+      materializationReadiness: 'scorecard_ready',
+      buildReadiness: 'partial',
+      buildMissingInputs: ['fundamentals', 'latest_fundamentals', 'statement_rows'],
+      // Compatibility aliases must not be used as page-component diagnostics.
+      missingInputs: ['fundamentals', 'latest_fundamentals', 'statement_rows'],
+      hasScorecard: true,
+      overall: { score: 56, grade: 'B-', label: 'Mixed' },
+      axes: [
+        { key: 'value', label: 'Value', score: null, available: false },
+        { key: 'momentum', label: 'Momentum', score: 73, available: true },
+      ],
+    },
+  })
+
+  assert.equal(hasUsableMaterializedScorecard(scorecard), true)
+  assert.equal(scorecard.buildReadiness, 'partial')
+  assert.equal(scorecard.overall.score, 56)
+  assert.equal(scorecard.axes.find((axis) => axis.key === 'momentum')?.score, 73)
+})
+
+test('missing scorecard does not pass the materialized scorecard visibility gate', () => {
+  const scorecard = scorecardFromTickerSummary({
+    scorecard: {
+      readiness: 'scorecard_ready',
+      hasScorecard: false,
+      overall: { score: 56, grade: 'B-', label: 'Mixed' },
+      axes: [],
+    },
+  })
+
+  assert.equal(hasUsableMaterializedScorecard(scorecard), false)
 })
 
 test('ticker page normal render has no page-level scorecard fetch', () => {
