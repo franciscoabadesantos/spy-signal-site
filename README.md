@@ -86,6 +86,22 @@ See `DATA_SOURCE_POLICY.md` before changing ticker autocomplete, stock-page data
 
 Supabase credentials belong in server-side repos (`finance-backend`, `finance-data-ops`), not in this site runtime.
 
+### Ticker page summary semantics
+
+Ticker pages render the canonical backend summary payload. Scorecard visibility is
+determined by scorecard materialization (`hasScorecard`, materialization
+readiness, and a usable overall score), not by page-component diagnostics. A
+`buildReadiness: "partial"` scorecard is still a valid materialized scorecard and
+must remain visible with its available axes. `componentMissingInputs` may be used
+for page caveats only; it must never hide a scorecard.
+
+Overview stat mappings are intentionally canonical: market cap is
+`profile.marketCap ?? fundamentalsSummary.marketCap ?? quote.marketCapText`,
+volume is `marketStats.volume`, and P/E uses only
+`fundamentalsSummary.trailingPe` then `profile.trailingPe`. Do not reintroduce
+fuzzy latest-fundamental row matching for P/E. The site renders the supplied
+snapshot only and must not fetch or substitute later source data.
+
 ## Watchlist Tables (Dashboard)
 
 Watchlist persistence is now served through `finance-backend` `/site/*` endpoints. The underlying tables still live in Supabase, but this site does not access them directly.

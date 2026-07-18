@@ -111,6 +111,7 @@ export type TickerPageSummary = {
   latestFundamentals: LatestFundamentalsRow[]
   nextEarnings: NextEarningsRow | null
   earningsHistory: EarningsHistoryRow[]
+  // Page-component coverage only; never use this to decide scorecard visibility.
   componentMissingInputs: string[]
   scorecard?: unknown
   profile?: TickerProfileSummary | null

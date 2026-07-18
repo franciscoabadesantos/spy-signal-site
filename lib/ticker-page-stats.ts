@@ -11,7 +11,10 @@ function finiteNumber(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-/** Select only the canonical ticker-summary fields used by the overview cards. */
+/**
+ * Select only canonical ticker-summary fields for overview cards. Do not add
+ * fuzzy latest-fundamental matching here: P/E must be canonical or render as —.
+ */
 export function canonicalTickerStats(input: CanonicalTickerStatInputs) {
   return {
     marketCap: finiteNumber(input.profileMarketCap) ?? finiteNumber(input.fundamentalsMarketCap),
