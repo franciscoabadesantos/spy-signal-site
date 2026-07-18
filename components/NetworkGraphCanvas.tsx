@@ -133,8 +133,8 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-function edgeKey(source: string, target: string): string {
-  return [source, target].sort().join('__')
+function edgeKey(source: string, target: string, layer?: string): string {
+  return [[source, target].sort().join('__'), layer ?? 'raw_price'].join('__')
 }
 
 function formatMarketCap(value: number | null): string {
@@ -183,7 +183,9 @@ function linkWidth(edge: Pick<NetworkEdge, 'inMst' | 'absCorrelation' | 'relatio
     if (confidence !== null) return 1.8 + confidence * 8.8
     return 2 + edge.absCorrelation * 3
   }
-  return (edge.inMst ? NETWORK_ARCS.mstWidth : NETWORK_ARCS.baseWidth) + edge.absCorrelation * NETWORK_ARCS.correlationWidth + (edge.relationshipWidthBoost ?? 0)
+  const confidence = confidenceValue(edge.relationshipConfidence)
+  const reliability = confidence ?? edge.absCorrelation
+  return NETWORK_ARCS.baseWidth + reliability * NETWORK_ARCS.correlationWidth + (edge.relationshipWidthBoost ?? 0)
 }
 
 function linkAlpha(edge: Pick<NetworkEdge, 'absCorrelation' | 'relationshipAlpha'>): number {
@@ -277,7 +279,7 @@ export function selectGlobalEdges(edges: NetworkEdge[], threshold: number, topK:
   }
 
   for (const edge of edges.filter((item) => item.inMst).sort((a, b) => b.absCorrelation - a.absCorrelation)) {
-    const id = edgeKey(edge.source, edge.target)
+    const id = edgeKey(edge.source, edge.target, edge.relationshipSourceLayer)
     included.set(id, edge)
     increment(edge)
   }
@@ -288,7 +290,7 @@ export function selectGlobalEdges(edges: NetworkEdge[], threshold: number, topK:
 
   for (const edge of candidates) {
     if ((counts.get(edge.source) ?? 0) >= topK || (counts.get(edge.target) ?? 0) >= topK) continue
-    const id = edgeKey(edge.source, edge.target)
+    const id = edgeKey(edge.source, edge.target, edge.relationshipSourceLayer)
     if (included.has(id)) continue
     included.set(id, edge)
     increment(edge)
@@ -430,7 +432,7 @@ function buildGraphData({
     .filter((edge) => existingTickers.has(edge.source) && existingTickers.has(edge.target))
     .map<GraphLink>((edge) => ({
       ...edge,
-      id: edge.id ?? edgeKey(edge.source, edge.target),
+      id: edge.id ?? edgeKey(edge.source, edge.target, edge.relationshipSourceLayer),
       source: edge.source,
       target: edge.target,
       orbitDistance:
@@ -702,7 +704,7 @@ export default function NetworkGraphCanvas({
         linkWidth={(link: GraphLink) => linkWidth(link, mode)}
         linkColor={(link: GraphLink) => linkColor(link, linkAlpha(link))}
         linkLineDash={(link: GraphLink) => link.relationshipDash ?? (link.inMst ? null : [5, 8])}
-        nodeLabel={(node: GraphNode) => `${node.ticker} - ${countryDisplayName(node.country, node.region)} - ${sectorLabel(node.sector)}`}
+        nodeLabel={(node: GraphNode) => `${node.symbol ?? node.ticker} - ${countryDisplayName(node.country, node.region)} - ${sectorLabel(node.sector)}`}
         linkLabel={(link: GraphLink) =>
           link.relationshipDescription ??
           `${sourceId(link)} / ${targetId(link)} - correlation ${link.correlation.toFixed(2)}`
@@ -717,7 +719,7 @@ export default function NetworkGraphCanvas({
           updateTooltipPosition(rect ? rect.left + width / 2 : 0, rect ? rect.top + 24 : 0, node.ticker)
         }}
         onNodeClick={(node: GraphNode) => {
-          router.push(`/stocks/${node.ticker}`)
+          router.push(`/stocks/${node.symbol ?? node.ticker}`)
         }}
         onNodeDrag={(node: GraphNode) => {
           setDragTicker(node.ticker)
@@ -930,8 +932,8 @@ export default function NetworkGraphCanvas({
             ctx.fillStyle = '#f7fbff'
             ctx.globalAlpha = dimmed ? 0.34 : 0.96
             const labelY = mode === 'peer' && !node.isCenter ? y - radius - 5 / globalScale : mode === 'peer' ? y : y - radius - 5 / globalScale
-            ctx.strokeText(node.ticker, x, labelY)
-            ctx.fillText(node.ticker, x, labelY)
+            ctx.strokeText(node.symbol ?? node.ticker, x, labelY)
+            ctx.fillText(node.symbol ?? node.ticker, x, labelY)
           }
           ctx.restore()
         }}
@@ -946,9 +948,12 @@ export default function NetworkGraphCanvas({
       {hoveredNode && hover ? (
         <div className="pointer-events-none absolute z-20" style={{ left: hover.x, top: hover.y }}>
           <ChartTooltipCard
-            title={hoveredNode.ticker}
+            title={hoveredNode.symbol ?? hoveredNode.ticker}
             rows={[
               { label: 'Name', value: hoveredNode.name ?? '-' },
+              ...(hoveredNode.siblingSymbols && hoveredNode.siblingSymbols.length > 1
+                ? [{ label: 'Listings', value: hoveredNode.siblingSymbols.join(', ') }]
+                : []),
               {
                 label: 'Country',
                 value: countryDisplayName(hoveredNode.country, hoveredNode.region),

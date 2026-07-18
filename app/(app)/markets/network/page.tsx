@@ -8,8 +8,8 @@ import { buttonClass } from '@/components/ui/Button'
 import { getMarketNetwork } from '@/lib/network'
 
 export const metadata: Metadata = {
-  title: 'Market Correlation Network - Longbrunch',
-  description: 'Explore the global market correlation graph by region, backbone edge, and ticker neighborhood.',
+  title: 'Market Relationship Map - Longbrunch',
+  description: 'Explore the global market relationship graph by layer, region, and ticker neighborhood.',
 }
 
 function singleSearchParam(value: string | string[] | undefined): string | null {
@@ -44,7 +44,7 @@ export default async function MarketNetworkPage({
     return (
       <EmptyState
         title="Network is temporarily unavailable"
-        description="The frontend could not load the precomputed market correlation graph from finance-backend."
+        description="The frontend could not load the precomputed market relationship graph from finance-backend."
         action={<RetryButton>Retry</RetryButton>}
       />
     )
@@ -53,8 +53,8 @@ export default async function MarketNetworkPage({
   return (
     <div className="container-lg section-gap">
       <PageHeader
-        title="Correlation network"
-        subtitle="A precomputed market graph where force-directed position comes from return correlations, while country and sector metadata are overlaid as colour and spotlight views."
+        title="Market relationship map"
+        subtitle="A precomputed, layer-separated graph. Position reflects relationship strength; line thickness and opacity reflect reliability when the backend provides confidence."
         action={
           <Link href="/markets" className={buttonClass({ variant: 'secondary' })}>
             Back to Markets

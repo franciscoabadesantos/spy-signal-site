@@ -12,6 +12,14 @@ import {
 } from '@/lib/network-regions'
 import { cn } from '@/lib/utils'
 
+const RELATIONSHIP_LAYERS = [
+  { key: 'raw_price', label: 'Raw price' },
+  { key: 'residual_price', label: 'Residual price' },
+  { key: 'lead_lag', label: 'Lead / lag' },
+  { key: 'theme_etf', label: 'Theme ETF' },
+  { key: 'probable_spurious', label: 'Probable spurious' },
+] as const
+
 function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`
 }
@@ -21,7 +29,13 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
   const [topK, setTopK] = useState(5)
   const [colorMode, setColorMode] = useState<ColorMode>('zone')
   const [sectorFilter, setSectorFilter] = useState<GicsSectorKey | null>(null)
-  const visibleEdges = useMemo(() => selectGlobalEdges(graph.edges, threshold, topK), [graph.edges, threshold, topK])
+  const [enabledLayers, setEnabledLayers] = useState<Set<string>>(() => new Set(RELATIONSHIP_LAYERS.map((layer) => layer.key)))
+  const layerEdges = useMemo(
+    () => graph.edges.filter((edge) => enabledLayers.has(edge.relationshipSourceLayer ?? 'raw_price')),
+    [enabledLayers, graph.edges]
+  )
+  const visibleEdges = useMemo(() => selectGlobalEdges(layerEdges, threshold, topK), [layerEdges, threshold, topK])
+  const visibleGraph = useMemo(() => ({ ...graph, edges: layerEdges }), [graph, layerEdges])
   const countryLegend = useMemo(() => buildCountryLegend(graph.nodes), [graph.nodes])
   const sectorLegend = useMemo(() => buildSectorLegend(graph.nodes), [graph.nodes])
   const sectorFilterOptions = sectorLegend.filter((item) => item.key !== 'unknown')
@@ -40,7 +54,7 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
           <ChartContainer className="h-[620px]" loadingText="Loading market network...">
             {({ width, height }) => (
               <NetworkGraphCanvas
-                graph={graph}
+                graph={visibleGraph}
                 threshold={threshold}
                 topK={topK}
                 colorMode={colorMode}
@@ -54,6 +68,38 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
         </div>
 
         <aside className="space-y-4 rounded-[8px] border border-border bg-surface-elevated p-4">
+          <div>
+            <div className="text-filter-label">Relationship layers</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {RELATIONSHIP_LAYERS.map((layer) => {
+                const active = enabledLayers.has(layer.key)
+                return (
+                  <button
+                    key={layer.key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() =>
+                      setEnabledLayers((current) => {
+                        const next = new Set(current)
+                        if (next.has(layer.key)) next.delete(layer.key)
+                        else next.add(layer.key)
+                        return next
+                      })
+                    }
+                    className={cn(
+                      'rounded-[8px] border px-2.5 py-1.5 text-caption transition',
+                      active
+                        ? 'border-primary/50 bg-primary/10 text-content-primary'
+                        : 'border-border bg-surface text-content-muted hover:bg-surface-hover'
+                    )}
+                  >
+                    {layer.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <div>
             <div className="text-filter-label">Colour</div>
             <div className="mt-2 grid grid-cols-2 gap-2">
@@ -86,7 +132,7 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
           </div>
 
           <div>
-            <div className="text-filter-label">Edge threshold</div>
+            <div className="text-filter-label">Strength threshold</div>
             <div className="mt-2 flex items-center gap-3">
               <input
                 type="range"
@@ -96,7 +142,7 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
                 value={threshold}
                 onChange={(event) => setThreshold(Number(event.target.value))}
                 className="w-full accent-[var(--color-accent)]"
-                aria-label="Minimum absolute correlation"
+                aria-label="Minimum relationship strength"
               />
               <span className="numeric-tabular text-label-sm text-content-primary">{formatPercent(threshold)}</span>
             </div>
@@ -129,8 +175,8 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
               Visible edges
             </div>
             <div>
-              <div className="text-label-sm text-content-primary">{visibleEdges.filter((edge) => edge.inMst).length}</div>
-              Backbone
+              <div className="text-label-sm text-content-primary">{enabledLayers.size}</div>
+              Layers
             </div>
             <div>
               <div className="text-label-sm text-content-primary">{graph.window}</div>
@@ -200,22 +246,18 @@ export default function MarketCorrelationNetwork({ graph }: { graph: NetworkGrap
           <div className="border-t border-border pt-3 text-caption text-content-muted">
             <div className="flex items-center gap-2">
               <span className="inline-block h-px w-8 bg-[#36B3FF]" />
-              Positive correlation
+              Distance follows relationship strength
             </div>
             <div className="mt-2 flex items-center gap-2">
-              <span className="inline-block h-px w-8 bg-[#FF867B]" />
-              Negative correlation
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="inline-block h-px w-8 border-t-2 border-dashed border-content-muted" />
-              Non-backbone edge
+              <span className="inline-block h-1.5 w-8 rounded bg-[#36B3FF]" />
+              Thickness and opacity follow confidence when available
             </div>
           </div>
         </aside>
       </div>
 
       <div className={cn('text-caption text-content-muted', graph.asOf ? undefined : 'text-content-secondary')}>
-        {graph.asOf ? `As of ${graph.asOf}` : 'Fixture data'} · window {graph.window} · backbone edges always stay visible.
+        {graph.asOf ? `As of ${graph.asOf}` : 'Fixture data'} · window {graph.window} · layer-separated relationship graph.
       </div>
     </div>
   )
