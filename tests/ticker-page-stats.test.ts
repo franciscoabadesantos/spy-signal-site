@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { canonicalTickerStats } from '../lib/ticker-page-stats'
 
-test('canonical overview stats prefer profile market cap and use market stats volume', () => {
+test('canonical overview stats prefer snapshot profile market cap and use market stats volume', () => {
   const stats = canonicalTickerStats({
-    profileMarketCap: 2_000_000_000,
+    snapshotProfileMarketCap: 2_000_000_000,
     fundamentalsMarketCap: 1_000_000_000,
     quoteMarketCapText: '$1.0B',
     fundamentalsTrailingPe: 18.25,
@@ -19,7 +19,7 @@ test('canonical overview stats prefer profile market cap and use market stats vo
 
 test('canonical overview stats fall back only to declared summary fields', () => {
   const stats = canonicalTickerStats({
-    profileMarketCap: null,
+    snapshotProfileMarketCap: null,
     fundamentalsMarketCap: 900_000_000,
     quoteMarketCapText: '$0.9B',
     fundamentalsTrailingPe: null,
@@ -30,4 +30,18 @@ test('canonical overview stats fall back only to declared summary fields', () =>
   assert.equal(stats.marketCap, 900_000_000)
   assert.equal(stats.trailingPe, null)
   assert.equal(stats.volume, null)
+})
+
+test('canonical overview stats do not treat latest metadata as an as-of market cap', () => {
+  const stats = canonicalTickerStats({
+    snapshotProfileMarketCap: null,
+    fundamentalsMarketCap: null,
+    quoteMarketCapText: null,
+    fundamentalsTrailingPe: null,
+    profileTrailingPe: null,
+    marketStatsVolume: null,
+    latestMetadataMarketCap: 3_000_000_000_000,
+  } as Parameters<typeof canonicalTickerStats>[0])
+
+  assert.equal(stats.marketCap, null)
 })

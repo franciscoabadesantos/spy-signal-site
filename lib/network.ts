@@ -11,6 +11,8 @@ export type NetworkNode = {
   region: string | null
   sector: string | null
   marketCap: number | null
+  // EAS cap is current/latest metadata, never the network edge as-of value.
+  marketCapSource?: 'latest_metadata' | null
   degree: number | null
   entityId?: string
   lei?: string | null
@@ -130,6 +132,7 @@ export function normalizeNetworkGraph(graph: BackendNetworkGraph, focus: string 
           region: node.region ?? null,
           sector: node.sector ?? null,
           marketCap: typeof node.marketCap === 'number' && Number.isFinite(node.marketCap) ? node.marketCap : null,
+          marketCapSource: node.marketCapSource === 'latest_metadata' ? 'latest_metadata' : null,
           degree: typeof node.degree === 'number' && Number.isFinite(node.degree) ? node.degree : null,
           entityId: entityId || undefined,
           lei: node.lei ?? null,

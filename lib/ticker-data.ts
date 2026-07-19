@@ -33,7 +33,13 @@ export type MarketStatsSnapshot = {
 }
 
 export type TickerProfileSummary = {
+  // Snapshot/as-of value, sourced from report-dated fundamentals.
   marketCap: number | null
+  // Latest descriptive metadata is intentionally separate and must not be
+  // used for an as-of card or scorecard/model interpretation.
+  latestMarketCap: number | null
+  latestMarketCapUpdatedAt: string | null
+  latestMarketCapSource: 'feature_store.entity_attributes_static' | null
   trailingPe: number | null
 }
 

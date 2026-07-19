@@ -487,7 +487,7 @@ export default async function TickerPage({
         : null
 
   const canonicalStats = canonicalTickerStats({
-    profileMarketCap: tickerSummary.profile?.marketCap,
+    snapshotProfileMarketCap: tickerSummary.profile?.marketCap,
     fundamentalsMarketCap: fundamentalsSummary?.marketCap,
     quoteMarketCapText: marketQuote?.marketCapText,
     fundamentalsTrailingPe: fundamentalsSummary?.trailingPe,

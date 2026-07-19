@@ -97,6 +97,7 @@ function normalizeNode(node: BackendRelationshipNode | null | undefined): Networ
     region: node?.region ?? null,
     sector: node?.sector ?? null,
     marketCap: typeof node?.marketCap === 'number' && Number.isFinite(node.marketCap) ? node.marketCap : null,
+    marketCapSource: node?.marketCapSource === 'latest_metadata' ? 'latest_metadata' : null,
     degree: typeof node?.degree === 'number' && Number.isFinite(node.degree) ? node.degree : null,
   }
 }

@@ -50,6 +50,7 @@ test('normalizes the relationship-map payload with entity graph ids and represen
     region: null,
     sector: null,
     marketCap: null,
+    marketCapSource: null,
     degree: 1,
     entityId: 'ENTITY_SAP',
     lei: null,
@@ -74,4 +75,19 @@ test('normalizes the relationship-map payload with entity graph ids and represen
       relationshipDirectional: false,
     },
   ])
+})
+
+test('preserves latest-metadata provenance for network node sizing/display', () => {
+  const graph = normalizeNetworkGraph(
+    {
+      asOf: '2026-07-17',
+      window: '252',
+      nodes: [{ ticker: 'AAPL', marketCap: 3_000_000_000_000, marketCapSource: 'latest_metadata', degree: 0 }],
+      edges: [],
+    },
+    null
+  )
+
+  assert.equal(graph.nodes[0]?.marketCap, 3_000_000_000_000)
+  assert.equal(graph.nodes[0]?.marketCapSource, 'latest_metadata')
 })

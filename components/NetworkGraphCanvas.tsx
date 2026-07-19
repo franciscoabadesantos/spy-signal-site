@@ -960,7 +960,10 @@ export default function NetworkGraphCanvas({
                 swatchColor: nodeColor(hoveredNode, colorMode),
               },
               { label: 'Sector', value: sectorLabel(hoveredNode.sector) },
-              { label: 'Market cap', value: formatMarketCap(hoveredNode.marketCap) },
+              {
+                label: hoveredNode.marketCapSource === 'latest_metadata' ? 'Latest metadata market cap' : 'Market cap',
+                value: formatMarketCap(hoveredNode.marketCap),
+              },
               ...(mode === 'peer'
                 ? [
                     {
