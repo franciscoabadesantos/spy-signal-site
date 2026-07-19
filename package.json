@@ -10,7 +10,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "rm -rf /tmp/spy-signal-site-tests && tsc --module commonjs --target ES2022 --moduleResolution node --outDir /tmp/spy-signal-site-tests --esModuleInterop --skipLibCheck --types node tests/scorecard-types.test.ts tests/ticker-readiness.test.ts tests/ticker-search.test.ts tests/ticker-index-route.test.ts tests/ticker-autocomplete-architecture.test.ts tests/ticker-page-scorecard.test.ts tests/ticker-page-stats.test.ts tests/ohlc-data.test.ts tests/network.test.ts app/api/tickers/index/route.ts lib/backend.ts lib/ticker-index-proxy.ts lib/scorecard-types.ts lib/ticker-readiness.ts lib/ticker-search.ts lib/ticker-page-scorecard.ts lib/ticker-page-stats.ts lib/ohlc-data.ts lib/network.ts && mkdir -p /tmp/spy-signal-site-tests/node_modules/server-only && printf '' > /tmp/spy-signal-site-tests/node_modules/server-only/index.js && node --test /tmp/spy-signal-site-tests/tests/*.test.js",
+    "agents:sync": "node scripts/sync-codex-agents.mjs --apply",
+    "agents:check": "node scripts/sync-codex-agents.mjs --check",
+    "test:agents": "node --test tests/sync-codex-agents.test.mjs",
+    "test": "rm -rf /tmp/spy-signal-site-tests && tsc --module commonjs --target ES2022 --moduleResolution node --outDir /tmp/spy-signal-site-tests --esModuleInterop --skipLibCheck --types node tests/scorecard-types.test.ts tests/ticker-readiness.test.ts tests/ticker-search.test.ts tests/ticker-index-route.test.ts tests/ticker-autocomplete-architecture.test.ts tests/ticker-page-scorecard.test.ts tests/ticker-page-stats.test.ts tests/ohlc-data.test.ts tests/network.test.ts app/api/tickers/index/route.ts lib/backend.ts lib/ticker-index-proxy.ts lib/scorecard-types.ts lib/ticker-readiness.ts lib/ticker-search.ts lib/ticker-page-scorecard.ts lib/ticker-page-stats.ts lib/ohlc-data.ts lib/network.ts && mkdir -p /tmp/spy-signal-site-tests/node_modules/server-only && printf '' > /tmp/spy-signal-site-tests/node_modules/server-only/index.js && node --test /tmp/spy-signal-site-tests/tests/*.test.js && npm run test:agents",
     "test:e2e": "playwright test",
     "test:e2e:screenshots": "PLAYWRIGHT_CAPTURE=1 playwright test"
   },

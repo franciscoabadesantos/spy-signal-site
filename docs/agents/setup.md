@@ -32,22 +32,21 @@ Use `docs/features/_template/status.md` when work must continue on another compu
 
 ## Codex role setup
 
-The versioned source of truth is `docs/agents/codex/`. On a normal trusted clone, install it as the project-local Codex layer before starting a new Codex session:
+`docs/agents/codex/` is the versioned source of truth. `.codex/` is its versioned generated installation: do not edit its managed paths by hand. On a normal trusted clone, synchronize and verify the installation before starting a new Codex session:
 
 ```bash
-mkdir -p .codex
-cp docs/agents/codex/config.toml .codex/config.toml
-cp -R docs/agents/codex/agents .codex/agents
+npm run agents:sync
+npm run agents:check
 codex --strict-config -C .
 ```
 
 If `.codex` already exists as a non-directory, stop and preserve it; resolve that local conflict before installing this project layer. Do not delete an unknown user file to make room for the directory.
 
-Do not copy this configuration to `~/.codex`: it is repository-specific. The root config sets Main to `gpt-5.6-terra` with medium reasoning. It caps concurrent agent threads at 3 and nesting depth at 1. The role tables point to stable TOML files in `.codex/agents/`.
+Do not copy this configuration to `~/.codex`: it is repository-specific. `agents:sync` safely replaces each managed project path — `config.toml`, `agents/`, and `skills/` — using a temporary copy and rollback, so every replaced path exactly mirrors the source while unrelated files in `.codex/` are preserved. `agents:check` reports missing, modified, and unexpected managed files. The root `config.toml` defines Main's model and reasoning effort; use `npm run agents:check` to verify the installation. The role tables point to stable TOML files in `.codex/agents/`.
 
 Codex accepts the model identifiers syntactically, but actual availability is controlled by the authenticated workspace and its model catalog. Check the assigned model in subagent activity after a real spawn; do not treat a successful TOML parse as proof of entitlement.
 
-Start a new Codex session after installing or changing the files. To use a role, Main explicitly asks to spawn the named role with its compact brief: `repo_explorer`, `design_director`, `implementation_agent`, `browser_qa`, `api_contract_agent`, `accessibility_performance_reviewer`, or `independent_reviewer`. These identifiers use underscores because Codex CLI v0.144.4 rejects hyphens in spawned agent names. Inspect the subagent activity/details (or CLI `/agent`) to confirm its role and assigned model. The role file is also the auditable source for `model` and `model_reasoning_effort`.
+Start a new Codex session after `agents:sync` or any project-layer change so roles and skills are rediscovered. To use a role, Main explicitly asks to spawn the named role with its compact brief: `repo_explorer`, `design_director`, `implementation_agent`, `browser_qa`, `api_contract_agent`, `accessibility_performance_reviewer`, or `independent_reviewer`. These identifiers use underscores because Codex CLI v0.144.4 rejects hyphens in spawned agent names. Inspect the subagent activity/details (or CLI `/agent`) to confirm its role and assigned model. The role file is also the auditable source for `model` and `model_reasoning_effort`.
 
 For a temporary Main override, use `codex -m gpt-5.6-luna -c 'model_reasoning_effort="high"'` for implementation-heavy work, or `codex -m gpt-5.6-sol -c 'model_reasoning_effort="medium"'` for the escalation cases in `roles.md`. These flags win over project defaults and affect only that session.
 
