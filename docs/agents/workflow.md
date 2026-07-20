@@ -33,6 +33,14 @@ Main acts as Product Lead. Add every role whose risk trigger is present: Repo Ar
 
 Do not create every role by default. A role should answer a distinct question that Main cannot answer as efficiently in the current context.
 
+## Rejection recovery
+
+1. Distinguish polish on an accepted direction from rejection that the result is wrong, unchanged, or worse. Treat “restore the original”, “the cause is different”, and equivalent feedback as rejection or rollback, not as requests for another variant.
+2. After the first rejection, stop editing and diagnose. Inspect the actual runtime element, relevant computed styles, competing rules, current diff, and reload/cache state; distinguish adjacent mechanisms before choosing another fix.
+3. Preserve the last accepted baseline. Revert a result that became worse and restore an explicitly requested original exactly from recorded evidence; never reconstruct it from memory or broadly reset unrelated work.
+4. Test one causal hypothesis per attempt. Do not edit adjacent properties without evidence. After two consecutive rejections, freeze edits and request focused clarification or use an independent read-only reviewer when it can add concrete evidence.
+5. Use canonical QA commands for technical validation, but do not treat passing checks as proof of visual acceptance or causal correctness.
+
 ## Spawned-agent execution rules
 
 - A spawned agent executes only the role and assignment in its spawn message.

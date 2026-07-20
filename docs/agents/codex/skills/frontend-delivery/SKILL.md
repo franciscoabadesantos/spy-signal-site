@@ -43,6 +43,14 @@ Main owns repository discovery, knowledge gates, role selection, task decomposit
 
 Spawned agents execute only the role and assignment in their spawn message. They must not reclassify the overall task, verify multi-agent availability, invoke other project roles, enforce the full delivery pipeline, request authorization for a single-agent fallback, reload the full workflow, reread broad documentation, or rescan the repository. An Implementation Agent should inspect only its assigned files and the minimum directly imported dependencies required to execute safely, then patch promptly, validate, and return its handoff.
 
+## Rejection recovery
+
+- Distinguish polish on an accepted direction from rejection that the result is wrong, unchanged, or worse. Treat a rollback request or evidence that the assumed cause is wrong as rejection.
+- After the first rejection, stop editing and diagnose before another attempt. Inspect the actual runtime element, relevant computed styles, competing rules, current diff, and reload/cache state; distinguish adjacent mechanisms such as pointer cursor, text I-beam, input caret, hover, focus, and background contrast.
+- Preserve the last accepted baseline. If the result became worse, revert only the rejected attempt. If asked to restore the original, restore it exactly from recorded evidence instead of reconstructing it from memory or broadly resetting a dirty worktree.
+- Test one causal hypothesis per attempt and do not change adjacent properties without evidence. After two consecutive rejections, freeze edits and request focused clarification or use an independent read-only reviewer when it can provide concrete evidence.
+- Treat canonical QA commands as technical validation, not proof of visual acceptance or causal correctness.
+
 ## Implementation-agent patience and recovery
 
 - Implementation Agents should normally run uninterrupted after receiving an approved execution packet.
