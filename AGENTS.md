@@ -52,11 +52,34 @@ This version has breaking changes; APIs, conventions, and file structure may dif
 - Critical frontend changes require Accessibility/Performance Review when motion, focus, canvas, runtime, or bundle risk exists and Independent Review when blast radius or regression risk is high. Require API Contract whenever data, local routes, or response states change.
 - Load the applicable subset of frontend knowledge before delegation: the relevant Next 16 guide, `app/globals.css`, rendered components, `docs/design/design-system.md`, `docs/qa/browser-qa.md`, and `docs/qa/viewport-matrix.md`; additionally read `DATA_SOURCE_POLICY.md` and API docs for ticker/autocomplete or data work. The versioned `docs/agents/codex/skills/frontend-delivery/` skill is a reusable workflow layer, but `AGENTS.md` remains the authoritative enforcement source.
 - Main is the Product Lead and chooses roles. A task brief contains only the objective, constraints, exact paths, expected output, and response limit. Stop agents that duplicate work; never send the full conversation or long transcripts.
+- Main owns repository discovery, knowledge gates, role selection, and task decomposition. Implementation Agents must not repeat broad discovery already completed by Main.
+- Before spawning an Implementation Agent, Main must provide a compact execution packet containing:
+  - objective;
+  - approved file ownership;
+  - authoritative Design Director decisions;
+  - relevant contracts and invariants;
+  - exact acceptance checks;
+  - known code locations when already identified.
+- An Implementation Agent should inspect only its assigned files and the minimum directly imported dependencies required to edit safely. It must not reload the full workflow, reread broad repository documentation, or rescan the repository unless the execution packet identifies a genuine unresolved question.
 - Before claiming that multi-agent support is unavailable, Main must inspect the exposed tool surface for the namespaced V1 tool `multi_agent_v1__spawn_agent`. The absence of an unqualified `spawn_agent` does not mean agent support is unavailable.
 - For significant or critical frontend work, if `multi_agent_v1__spawn_agent` is available, Main must use the configured roles required by the classification. Main must not simulate Design Director, Implementation Agent, Browser QA, API Contract, Accessibility/Performance Review, or Independent Review as local passes.
 - If the required multi-agent tool or configured `agent_type` is genuinely unavailable, Main must stop before repository exploration or editing, report the exact missing tool or role, and request explicit user authorization for a single-agent fallback.
 - One implementation agent owns edits to a file area at a time. Ownership is temporary and ends on handoff, reported blocker, agent shutdown after recovery, or explicit user authorization for Main to assume it. Other agents receive task goal, constraints, exact files to inspect, and a compact output schema. Handoffs follow `docs/agents/handoff-template.md` and should report decisions, evidence, blockers, and next action without replaying the prompt.
-- For an agent with no timely conclusion: wait once, request a checkpoint, and require verifiable progress (inspected paths, changed files/diff, running command, or a concrete blocker). If there is none, stop it and relaunch once with fewer paths and an explicit result. If that recovery fails, report the blocker and request user authorization for takeover; Main must never substitute silently for an agent required by the classification.
+- Subagents must not inspect or comment on multi-agent tool availability unless their assigned role requires spawning further agents. Only Main evaluates the orchestration tool surface.
+- For an Implementation Agent with no timely conclusion:
+  1. wait once;
+  2. request a checkpoint;
+  3. allow one additional work interval after the checkpoint request.
+- Verifiable progress includes any of:
+  - exact assigned files inspected;
+  - concrete edit locations identified;
+  - a patch in progress;
+  - changed files or diff;
+  - a validation command running;
+  - a specific blocker requiring Main input.
+- An empty `git diff` during initial inspection is not, by itself, evidence of failure.
+- Stop and relaunch only when the agent gives no checkpoint after the additional interval, repeats broad discovery without narrowing, violates ownership, or reports no actionable progress.
+- After relaunch, apply the same checkpoint sequence once. Request user authorization for takeover only after both agents fail this full recovery sequence.
 - A subagent adds value only if it finds evidence, reduces uncertainty, performs independent validation, or shortens the critical path. Stop it when its work duplicates Main.
 - Prefer `rg --files`, targeted `rg`, small excerpts, and `git diff --stat` before a full diff. Reuse prior findings, keep command output bounded, and pass summaries rather than raw transcripts.
 

@@ -22,15 +22,19 @@ Do not duplicate those documents here. Use the smallest relevant subset and stat
 - Treat any user-facing visual, responsive, interaction, search/input, animation, or visual accessibility change as significant. Use Design Director for a read-only brief, assign one Implementation Agent as editor, then use Browser QA.
 - Treat high-blast-radius work or work with data/API, motion/focus/canvas/runtime, or bundle risk as critical. Require API Contract for data/API, Accessibility/Performance for motion/focus/canvas/runtime or bundle risk, and Independent Review for high blast radius; do not add roles whose trigger is absent.
 
-Give every agent a compact brief with objective, constraints, exact paths, expected output, and response limit. One editor owns a path area at a time.
+Main owns repository discovery, knowledge gates, role selection, and task decomposition. Before spawning an Implementation Agent, provide a compact execution packet containing the objective, approved file ownership, authoritative Design Director decisions, relevant contracts and invariants, exact acceptance checks, and known code locations. The Implementation Agent should inspect only its assigned files and the minimum directly imported dependencies required to edit safely; it must not reload the full workflow, reread broad documentation, or rescan the repository unless the packet identifies a genuine unresolved question. One editor owns a path area at a time.
+
+Subagents must not inspect or comment on multi-agent tool availability unless their assigned role requires spawning further agents. Only Main evaluates the orchestration tool surface.
 
 ## Recover visibly
 
-1. Wait once for the assigned result.
+1. For an Implementation Agent with no timely conclusion, wait once.
 2. Request a checkpoint when no result arrives.
-3. Require evidence of progress: inspected paths, changed files/diff, command in progress, or a concrete blocker.
-4. Stop and relaunch once with reduced scope when evidence is absent.
-5. After that recovery fails, report the block and ask the user before Main takes ownership. Never replace a required role silently.
+3. Allow one additional work interval after the checkpoint request.
+4. Verifiable progress includes exact assigned files inspected, concrete edit locations identified, a patch in progress, changed files or diff, a validation command running, or a specific blocker requiring Main input.
+5. An empty `git diff` during initial inspection is not, by itself, evidence of failure.
+6. Stop and relaunch only when the agent gives no checkpoint after the additional interval, repeats broad discovery without narrowing, violates ownership, or reports no actionable progress.
+7. After relaunch, apply the same checkpoint sequence once. Request user authorization for takeover only after both agents fail this full recovery sequence. Never replace a required role silently.
 
 ## Validate and report
 

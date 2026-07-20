@@ -16,9 +16,9 @@ Do not inflate routine work into a full team. Do not downgrade a significant cha
 
 ## Significant frontend work
 
-1. Main defines the brief, protected files, acceptance criteria, and evidence needed.
+1. Main owns repository discovery, knowledge gates, role selection, and task decomposition. Main defines the brief, protected files, acceptance criteria, and evidence needed.
 2. Design/Research reviews the current UI and references without editing. It returns at most ten findings tied to files or screenshots.
-3. Implementation is the only editor for the assigned area. It receives the brief, confirmed repository patterns, and API contracts, not the whole exploration transcript.
+3. Implementation is the only editor for the assigned area. Before spawning it, Main provides a compact execution packet with the objective, approved file ownership, authoritative Design Director decisions, relevant contracts and invariants, exact acceptance checks, and known code locations. It receives that packet, not the whole exploration transcript.
 4. Browser QA validates the running result without editing initially. It returns reproducible defects with viewport, steps, evidence, and severity.
 5. Main reviews the diff, assigns targeted corrections to the current editor where possible, reruns relevant checks, and reconciles the final diff.
 
@@ -30,7 +30,9 @@ Do not create every role by default. A role should answer a distinct question th
 
 ## Context, ownership, and recovery
 
-- Give each agent only: objective, constraints/non-goals, exact paths/symbols, expected output, and response limit. Do not send the full conversation, raw exploration, or extensive reports.
+- Give each agent only the context needed for its role. The Implementation Agent receives the compact execution packet: objective, approved file ownership, authoritative Design Director decisions, relevant contracts and invariants, exact acceptance checks, known code locations, expected output, and response limit. Do not send the full conversation, raw exploration, or extensive reports.
+- Main owns discovery. The Implementation Agent must inspect only its assigned files and the minimum directly imported dependencies required to edit safely. It must not reload the full workflow, reread broad repository documentation, or rescan the repository unless the packet identifies a genuine unresolved question.
+- Subagents must not inspect or comment on multi-agent tool availability unless their assigned role requires spawning further agents. Only Main evaluates the orchestration tool surface.
 - Repo Explorer reads the supplied architecture paths. Design reads the target view, `app/globals.css`, primitives, and `docs/design`. API Contract reads the consumer, route/helper, types, `DATA_SOURCE_POLICY.md`, and `docs/api`. QA reads the brief, diff, and `docs/qa`.
 - Declare file ownership before edits. One implementation agent owns a target area; no other agent edits it until handoff is accepted.
 - Ownership is temporary. It ends when the agent hands off, reports a blocker, is stopped after the recovery protocol, or the user explicitly authorizes Main to take over.
@@ -40,11 +42,13 @@ Do not create every role by default. A role should answer a distinct question th
 
 ### Recovery protocol
 
-1. Wait once for the assigned outcome.
+1. For an Implementation Agent with no timely conclusion, wait once.
 2. If there is no conclusion, request a checkpoint.
-3. Accept only verifiable progress: inspected paths, changed files or diff, a command in progress, or a concrete blocker.
-4. If progress is absent, stop the agent and relaunch once with fewer paths, a narrower outcome, and no additional exploration.
-5. If recovery also fails, report the blocker and request explicit user authorization before Main takes ownership. Never substitute silently for a role required by the classification.
+3. Allow one additional work interval after the checkpoint request.
+4. Accept as verifiable progress: exact assigned files inspected, concrete edit locations identified, a patch in progress, changed files or diff, a validation command running, or a specific blocker requiring Main input.
+5. An empty `git diff` during initial inspection is not, by itself, evidence of failure.
+6. Stop and relaunch only when the agent gives no checkpoint after the additional interval, repeats broad discovery without narrowing, violates ownership, or reports no actionable progress.
+7. After relaunch, apply the same checkpoint sequence once. If that full recovery sequence also fails, report the blocker and request explicit user authorization before Main takes ownership. Never substitute silently for a role required by the classification.
 
 State agent status and handoffs in the final report, including unavailable validation and any authorized takeover.
 
