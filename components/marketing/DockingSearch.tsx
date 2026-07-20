@@ -2,14 +2,14 @@
 
 import type { FocusEvent } from 'react'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ChartNetwork } from 'lucide-react'
 import HeaderSearch from '@/components/HeaderSearch'
 
 /**
  * Homepage hero search.
  *
  * At the top it's the centrepiece of the first screen — a large centred search
- * with an editorial heading above and a "See correlations" action below. On scroll it lifts
+ * with an editorial heading above and a compact correlations action below. On scroll it lifts
  * and fades as the small in-flow header pill search takes over (see .dock-search
  * in globals.css).
  *
@@ -38,11 +38,15 @@ export default function DockingSearch() {
         <HeaderSearch className="w-full" maxSuggestions={4} placeholder="Search a ticker or company…" />
       </div>
       <div className="dock-search__support">
-        <Link href="/markets/network" className="dock-search__cta">
-          See correlations
-          <ArrowRight className="size-4" />
+        <Link
+          href="/markets/network"
+          className="dock-search__cta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-bg"
+          aria-label="Open correlations network"
+          title="Open correlations network"
+        >
+          <ChartNetwork className="dock-search__cta-icon size-4" aria-hidden="true" />
+          <span className="dock-search__cta-label">Correlations</span>
         </Link>
-        <span className="dock-search__helper">Compare the names moving together.</span>
       </div>
     </div>
   )

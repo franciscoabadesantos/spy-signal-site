@@ -1546,6 +1546,12 @@ main.marketing-home :is(input, textarea) {
 
 main.marketing-home .dock-search :is(input) {
   color-scheme: light;
+  color: #142943 !important;
+  caret-color: var(--brand-spark);
+}
+main.marketing-home .dock-search :is(input)::placeholder {
+  color: #8996ad;
+  opacity: 1;
 }
 
 main.marketing-home[data-theme="dark"],
@@ -1583,6 +1589,10 @@ html[data-theme="dark"] main.marketing-home {
   --menu-tile-scrim: linear-gradient(to top, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.12) 46%, transparent 72%);
   --menu-tile-label: #fff;
   --menu-media-opacity: 1;
+}
+html[data-theme="dark"] main.marketing-home .dock-search :is(input),
+main.marketing-home[data-theme="dark"] .dock-search :is(input) {
+  color: #eef3ff !important;
 }
 
 .marketing-home .site-header__brand {
@@ -1628,18 +1638,46 @@ html[data-theme="dark"] .marketing-home .site-header__tile-media,
   backdrop-filter: blur(4px);
 }
 
+.ticker-search__panel {
+  max-height: 28rem;
+  opacity: 1;
+  transform: translateY(0) scaleY(1);
+  transition:
+    max-height 280ms var(--motion-ease-soft),
+    opacity 180ms ease,
+    transform 280ms var(--motion-ease-soft);
+  will-change: max-height, opacity, transform;
+}
+.ticker-search__panel[data-open='false'] {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px) scaleY(0.97);
+}
+
 .marketing-home .dock-search .ticker-search__panel {
+  position: relative;
+  inset: auto;
+  width: 100%;
   margin-top: -1px;
   border-radius: 0 0 22px 22px;
-  border-color: rgba(20, 41, 67, 0.12);
-  background: rgba(255, 255, 255, 0.94);
+  border-color: color-mix(in srgb, var(--brand-base) 16%, transparent);
+  background: color-mix(in srgb, var(--page-bg) 42%, white 58%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.72),
     0 28px 70px rgba(20, 41, 67, 0.18);
   -webkit-backdrop-filter: blur(30px) saturate(1.8);
   backdrop-filter: blur(30px) saturate(1.8);
   transform-origin: top center;
-  animation: ticker-panel-in 360ms var(--motion-ease-soft) both;
+}
+.marketing-home .dock-search .ticker-search__scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.marketing-home .dock-search .ticker-search__scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 .marketing-home .dock-search .ticker-search__root[data-open='true'] :is(input) {
   border-bottom-left-radius: 0;
@@ -1655,22 +1693,56 @@ html[data-theme="dark"] .marketing-home .site-header__tile-media,
   opacity: 0.7;
 }
 .marketing-home .dock-search .ticker-search__panel li {
-  animation: ticker-row-in 300ms var(--motion-ease-soft) both;
+  animation: none;
 }
-.marketing-home .dock-search .ticker-search__panel li:nth-child(2) { animation-delay: 28ms; }
-.marketing-home .dock-search .ticker-search__panel li:nth-child(3) { animation-delay: 56ms; }
-.marketing-home .dock-search .ticker-search__panel li:nth-child(4) { animation-delay: 84ms; }
 .marketing-home .dock-search .ticker-search__panel button {
-  min-height: 58px;
-  padding-block: 9px;
-  transition: background-color 180ms ease, transform 180ms var(--motion-ease-standard);
+  min-height: 52px;
+  border-color: color-mix(in srgb, var(--brand-base) 12%, transparent);
+  background: color-mix(in srgb, white 66%, transparent);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms var(--motion-ease-standard);
 }
 .marketing-home .dock-search .ticker-search__panel button:hover {
   transform: translateX(3px);
+  border-color: color-mix(in srgb, var(--brand-spark) 48%, var(--brand-base) 10%);
+  background: color-mix(in srgb, var(--brand-spark) 9%, white 91%);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--brand-base) 9%, transparent);
 }
-.marketing-home .dock-search .ticker-search__panel button > div:first-child span {
-  height: 34px;
-  width: 34px;
+.marketing-home .dock-search .ticker-search__panel button[data-highlighted='true'] {
+  border-color: color-mix(in srgb, var(--brand-spark) 48%, var(--brand-base) 10%);
+  background: color-mix(in srgb, var(--brand-spark) 9%, white 91%);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--brand-base) 9%, transparent);
+}
+.marketing-home .dock-search .ticker-search__panel .ticker-search__name {
+  color: var(--content-primary);
+}
+.marketing-home .dock-search .ticker-search__panel .ticker-search__symbol {
+  color: var(--content-secondary);
+}
+.marketing-home .dock-search .ticker-search__panel .ticker-search__source {
+  color: var(--content-muted);
+  font-weight: 500;
+}
+.marketing-home .dock-search .ticker-search__panel .ticker-search__status-chip {
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--brand-spark) 32%, var(--brand-base) 12%);
+  background: color-mix(in srgb, var(--brand-spark) 9%, white 91%);
+}
+.marketing-home .dock-search .ticker-search__panel[data-query='true'] li {
+  animation: ticker-row-query-in 220ms var(--motion-ease-soft) both;
+}
+.marketing-home .dock-search .ticker-search__panel[data-query='true'] li:nth-child(2) { animation-delay: 24ms; }
+.marketing-home .dock-search .ticker-search__panel[data-query='true'] li:nth-child(3) { animation-delay: 48ms; }
+.marketing-home .dock-search .ticker-search__panel[data-query='true'] li:nth-child(4) { animation-delay: 72ms; }
+.marketing-home .dock-search .ticker-search__panel button > div:first-child > span {
+  height: 36px;
+  width: 36px;
+  border-color: color-mix(in srgb, var(--brand-spark) 30%, var(--brand-base) 14%);
+  background: color-mix(in srgb, var(--brand-spark) 12%, white 88%);
+  color: var(--brand-base);
 }
 .marketing-home[data-theme="dark"] .dock-search .ticker-search__panel,
 html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel {
@@ -1680,15 +1752,25 @@ html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel {
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 28px 90px rgba(0, 0, 0, 0.42);
 }
-
-@keyframes ticker-panel-in {
-  from { opacity: 0; transform: translateY(-8px) scaleY(0.96); }
-  to { opacity: 1; transform: translateY(0) scaleY(1); }
+.marketing-home[data-theme="dark"] .dock-search .ticker-search__panel button,
+html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.055);
+}
+.marketing-home[data-theme="dark"] .dock-search .ticker-search__panel button:hover,
+html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel button:hover {
+  border-color: color-mix(in srgb, var(--brand-spark) 55%, white 10%);
+  background: color-mix(in srgb, var(--brand-spark) 16%, transparent);
+}
+.marketing-home[data-theme="dark"] .dock-search .ticker-search__panel button[data-highlighted='true'],
+html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel button[data-highlighted='true'] {
+  border-color: color-mix(in srgb, var(--brand-spark) 55%, white 10%);
+  background: color-mix(in srgb, var(--brand-spark) 16%, transparent);
 }
 
-@keyframes ticker-row-in {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes ticker-row-query-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (max-width: 1024px) {
@@ -1710,12 +1792,13 @@ html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel {
 }
 
 .dock-search {
+  --dock-search-open-lift: 0px;
   position: fixed;
   z-index: 80;
   left: 50%;
   top: 42vh;
   width: min(700px, calc(100vw - 48px));
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, calc(-1 * clamp(108px, 8.6vw, 124px))) translateY(var(--dock-search-open-lift));
   transition:
     opacity 0.45s var(--chrome-ease),
     transform 0.5s var(--chrome-ease);
@@ -1774,35 +1857,41 @@ html[data-theme="dark"] .marketing-home .dock-search__field :is(input) {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 12px;
-  margin-top: 14px;
+  margin-top: 10px;
+  position: relative;
+  z-index: 60;
+  transition: transform 220ms var(--motion-ease-standard);
+}
+.dock-search:has(.ticker-search__root[data-open='true']) {
+  --dock-search-open-lift: clamp(-88px, -6vw, -56px);
 }
 .dock-search__cta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  gap: 7px;
+  min-height: 34px;
+  padding: 5px 10px;
   white-space: nowrap;
-  font-size: 14px;
-  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--brand-base) 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--page-bg) 64%, white 36%);
   color: var(--content-primary);
+  font-size: 12px;
+  font-weight: 600;
   transition:
-    gap 0.15s ease,
+    background-color 0.18s ease,
     color 0.15s ease,
-    border-color 0.15s ease;
+    border-color 0.15s ease,
+    transform 0.22s var(--motion-ease-standard);
 }
 .dock-search__cta:hover {
-  gap: 12px;
+  border-color: color-mix(in srgb, var(--brand-spark) 55%, var(--brand-base) 10%);
+  background: color-mix(in srgb, var(--brand-spark) 10%, white 90%);
   color: var(--brand-spark);
 }
-.dock-search__helper {
-  color: var(--content-muted);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
 /* On scroll: lift + fade the whole hero search away; the in-flow pill takes over. */
 html.chrome-scrolled .dock-search {
+  --dock-search-open-lift: 0px;
   opacity: 0;
   transform: translate(-50%, -80px) scale(0.96);
   pointer-events: none;
@@ -1822,7 +1911,7 @@ html.chrome-scrolled .dock-search {
     position: absolute;
     top: clamp(210px, 44vh, 370px);
     width: calc(100vw - 32px);
-    transition: none;
+    transition: transform 280ms var(--motion-ease-soft);
   }
   .dock-search__intro {
     margin-bottom: 20px;
@@ -1885,7 +1974,6 @@ html.chrome-scrolled .dock-search {
   .marketing-home .dock-search .ticker-search__panel li {
     animation: none;
   }
-
   /* Keep the static story readable: the hero search must join document flow
      when the pinned/animated constellation is disabled. */
   main.marketing-home .dock-search {

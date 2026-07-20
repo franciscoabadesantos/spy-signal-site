@@ -482,20 +482,21 @@ export default function TickerSearchCombobox({
     }
   }
 
-  function renderSuggestion(item: DisplayItem, index: number, withBorder: boolean) {
+  function renderSuggestion(item: DisplayItem, index: number) {
     const labelText = sourceLabel(item)
     const subLabelText = rightSubLabel(item)
     const StatusIcon = statusIcon(item)
     const siblingListings = tickerEntitySiblingListings(item)
+    const displayName = tickerEntityDisplayName(item)
     return (
-      <li key={`${item.displaySource}-${item.symbol}-${index}`}>
+      <li key={`${normalizedSearch}-${item.displaySource}-${item.symbol}-${index}`}>
         <button
           type="button"
+          data-highlighted={index === highlightedIndex ? 'true' : undefined}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => navigateToTicker(item.symbol)}
           className={cn(
-            'state-interactive grid w-full cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset',
-            withBorder ? 'border-b border-border' : '',
+            'state-interactive grid w-full cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border px-3.5 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset',
             index === highlightedIndex ? 'bg-surface-hover' : 'hover:bg-surface-elevated'
           )}
         >
@@ -508,40 +509,42 @@ export default function TickerSearchCombobox({
               )}
             </span>
           </div>
-          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
-            <div className="text-data-sm numeric-tabular text-content-primary">{item.symbol}</div>
-            <div className="truncate text-body-sm text-content-secondary">
-              {tickerEntityDisplayName(item)}
+          <div className="ticker-search__option-content min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="ticker-search__name min-w-0 truncate text-body-sm font-semibold text-content-primary" title={displayName}>
+                {displayName}
+              </div>
+              <span className="ticker-search__symbol numeric-tabular shrink-0 text-micro font-semibold text-content-secondary">
+                {item.symbol}
+              </span>
               {item.displaySource === 'recent' ? (
-                <span className="ml-2 inline-flex items-center gap-1 text-content-muted">
+                <span className="ticker-search__source inline-flex shrink-0 items-center gap-1 text-micro text-content-muted">
                   <History className="h-3.5 w-3.5" />
                   Recent
                 </span>
               ) : item.displaySource === 'featured' && item.hasSignals ? (
-                <span className="ml-2 inline-flex items-center gap-1 text-content-muted">
+                <span className="ticker-search__source inline-flex shrink-0 items-center gap-1 text-micro text-content-muted">
                   <Radar className="h-3.5 w-3.5" />
                   Tracked
                 </span>
               ) : item.hasSignals ? (
-                <span className="ml-2 inline-flex items-center gap-1 text-content-muted">
+                <span className="ticker-search__source inline-flex shrink-0 items-center gap-1 text-micro text-content-muted">
                   <Radar className="h-3.5 w-3.5" />
                   Signal
                 </span>
               ) : null}
             </div>
             {siblingListings ? (
-              <div className="col-span-2 mt-0.5 truncate text-micro text-content-muted">
-                Listings: {siblingListings.join(', ')}
-              </div>
+              <span className="sr-only">Also listed: {siblingListings.filter((symbol) => symbol !== item.symbol).join(', ')}</span>
             ) : null}
           </div>
-          <div className="shrink-0 text-right">
+          <div className="flex shrink-0 items-center gap-2 text-right">
             {labelText ? (
-              <span className={cn('rounded-full border px-1.5 py-0.5 text-micro', sourceChipClass(item))}>
+              <span className={cn('ticker-search__status-chip rounded-full border px-1.5 py-0.5 text-micro', sourceChipClass(item))}>
                 {labelText}
               </span>
             ) : null}
-            {subLabelText ? <div className="mt-1 text-micro text-content-muted">{subLabelText}</div> : null}
+            {subLabelText ? <span className="text-micro text-content-muted">{subLabelText}</span> : null}
           </div>
         </button>
       </li>
@@ -620,9 +623,14 @@ export default function TickerSearchCombobox({
         </div>
       ) : null}
 
-      {shouldShowDropdown ? (
-        <div className={cn('absolute left-0 right-0 top-full z-50 overflow-hidden', panelClassName)}>
-          <div className="max-h-[28rem] overflow-auto py-1">
+      <div
+        className={cn('absolute left-0 right-0 top-full z-50 overflow-hidden', panelClassName)}
+        data-open={shouldShowDropdown ? 'true' : 'false'}
+        data-query={normalizedSearch.length > 0 ? 'true' : 'false'}
+        aria-hidden={!shouldShowDropdown}
+        inert={!shouldShowDropdown ? true : undefined}
+      >
+          <div className="ticker-search__scroll max-h-[28rem] overflow-auto p-1.5">
             {visibleSections.map((section, sectionGroupIndex) => {
               let runningIndex = 0
               for (const previousSection of visibleSections) {
@@ -641,13 +649,7 @@ export default function TickerSearchCombobox({
                     </div>
                   ) : null}
                   <ul>
-                    {section.items.map((item, sectionIndex) =>
-                      renderSuggestion(
-                        item,
-                        runningIndex + sectionIndex,
-                        sectionIndex < section.items.length - 1
-                      )
-                    )}
+                    {section.items.map((item, sectionIndex) => renderSuggestion(item, runningIndex + sectionIndex))}
                   </ul>
                 </div>
               )
@@ -676,8 +678,7 @@ export default function TickerSearchCombobox({
               </div>
             ) : null}
           </div>
-        </div>
-      ) : null}
+      </div>
     </div>
   )
 }
