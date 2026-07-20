@@ -45,22 +45,9 @@ else
   failed=1
 fi
 
-if node -e "require.resolve('@playwright/test')" >/dev/null 2>&1; then
-  printf 'ok   %-12s package installed\n' 'playwright'
+if node scripts/check-browser-qa.mjs; then
+  printf 'ok   %-12s ready\n' 'browser-qa'
 else
-  printf 'FAIL %-12s run npm ci\n' 'playwright'
-  failed=1
-fi
-
-if node - <<'NODE' >/dev/null 2>&1
-const fs = require('node:fs')
-const { chromium } = require('@playwright/test')
-fs.accessSync(chromium.executablePath(), fs.constants.X_OK)
-NODE
-then
-  printf 'ok   %-12s chromium installed\n' 'browser'
-else
-  printf 'FAIL %-12s run: npx playwright install chromium\n' 'browser'
   failed=1
 fi
 

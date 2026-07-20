@@ -3,19 +3,31 @@
 ## Setup
 
 ```bash
+npm ci
 npx playwright install chromium
-npm run test:e2e
+npm run qa:browser
 ```
 
-`playwright.config.ts` starts the application unless `PLAYWRIGHT_BASE_URL` points to an existing server. The committed smoke test is deliberately content-light and checks homepage load, console/page errors, horizontal overflow, and screenshot capture across representative viewports.
+`qa:browser` first checks that the project Chromium executable exists, then delegates the full run to Playwright. `playwright.config.ts` starts `npm run dev` on the fixed internal URL `http://127.0.0.1:3100`, uses the isolated `.next-playwright` output directory, waits for readiness, pipes server logs, applies a startup timeout, and shuts the process down. The isolated output avoids contention with a normal `.next/dev/lock`; Playwright does not silently reuse a process on the QA port. `PLAYWRIGHT_BASE_URL` is the explicit opt-in for an intentionally managed external server.
+
+Do not start or stop a server manually, select another port, invoke Chromium directly, or repair browser locks during a QA run. The committed smoke test is deliberately content-light and checks homepage load, console/page errors, horizontal overflow, and deliberate screenshot capture across representative viewports.
 
 CI execution remains a follow-up until the repository has an agreed GitHub Actions policy. When that policy exists, the minimum browser job should run:
 
 ```bash
 npm ci
 npx playwright install --with-deps chromium
-npm run test:e2e
+npm run qa:frontend
 ```
+
+No CI workflow is currently committed. A future CI job should call the same `qa:frontend` command rather than duplicate its steps.
+
+## Infrastructure blockers
+
+- A missing package/browser binary, blocked loopback, or occupied QA port fails before server startup with a `[qa:browser:infra]` message and the direct remediation.
+- Missing system libraries or a browser sandbox restriction should be reported from Playwright's launch error; do not replace the runner or add process-management workarounds.
+- Server startup output is piped into the run. A readiness timeout or early server exit is a startup/infrastructure failure, not a browser assertion.
+- Application failures retain traces, screenshots, and video under `test-results/`; report the assertion or runtime error separately from infrastructure failures.
 
 ## Visual and interaction pass
 

@@ -27,8 +27,17 @@ export default defineConfig({
     ? undefined
     : {
         command: 'npm run dev -- --hostname 127.0.0.1 --port 3100',
+        env: {
+          NEXT_DIST_DIR: '.next-playwright',
+        },
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
         timeout: 120_000,
+        stdout: 'pipe',
+        stderr: 'pipe',
+        gracefulShutdown: {
+          signal: 'SIGTERM',
+          timeout: 5_000,
+        },
       },
 })

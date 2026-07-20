@@ -30,13 +30,16 @@ The remainder of this skill describes Main's orchestration workflow unless the r
 
 Do not duplicate those documents here. Use the smallest relevant subset and state which gates applied.
 
-## Classify and delegate
+## Select roles by value and risk
 
-- Treat a mechanical one-file change with no user-visible layout, interaction, data, motion, or accessibility effect as trivial. Main may implement it with focused validation.
-- Treat any user-facing visual, responsive, interaction, search/input, animation, or visual accessibility change as significant. Use Design Director for a read-only brief, assign one Implementation Agent as editor, then use Browser QA.
-- Treat high-blast-radius work or work with data/API, motion/focus/canvas/runtime, or bundle risk as critical. Require API Contract for data/API, Accessibility/Performance for motion/focus/canvas/runtime or bundle risk, and Independent Review for high blast radius; do not add roles whose trigger is absent.
+- Main may discover and implement a localized change directly when it is confined to one surface or a small file set, reuses an existing pattern, adds no complex architecture or state, has limited blast radius, and needs no new visual direction. This includes spacing, overflow, cursor, copy, small responsive adjustments, applying an existing visual pattern, and localized interactions.
+- For a substantial visual decision, new composition, meaningful motion, multiple breakpoints, or non-trivial pattern adaptation, use Design Director when a read-only brief will reduce real uncertainty. Main may remain the implementer. Spawn a separate Implementation Agent only for a concrete delegation benefit or isolated ownership.
+- For a page or flow redesign, multiple surfaces, complex interaction/state, focus management, complex motion, canvas, performance risk, data/API contracts, high blast radius, or an ambitious visual request without a strong internal reference, require the specialists that address the actual risks. A complete specialist pipeline may be appropriate; do not add roles based only on the generic label “visual change”.
+- Tie API Contract to data/API risk, Accessibility/Performance to focus/motion/canvas/runtime or performance risk, Independent Review to high blast radius, and Browser QA Agent to a concrete need for independent browser evidence.
 
-Main owns repository discovery, knowledge gates, role selection, and task decomposition. Before spawning an Implementation Agent, provide a compact execution packet containing only the role and approved paths, objective, 5–8 authoritative decisions, contracts/invariants, acceptance checks and focused validation, output format, and known code locations. One editor owns a path area at a time.
+Use the relevant canonical validation commands for every classification. Running `qa:browser` is not the same as spawning a Browser QA Agent and does not require one.
+
+Main owns repository discovery, knowledge gates, role selection, task decomposition, and may own implementation. Before spawning an Implementation Agent, provide a compact execution packet containing only the role and approved paths, objective, 5–8 authoritative decisions, contracts/invariants, acceptance checks and focused validation, output format, and known code locations. One editor owns a path area at a time.
 
 Spawned agents execute only the role and assignment in their spawn message. They must not reclassify the overall task, verify multi-agent availability, invoke other project roles, enforce the full delivery pipeline, request authorization for a single-agent fallback, reload the full workflow, reread broad documentation, or rescan the repository. An Implementation Agent should inspect only its assigned files and the minimum directly imported dependencies required to execute safely, then patch promptly, validate, and return its handoff.
 
@@ -54,4 +57,4 @@ Spawned agents execute only the role and assignment in their spawn message. They
 
 ## Validate and report
 
-Run the gates that match the changed surface. For visual work, perform browser QA across the applicable viewport matrix, including focus, keyboard, scroll, overflow, and reduced motion. Final reports list agents and handoffs, changed files, validations, unavailable checks, risks, and any authorized takeover.
+Run the gates that match the changed surface. For visual work, perform browser QA across the applicable viewport matrix, including focus, keyboard, scroll, overflow, and reduced motion. Final reports list any agents and handoffs used, changed files, validations, unavailable checks, risks, and any authorized takeover.

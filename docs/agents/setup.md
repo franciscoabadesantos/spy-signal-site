@@ -3,9 +3,8 @@
 ## Prerequisites
 
 - Git and a configured Git identity.
-- Node.js matching `.nvmrc` (`20.19.0`) or a compatible newer release; `package.json` currently permits `>=20.9.0`.
+- Node.js matching `.nvmrc` for reproducible local work; `package.json` records the supported minimum.
 - npm and project dependencies installed with `npm ci`.
-- Codex CLI and any local sandbox such as bubblewrap, configured outside the repository.
 
 Run:
 
@@ -13,7 +12,8 @@ Run:
 npm ci
 npx playwright install chromium
 ./scripts/check-agent-environment.sh
-npm run dev
+npm run verify
+npm run qa:browser
 ```
 
 Copy variable names from `.env.example` into `.env.local` and obtain values through the team's approved secret channel. Never commit `.env.local`, tokens, cookies, browser storage, or credentials.
@@ -28,17 +28,24 @@ Codex authentication, CLI preferences, bubblewrap/sandbox policy, actual environ
 
 Browser binaries are intentionally not installed by `npm ci`. Install only the required project with `npx playwright install chromium`; CI may need OS dependencies via `npx playwright install --with-deps chromium`.
 
+Playwright owns the QA server lifecycle. Do not start `npm run dev` separately for browser QA; use `PLAYWRIGHT_BASE_URL` only when an existing external server is an intentional test target.
+
 Use `docs/features/_template/status.md` when work must continue on another computer. Confirm Git state, environment check, and the feature's last validation before editing.
 
-## Codex role setup
+## Optional Codex adapter
+
+The repository-local Codex profiles and skill are optional. They are not required for development, application tests, `npm run verify`, production builds, or browser QA. Codex users need the Codex CLI and any local sandbox such as bubblewrap configured outside the repository.
 
 `docs/agents/codex/` is the versioned source of truth. `.codex/` is its versioned generated installation: do not edit its managed paths by hand. On a normal trusted clone, synchronize and verify the installation before starting a new Codex session:
 
 ```bash
 npm run agents:sync
 npm run agents:check
+npm run test:agents
 codex --strict-config -C .
 ```
+
+`agents:sync` installs the versioned source, `agents:check` detects drift in the real project trees, and `test:agents` validates the synchronization mechanism. These commands are explicit adapter checks and are not part of the application or frontend gates. After changing `docs/agents/codex/`, run `agents:sync` followed by `agents:check`; run `test:agents` when changing the synchronizer or its tests.
 
 If `.codex` already exists as a non-directory, stop and preserve it; resolve that local conflict before installing this project layer. Do not delete an unknown user file to make room for the directory.
 

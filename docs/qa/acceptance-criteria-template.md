@@ -29,5 +29,5 @@
 
 - [ ] No avoidable client boundary, dependency, listener/RAF leak, or expensive layout loop was introduced.
 - [ ] Browser console/page errors reviewed; screenshots/trace paths recorded.
-- [ ] `npm run lint`, `npm test`, `npm run build`, and applicable E2E checks recorded with exact results.
+- [ ] `npm run verify` and the applicable `npm run qa:browser` or `npm run qa:frontend` result are recorded exactly.
 - [ ] Remaining risks, skipped checks, and owner/next step are explicit.

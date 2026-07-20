@@ -6,29 +6,30 @@ Use the smallest team that materially lowers risk. Main remains accountable for 
 
 The following workflow applies only to the root/Main agent that received the user's request. A spawned role must skip the Main workflow and follow the execution rules below instead of restarting it.
 
-## Classify the work
+## Classify the work and select roles
 
-Classify frontend work before delegation or editing.
+Classify frontend work before delegation or editing. Select a role only when it resolves concrete uncertainty, isolates ownership, adds independent evidence, or reduces risk.
 
-| Level | Criteria | Required roles |
+| Level | Criteria | Role selection |
 | --- | --- | --- |
-| Trivial | Mechanical, one file, no user-visible layout, interaction, data, motion, or accessibility change | Main plus focused validation |
-| Significant | Any user-facing visual, responsive, interaction, input/search, animation, or visual accessibility change | Design Director → Implementation Agent → Browser QA |
-| Critical | Significant work with data/API, focus/motion/canvas/runtime risk, or high blast radius | Significant roles plus every role whose trigger is present: API Contract for data/API, Accessibility/Performance for focus/motion/canvas/runtime, Independent Review for high blast radius |
+| Localized | One surface or small file set; existing pattern; no complex architecture/state, new visual direction, or broad blast radius | Main may discover and implement directly, with focused canonical validation |
+| Significant visual | Substantial visual decision, new composition, meaningful motion, multiple breakpoints, or non-trivial pattern adaptation | Design Director when a brief reduces uncertainty; Main may implement; separate Implementation or Browser QA Agent only for a concrete delegation or independent-evidence need |
+| High risk or ambitious | Page/flow redesign, multiple surfaces, complex state, focus management, complex motion, canvas, performance or API risk, high blast radius, or ambitious visuals without a strong internal reference | Use every specialist tied to an actual risk; a complete specialist pipeline may be required |
 
-Do not inflate routine work into a full team. Do not downgrade a significant change merely to avoid delegation.
+Localized examples include spacing, overflow, cursor, copy, small responsive adjustments, applying an existing visual pattern, and localized interactions. Do not inflate them into a team workflow solely because they are visible. Running `qa:browser` is a validation command; it does not require spawning a Browser QA Agent.
 
-## Significant frontend work
+## Localized and significant frontend work
 
 1. Main owns repository discovery, knowledge gates, role selection, and task decomposition. Main defines the brief, protected files, acceptance criteria, and evidence needed.
-2. Design/Research reviews the current UI and references without editing. It returns at most ten findings tied to files or screenshots.
-3. Implementation is the only editor for the assigned area. Before spawning it, Main provides a compact execution packet containing only the role and approved paths, objective, 5–8 authoritative decisions, contracts/invariants, acceptance checks and focused validation, output format, and known code locations. It receives that packet, not the whole exploration transcript.
-4. Browser QA validates the running result without editing initially. It returns reproducible defects with viewport, steps, evidence, and severity.
-5. Main reviews the diff, assigns targeted corrections to the current editor where possible, reruns relevant checks, and reconciles the final diff.
+2. Main may implement a localized or significant change directly while remaining the sole editor.
+3. Use Design Director for a substantial visual decision; it reviews the current UI and references without editing and returns at most ten findings tied to files or screenshots.
+4. Use a separate Implementation Agent only when delegation or isolated ownership adds value. It becomes the sole editor for the assigned area and receives a compact execution packet, not the exploration transcript.
+5. Use Browser QA Agent when independent browser evidence adds value. It validates without editing initially and returns reproducible defects with viewport, steps, evidence, and severity.
+6. Main reviews the diff, reruns the relevant canonical commands, and reconciles the final result.
 
-## Critical frontend work
+## High-risk or ambitious frontend work
 
-Main acts as Product Lead. Add every role whose risk trigger is present: Repo Architect for cross-boundary impact, Design Director for a new visual composition, Research for external evidence, API Contract for runtime data, one Implementation editor and Browser QA for significant work, Accessibility/Performance for focus/motion/canvas/runtime risk, and Independent Review for high blast radius.
+Main acts as Product Lead. Add every role whose risk trigger is present: Repo Architect for cross-boundary impact, Design Director for new visual direction or composition, Research for external evidence, API Contract for runtime data, Accessibility/Performance for focus/motion/canvas/runtime or performance risk, Browser QA Agent for independent browser evidence, and Independent Review for high blast radius. Use a separate Implementation Agent only when delegation or isolated ownership adds value.
 
 Do not create every role by default. A role should answer a distinct question that Main cannot answer as efficiently in the current context.
 
@@ -38,13 +39,13 @@ Do not create every role by default. A role should answer a distinct question th
 - Receiving an execution packet means Main has already completed classification, knowledge gates, role selection, ownership assignment, and prerequisite reviews.
 - A spawned agent must not reclassify the overall task, verify multi-agent availability, invoke other project roles, enforce the full delivery pipeline, or request authorization for a single-agent fallback.
 - The absence of `multi_agent_v1__spawn_agent` inside a spawned agent is expected and irrelevant unless its assignment explicitly authorizes further delegation.
-- Design Director → Implementation Agent → Browser QA is an orchestration sequence for Main, not a prerequisite for an already-spawned role.
+- Any role sequence selected by Main is orchestration for Main, not a prerequisite for an already-spawned role.
 - A spawned agent must inspect only its assigned files and the minimum directly imported dependencies required to execute safely. It must not reload the full workflow, reread broad documentation, or rescan the repository unless the packet identifies a genuine unresolved question.
 - An Implementation Agent with an approved packet edits promptly, validates, and returns its handoff.
 
 ## Context, ownership, and recovery
 
-- Give each agent only the context needed for its role. The Implementation Agent receives the compact execution packet: objective, approved file ownership, authoritative Design Director decisions, relevant contracts and invariants, exact acceptance checks, known code locations, expected output, and response limit. Do not send the full conversation, raw exploration, or extensive reports.
+- Give each agent only the context needed for its role. The Implementation Agent receives the compact execution packet: objective, approved file ownership, authoritative design decisions, relevant contracts and invariants, exact acceptance checks, known code locations, expected output, and response limit. Do not send the full conversation, raw exploration, or extensive reports.
 - Repo Explorer reads the supplied architecture paths. Design reads the target view, `app/globals.css`, primitives, and `docs/design`. API Contract reads the consumer, route/helper, types, `DATA_SOURCE_POLICY.md`, and `docs/api`. QA reads the brief, diff, and `docs/qa`.
 - Declare file ownership before edits. One implementation agent owns a target area; no other agent edits it until handoff is accepted.
 - Ownership is temporary. It ends when the agent hands off, reports a blocker, is stopped after the recovery protocol, or the user explicitly authorizes Main to take over.
@@ -64,7 +65,7 @@ Do not create every role by default. A role should answer a distinct question th
 - Only after a confirmed failed attempt may Main relaunch the same compact packet once, with no additional discovery instructions.
 - Main may request user authorization for takeover only after two confirmed terminal failures, not after ambiguous timeouts or silence.
 
-State agent status and handoffs in the final report, including unavailable validation and any authorized takeover.
+State agent status and handoffs in the final report when agents were used, including unavailable validation and any authorized takeover.
 
 ## Value check
 

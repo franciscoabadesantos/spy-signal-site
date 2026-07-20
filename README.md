@@ -1,28 +1,27 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+## Development
 
-### Prerequisites
+This repository uses npm and the committed `package-lock.json`. Use the Node version in `.nvmrc` for the reproducible local setup; `package.json` records the supported minimum.
 
-- Node.js `>=20.19.0` (required by Next.js 16)
-
-First, run the development server:
+Install dependencies and start the development server:
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Canonical validation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run verify       # lint, typecheck, and unit/contract tests
+npm run qa:browser   # Playwright owns the test server and Chromium lifecycle
+npm run qa:frontend  # verify, production build, and browser QA
+```
+
+Install the browser once with `npx playwright install chromium`. In CI, install its system dependencies with `npx playwright install --with-deps chromium`. Browser QA uses `http://127.0.0.1:3100` internally and does not reuse an unknown process; set `PLAYWRIGHT_BASE_URL` only to test an intentionally managed external server.
 
 ## Learn More
 

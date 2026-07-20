@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
+const distDir = process.env.NEXT_DIST_DIR?.trim();
+
 const nextConfig: NextConfig = {
+  ...(distDir ? { distDir } : {}),
   allowedDevOrigins: [
     "127.0.0.1",
     "172.23.117.103",
