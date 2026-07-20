@@ -1,7 +1,7 @@
 'use client'
 
 import { CircleAlert, History, Loader2, Radar, Search } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
@@ -195,6 +195,8 @@ export default function TickerSearchCombobox({
   const [loadAttemptToken, setLoadAttemptToken] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inputId = useId()
+  const listboxId = `${inputId}-listbox`
   const normalizedSearch = normalizeTickerSearchQuery(search)
 
   useEffect(() => {
@@ -379,6 +381,10 @@ export default function TickerSearchCombobox({
 
   const selectableItems = useMemo(() => visibleSections.flatMap((section) => section.items), [visibleSections])
   const shouldShowDropdown = isOpen && (sections.length > 0 || normalizedSearch.length > 0)
+  const highlightedItem = highlightedIndex >= 0 ? selectableItems[highlightedIndex] : undefined
+  const activeDescendantId = highlightedItem
+    ? `${listboxId}-option-${highlightedItem.displaySource}-${highlightedItem.symbol}`
+    : undefined
 
   function queueTickerIndexLoad() {
     const cached = memoryTickerIndex ?? tickerIndex ?? readSessionTickerIndex()
@@ -488,10 +494,15 @@ export default function TickerSearchCombobox({
     const StatusIcon = statusIcon(item)
     const siblingListings = tickerEntitySiblingListings(item)
     const displayName = tickerEntityDisplayName(item)
+    const optionId = `${listboxId}-option-${item.displaySource}-${item.symbol}`
     return (
-      <li key={`${normalizedSearch}-${item.displaySource}-${item.symbol}-${index}`}>
+      <li key={`${item.displaySource}-${item.symbol}`} role="presentation">
         <button
+          id={optionId}
           type="button"
+          role="option"
+          tabIndex={-1}
+          aria-selected={index === highlightedIndex}
           data-highlighted={index === highlightedIndex ? 'true' : undefined}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => navigateToTicker(item.symbol)}
@@ -566,7 +577,7 @@ export default function TickerSearchCombobox({
       className={cn('ticker-search__root relative', className)}
       data-open={shouldShowDropdown ? 'true' : 'false'}
     >
-      {label ? <label className="text-filter-label mb-2 block">{label}</label> : null}
+      {label ? <label htmlFor={inputId} className="text-filter-label mb-2 block">{label}</label> : null}
 
       <Search
         className={cn(
@@ -576,6 +587,7 @@ export default function TickerSearchCombobox({
       />
 
       <Input
+        id={inputId}
         type="text"
         value={search}
         onChange={(event) => handleSearchChange(event.target.value)}
@@ -597,6 +609,10 @@ export default function TickerSearchCombobox({
         role="combobox"
         aria-expanded={shouldShowDropdown}
         aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-activedescendant={shouldShowDropdown ? activeDescendantId : undefined}
+        aria-haspopup="listbox"
+        aria-label={label ? undefined : placeholder}
         autoCapitalize="characters"
         autoCorrect="off"
         spellCheck={false}
@@ -624,7 +640,11 @@ export default function TickerSearchCombobox({
       ) : null}
 
       <div
+        id={listboxId}
         className={cn('absolute left-0 right-0 top-full z-50 overflow-hidden', panelClassName)}
+        role="listbox"
+        aria-label="Ticker suggestions"
+        aria-busy={isLoading}
         data-open={shouldShowDropdown ? 'true' : 'false'}
         data-query={normalizedSearch.length > 0 ? 'true' : 'false'}
         aria-hidden={!shouldShowDropdown}
@@ -648,7 +668,7 @@ export default function TickerSearchCombobox({
                       {section.label}
                     </div>
                   ) : null}
-                  <ul>
+                  <ul role="presentation">
                     {section.items.map((item, sectionIndex) => renderSuggestion(item, runningIndex + sectionIndex))}
                   </ul>
                 </div>

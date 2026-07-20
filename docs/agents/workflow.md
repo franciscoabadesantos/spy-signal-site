@@ -12,11 +12,11 @@ Classify frontend work before delegation or editing. Select a role only when it 
 
 | Level | Criteria | Role selection |
 | --- | --- | --- |
-| Localized | One surface or small file set; existing pattern; no complex architecture/state, new visual direction, or broad blast radius | Main may discover and implement directly, with focused canonical validation |
-| Significant visual | Substantial visual decision, new composition, meaningful motion, multiple breakpoints, or non-trivial pattern adaptation | Design Director when a brief reduces uncertainty; Main may implement; separate Implementation or Browser QA Agent only for a concrete delegation or independent-evidence need |
+| Localized | One surface or small file set; existing pattern; no complex architecture/state, new visual direction, or broad blast radius; includes a confirmed-cause motion correction within the existing architecture | Main may discover and implement directly, with focused canonical validation |
+| Significant visual | Substantial visual decision, new composition or motion choreography, multiple breakpoints, or non-trivial pattern adaptation | Design Director when a brief reduces uncertainty; Main may implement; separate Implementation or Browser QA Agent only for a concrete delegation or independent-evidence need |
 | High risk or ambitious | Page/flow redesign, multiple surfaces, complex state, focus management, complex motion, canvas, performance or API risk, high blast radius, or ambitious visuals without a strong internal reference | Use every specialist tied to an actual risk; a complete specialist pipeline may be required |
 
-Localized examples include spacing, overflow, cursor, copy, small responsive adjustments, applying an existing visual pattern, and localized interactions. Do not inflate them into a team workflow solely because they are visible. Running `qa:browser` is a validation command; it does not require spawning a Browser QA Agent.
+Localized examples include spacing, overflow, cursor, copy, small responsive adjustments, applying an existing visual pattern, localized interactions, and easing or trajectory corrections whose cause is confirmed. Homepage dropdown work is significant only when it adds new composition, interaction, responsive behavior, visual direction, or comparable risk. Do not inflate localized work into a team workflow solely because it is visible or involves motion. Running `qa:browser` is a validation command; it does not require spawning a Browser QA Agent. Independent review remains conditional on actual risk, residual uncertainty, or a concrete need for independent evidence.
 
 ## Localized and significant frontend work
 

@@ -1656,10 +1656,14 @@ html[data-theme="dark"] .marketing-home .site-header__tile-media,
 }
 
 .marketing-home .dock-search .ticker-search__panel {
+  display: grid;
+  grid-template-rows: 1fr;
   position: relative;
   inset: auto;
   width: 100%;
+  max-height: none;
   margin-top: -1px;
+  padding-block: 0.375rem;
   border-radius: 0 0 22px 22px;
   border-color: color-mix(in srgb, var(--brand-base) 16%, transparent);
   background: color-mix(in srgb, var(--page-bg) 42%, white 58%);
@@ -1669,8 +1673,20 @@ html[data-theme="dark"] .marketing-home .site-header__tile-media,
   -webkit-backdrop-filter: blur(30px) saturate(1.8);
   backdrop-filter: blur(30px) saturate(1.8);
   transform-origin: top center;
+  transition:
+    grid-template-rows var(--dock-search-motion-duration) var(--dock-search-motion-easing),
+    padding-block var(--dock-search-motion-duration) var(--dock-search-motion-easing),
+    opacity 180ms ease,
+    transform var(--dock-search-motion-duration) var(--dock-search-motion-easing);
+  will-change: grid-template-rows, padding-block, opacity, transform;
+}
+.marketing-home .dock-search .ticker-search__panel[data-open='false'] {
+  grid-template-rows: 0fr;
+  padding-block: 0;
 }
 .marketing-home .dock-search .ticker-search__scroll {
+  min-height: 0;
+  padding-block: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -1793,6 +1809,8 @@ html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel butto
 
 .dock-search {
   --dock-search-open-lift: 0px;
+  --dock-search-motion-duration: 500ms;
+  --dock-search-motion-easing: var(--chrome-ease);
   position: fixed;
   z-index: 80;
   left: 50%;
@@ -1801,7 +1819,7 @@ html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel butto
   transform: translate(-50%, calc(-1 * clamp(108px, 8.6vw, 124px))) translateY(var(--dock-search-open-lift));
   transition:
     opacity 0.45s var(--chrome-ease),
-    transform 0.5s var(--chrome-ease);
+    transform var(--dock-search-motion-duration) var(--dock-search-motion-easing);
 }
 .dock-search__intro {
   margin: 0 auto 24px;
@@ -1908,10 +1926,12 @@ html.chrome-scrolled .dock-search {
     display: none;
   }
   .dock-search {
+    --dock-search-motion-duration: 280ms;
+    --dock-search-motion-easing: var(--motion-ease-soft);
     position: absolute;
     top: clamp(210px, 44vh, 370px);
     width: calc(100vw - 32px);
-    transition: transform 280ms var(--motion-ease-soft);
+    transition: transform var(--dock-search-motion-duration) var(--dock-search-motion-easing);
   }
   .dock-search__intro {
     margin-bottom: 20px;
@@ -1973,6 +1993,9 @@ html.chrome-scrolled .dock-search {
   .marketing-home .dock-search .ticker-search__panel,
   .marketing-home .dock-search .ticker-search__panel li {
     animation: none;
+  }
+  .marketing-home .dock-search .ticker-search__panel {
+    transition: none;
   }
   /* Keep the static story readable: the hero search must join document flow
      when the pinned/animated constellation is disabled. */

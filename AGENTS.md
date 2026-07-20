@@ -16,6 +16,13 @@
 4. Before changing Next.js code, read the relevant guide under `node_modules/next/dist/docs/`; this version has breaking changes.
 5. Preserve unrelated local changes. Do not perform opportunistic cleanup or improvements inside otherwise legitimate files.
 
+## Agent selection
+
+- Use the smallest set of roles that resolves concrete uncertainty or risk. Main may discover and implement a localized frontend change directly.
+- A localized motion correction remains eligible for direct Main implementation when its cause is confirmed, it reuses the existing architecture, affects one surface, introduces no new visual direction or complex state/focus management, and has limited blast radius.
+- Homepage dropdown work is significant only when it introduces a new composition, interaction, responsive behavior, visual direction, or comparable risk; an existing easing or trajectory correction is not significant by default.
+- Running `npm run qa:browser` does not require a Browser QA Agent. Use separate implementation or read-only review roles only when delegation, risk, residual uncertainty, or a concrete need for independent evidence justifies them; follow `docs/agents/workflow.md` for ownership, handoffs, and recovery.
+
 ## Canonical commands
 
 - `npm run verify`: lint, strict typecheck, and unit/contract tests.
