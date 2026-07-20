@@ -44,6 +44,23 @@ Main owns repository discovery, knowledge gates, role selection, task decomposit
 
 Spawned agents execute only the role and assignment in their spawn message. They must not reclassify the overall task, verify multi-agent availability, invoke other project roles, enforce the full delivery pipeline, request authorization for a single-agent fallback, reload the full workflow, reread broad documentation, or rescan the repository. An Implementation Agent should inspect only its assigned files and the minimum directly imported dependencies required to execute safely, then patch promptly, validate, and return its handoff.
 
+## Conditional visual acceptance
+
+- Run a visual acceptance gate for significant visual changes, commercial surfaces, claims about hierarchy or perceptibility, tasks with a previously rejected visual result, or residual visual uncertainty. Keep technical correctness and visual acceptance separate: passing technical checks alone does not justify declaring visual polish complete.
+- Compare before and after evidence captured with the same viewport, state, content, theme, and scroll position. Main may perform this comparison for localized, objective changes. For redesigns, pricing, homepage, hierarchy changes, or subjective outcomes, use an independent read-only reviewer when it adds value; it is not mandatory by default.
+- Keep an independent reviewer blind to implementation. Provide only the before and after screenshots, visual objective, primary user action, elements to preserve, captured viewport and state, and an internal reference when applicable. Do not provide the diff, changed CSS properties, passing tests, or the implementer's explanation or defense.
+- Ask the reviewer to assess only the visible result, avoid proposing a redesign by default, and allow `PASS` with no findings. Require this compact output and never require three findings:
+
+```text
+Verdict: PASS | NOT YET
+Perceptible change: yes | weak | no
+Findings: 0-3
+- Evidence
+  Impact
+  Severity
+  Regression | pre-existing | insufficient result
+```
+
 ## Rejection recovery
 
 - Distinguish polish on an accepted direction from rejection that the result is wrong, unchanged, or worse. Treat a rollback request or evidence that the assumed cause is wrong as rejection.
