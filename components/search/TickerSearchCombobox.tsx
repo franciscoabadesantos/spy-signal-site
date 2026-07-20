@@ -23,6 +23,7 @@ type TickerSearchComboboxProps = {
   className?: string
   initialValue?: string
   label?: string
+  maxSuggestions?: number
   placeholder: string
   routeForTicker: (symbol: string) => string
   submitLabel?: string | null
@@ -177,6 +178,7 @@ export default function TickerSearchCombobox({
   className,
   initialValue = '',
   label,
+  maxSuggestions = 8,
   placeholder,
   routeForTicker,
   submitLabel = null,
@@ -364,7 +366,18 @@ export default function TickerSearchCombobox({
     resultSuggestions,
   ])
 
-  const selectableItems = useMemo(() => sections.flatMap((section) => section.items), [sections])
+  const visibleSections = useMemo<DisplaySection[]>(() => {
+    let remaining = Math.max(1, maxSuggestions)
+
+    return sections.flatMap((section) => {
+      if (remaining <= 0) return []
+      const items = section.items.slice(0, remaining)
+      remaining -= items.length
+      return items.length > 0 ? [{ ...section, items }] : []
+    })
+  }, [maxSuggestions, sections])
+
+  const selectableItems = useMemo(() => visibleSections.flatMap((section) => section.items), [visibleSections])
   const shouldShowDropdown = isOpen && (sections.length > 0 || normalizedSearch.length > 0)
 
   function queueTickerIndexLoad() {
@@ -546,7 +559,10 @@ export default function TickerSearchCombobox({
       : 'mt-1 rounded-xl border border-border bg-surface-card shadow-sm'
 
   return (
-    <div className={cn('relative', className)}>
+    <div
+      className={cn('ticker-search__root relative', className)}
+      data-open={shouldShowDropdown ? 'true' : 'false'}
+    >
       {label ? <label className="text-filter-label mb-2 block">{label}</label> : null}
 
       <Search
@@ -575,6 +591,9 @@ export default function TickerSearchCombobox({
         }}
         placeholder={placeholder}
         className={inputClassName}
+        role="combobox"
+        aria-expanded={shouldShowDropdown}
+        aria-autocomplete="list"
         autoCapitalize="characters"
         autoCorrect="off"
         spellCheck={false}
@@ -604,9 +623,9 @@ export default function TickerSearchCombobox({
       {shouldShowDropdown ? (
         <div className={cn('absolute left-0 right-0 top-full z-50 overflow-hidden', panelClassName)}>
           <div className="max-h-[28rem] overflow-auto py-1">
-            {sections.map((section, sectionGroupIndex) => {
+            {visibleSections.map((section, sectionGroupIndex) => {
               let runningIndex = 0
-              for (const previousSection of sections) {
+              for (const previousSection of visibleSections) {
                 if (previousSection === section) break
                 runningIndex += previousSection.items.length
               }

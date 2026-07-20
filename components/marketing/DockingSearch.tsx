@@ -35,7 +35,7 @@ export default function DockingSearch() {
         <p className="dock-search__description">Find a ticker, then read the context around it.</p>
       </div>
       <div className="dock-search__field">
-        <HeaderSearch className="w-full" placeholder="Search a ticker or company…" />
+        <HeaderSearch className="w-full" maxSuggestions={4} placeholder="Search a ticker or company…" />
       </div>
       <div className="dock-search__support">
         <Link href="/markets/network" className="dock-search__cta">

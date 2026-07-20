@@ -123,7 +123,7 @@ export default function HeroConstellation() {
     const fib = (i: number, n: number) => { const y = 1 - (i / Math.max(1, n - 1)) * 2; const r = Math.sqrt(Math.max(0, 1 - y * y)); const th = i * 2.399963; return [Math.cos(th) * r, y, Math.sin(th) * r] }
 
     function resize() {
-      DPR = Math.min(2, window.devicePixelRatio || 1); W = window.innerWidth; H = window.innerHeight
+      DPR = Math.min(2, window.devicePixelRatio || 1); W = document.documentElement.clientWidth; H = window.innerHeight
       c.width = W * DPR; c.height = H * DPR; c.style.width = W + 'px'; c.style.height = H + 'px'
       cx = W * 0.5; cy = H * 0.5; R = Math.max(W, H) * 0.62; cam = R * 1.9
     }
@@ -322,7 +322,6 @@ export default function HeroConstellation() {
     fDim.addEventListener('click', closeFocus)
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && focus.i >= 0) closeFocus() }
     window.addEventListener('keydown', onKey)
-    c.style.cursor = 'pointer'
     // If a search field is focused when the press starts, the click is dismissing
     // it — don't also grab a particle.
     const searchSel = 'input,textarea,[data-dock-search],[data-header-search],[data-pill-search]'

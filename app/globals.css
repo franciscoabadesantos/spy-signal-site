@@ -543,6 +543,11 @@
     font-family: var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+
+  html,
+  body {
+    overflow-x: clip;
+  }
 }
 
 @layer utilities {
@@ -1526,6 +1531,23 @@ main.marketing-home {
   background-color: var(--page-bg);
 }
 
+main.marketing-home,
+main.marketing-home canvas {
+  cursor: default;
+}
+
+main.marketing-home :is(a, button) {
+  cursor: pointer;
+}
+
+main.marketing-home :is(input, textarea) {
+  cursor: text;
+}
+
+main.marketing-home .dock-search :is(input) {
+  color-scheme: light;
+}
+
 main.marketing-home[data-theme="dark"],
 html[data-theme="dark"] main.marketing-home {
   color-scheme: dark;
@@ -1606,16 +1628,67 @@ html[data-theme="dark"] .marketing-home .site-header__tile-media,
   backdrop-filter: blur(4px);
 }
 
-.marketing-home .ticker-search__panel {
+.marketing-home .dock-search .ticker-search__panel {
+  margin-top: -1px;
+  border-radius: 0 0 22px 22px;
   border-color: rgba(20, 41, 67, 0.12);
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 20px 48px rgba(20, 41, 67, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 28px 70px rgba(20, 41, 67, 0.18);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  backdrop-filter: blur(30px) saturate(1.8);
+  transform-origin: top center;
+  animation: ticker-panel-in 360ms var(--motion-ease-soft) both;
 }
-.marketing-home[data-theme="dark"] .ticker-search__panel,
-html[data-theme="dark"] .marketing-home .ticker-search__panel {
+.marketing-home .dock-search .ticker-search__root[data-open='true'] :is(input) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.marketing-home .dock-search .ticker-search__panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 12% auto;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brand-spark) 65%, white), transparent);
+  opacity: 0.7;
+}
+.marketing-home .dock-search .ticker-search__panel li {
+  animation: ticker-row-in 300ms var(--motion-ease-soft) both;
+}
+.marketing-home .dock-search .ticker-search__panel li:nth-child(2) { animation-delay: 28ms; }
+.marketing-home .dock-search .ticker-search__panel li:nth-child(3) { animation-delay: 56ms; }
+.marketing-home .dock-search .ticker-search__panel li:nth-child(4) { animation-delay: 84ms; }
+.marketing-home .dock-search .ticker-search__panel button {
+  min-height: 58px;
+  padding-block: 9px;
+  transition: background-color 180ms ease, transform 180ms var(--motion-ease-standard);
+}
+.marketing-home .dock-search .ticker-search__panel button:hover {
+  transform: translateX(3px);
+}
+.marketing-home .dock-search .ticker-search__panel button > div:first-child span {
+  height: 34px;
+  width: 34px;
+}
+.marketing-home[data-theme="dark"] .dock-search .ticker-search__panel,
+html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel {
   border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(10, 18, 32, 0.92);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+  background: rgba(10, 18, 32, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 28px 90px rgba(0, 0, 0, 0.42);
+}
+
+@keyframes ticker-panel-in {
+  from { opacity: 0; transform: translateY(-8px) scaleY(0.96); }
+  to { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+
+@keyframes ticker-row-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 1024px) {
@@ -1686,7 +1759,7 @@ html[data-theme="dark"] .marketing-home .ticker-search__panel {
   box-shadow: 0 14px 32px rgba(25, 40, 53, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
 .dock-search__field :is(input):hover {
-  border-color: color-mix(in srgb, var(--content-primary) 28%, transparent);
+  border-color: color-mix(in srgb, var(--brand-spark) 68%, var(--content-primary) 12%);
 }
 .dock-search__field :is(input):focus-visible {
   border-color: var(--brand-spark);
@@ -1807,6 +1880,10 @@ html.chrome-scrolled .dock-search {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+  .marketing-home .dock-search .ticker-search__panel,
+  .marketing-home .dock-search .ticker-search__panel li {
+    animation: none;
   }
 
   /* Keep the static story readable: the hero search must join document flow
