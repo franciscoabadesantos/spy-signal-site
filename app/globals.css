@@ -1491,14 +1491,15 @@ html.chrome-scrolled .site-header__row[data-home]:focus-within .site-header__pil
    ========================================================================= */
 main.marketing-home {
   color-scheme: light;
+  overflow-x: clip;
   --page-bg: #f3efe6;
   --background: var(--page-bg);
   --foreground: #142943;
   --content-primary: #142943;
   --content-secondary: #53657b;
-  --content-muted: #7c8994;
+  --content-muted: #5f6f80;
   --muted: #ebe6dc;
-  --muted-foreground: #6b7888;
+  --muted-foreground: #5f6f80;
   --border: rgba(20, 41, 67, 0.14);
   --divider-strong: rgba(20, 41, 67, 0.2);
   --input: rgba(20, 41, 67, 0.18);
@@ -1607,15 +1608,37 @@ html[data-theme="dark"] .marketing-home .site-header__tile-media,
 }
 
 .marketing-home .ticker-search__panel {
-  border-color: rgba(20, 41, 67, 0.12);
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 20px 48px rgba(20, 41, 67, 0.12);
+  border-color: var(--glass-border);
+  background: var(--glass-bg);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  backdrop-filter: blur(24px) saturate(1.2);
 }
 .marketing-home[data-theme="dark"] .ticker-search__panel,
 html[data-theme="dark"] .marketing-home .ticker-search__panel {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(10, 18, 32, 0.92);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+  border-color: var(--glass-border);
+  background: var(--glass-bg);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+}
+
+.ticker-search__panel-shell {
+  transform-origin: top center;
+  animation: ticker-search-panel-in 200ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+.ticker-search__panel-shell[data-state="closing"] {
+  animation: ticker-search-panel-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+.marketing-home .dock-search input,
+.marketing-home .site-header__pill-search input {
+  caret-color: var(--brand-spark);
+}
+@keyframes ticker-search-panel-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ticker-search-panel-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-6px) scale(0.985); }
 }
 
 @media (max-width: 1024px) {
@@ -1796,6 +1819,10 @@ html.chrome-scrolled .dock-search {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ticker-search__panel-shell,
+  .ticker-search__panel-shell[data-state="closing"] {
+    animation: none;
+  }
   .site-header,
   .site-header__row {
     transition: none;

@@ -36,22 +36,21 @@ Do not duplicate those documents here. Use the smallest relevant subset and stat
 - Treat any user-facing visual, responsive, interaction, search/input, animation, or visual accessibility change as significant. Use Design Director for a read-only brief, assign one Implementation Agent as editor, then use Browser QA.
 - Treat high-blast-radius work or work with data/API, motion/focus/canvas/runtime, or bundle risk as critical. Require API Contract for data/API, Accessibility/Performance for motion/focus/canvas/runtime or bundle risk, and Independent Review for high blast radius; do not add roles whose trigger is absent.
 
-Main owns repository discovery, knowledge gates, role selection, and task decomposition. Before spawning an Implementation Agent, provide a compact execution packet containing the objective, approved file ownership, authoritative Design Director decisions, relevant contracts and invariants, exact acceptance checks, and known code locations. One editor owns a path area at a time.
+Main owns repository discovery, knowledge gates, role selection, and task decomposition. Before spawning an Implementation Agent, provide a compact execution packet containing only the role and approved paths, objective, 5–8 authoritative decisions, contracts/invariants, acceptance checks and focused validation, output format, and known code locations. One editor owns a path area at a time.
 
 Spawned agents execute only the role and assignment in their spawn message. They must not reclassify the overall task, verify multi-agent availability, invoke other project roles, enforce the full delivery pipeline, request authorization for a single-agent fallback, reload the full workflow, reread broad documentation, or rescan the repository. An Implementation Agent should inspect only its assigned files and the minimum directly imported dependencies required to execute safely, then patch promptly, validate, and return its handoff.
 
-## Recover visibly
+## Implementation-agent patience and recovery
 
-1. For an Implementation Agent with no timely conclusion, wait once.
-2. Request a checkpoint when no result arrives.
-3. Allow one additional full work interval after the checkpoint request.
-4. A checkpoint stating exact edit locations and no blocker counts as active, verifiable progress. After such a checkpoint, Main must allow the agent another full work interval without sending further prompts.
-5. A subsequent checkpoint must add new evidence beyond the previous checkpoint, such as changed lines, a partial diff, a completed edit, a running validation, or a newly identified concrete blocker. Repeating the same planned edit locations does not count as continued progress.
-6. Verifiable progress includes exact assigned files inspected, concrete edit locations identified, a patch in progress, changed files or diff, a validation command running, a specific blocker requiring Main input, an active checkpoint, or a completed handoff.
-7. An empty `git diff` observed by Main while an agent is active is not, by itself, evidence of failure and must not be the primary progress criterion.
-8. Main must not close an agent merely because no completion event arrived in the immediately following wait. “Conversation interrupted” is an execution interruption, not evidence that the agent was idle or incapable. Relaunch with the existing execution packet and no additional discovery instructions.
-9. Stop and relaunch only when the agent gives no checkpoint after the additional interval, repeats broad discovery without narrowing, violates ownership, or reports no actionable progress.
-10. After relaunch, apply the same checkpoint sequence once. Request user authorization for takeover only after both agents fail this full recovery sequence. Never replace a required role silently.
+- Implementation Agents should normally run uninterrupted after receiving an approved execution packet.
+- A `wait_agent` timeout, an empty wait result, several minutes of silence, or an empty `git diff` observed while the agent is active do not indicate failure.
+- Main must prefer waiting over polling, messaging, closing, relaunching, duplicating work, or requesting fallback.
+- Do not request routine checkpoints. Request one only when the agent reports a blocker, violates ownership, restarts broad discovery, re-enters Main orchestration, explicitly cannot continue, or returns a terminal result without the required work. Do not request one solely because waits timed out, no diff is visible, or Main has no output.
+- After an actionable checkpoint, send no further prompts and wait for the final handoff. Any subsequent checkpoint must add new evidence beyond the previous checkpoint, such as changed lines, a partial diff, a completed edit, a running validation, or a newly identified concrete blocker. Repeating the same planned edit locations does not count as continued progress.
+- Do not close a quiet or timed-out agent unless there is strong evidence that it has failed, completed incorrectly, or become unrecoverable. A “conversation interrupted” state is not proof that the agent was idle or incapable.
+- An implementation attempt fails only when the agent reaches a terminal state without the deliverable, reports an unrecoverable blocker, or repeatedly violates its assignment. Wait timeouts and silence do not consume an attempt.
+- Only after a confirmed failed attempt may Main relaunch the same compact packet once, with no additional discovery instructions.
+- Main may request user authorization for takeover only after two confirmed terminal failures, not after ambiguous timeouts or silence. Never replace a required role silently.
 
 ## Validate and report
 

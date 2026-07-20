@@ -57,24 +57,25 @@ The following rules apply only to the root/Main agent that received the user's r
 - Main runs the applicable knowledge gates before delegation: the relevant Next 16 guide, `app/globals.css`, rendered components, `docs/design/design-system.md`, `docs/qa/browser-qa.md`, and `docs/qa/viewport-matrix.md`; additionally read `DATA_SOURCE_POLICY.md` and API docs for ticker/autocomplete or data work. The versioned `docs/agents/codex/skills/frontend-delivery/` skill is a reusable workflow layer, but `AGENTS.md` remains the authoritative enforcement source.
 - Main owns repository discovery, knowledge gates, role selection, and task decomposition. Main is the Product Lead and must not send the full conversation or long transcripts.
 - Before spawning an Implementation Agent, Main must provide a compact execution packet containing:
+  - role and approved file ownership;
   - objective;
-  - approved file ownership;
-  - authoritative Design Director decisions;
-  - relevant contracts and invariants;
-  - exact acceptance checks;
-  - known code locations when already identified.
+  - 5–8 authoritative decisions;
+  - contracts and invariants that must not change;
+  - exact acceptance checks and focused validation;
+  - output format and known code locations when already identified.
 - Before claiming that multi-agent support is unavailable, Main must inspect the exposed tool surface for the namespaced V1 tool `multi_agent_v1__spawn_agent`. The absence of an unqualified `spawn_agent` does not mean agent support is unavailable.
 - For significant or critical frontend work, if `multi_agent_v1__spawn_agent` is available, Main must use the configured roles required by the classification. Main must not simulate Design Director, Implementation Agent, Browser QA, API Contract, Accessibility/Performance Review, or Independent Review as local passes.
 - If the required multi-agent tool or configured `agent_type` is genuinely unavailable, Main must stop before repository exploration or editing, report the exact missing tool or role, and request explicit user authorization for a single-agent fallback.
 - One implementation agent owns edits to a file area at a time. Ownership is temporary and ends on handoff, reported blocker, agent shutdown after recovery, or explicit user authorization for Main to assume it. Handoffs follow `docs/agents/handoff-template.md` and should report decisions, evidence, blockers, and next action without replaying the prompt.
 - Main performs recovery, relaunch, handoffs, final validation, and final reporting. Main must not silently substitute for a required agent.
-- For an Implementation Agent with no timely conclusion: wait once, request a checkpoint, then allow one additional full work interval after the checkpoint request.
-- A checkpoint stating exact edit locations and no blocker counts as active, verifiable progress. After such a checkpoint, Main must allow the agent another full work interval without sending further prompts.
-- A subsequent checkpoint must add new evidence beyond the previous checkpoint, such as changed lines, a partial diff, a completed edit, a running validation, or a newly identified concrete blocker. Repeating the same planned edit locations does not count as continued progress.
-- Verifiable progress includes exact assigned files inspected, concrete edit locations identified, a patch in progress, changed files or diff, a validation command running, a specific blocker requiring Main input, an active checkpoint, or a completed handoff.
-- An empty `git diff` observed by Main while an agent is active is not, by itself, evidence of failure and must not be the primary progress criterion. Main should use the agent's response/checkpoint, reported state, and completed handoff first; inspect the diff after the agent returns control.
-- Main must not close an agent merely because no completion event arrived in the immediately following wait. A “conversation interrupted” state is an execution interruption, not evidence that the agent was idle or incapable. Relaunch with the existing execution packet and no additional discovery instructions.
-- Stop and relaunch only when the agent gives no checkpoint after the additional interval, repeats broad discovery without narrowing, violates ownership, or reports no actionable progress. After relaunch, apply the same checkpoint sequence once. Request user authorization for takeover only after both agents fail this full recovery sequence.
+- Implementation Agents should normally run uninterrupted after receiving an approved execution packet. A `wait_agent` timeout, an empty wait result, several minutes of silence, or an empty `git diff` observed while the agent is active do not indicate failure.
+- Main must prefer waiting over polling, messaging, closing, relaunching, duplicating work, or requesting fallback. Main must not send routine checkpoint requests, progress probes, repeated instructions, or duplicate execution packets while the agent is active.
+- Main may request a checkpoint only after explicit evidence of execution failure or role drift: the agent reports a blocker, violates ownership, restarts broad discovery, re-enters Main orchestration, explicitly cannot continue, or returns a terminal result without the required work. Do not request a checkpoint solely because one or more waits timed out, no diff is visible, or Main has no output.
+- After receiving an actionable checkpoint, Main must send no further prompts and wait for the final handoff. If a subsequent checkpoint is required by new evidence, it must add evidence beyond the previous checkpoint, such as changed lines, a partial diff, a completed edit, a running validation, or a newly identified concrete blocker. Repeating the same planned edit locations does not count as continued progress.
+- Main must not close a quiet or timed-out agent unless there is strong evidence that it has failed, completed incorrectly, or become unrecoverable. Main must not treat a “conversation interrupted” state as proof that the agent was idle or incapable.
+- An implementation attempt fails only when the agent reaches a terminal outcome without the required deliverable, reports an unrecoverable blocker, or repeatedly violates its assignment. Wait timeouts and silence do not consume an attempt.
+- Only after a confirmed failed attempt may Main relaunch the same compact execution packet once. A relaunch must not add discovery instructions. Main may request user authorization for takeover only after two confirmed terminal failures, not after ambiguous timeouts or silence.
+- Main must use the agent's response, reported state, and completed handoff as the primary evidence of progress; inspect the diff after the agent returns control rather than using a live empty diff as a failure signal.
 - A subagent adds value only if it finds evidence, reduces uncertainty, performs independent validation, or shortens the critical path. Stop agents that duplicate completed work.
 - Prefer `rg --files`, targeted `rg`, small excerpts, and `git diff --stat` before a full diff when Main is performing repository discovery or post-handoff review. Do not use Main's live diff observation as a substitute for agent state.
 

@@ -22,7 +22,7 @@ type HcPulse = { a: number; b: number; t: number; sp: number }
 const CSS = `
 .hc-root{
   --font-display:"Sora",system-ui,sans-serif;--font-body:"Inter",system-ui,sans-serif;--font-mono:"JetBrains Mono",ui-monospace,monospace;
-  --bg:#f3efe6;--text:#142943;--text-2:#5b6978;--text-3:#87929b;
+  --bg:#f3efe6;--text:#142943;--text-2:#53657b;--text-3:#5f6f80;
   --spark:#0b8178;--spark-2:#1ba69a;--green:#1d7f52;--red:#bd514d;
   --glass:rgba(255,255,255,.66);--glass-border:rgba(20,41,67,.16);--hairline:rgba(20,41,67,.12);
   --focus-bg:#142943;--focus-text:#f6f2e9;--focus-muted:#b8c5d0;--focus-border:rgba(246,242,233,.18);--focus-stat:rgba(246,242,233,.08);--focus-shadow:0 28px 80px rgba(20,41,67,.28);
@@ -52,7 +52,9 @@ const CSS = `
 .hc-root .hc-h1 em{font-style:normal;color:var(--spark)}
 .hc-root .hc-sub{color:var(--text-2);font-size:clamp(16px,1.8vw,20px);max-width:44ch;line-height:1.5;margin:0}
 .hc-root .hc-card{display:flex;align-items:center;gap:16px;width:fit-content;margin-top:26px;padding:14px 18px;border-radius:18px;background:var(--glass);border:1px solid var(--glass-border);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 24px 60px -24px #000;backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5)}
-.hc-root .hc-badge{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:12px;padding:6px 11px;border-radius:999px;color:var(--green);background:color-mix(in srgb,var(--green) 15%,transparent);border:1px solid color-mix(in srgb,var(--green) 40%,transparent)}
+.hc-root .hc-badge{--hc-badge-tone:var(--green);display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:12px;padding:6px 11px;border-radius:999px;color:var(--hc-badge-tone);background:color-mix(in srgb,var(--hc-badge-tone) 15%,transparent);border:1px solid color-mix(in srgb,var(--hc-badge-tone) 40%,transparent)}
+.hc-root .hc-badge[data-signal="Cash"]{--hc-badge-tone:#a13b43}.hc-root .hc-badge[data-signal="Scaled"]{--hc-badge-tone:#08756d}
+.hc-root[data-theme="dark"] .hc-badge[data-signal="Buy"],[data-theme="dark"] .hc-root .hc-badge[data-signal="Buy"]{--hc-badge-tone:#34d399}.hc-root[data-theme="dark"] .hc-badge[data-signal="Cash"],[data-theme="dark"] .hc-root .hc-badge[data-signal="Cash"]{--hc-badge-tone:#fb7185}.hc-root[data-theme="dark"] .hc-badge[data-signal="Scaled"],[data-theme="dark"] .hc-root .hc-badge[data-signal="Scaled"]{--hc-badge-tone:#19c9b6}
 .hc-root .hc-badge .d{width:7px;height:7px;border-radius:99px;background:currentColor;box-shadow:0 0 10px currentColor}
 .hc-root .hc-card .v{font-family:var(--font-display);font-weight:700;font-size:20px}
 .hc-root .hc-h2{font-family:var(--font-display);font-weight:700;font-size:clamp(28px,4.6vw,54px);line-height:1.0;letter-spacing:-.03em;margin:10px 0 14px;text-shadow:0 4px 40px rgba(20,41,67,.16)}
@@ -277,7 +279,7 @@ export default function HeroConstellation() {
       const tween = gsap.to(s, { p: 1, ease: 'none', scrollTrigger: { trigger: stageEl, start: 'top top', end: '+=3200', scrub: 1, pin: true, anticipatePin: 1, onUpdate: self => setP(self.progress) } })
       scrollTrigger = tween.scrollTrigger || null
       // esconder o canvas quando saímos do hero
-      hideTrigger = ScrollTrigger.create({ trigger: stageEl, start: 'top top', end: '+=3400', onUpdate: self => { const vis = self.progress < 0.999; heroVisible = vis; c.style.opacity = vis ? '1' : '0'; c.style.pointerEvents = vis ? 'auto' : 'none'; const veil = root.querySelector<HTMLElement>('.hc-veil'); if (veil) veil.style.opacity = vis ? '1' : '0'; const prog = root.querySelector<HTMLElement>('.hc-progress'); if (prog) prog.style.opacity = vis ? '1' : '0' } })
+      hideTrigger = ScrollTrigger.create({ trigger: stageEl, start: 'top top', end: '+=3400', onUpdate: self => { const vis = self.progress < 0.999; heroVisible = vis; c.style.opacity = vis ? '1' : '0'; c.style.pointerEvents = vis ? 'auto' : 'none'; c.style.cursor = vis ? 'crosshair' : 'default'; const veil = root.querySelector<HTMLElement>('.hc-veil'); if (veil) veil.style.opacity = vis ? '1' : '0'; const prog = root.querySelector<HTMLElement>('.hc-progress'); if (prog) prog.style.opacity = vis ? '1' : '0' } })
     }
 
     // focus / zoom-into-node
@@ -298,7 +300,7 @@ export default function HeroConstellation() {
       const sk = stock(n.label); focus.tone = sk.tone as string
       const T = $('hc-fcT'); T.textContent = n.label; T.style.color = sk.tone as string
       $('hc-fcN').textContent = sk.name
-      $('hc-fcB').innerHTML = '<span class="hc-badge" style="color:' + sk.tone + ';background:color-mix(in srgb,' + sk.tone + ' 15%,transparent);border-color:color-mix(in srgb,' + sk.tone + ' 40%,transparent)"><span class="d"></span>' + sk.sig + '</span>'
+      $('hc-fcB').innerHTML = '<span class="hc-badge" data-signal="' + sk.sig + '"><span class="d"></span>' + sk.sig + '</span>'
       const change = Number(sk.chg)
       $('hc-fcS').innerHTML = '<div class="s"><div class="k">Price</div><div class="v">$' + sk.price + '</div></div><div class="s"><div class="k">Δ day</div><div class="v" style="color:' + (change >= 0 ? '#34d399' : '#fb7185') + '">' + (change >= 0 ? '+' : '') + sk.chg + '%</div></div><div class="s"><div class="k">Score</div><div class="v" style="color:#19c9b6">' + sk.score + '</div></div>'
       ;($('hc-fcO') as HTMLAnchorElement).href = '/stocks/' + encodeURIComponent(n.label)
@@ -322,7 +324,7 @@ export default function HeroConstellation() {
     fDim.addEventListener('click', closeFocus)
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && focus.i >= 0) closeFocus() }
     window.addEventListener('keydown', onKey)
-    c.style.cursor = 'pointer'
+    c.style.cursor = 'crosshair'
     // If a search field is focused when the press starts, the click is dismissing
     // it — don't also grab a particle.
     const searchSel = 'input,textarea,[data-dock-search],[data-header-search],[data-pill-search]'
