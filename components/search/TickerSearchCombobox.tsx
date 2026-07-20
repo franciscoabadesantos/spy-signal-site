@@ -1,7 +1,7 @@
 'use client'
 
 import { CircleAlert, History, Loader2, Radar, Search } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Input from '@/components/ui/Input'
 import { buttonClass } from '@/components/ui/Button'
@@ -183,23 +183,16 @@ export default function TickerSearchCombobox({
   variant,
 }: TickerSearchComboboxProps) {
   const router = useRouter()
-  const comboboxId = useId()
-  const inputId = `${comboboxId}-input`
-  const listboxId = `${comboboxId}-listbox`
   const [search, setSearch] = useState(initialValue)
   const [tickerIndex, setTickerIndex] = useState<CachedTickerIndex | null>(memoryTickerIndex)
   const [recentTickers, setRecentTickers] = useState<string[]>([])
   const [isOpen, setIsOpen] = useState(false)
-  const [isClosing, setIsClosing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [hasLoadedIndexOnce, setHasLoadedIndexOnce] = useState(Boolean(memoryTickerIndex?.items.length))
   const [loadAttemptToken, setLoadAttemptToken] = useState(0)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const panelCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const rootRef = useRef<HTMLDivElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
   const normalizedSearch = normalizeTickerSearchQuery(search)
 
   useEffect(() => {
@@ -293,7 +286,6 @@ export default function TickerSearchCombobox({
   useEffect(() => {
     return () => {
       if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current)
-      if (panelCloseTimeoutRef.current) clearTimeout(panelCloseTimeoutRef.current)
     }
   }, [])
 
@@ -312,14 +304,14 @@ export default function TickerSearchCombobox({
 
   const resultSuggestions = useMemo<DisplayItem[]>(() => {
     if (!tickerIndex || !normalizedSearch) return []
-    return filterTickerIndexItems(tickerIndex.items, normalizedSearch, 6).map((item) => ({
+    return filterTickerIndexItems(tickerIndex.items, normalizedSearch, 8).map((item) => ({
       ...item,
       displaySource: 'result' as const,
     }))
   }, [normalizedSearch, tickerIndex])
 
   const recentSuggestions = useMemo<DisplayItem[]>(() => {
-    return recentTickers.slice(0, 2).flatMap((symbol) => {
+    return recentTickers.flatMap((symbol) => {
       const match = tickerIndexBySymbol.get(symbol)
       if (!match) return []
       return [{
@@ -333,7 +325,7 @@ export default function TickerSearchCombobox({
     const recentSet = new Set(recentTickers)
     return featuredBase
       .filter((item) => !recentSet.has(item.symbol))
-      .slice(0, 3)
+      .slice(0, 8)
       .map((item) => ({
         ...item,
         displaySource: 'featured' as const,
@@ -373,42 +365,7 @@ export default function TickerSearchCombobox({
   ])
 
   const selectableItems = useMemo(() => sections.flatMap((section) => section.items), [sections])
-  const shouldShowDropdown = (isOpen || isClosing) && (sections.length > 0 || normalizedSearch.length > 0)
-  const activeDescendantId =
-    isOpen && highlightedIndex >= 0 && highlightedIndex < selectableItems.length
-      ? `${listboxId}-option-${highlightedIndex}`
-      : undefined
-
-  function closeDropdown() {
-    if (panelCloseTimeoutRef.current) clearTimeout(panelCloseTimeoutRef.current)
-
-    if (panelRef.current?.contains(document.activeElement)) {
-      rootRef.current?.querySelector<HTMLInputElement>(`#${CSS.escape(inputId)}`)?.focus()
-    }
-
-    setIsOpen(false)
-
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setIsClosing(false)
-      panelCloseTimeoutRef.current = null
-      return
-    }
-
-    setIsClosing(true)
-    panelCloseTimeoutRef.current = setTimeout(() => {
-      setIsClosing(false)
-      panelCloseTimeoutRef.current = null
-    }, 200)
-  }
-
-  function openDropdown() {
-    if (panelCloseTimeoutRef.current) {
-      clearTimeout(panelCloseTimeoutRef.current)
-      panelCloseTimeoutRef.current = null
-    }
-    setIsClosing(false)
-    setIsOpen(true)
-  }
+  const shouldShowDropdown = isOpen && (sections.length > 0 || normalizedSearch.length > 0)
 
   function queueTickerIndexLoad() {
     const cached = memoryTickerIndex ?? tickerIndex ?? readSessionTickerIndex()
@@ -446,7 +403,7 @@ export default function TickerSearchCombobox({
 
   function handleSearchChange(nextValue: string) {
     setSearch(nextValue)
-    openDropdown()
+    setIsOpen(true)
 
     if (nextValue.trim().length > 0) {
       queueTickerIndexLoad()
@@ -458,7 +415,7 @@ export default function TickerSearchCombobox({
     if (!symbol) return
     pushRecentTicker(symbol)
     setSearch(symbol)
-    closeDropdown()
+    setIsOpen(false)
     setHighlightedIndex(-1)
     router.push(routeForTicker(symbol))
   }
@@ -481,7 +438,7 @@ export default function TickerSearchCombobox({
     if (event.key === 'ArrowDown') {
       if (!selectableItems.length) return
       event.preventDefault()
-      openDropdown()
+      setIsOpen(true)
       setHighlightedIndex((prev) => (prev + 1) % selectableItems.length)
       return
     }
@@ -489,13 +446,13 @@ export default function TickerSearchCombobox({
     if (event.key === 'ArrowUp') {
       if (!selectableItems.length) return
       event.preventDefault()
-      openDropdown()
+      setIsOpen(true)
       setHighlightedIndex((prev) => (prev <= 0 ? selectableItems.length - 1 : prev - 1))
       return
     }
 
     if (event.key === 'Escape') {
-      closeDropdown()
+      setIsOpen(false)
       setHighlightedIndex(-1)
       return
     }
@@ -518,23 +475,19 @@ export default function TickerSearchCombobox({
     const StatusIcon = statusIcon(item)
     const siblingListings = tickerEntitySiblingListings(item)
     return (
-      <li key={`${item.displaySource}-${item.symbol}-${index}`} role="presentation">
+      <li key={`${item.displaySource}-${item.symbol}-${index}`}>
         <button
-          id={`${listboxId}-option-${index}`}
-          role="option"
-          aria-selected={index === highlightedIndex}
-          tabIndex={-1}
           type="button"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => navigateToTicker(item.symbol)}
           className={cn(
-            'state-interactive grid min-h-11 w-full cursor-pointer grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2.5 px-3.5 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset',
+            'state-interactive grid w-full cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-inset',
             withBorder ? 'border-b border-border' : '',
             index === highlightedIndex ? 'bg-surface-hover' : 'hover:bg-surface-elevated'
           )}
         >
           <div className="flex items-center justify-center">
-            <span className={cn('flex h-7 w-7 items-center justify-center rounded-full border', statusIconClass(item))}>
+            <span className={cn('flex h-10 w-10 items-center justify-center rounded-full border', statusIconClass(item))}>
               {StatusIcon ? (
                 <StatusIcon className="h-4 w-4" />
               ) : (
@@ -584,17 +537,17 @@ export default function TickerSearchCombobox({
 
   const inputClassName =
     variant === 'header'
-      ? cn('no-lift-interaction h-12 rounded-full border-slate-950/8 bg-white/80 pl-11 pr-10 caret-[var(--brand-spark)] shadow-[inset_0_1px_0_rgba(255,255,255,0.84),0_12px_28px_rgba(20,33,51,0.05)] backdrop-blur-xl placeholder:text-content-muted/80 hover:border-slate-950/14 hover:bg-white focus-visible:border-primary/55 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] dark:hover:border-white/18 dark:hover:bg-white/[0.09]', (isOpen || isClosing) && 'rounded-b-[4px]')
-      : cn('h-11 pr-24 pl-9 uppercase caret-[var(--brand-spark)]', (isOpen || isClosing) && 'rounded-b-[4px]')
+      ? 'no-lift-interaction h-12 rounded-full border-slate-950/8 bg-white/80 pl-11 pr-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.84),0_12px_28px_rgba(20,33,51,0.05)] backdrop-blur-xl placeholder:text-content-muted/80 hover:border-slate-950/14 hover:bg-white focus-visible:border-primary/55 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] dark:hover:border-white/18 dark:hover:bg-white/[0.09]'
+      : 'h-11 pr-24 pl-9 uppercase'
 
   const panelClassName =
     variant === 'header'
-      ? 'ticker-search__panel rounded-b-[18px] rounded-t-[4px] border border-slate-950/8 bg-white/96 shadow-[0_20px_48px_rgba(20,33,51,0.12)] ring-1 ring-slate-950/6 backdrop-blur-[24px] dark:border-white/10 dark:bg-[#0a1220]/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.34)] dark:ring-white/8'
-      : 'ticker-search__panel rounded-b-xl rounded-t-[4px] border border-border bg-surface-card shadow-sm'
+      ? 'ticker-search__panel mt-2 rounded-[18px] border border-slate-950/8 bg-white/96 shadow-[0_20px_48px_rgba(20,33,51,0.12)] ring-1 ring-slate-950/6 backdrop-blur-[24px] dark:border-white/10 dark:bg-[#0a1220]/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.34)] dark:ring-white/8'
+      : 'mt-1 rounded-xl border border-border bg-surface-card shadow-sm'
 
   return (
-    <div ref={rootRef} className={cn('relative', className)}>
-      {label ? <label htmlFor={inputId} className="text-filter-label mb-2 block">{label}</label> : null}
+    <div className={cn('relative', className)}>
+      {label ? <label className="text-filter-label mb-2 block">{label}</label> : null}
 
       <Search
         className={cn(
@@ -604,30 +557,23 @@ export default function TickerSearchCombobox({
       />
 
       <Input
-        id={inputId}
         type="text"
         value={search}
         onChange={(event) => handleSearchChange(event.target.value)}
         onKeyDown={onKeyDown}
         onFocus={() => {
           cancelBlurClose()
-          openDropdown()
+          setIsOpen(true)
           queueTickerIndexLoad()
         }}
         onBlur={() => {
           cancelBlurClose()
           blurTimeoutRef.current = setTimeout(() => {
-            closeDropdown()
+            setIsOpen(false)
             blurTimeoutRef.current = null
           }, 120)
         }}
         placeholder={placeholder}
-        aria-label={label ? undefined : 'Search tickers'}
-        role="combobox"
-        aria-expanded={isOpen}
-        aria-controls={shouldShowDropdown ? listboxId : undefined}
-        aria-autocomplete="list"
-        aria-activedescendant={activeDescendantId}
         className={inputClassName}
         autoCapitalize="characters"
         autoCorrect="off"
@@ -656,16 +602,7 @@ export default function TickerSearchCombobox({
       ) : null}
 
       {shouldShowDropdown ? (
-        <div
-          ref={panelRef}
-          className={cn('ticker-search__panel-shell absolute left-0 right-0 top-full z-50 overflow-hidden', panelClassName)}
-          data-state={isClosing ? 'closing' : 'open'}
-          id={listboxId}
-          role="listbox"
-          aria-hidden={isClosing}
-          inert={isClosing || undefined}
-          style={{ pointerEvents: isClosing ? 'none' : 'auto' }}
-        >
+        <div className={cn('absolute left-0 right-0 top-full z-50 overflow-hidden', panelClassName)}>
           <div className="max-h-[28rem] overflow-auto py-1">
             {sections.map((section, sectionGroupIndex) => {
               let runningIndex = 0
