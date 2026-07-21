@@ -44,22 +44,13 @@ Main owns repository discovery, knowledge gates, role selection, task decomposit
 
 Spawned agents execute only the role and assignment in their spawn message. They must not reclassify the overall task, verify multi-agent availability, invoke other project roles, enforce the full delivery pipeline, request authorization for a single-agent fallback, reload the full workflow, reread broad documentation, or rescan the repository. An Implementation Agent should inspect only its assigned files and the minimum directly imported dependencies required to execute safely, then patch promptly, validate, and return its handoff.
 
-## Conditional visual acceptance
+## Visual direction and acceptance
 
-- Run a visual acceptance gate for significant visual changes, commercial surfaces, claims about hierarchy or perceptibility, tasks with a previously rejected visual result, or residual visual uncertainty. Keep technical correctness and visual acceptance separate: passing technical checks alone does not justify declaring visual polish complete.
-- Compare before and after evidence captured with the same viewport, state, content, theme, and scroll position. Main may perform this comparison for localized, objective changes. For redesigns, pricing, homepage, hierarchy changes, or subjective outcomes, use an independent read-only reviewer when it adds value; it is not mandatory by default.
-- Keep an independent reviewer blind to implementation. Provide only the before and after screenshots, visual objective, primary user action, elements to preserve, captured viewport and state, and an internal reference when applicable. Do not provide the diff, changed CSS properties, passing tests, or the implementer's explanation or defense.
-- Ask the reviewer to assess only the visible result, avoid proposing a redesign by default, and allow `PASS` with no findings. Require this compact output and never require three findings:
-
-```text
-Verdict: PASS | NOT YET
-Perceptible change: yes | weak | no
-Findings: 0-3
-- Evidence
-  Impact
-  Severity
-  Regression | pre-existing | insufficient result
-```
+- Before editing a subjective or reference-driven task with materially different visual interpretations, state the recommended direction and its dominant visual decisions, then request one focused human confirmation. Do not pause localized, objective work whose direction is already clear.
+- Run a visual evidence gate for significant visual changes, commercial surfaces, hierarchy or perceptibility claims, previously rejected visual work, or residual visual uncertainty. Compare before and after evidence captured with the same viewport, state, content, theme, and scroll position.
+- Keep technical correctness separate from visual acceptance. Passing technical checks or finding no automated violations does not justify declaring visual polish complete. Main may compare localized, objective changes; require human acceptance for redesigns, reference fidelity, pricing, homepage, hierarchy changes, or other subjective outcomes.
+- Use an independent reviewer only as a defect detector when it adds value. Give it a fresh read-only context containing current native-resolution viewport screenshots, 100% crops of critical regions, and viewport/state labels. Do not provide the diff, code, changed CSS properties, tests, plan, implementation objective, before/reference images, or the implementer's explanation or claim of success.
+- Ask the reviewer to inspect visible legibility, contrast, hierarchy, alignment, spacing, consistency, and unfinished or accidental-looking states. Request zero to three evidence-grounded findings, never a verdict or redesign. `No findings observed in the supplied evidence` is allowed but is not visual approval; insufficient resolution must be reported as insufficient evidence.
 
 ## Rejection recovery
 

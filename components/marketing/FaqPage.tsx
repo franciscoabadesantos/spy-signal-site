@@ -1,11 +1,13 @@
+import type { CSSProperties } from 'react'
+import Link from 'next/link'
 import { Check } from 'lucide-react'
+import { Inter, JetBrains_Mono, Sora } from 'next/font/google'
 import AskUsForm from '@/components/marketing/AskUsForm'
-import {
-  GlassPanel,
-  HandScript,
-  MarketingPageOutro,
-  MarketingPageShell,
-} from '@/components/marketing/site-chrome'
+import { MarketingHeader, sharedHeaderSpacerClass } from '@/components/marketing/site-chrome'
+
+const sora = Sora({ subsets: ['latin'], weight: ['400', '600', '700', '800'], display: 'swap' })
+const inter = Inter({ subsets: ['latin'], display: 'swap' })
+const mono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], display: 'swap' })
 
 type FaqItem = {
   question: string
@@ -101,142 +103,230 @@ const quickFacts = [
   '€49 / month, cancel anytime',
 ] as const
 
+const numberedFaqGroups = faqGroups.map((group, groupIndex) => {
+  const start = faqGroups.slice(0, groupIndex).reduce((total, current) => total + current.items.length, 0)
+
+  return {
+    ...group,
+    items: group.items.map((item, itemIndex) => ({
+      ...item,
+      number: String(start + itemIndex + 1).padStart(2, '0'),
+    })),
+  }
+})
+
+const faqThemeStyle = {
+  ['--page-bg' as never]: '#f3efe6',
+  ['--content-primary' as never]: '#142943',
+  ['--content-secondary' as never]: '#5b6978',
+  ['--content-muted' as never]: '#87929b',
+  ['--brand-spark' as never]: '#0b8178',
+  ['--brand-spark-soft' as never]: '#1ba69a',
+  ['--brand-spark-on' as never]: '#04201d',
+  ['--border' as never]: 'rgba(20, 41, 67, 0.14)',
+  ['--surface-card' as never]: 'rgba(255, 255, 255, 0.66)',
+  ['--surface-card-top-light' as never]: 'rgba(255, 255, 255, 0.58)',
+  ['--surface-hover' as never]: 'rgba(255, 255, 255, 0.42)',
+  ['--font-display' as never]: sora.style.fontFamily,
+  ['--font-body' as never]: inter.style.fontFamily,
+  ['--font-mono' as never]: mono.style.fontFamily,
+  fontFamily: 'var(--font-body)',
+  colorScheme: 'light',
+} as CSSProperties
+
+const displayStyle = { fontFamily: 'var(--font-display)' }
+const monoStyle = { fontFamily: 'var(--font-mono)' }
+
 function FaqRows() {
-  const groupsWithNumbers = faqGroups.map((group, groupIndex) => {
-    const start = faqGroups.slice(0, groupIndex).reduce((total, current) => total + current.items.length, 0)
-
-    return {
-      ...group,
-      items: group.items.map((item, itemIndex) => ({
-        ...item,
-        number: String(start + itemIndex + 1).padStart(2, '0'),
-      })),
-    }
-  })
-
   return (
-    <div className="mt-12 divide-y divide-slate-950/[0.07] dark:divide-white/[0.07]">
-      {groupsWithNumbers.map((group) => (
-        <div key={group.label} className="pt-12 first:pt-0">
-          <div className="mb-2 flex items-center gap-4">
-            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-[#0757ff] dark:text-[#f8f200]">
-              {group.label}
-            </span>
-            <span className="h-px flex-1 bg-slate-950/10 dark:bg-white/10" />
-          </div>
-          <div className="divide-y divide-slate-950/[0.07] dark:divide-white/[0.07]">
-            {group.items.map((item) => (
-              <div key={item.question} className="group relative">
-                <div className="pointer-events-none absolute inset-x-[-1.25rem] inset-y-[0.4rem] rounded-3xl bg-[#0757ff]/0 transition-colors duration-200 group-hover:bg-[#0757ff]/[0.035] dark:group-hover:bg-white/[0.03]" />
-                <div className="relative grid grid-cols-[2.25rem_1fr] gap-x-5 py-7 sm:grid-cols-[4.25rem_1fr] sm:gap-x-8">
-                  <span className="select-none pt-1 text-2xl font-black tabular-nums leading-none text-slate-950/[0.18] transition-colors duration-200 group-hover:text-[#0757ff] dark:text-white/20 dark:group-hover:text-[#f8f200] sm:text-[2.6rem]">
-                    {item.number}
-                  </span>
-                  <div className="transition-transform duration-200 ease-out group-hover:translate-x-1">
-                    <h3 className="text-xl font-semibold leading-snug tracking-tight sm:text-[1.6rem]">
-                      {item.question}
-                    </h3>
-                    <p className="mt-2.5 max-w-2xl text-[1.02rem] leading-7 text-slate-600 dark:text-white/62">
-                      {item.answer}
-                    </p>
+    <div className="mt-7 divide-y divide-border">
+      {numberedFaqGroups.map((group) => {
+        const groupId = `faq-group-${group.label.toLowerCase().replaceAll(' ', '-')}`
+
+        return (
+          <section key={group.label} className="pt-8 first:pt-0" aria-labelledby={groupId}>
+            <div className="mb-2 flex items-center gap-4">
+              <h3
+                id={groupId}
+                style={monoStyle}
+                className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-spark"
+              >
+                {group.label}
+              </h3>
+              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            </div>
+            <div className="divide-y divide-border">
+              {group.items.map((item) => (
+                <article key={item.question} className="group relative">
+                  <div className="relative grid grid-cols-[2.25rem_1fr] gap-x-4 py-5 transition-colors duration-200 group-hover:bg-surface-hover sm:grid-cols-[3.5rem_1fr] sm:gap-x-6">
+                    <span
+                      style={monoStyle}
+                      className="select-none pt-1 text-xs font-semibold tabular-nums tracking-[0.14em] text-brand-spark/70 sm:text-sm"
+                      aria-hidden="true"
+                    >
+                      {item.number}
+                    </span>
+                    <div>
+                      <h4 style={displayStyle} className="text-lg font-semibold leading-7 tracking-tight sm:text-xl">
+                        {item.question}
+                      </h4>
+                      <p className="mt-2 max-w-2xl text-base leading-7 text-content-secondary">{item.answer}</p>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+                </article>
+              ))}
+            </div>
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+function QuickFacts() {
+  return (
+    <div className="surface-card rounded-[24px] p-6 sm:p-7" aria-labelledby="faq-short-version">
+      <p
+        id="faq-short-version"
+        style={monoStyle}
+        className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-spark"
+      >
+        The short version
+      </p>
+      <ul className="mt-6 space-y-4">
+        {quickFacts.map((fact) => (
+          <li key={fact} className="flex items-start gap-3 text-[0.97rem] leading-6">
+            <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-brand-spark/12 text-brand-spark">
+              <Check className="size-3" strokeWidth={3} aria-hidden="true" />
+            </span>
+            <span>{fact}</span>
+          </li>
+        ))}
+      </ul>
+      <p style={monoStyle} className="mt-7 border-t border-border pt-5 text-xs uppercase tracking-[0.18em] text-content-muted">
+        Just signal. No noise.
+      </p>
     </div>
   )
 }
 
 export default function FaqPage() {
   return (
-    <MarketingPageShell
-      activeHref="/faq"
-      eyebrow="FAQ"
-      title={
-        <>
+    <main
+      data-theme="light"
+      style={faqThemeStyle}
+      className="relative min-h-screen overflow-x-clip bg-[var(--page-bg)] text-content-primary"
+    >
+      <MarketingHeader activeHref="/faq" />
+      <div className={sharedHeaderSpacerClass} aria-hidden="true" />
+
+      <section className="mx-auto max-w-[1120px] px-6 pb-9 pt-7 sm:px-10 sm:pb-11 sm:pt-9 lg:px-14">
+        <p style={monoStyle} className="text-xs font-semibold uppercase tracking-[0.28em] text-brand-spark">
+          FAQ
+        </p>
+        <h1
+          style={displayStyle}
+          className="mt-3 max-w-[760px] text-[clamp(2.35rem,5.2vw,4.6rem)] font-extrabold leading-[0.98] tracking-[-0.045em]"
+        >
           Straight answers,
           <br />
           before you start
           <br />
-          <span className="text-[#0757ff]">membership.</span>
-        </>
-      }
-      description="Everything worth knowing about the signal, the workspace, and the access flow before you create an account."
-      primaryCta={{ label: 'Start membership', href: '/sign-up' }}
-      secondaryCta={{ label: 'See pricing', href: '/pricing' }}
-      heroAside={
-        <GlassPanel className="p-7">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#f8f200]">
-            The short version
-          </p>
-          <ul className="mt-6 space-y-4">
-            {quickFacts.map((fact) => (
-              <li key={fact} className="flex items-start gap-3 text-[0.97rem] leading-6">
-                <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#0757ff]/12 text-[#0757ff] dark:bg-white/[0.08] dark:text-[#f8f200]">
-                  <Check className="size-3" strokeWidth={3} />
-                </span>
-                <span>{fact}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-7 border-t border-slate-950/8 pt-5 dark:border-white/10">
-            <HandScript className="text-[1.7rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-              Just signal. No noise.
-            </HandScript>
-          </div>
-        </GlassPanel>
-      }
-    >
-      <section className="mx-auto max-w-[1080px] px-6 py-20 sm:px-10 lg:px-12">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">
-            The questions
-          </p>
-          <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
-            Everything you&apos;d ask before you start.
-          </h2>
-          <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#6f79ff] dark:text-[#8590ff]">
-            Straight talk. No script.
-          </HandScript>
-        </div>
-        <FaqRows />
+          <span className="text-brand-spark">membership.</span>
+        </h1>
+        <p className="mt-4 max-w-[640px] text-base leading-7 text-content-secondary sm:text-lg sm:leading-8">
+          Everything worth knowing about the signal, the workspace, and the access flow before you create an account.
+        </p>
       </section>
 
-      <section className="border-y border-slate-950/10 bg-[radial-gradient(circle_at_85%_0%,rgba(7,87,255,0.1),transparent_45%)] bg-white/24 dark:border-white/10 dark:bg-white/[0.025]">
-        <div className="mx-auto grid max-w-[1080px] gap-10 px-6 py-20 sm:px-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:px-12">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#0757ff] dark:text-[#f8f200]">
+      <section id="questions" className="border-t border-border" aria-labelledby="faq-questions-heading">
+        <div className="mx-auto max-w-[1120px] px-6 py-9 sm:px-10 sm:py-12 lg:px-14">
+          <p style={monoStyle} className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-spark">
+            The questions
+          </p>
+          <h2
+            id="faq-questions-heading"
+            style={displayStyle}
+            className="mt-3 max-w-3xl text-3xl font-extrabold leading-tight tracking-[-0.03em] sm:text-4xl"
+          >
+            Everything you&apos;d ask before you start.
+          </h2>
+          <FaqRows />
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border pt-6 text-sm font-semibold">
+            <Link
+              href="/pricing"
+              className="text-content-secondary transition hover:text-brand-spark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-spark"
+            >
+              See pricing
+            </Link>
+            <Link
+              href="/sign-up"
+              className="text-content-secondary transition hover:text-brand-spark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-spark"
+            >
+              Start membership
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-border" aria-label="FAQ summary and contact">
+        <div className="mx-auto grid max-w-[1120px] gap-10 px-6 py-12 sm:px-10 sm:py-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:px-14">
+          <QuickFacts />
+          <div className="lg:pt-1">
+            <p style={monoStyle} className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-spark">
               The lounge
             </p>
-            <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
+            <h2
+              style={displayStyle}
+              className="mt-4 text-4xl font-extrabold leading-[1.02] tracking-[-0.04em] md:text-5xl"
+            >
               It&apos;s a lounge,
               <br />
               not a help desk.
             </h2>
-            <HandScript className="mt-4 block text-[2.15rem] leading-none text-[#ff8b2b]">
-              Real people. Real replies.
-            </HandScript>
-            <p className="mt-6 max-w-md text-lg leading-8 text-slate-600 dark:text-white/62">
+            <p className="mt-4 text-sm font-semibold text-brand-spark">Real people. Real replies.</p>
+            <p className="mt-5 max-w-md text-lg leading-8 text-content-secondary">
               Longbrunch is a small room of people reading the same tape every week. Bring a question, a doubt, or a
               second opinion and a real person reads every message and writes back.
             </p>
           </div>
-          <GlassPanel className="p-7 sm:p-8">
-            <h3 className="text-2xl font-black tracking-tight">Ask us anything.</h3>
-            <p className="mt-2 text-base leading-7 text-slate-600 dark:text-white/62">
-              No ticket numbers, no bots. Just send it over.
-            </p>
+          <div className="surface-card rounded-[24px] p-6 sm:p-8 lg:col-start-2">
+            <h3 style={displayStyle} className="text-2xl font-extrabold tracking-tight">
+              Ask us anything.
+            </h3>
+            <p className="mt-2 text-base leading-7 text-content-secondary">No ticket numbers, no bots. Just send it over.</p>
             <div className="mt-6">
               <AskUsForm />
             </div>
-          </GlassPanel>
+          </div>
         </div>
       </section>
 
-      <MarketingPageOutro />
-    </MarketingPageShell>
+      <section className="border-t border-border px-6 py-10 sm:px-10 lg:px-14" aria-label="More Longbrunch links">
+        <div className="mx-auto flex max-w-[1120px] flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p style={monoStyle} className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-spark">
+              Membership
+            </p>
+            <p style={displayStyle} className="mt-2 text-xl font-extrabold tracking-tight">
+              Signals, research, and alerts in one workspace.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold">
+            <Link
+              href="/screener"
+              className="text-content-secondary transition hover:text-brand-spark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-spark"
+            >
+              View current signal
+            </Link>
+            <Link
+              href="/sign-up"
+              className="text-content-secondary transition hover:text-brand-spark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-spark"
+            >
+              Start membership
+            </Link>
+          </div>
+        </div>
+      </section>
+    </main>
   )
 }

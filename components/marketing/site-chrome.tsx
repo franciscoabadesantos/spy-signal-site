@@ -245,7 +245,9 @@ export function MarketingPageShell({
               </HandScript>
             </CircleHighlight>
           )}
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-700 dark:text-white/68">{description}</p>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-700 dark:text-white/68">
+            {description}
+          </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
             {primaryCta ? (
               <Link
