@@ -1,11 +1,5 @@
-import type { Metadata } from 'next'
-import MethodologyPage from '@/components/marketing/MethodologyPage'
-
-export const metadata: Metadata = {
-  title: 'Method | Longbrunch',
-  description: 'How Longbrunch turns market context into one weekly SPY decision.',
-}
+import { permanentRedirect } from 'next/navigation'
 
 export default function Methodology() {
-  return <MethodologyPage />
+  permanentRedirect('/product#methodology')
 }

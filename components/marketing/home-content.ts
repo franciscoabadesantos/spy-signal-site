@@ -1,9 +1,7 @@
 export const homepageContent = {
   brand: 'Longbrunch',
   nav: [
-    { label: 'How it works', href: '/how-it-works' },
-    { label: 'Performance', href: '/performance' },
-    { label: 'Method', href: '/method' },
+    { label: 'Product', href: '/product' },
     { label: 'Pricing', href: '/pricing' },
     { label: 'FAQ', href: '/faq' },
   ],
@@ -12,7 +10,7 @@ export const homepageContent = {
     headline: ['One question.', 'One answer.', 'Every day.'],
     body: 'System output: S&P 500 exposure signal. Updated daily. No discretion.',
     primaryCta: { label: 'View current signal', href: '/stocks/SPY' },
-    secondaryCta: { label: 'See how it works', href: '/how-it-works' },
+    secondaryCta: { label: 'Explore the product', href: '/product' },
     snapshot: {
       label: 'Current signal',
       status: 'Allocated',
@@ -149,7 +147,7 @@ export const homepageContent = {
       title: 'See where these readings place the market',
       body: 'Explore the full condition space and regime analysis.',
       label: 'View full condition space',
-      href: '/method',
+      href: '/product#methodology',
     },
   },
   access: {

@@ -47,8 +47,8 @@ export default function AboutPage() {
         </>
       }
       description="Longbrunch exists for one kind of person: someone who wants a clear weekly read on SPY and a calm room to think it through — not another feed to keep up with."
-      primaryCta={{ label: 'See how it works', href: '/how-it-works' }}
-      secondaryCta={{ label: 'Read the method', href: '/method' }}
+      primaryCta={{ label: 'Explore the product', href: '/product' }}
+      secondaryCta={{ label: 'Read the methodology', href: '/product#methodology' }}
       heroAside={
         <GlassPanel className="p-7">
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#0757ff] dark:text-[#f8f200]">Who this is for</p>

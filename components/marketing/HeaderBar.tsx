@@ -1,100 +1,22 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, ChevronDown } from 'lucide-react'
 import HeaderSearch from '@/components/HeaderSearch'
 import { cn } from '@/lib/utils'
 import { BRAND_NAME } from '@/components/marketing/site-config'
 
-type Tile = { label: string; href: string; grad: string; lightGrad: string }
-type Menu = { key: string; label: string; href: string; blurb: string; tiles: Tile[] }
-
-// Placeholder content — the media tiles use gradient placeholders instead of
-// photography for now. Swap copy/links/images when ready.
-const MENUS: Menu[] = [
-  {
-    key: 'today',
-    label: 'Today',
-    href: '/dashboard',
-    blurb: 'Placeholder — your daily read: the signal, market context, and what moved overnight.',
-    tiles: [
-      { label: 'Signal', href: '/screener', grad: 'linear-gradient(150deg,#0f9e8e,#0a3a44)', lightGrad: 'linear-gradient(145deg,#d9eee9,#f4efe5 72%)' },
-      { label: 'Markets', href: '/markets', grad: 'linear-gradient(150deg,#3a4d8f,#0b1730)', lightGrad: 'linear-gradient(145deg,#dfe8ee,#f4efe5 72%)' },
-      { label: 'Watchlist', href: '/dashboard/watchlist', grad: 'linear-gradient(150deg,#5b3d8c,#160c30)', lightGrad: 'linear-gradient(145deg,#e8e2ee,#f4efe5 72%)' },
-    ],
-  },
-  {
-    key: 'correlation',
-    label: 'Correlation',
-    href: '/markets/network',
-    blurb: 'Placeholder — how names move together: the network, correlated pairs, and sector clusters.',
-    tiles: [
-      { label: 'Network', href: '/markets/network', grad: 'linear-gradient(150deg,#0f9e8e,#0a3a44)', lightGrad: 'linear-gradient(145deg,#d9eee9,#f4efe5 72%)' },
-      { label: 'Pairs', href: '/markets', grad: 'linear-gradient(145deg,#8a5a37,#301a0b)', lightGrad: 'linear-gradient(145deg,#eee4d9,#f4efe5 72%)' },
-      { label: 'Sectors', href: '/markets', grad: 'linear-gradient(150deg,#3a4d8f,#0b1730)', lightGrad: 'linear-gradient(145deg,#dfe8ee,#f4efe5 72%)' },
-    ],
-  },
+const MARKETING_LINKS = [
+  { label: 'Product', href: '/product' },
+  { label: 'Pricing', href: '/pricing' },
+  { label: 'FAQ', href: '/faq' },
 ]
 
 export default function HeaderBar({ isHome }: { isHome: boolean }) {
-  const [open, setOpen] = useState<string | null>(null)
-  const [displayed, setDisplayed] = useState<Menu | null>(null)
-  const rowRef = useRef<HTMLDivElement>(null)
-  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Keep the last menu mounted through the close transition.
-  useEffect(() => {
-    if (!open && displayed) {
-      clearTimer.current = setTimeout(() => setDisplayed(null), 440)
-    }
-    return () => {
-      if (clearTimer.current) clearTimeout(clearTimer.current)
-    }
-  }, [open, displayed])
-
-  function toggleMenu(key: string) {
-    if (open === key) {
-      setOpen(null)
-      return
-    }
-    if (clearTimer.current) clearTimeout(clearTimer.current)
-    setDisplayed(MENUS.find((m) => m.key === key) ?? null)
-    setOpen(key)
-  }
-
-  // Backdrop dim over the page.
-  useEffect(() => {
-    document.documentElement.classList.toggle('has-header-menu', !!open)
-    return () => document.documentElement.classList.remove('has-header-menu')
-  }, [open])
-
-  // Close on outside-click / Escape / scroll.
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => {
-      if (!rowRef.current?.contains(e.target as Node)) setOpen(null)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(null)
-    }
-    const onScroll = () => setOpen(null)
-    window.addEventListener('mousedown', onDown)
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      window.removeEventListener('mousedown', onDown)
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('scroll', onScroll)
-    }
-  }, [open])
-
   return (
     <div
-      ref={rowRef}
       data-site-header-row
       data-home={isHome ? '' : undefined}
-      data-menu-open={open ? '' : undefined}
+      data-internal={!isHome ? '' : undefined}
       className="site-header__row"
     >
       <div
@@ -121,7 +43,7 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
         ) : (
           <div
             data-header-search
-            className="site-header__search hidden w-full min-w-0 max-w-[460px] md:block md:justify-self-center"
+            className="site-header__search hidden w-full min-w-0 max-w-[520px] md:block md:justify-self-center"
           >
             <HeaderSearch className="w-full" />
           </div>
@@ -130,22 +52,14 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
         <div
           className={cn(
             'flex shrink-0 items-center gap-1.5',
-            isHome ? 'site-header__cluster' : 'md:justify-self-end'
+            'site-header__cluster md:justify-self-end'
           )}
         >
           <nav className="hidden items-center md:flex">
-            {MENUS.map((m) => (
-              <button
-                key={m.key}
-                type="button"
-                aria-expanded={open === m.key}
-                aria-haspopup="menu"
-                onClick={() => toggleMenu(m.key)}
-                className="site-header__navlink site-nav__trigger"
-              >
-                {m.label}
-                <ChevronDown className="site-nav__chev size-3.5" aria-hidden="true" />
-              </button>
+            {MARKETING_LINKS.map((item) => (
+              <Link key={item.href} href={item.href} className="site-header__navlink">
+                {item.label}
+              </Link>
             ))}
           </nav>
           <Link
@@ -155,35 +69,6 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
             Join
           </Link>
         </div>
-      </div>
-
-      <div className="site-header__dropdowns" aria-hidden={!open} inert={!open ? true : undefined}>
-        {displayed ? (
-          <div className="site-header__dropgrid">
-            <div className="site-header__tile site-header__tile--text">
-              <div>
-                <p className="site-header__tile-eyebrow">{displayed.label}</p>
-                <p className="site-header__tile-blurb">{displayed.blurb}</p>
-              </div>
-              <Link href={displayed.href} className="site-header__tile-view" onClick={() => setOpen(null)}>
-                View
-                <ArrowRight className="size-4" />
-              </Link>
-            </div>
-            {displayed.tiles.map((t) => (
-              <Link
-                key={t.label}
-                href={t.href}
-                onClick={() => setOpen(null)}
-                className="site-header__tile"
-                style={{ ['--tile-grad' as string]: t.grad, ['--tile-grad-light' as string]: t.lightGrad }}
-              >
-                <span className="site-header__tile-media" aria-hidden="true" />
-                <span className="site-header__tile-label">{t.label}</span>
-              </Link>
-            ))}
-          </div>
-        ) : null}
       </div>
     </div>
   )

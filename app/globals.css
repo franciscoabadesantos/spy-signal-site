@@ -1205,6 +1205,43 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) .site-header__brand
   font-size: 16px;
 }
 
+/* Internal marketing pages keep a visible chrome boundary from the first
+   frame, then inherit the homepage's compact sticky pill once scrolled. */
+.site-header[data-internal] .site-header__row::before {
+  opacity: 1;
+}
+.site-header[data-internal] .site-header__row {
+  border-radius: var(--radius-2xl);
+}
+.site-header[data-internal] .site-header__bar {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 520px) minmax(0, 1fr);
+}
+.site-header[data-internal] .site-header__row [data-header-search] {
+  width: min(520px, 100%);
+  max-width: 520px;
+  transition: max-width var(--chrome-dur) var(--chrome-ease);
+}
+.site-header[data-internal] .site-header__row [data-header-search] :is(input) {
+  height: 48px;
+}
+.site-header[data-internal] .site-header__inner > .mt-3 :is(input) {
+  height: 48px;
+}
+html.chrome-scrolled .site-header[data-internal] .site-header__row:not([data-menu-open]) {
+  max-width: 418px;
+  border-radius: var(--radius-pill);
+}
+html.chrome-scrolled .site-header[data-internal] .site-header__bar {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 150px) minmax(0, 1fr);
+}
+html.chrome-scrolled .site-header[data-internal] .site-header__row:not([data-menu-open]) [data-header-search] {
+  max-width: 150px;
+  width: min(150px, 100%);
+}
+html.chrome-scrolled .site-header[data-internal] .site-header__row:not([data-menu-open]) [data-header-search] :is(input) {
+  height: 32px;
+}
+
 /* Liquid-glass surface on ::before so it fades in as one unit. Repo recipe,
    theme-adaptive via --glass-* tokens; z-index:-1 keeps it behind the content. */
 .site-header__row::before {
@@ -2440,5 +2477,13 @@ html.chrome-scrolled .dock-search {
 
   html.chrome-scrolled main.marketing-home .dock-search {
     transform: none;
+  }
+}
+
+/* FAQ accordion: the scoped override wins over arbitrary Tailwind durations. */
+@media (prefers-reduced-motion: reduce) {
+  .marketing-faq .faq-accordion :is(button, [role='region'], [role='region'] p, button > span:last-child) {
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
   }
 }

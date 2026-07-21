@@ -11,7 +11,7 @@ const caveat = Caveat({
 
 export default function SiteFooter() {
   const year = new Date().getFullYear()
-  const askHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('A question for the lounge')}`
+  const askHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('A question about Longbrunch')}`
 
   return (
     <footer className="relative isolate z-[60] mt-auto border-t border-slate-950/8 bg-white text-slate-600 dark:border-white/10 dark:bg-[#02050d] dark:text-white/72">
@@ -19,10 +19,10 @@ export default function SiteFooter() {
         <div className="flex flex-col gap-6 border-b border-slate-950/8 pb-10 dark:border-white/10 md:flex-row md:items-end md:justify-between">
           <div>
             <p className={`${caveat.className} text-[1.7rem] leading-none text-[#7d8cff]`}>
-              A small room. The same tape.
+              Research with context.
             </p>
             <h2 className="mt-3 max-w-md text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-              Pull up a chair in the lounge.
+              A clearer way to explore the market.
             </h2>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -30,13 +30,13 @@ export default function SiteFooter() {
               href="/sign-up"
               className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-semibold text-white transition hover:scale-[1.02] dark:bg-white dark:text-[#03050b]"
             >
-              Join the lounge
+              Create an account
             </Link>
             <a
               href={askHref}
               className="group inline-flex h-12 items-center justify-center gap-2 rounded-full border border-slate-950/12 bg-white/40 px-6 text-sm font-semibold text-slate-950 transition hover:border-[#0757ff]/30 hover:text-[#0757ff] dark:border-white/14 dark:bg-white/[0.04] dark:text-white dark:hover:text-[#f8f200]"
             >
-              Ask us anything
+              Contact the team
               <ArrowUpRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </a>
           </div>
@@ -53,7 +53,7 @@ export default function SiteFooter() {
               Market signals, research, watchlists, and alerts in one workspace.
             </p>
             <p className={`${caveat.className} mt-4 text-3xl leading-none text-[#7d8cff]`}>
-              Open the workspace.
+              Follow the signal.
             </p>
           </div>
           <nav className="flex max-w-[34rem] flex-wrap gap-x-6 gap-y-3 text-sm text-slate-600 dark:text-white/72">

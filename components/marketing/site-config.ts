@@ -1,22 +1,22 @@
 export const BRAND_NAME = 'Longbrunch'
 
 export const BRAND_DESCRIPTION =
-  'Market signals, research, watchlists, and alerts in one workspace.'
+  'Market signals, company research, watchlists, and AI context in one workspace.'
 
 // Where "ask us anything" messages are sent. Change this to your real inbox.
 export const CONTACT_EMAIL = 'hello@longbrunch.com'
 
 export const MARKETING_NAV_ITEMS = [
-  { label: 'How it works', href: '/how-it-works' },
-  { label: 'Performance', href: '/performance' },
-  { label: 'Method', href: '/method' },
+  { label: 'Product', href: '/product' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'FAQ', href: '/faq' },
 ] as const
 
 export const FOOTER_SECONDARY_LINKS = [
-  { label: 'About', href: '/about' },
-  { label: 'Start membership', href: '/sign-up' },
+  { label: 'Data coverage', href: '/product#ticker-pages' },
+  { label: 'Methodology', href: '/product#methodology' },
+  { label: 'Disclosures', href: '/product#limits' },
+  { label: 'Contact', href: '/faq#contact' },
 ] as const
 
 export const HOMEPAGE_FAQ_ITEMS = [

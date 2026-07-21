@@ -194,6 +194,7 @@ export function MarketingHeader({ activeHref }: { activeHref?: string }) {
   return (
     <header
       data-active-href={activeHref ?? undefined}
+      data-internal={!isHome ? '' : undefined}
       className={cn(sharedHeaderShellClass, 'site-header')}
     >
       <div className={cn(sharedHeaderInnerClass, 'site-header__inner')}>

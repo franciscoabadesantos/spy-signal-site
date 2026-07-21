@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Longbrunch | Signal Before The Open",
-  description: "AI-driven weekly SPY signals built for one clear decision before the open.",
+  title: "Longbrunch | Market research, signals, and context",
+  description: "Explore market signals, company data, scorecards, relationships, watchlists, and AI research in Longbrunch.",
 };
 
 export default function RootLayout({

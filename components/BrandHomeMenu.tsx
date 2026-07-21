@@ -15,9 +15,7 @@ import {
   type LucideIcon,
   PanelsTopLeft,
   CircleHelp,
-  NotebookText,
   ReceiptText,
-  Waypoints,
 } from 'lucide-react'
 import { appNavSectionFromPath, type AppNavSection } from '@/components/app-nav'
 import { cn } from '@/lib/utils'
@@ -41,9 +39,7 @@ const PRIMARY_APP_ITEMS: readonly MenuItem[] = [
 
 const SECONDARY_LINKS = [
   { label: 'Home', href: '/', icon: House },
-  { label: 'How it works', href: '/how-it-works', icon: Waypoints },
-  { label: 'Performance', href: '/performance', icon: BarChart3 },
-  { label: 'Method', href: '/method', icon: NotebookText },
+  { label: 'Product', href: '/product', icon: PanelsTopLeft },
   { label: 'Pricing', href: '/pricing', icon: ReceiptText },
   { label: 'FAQ', href: '/faq', icon: CircleHelp },
 ] as const
@@ -205,7 +201,7 @@ export default function BrandHomeMenu({
                     <div>
                       <div className="text-sm font-medium text-content-primary/88">App</div>
                       <div className="text-[11px] uppercase tracking-[0.18em] text-content-muted">
-                        Daily signal terminal
+                        Research workspace
                       </div>
                     </div>
                   </div>

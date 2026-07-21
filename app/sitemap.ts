@@ -110,12 +110,6 @@ function tickerEntries(baseUrl: string, row: TickerSignal): MetadataRoute.Sitema
       priority: 0.65,
     },
     {
-      url: `${baseUrl}/stocks/${ticker}/methodology`,
-      lastModified,
-      changeFrequency: 'monthly',
-      priority: 0.55,
-    },
-    {
       url: `${baseUrl}/stocks/${ticker}/financials/fund-profile`,
       lastModified,
       changeFrequency: 'weekly',
@@ -173,34 +167,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/stocks/SPY/performance`,
+      url: `${baseUrl}/product`,
       lastModified: now,
-      changeFrequency: 'daily',
+      changeFrequency: 'monthly',
       priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/performance`,
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/how-it-works`,
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/method`,
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/methodology`,
-      lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.5,
     },
     {
       url: `${baseUrl}/pricing`,

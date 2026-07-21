@@ -1,11 +1,5 @@
-import type { Metadata } from 'next'
-import PerformancePage from '@/components/marketing/PerformancePage'
-
-export const metadata: Metadata = {
-  title: 'Performance | Longbrunch',
-  description: 'Longbrunch performance, cycle behavior, and weekly execution framing.',
-}
+import { permanentRedirect } from 'next/navigation'
 
 export default function Performance() {
-  return <PerformancePage />
+  permanentRedirect('/product#limits')
 }
