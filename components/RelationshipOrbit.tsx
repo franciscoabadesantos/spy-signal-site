@@ -1,18 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ChartContainer from '@/components/charts/ChartContainer'
 import NetworkGraphCanvas from '@/components/NetworkGraphCanvas'
 import FilterChip from '@/components/ui/FilterChip'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import type { NetworkEdge, NetworkGraph, NetworkNode } from '@/lib/network'
 import type { RelationshipNeighbor, RelationshipThemePeer, TickerRelationships } from '@/lib/relationships'
-import { countryDisplayName } from '@/lib/network-regions'
-import { cn } from '@/lib/utils'
 
 type RelationshipWindow = 126 | 252
-type ToggleLayer = 'residual' | 'theme' | 'leadLag' | 'market' | 'spurious'
+type ToggleLayer = 'residual' | 'theme' | 'leadLag' | 'market'
 
 type RelationshipOrbitProps = {
   centerTicker: string
@@ -24,1016 +22,206 @@ type RelationshipOrbitProps = {
 type RelationshipRow = {
   symbol: string
   name: string | null
-  label: string
+  relation: string
+  detail: string | null
   strength: number
   confidence: number
-  country: string | null
-  region: string | null
-  tone: 'primary' | 'inverse' | 'theme' | 'lead' | 'market' | 'spurious'
+  direction: string
 }
 
-const DEFAULT_LAYER_RENDER_LIMIT = 12
-
+const DEFAULT_LAYER_RENDER_LIMIT = 5
+const LAYER_ORDER: ToggleLayer[] = ['residual', 'theme', 'leadLag', 'market']
 const LAYER_COPY: Record<ToggleLayer, { label: string; hint: string }> = {
-  residual: {
-    label: 'Residual co-movers',
-    hint: 'mexe junto além do mercado',
-  },
-  theme: {
-    label: 'Theme peers',
-    hint: 'same ETF basket or investable theme',
-  },
-  leadLag: {
-    label: 'Lead-lag',
-    hint: 'tende a liderar/seguir',
-  },
-  market: {
-    label: 'Market co-movers',
-    hint: 'mexe junto (com o mercado todo)',
-  },
-  spurious: {
-    label: 'Probable spurious',
-    hint: 'provavelmente só ruído de mercado',
-  },
+  residual: { label: 'Moves together', hint: 'Residual co-movement beyond broad market factors.' },
+  theme: { label: 'Same theme', hint: 'Shared ETF basket or investable theme.' },
+  leadLag: { label: 'Leads or follows', hint: 'Directional lead-lag relationship.' },
+  market: { label: 'Market-driven', hint: 'Co-movement associated with the wider market.' },
+}
+const WINDOW_OPTIONS = ['126d', '252d'] as const
+
+function emptyNode(ticker: string, name: string | null): NetworkNode {
+  return { ticker, name, country: null, region: null, sector: null, marketCap: null, degree: null }
 }
 
-const WINDOW_OPTIONS: RelationshipWindow[] = [126, 252]
-
-function emptyNode(ticker: string, name: string | null = null): NetworkNode {
-  return {
-    ticker,
-    name,
-    country: null,
-    region: null,
-    sector: null,
-    marketCap: null,
-    degree: null,
-  }
+function capByStrength<T extends { strength: number; symbol: string }>(items: T[], limit: number): T[] {
+  return [...items].sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol)).slice(0, Math.max(1, Math.round(limit)))
 }
 
 function formatStrength(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}`
 }
 
-function formatConfidence(value: number): string {
-  if (!Number.isFinite(value)) return '-'
-  if (value <= 1) return `${Math.round(value * 100)}%`
-  return `${Math.round(value)}%`
+function formatPercent(value: number): string {
+  if (!Number.isFinite(value)) return '—'
+  return `${Math.round((value <= 1 ? value : value / 100) * 100)}%`
 }
 
-function themeDisplayName(theme: string | null): string {
-  if (!theme) return 'theme basket'
-  const key = theme.trim().toLowerCase().replace(/[-\s]+/g, '_')
-  const labels: Record<string, string> = {
-    ai_semis: 'AI-semis',
-    glp1_obesity: 'GLP-1 / obesity',
-    space: 'space',
-  }
-  return labels[key] ?? theme.replace(/[_-]+/g, ' ').replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
+function themeLabel(peer: RelationshipThemePeer): string | null {
+  const theme = peer.theme ?? peer.themes[0]
+  return theme ? theme.replace(/[_-]+/g, ' ') : null
 }
 
-function themeKey(theme: string): string {
-  return theme.trim().toLowerCase().replace(/[-\s]+/g, '_')
+function sortRows(rows: RelationshipRow[]): RelationshipRow[] {
+  return [...rows].sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol))
 }
 
-function peerThemes(peer: RelationshipThemePeer): string[] {
-  const rawThemes = peer.themes.length > 0 ? peer.themes : peer.theme ? [peer.theme] : []
-  const unique = new Map<string, string>()
-  for (const theme of rawThemes) {
-    const cleaned = theme.trim()
-    if (!cleaned) continue
-    unique.set(themeKey(cleaned), cleaned)
-  }
-  return [...unique.values()]
+function layerItems(relationships: TickerRelationships, layer: ToggleLayer): RelationshipRow[] {
+  const nodeLookup = new Map(relationships.nodes.map((node) => [node.ticker, node]))
+  const row = (item: RelationshipNeighbor | RelationshipThemePeer, relation: string, detail: string | null = null, direction?: string) => ({
+    symbol: item.symbol,
+    name: nodeLookup.get(item.symbol)?.name ?? null,
+    relation,
+    detail,
+    strength: item.strength,
+    confidence: item.confidence,
+    direction: direction ?? ('direction' in item ? item.direction : ''),
+  })
+  if (layer === 'residual') return relationships.residualCoMovers.map((item) => row(item, item.strength < 0 ? 'Moves opposite' : 'Moves together', null, item.strength < 0 ? 'Opposite direction' : 'Same direction'))
+  if (layer === 'theme') return relationships.themePeers.map((item) => row(item, 'Same theme', themeLabel(item), 'Shared theme'))
+  if (layer === 'market') return relationships.marketCoMovers.map((item) => row(item, 'Market-driven', null, 'Moves with the wider market'))
+  return [
+    ...relationships.leadLag.leaders.map((item) => row(item, 'Leads', null, `Leads ${relationships.ticker}`)),
+    ...relationships.leadLag.followers.map((item) => row(item, 'Follows', null, `Follows ${relationships.ticker}`)),
+  ]
 }
 
-function relationshipNode(nodes: Map<string, NetworkNode>, symbol: string): NetworkNode {
-  return nodes.get(symbol) ?? emptyNode(symbol)
+function preferredLayer(relationships: TickerRelationships): ToggleLayer {
+  return [...LAYER_ORDER].sort(
+    (left, right) => layerItems(relationships, right).length - layerItems(relationships, left).length
+  )[0] ?? 'residual'
 }
 
-function addNeighborNode(
-  visibleNodes: Map<string, NetworkNode>,
-  lookup: Map<string, NetworkNode>,
-  neighbor: Pick<RelationshipNeighbor, 'symbol'>
-) {
-  if (!visibleNodes.has(neighbor.symbol)) {
-    visibleNodes.set(neighbor.symbol, relationshipNode(lookup, neighbor.symbol))
-  }
-}
-
-function capByStrength<T extends { strength: number }>(items: T[], limit: number): T[] {
-  return [...items]
-    .sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength))
-    .slice(0, Math.max(1, Math.round(limit)))
-}
-
-function capLeadLag(leadLag: TickerRelationships['leadLag'], limit: number): TickerRelationships['leadLag'] {
-  const capped = capByStrength(
-    [
-      ...leadLag.followers.map((neighbor) => ({ role: 'followers' as const, strength: neighbor.strength, neighbor })),
-      ...leadLag.leaders.map((neighbor) => ({ role: 'leaders' as const, strength: neighbor.strength, neighbor })),
-    ],
-    limit
-  )
-  return {
-    followers: capped.filter((item) => item.role === 'followers').map((item) => item.neighbor),
-    leaders: capped.filter((item) => item.role === 'leaders').map((item) => item.neighbor),
-  }
-}
-
-function relationshipEdge({
-  id,
-  source,
-  target,
-  layer,
-  strength,
-  label,
-  description,
-  inlineLabel,
-  themes,
-  color,
-  alpha,
-  dash,
-  directional = false,
-  curvature,
-  widthBoost,
-  confidence,
-}: {
-  id: string
-  source: string
-  target: string
-  layer: ToggleLayer
-  strength: number
-  label: string
-  description: string
-  inlineLabel?: string
-  themes?: string[]
-  color: string
-  alpha: number
-  dash?: number[] | null
-  directional?: boolean
-  curvature: number
-  widthBoost?: number
-  confidence: number
-}): NetworkEdge {
-  return {
-    id,
-    source,
-    target,
-    correlation: strength,
-    absCorrelation: Math.min(1, Math.abs(strength)),
-    inMst: true,
-    relationshipLayer: layer,
-    relationshipLabel: label,
-    relationshipDescription: description,
-    relationshipInlineLabel: inlineLabel,
-    relationshipThemes: themes,
-    relationshipColor: color,
-    relationshipAlpha: alpha,
-    relationshipDash: dash ?? null,
-    relationshipDirectional: directional,
-    relationshipCurvature: curvature,
-    relationshipWidthBoost: widthBoost,
-    relationshipConfidence: confidence,
-  }
-}
-
-function buildRelationshipGraph(
-  relationships: TickerRelationships,
-  centerTicker: string,
-  centerName: string | null,
-  activeLayer: ToggleLayer,
-  maxNeighborsPerLayer: number
-): { graph: NetworkGraph; rows: RelationshipRow[]; counts: Record<ToggleLayer, number>; moreCounts: Record<ToggleLayer, number> } {
+function buildGraph(relationships: TickerRelationships, centerTicker: string, centerName: string | null, layer: ToggleLayer, limit: number): { graph: NetworkGraph; rows: RelationshipRow[]; total: number } {
   const center = centerTicker.trim().toUpperCase()
-  const lookup = new Map<string, NetworkNode>()
-  for (const node of relationships.nodes) lookup.set(node.ticker, node)
+  const lookup = new Map(relationships.nodes.map((node) => [node.ticker, node]))
   const centerNode = relationships.node ?? lookup.get(center) ?? emptyNode(center, centerName)
-  lookup.set(center, centerNode)
-
-  const visibleNodes = new Map<string, NetworkNode>([[center, centerNode]])
+  const items = capByStrength(sortRows(layerItems(relationships, layer)), limit)
+  const nodes = new Map<string, NetworkNode>([[center, centerNode]])
   const edges: NetworkEdge[] = []
-  const rows = new Map<string, RelationshipRow>()
-  const counts = {
-    residual: relationships.residualCoMovers.length,
-    theme: relationships.themePeers.length,
-    leadLag: relationships.leadLag.followers.length + relationships.leadLag.leaders.length,
-    market: relationships.marketCoMovers.length,
-    spurious: relationships.probableSpurious.length,
-  }
-  const cappedResidual = capByStrength(relationships.residualCoMovers, maxNeighborsPerLayer)
-  const cappedTheme = capByStrength(relationships.themePeers, maxNeighborsPerLayer)
-  const cappedLeadLag = capLeadLag(relationships.leadLag, maxNeighborsPerLayer)
-  const cappedMarket = capByStrength(relationships.marketCoMovers, maxNeighborsPerLayer)
-  const cappedSpurious = capByStrength(relationships.probableSpurious, maxNeighborsPerLayer)
-  const renderedCounts = {
-    residual: cappedResidual.length,
-    theme: cappedTheme.length,
-    leadLag: cappedLeadLag.followers.length + cappedLeadLag.leaders.length,
-    market: cappedMarket.length,
-    spurious: cappedSpurious.length,
-  }
-  const moreCounts = {
-    residual: Math.max(0, counts.residual - renderedCounts.residual),
-    theme: Math.max(0, counts.theme - renderedCounts.theme),
-    leadLag: Math.max(0, counts.leadLag - renderedCounts.leadLag),
-    market: Math.max(0, counts.market - renderedCounts.market),
-    spurious: Math.max(0, counts.spurious - renderedCounts.spurious),
-  }
-
-  const addRow = (neighbor: RelationshipNeighbor | RelationshipThemePeer, label: string, tone: RelationshipRow['tone']) => {
-    if (rows.has(`${tone}:${neighbor.symbol}`)) return
-    const node = relationshipNode(lookup, neighbor.symbol)
-    rows.set(`${tone}:${neighbor.symbol}`, {
-      symbol: neighbor.symbol,
-      name: node.name,
-      label,
-      strength: neighbor.strength,
-      confidence: neighbor.confidence,
-      country: node.country,
-      region: node.region,
-      tone,
+  for (const [index, item] of items.entries()) {
+    const node = lookup.get(item.symbol) ?? emptyNode(item.symbol, item.name)
+    nodes.set(item.symbol, node)
+    const directional = layer === 'leadLag'
+    const follows = item.relation === 'Follows'
+    edges.push({
+      id: `${layer}:${item.symbol}`,
+      source: directional && !follows ? item.symbol : center,
+      target: directional && !follows ? center : item.symbol,
+      correlation: item.strength,
+      absCorrelation: Math.min(1, Math.abs(item.strength)),
+      inMst: true,
+      relationshipLayer: layer,
+      relationshipLabel: item.relation,
+      relationshipDescription: `${item.relation}; strength ${formatStrength(item.strength)}, confidence ${formatPercent(item.confidence)}.`,
+      relationshipColor: layer === 'leadLag' ? '#FFCB47' : layer === 'theme' ? '#A7F3D0' : '#36B3FF',
+      relationshipAlpha: layer === 'theme' || layer === 'market' ? 0.5 : 0.82,
+      relationshipDash: layer === 'theme' || layer === 'market' ? [5, 5] : null,
+      relationshipDirectional: directional,
+      relationshipCurvature: directional ? (follows ? 0.3 : -0.3) : 0.16 + index * 0.012,
+      relationshipWidthBoost: 0.3,
+      relationshipConfidence: item.confidence,
     })
   }
-
-  if (activeLayer === 'residual') {
-    for (const neighbor of cappedResidual) {
-      addNeighborNode(visibleNodes, lookup, neighbor)
-      const isInverse = neighbor.strength < 0
-      const label = isInverse ? 'mexe ao contrário idiossincraticamente' : 'mexe junto além do mercado'
-      edges.push(
-        relationshipEdge({
-          id: `residual:${neighbor.symbol}`,
-          source: center,
-          target: neighbor.symbol,
-          layer: 'residual',
-          strength: neighbor.strength,
-          label,
-          description: `${center} and ${neighbor.symbol}: ${label}`,
-          color: isInverse ? '#FF867B' : '#36B3FF',
-          alpha: isInverse ? 0.78 : 0.86,
-          dash: isInverse ? [5, 5] : null,
-          curvature: isInverse ? -0.16 : 0.18,
-          widthBoost: isInverse ? 0.45 : 0.65,
-          confidence: neighbor.confidence,
-        })
-      )
-      addRow(neighbor, label, isInverse ? 'inverse' : 'primary')
-    }
-  }
-
-  if (activeLayer === 'theme') {
-    for (const neighbor of cappedTheme) {
-      addNeighborNode(visibleNodes, lookup, neighbor)
-      const themes = peerThemes(neighbor)
-      const themeLabel = themes.length > 0 ? themes.map((theme) => themeDisplayName(theme)).join(', ') : themeDisplayName(neighbor.theme)
-      const label = `same theme: ${themeLabel}`
-      edges.push(
-        relationshipEdge({
-          id: `theme:${neighbor.symbol}:${themes.map(themeKey).join('+') || neighbor.theme || 'unknown'}`,
-          source: center,
-          target: neighbor.symbol,
-          layer: 'theme',
-          strength: neighbor.strength,
-          label,
-          description: `${center} and ${neighbor.symbol}: ${label}`,
-          themes,
-          color: '#A7F3D0',
-          alpha: 0.34,
-          dash: [3, 5],
-          curvature: 0.12,
-          widthBoost: -0.28,
-          confidence: neighbor.confidence,
-        })
-      )
-      addRow(neighbor, label, 'theme')
-    }
-  }
-
-  if (activeLayer === 'leadLag') {
-    for (const neighbor of cappedLeadLag.followers) {
-      addNeighborNode(visibleNodes, lookup, neighbor)
-      edges.push(
-        relationshipEdge({
-          id: `lead-follower:${neighbor.symbol}`,
-          source: center,
-          target: neighbor.symbol,
-          layer: 'leadLag',
-          strength: neighbor.strength,
-          label: 'tende a liderar/seguir',
-          description: `${center} tende a liderar ${neighbor.symbol}`,
-          color: '#FFCB47',
-          alpha: 0.78,
-          directional: true,
-          curvature: 0.34,
-          widthBoost: 0.35,
-          confidence: neighbor.confidence,
-        })
-      )
-      addRow(neighbor, `${center} tende a liderar`, 'lead')
-    }
-
-    for (const neighbor of cappedLeadLag.leaders) {
-      addNeighborNode(visibleNodes, lookup, neighbor)
-      edges.push(
-        relationshipEdge({
-          id: `lead-leader:${neighbor.symbol}`,
-          source: neighbor.symbol,
-          target: center,
-          layer: 'leadLag',
-          strength: neighbor.strength,
-          label: 'tende a liderar/seguir',
-          description: `${neighbor.symbol} tende a liderar ${center}`,
-          color: '#F59E0B',
-          alpha: 0.74,
-          directional: true,
-          curvature: -0.34,
-          widthBoost: 0.25,
-          confidence: neighbor.confidence,
-        })
-      )
-      addRow(neighbor, `${center} tende a seguir`, 'lead')
-    }
-  }
-
-  if (activeLayer === 'market') {
-    for (const neighbor of cappedMarket) {
-      addNeighborNode(visibleNodes, lookup, neighbor)
-      edges.push(
-        relationshipEdge({
-          id: `market:${neighbor.symbol}`,
-          source: center,
-          target: neighbor.symbol,
-          layer: 'market',
-          strength: neighbor.strength,
-          label: 'mexe junto (com o mercado todo)',
-          description: `${center} and ${neighbor.symbol}: mexe junto (com o mercado todo)`,
-          color: '#73CBFF',
-          alpha: 0.26,
-          dash: [8, 7],
-          curvature: 0.06,
-          widthBoost: -0.25,
-          confidence: neighbor.confidence,
-        })
-      )
-      addRow(neighbor, 'mexe junto (com o mercado todo)', 'market')
-    }
-  }
-
-  if (activeLayer === 'spurious') {
-    for (const neighbor of cappedSpurious) {
-      addNeighborNode(visibleNodes, lookup, neighbor)
-      edges.push(
-        relationshipEdge({
-          id: `spurious:${neighbor.symbol}`,
-          source: center,
-          target: neighbor.symbol,
-          layer: 'spurious',
-          strength: neighbor.strength,
-          label: 'parece relacionado, mas é só mercado',
-          description: `${center} and ${neighbor.symbol}: parece relacionado, mas é só mercado`,
-          color: '#94A3B8',
-          alpha: 0.18,
-          dash: [2, 7],
-          curvature: -0.1,
-          widthBoost: -0.45,
-          confidence: neighbor.confidence,
-        })
-      )
-      addRow(neighbor, 'parece relacionado, mas é só mercado', 'spurious')
-    }
-  }
-
-  return {
-    graph: {
-      asOf: relationships.asOf,
-      window: String(relationships.window),
-      focus: center,
-      nodes: [...visibleNodes.values()],
-      edges,
-    },
-    rows: [...rows.values()].sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol)).slice(0, 14),
-    counts,
-    moreCounts,
-  }
+  return { graph: { asOf: relationships.asOf, window: String(relationships.window), focus: center, nodes: [...nodes.values()], edges }, rows: items, total: layerItems(relationships, layer).length }
 }
 
-type ThemeDiagramPoint = {
-  symbol: string
-  name: string | null
-  country: string
-  strength: number | null
-  confidence: number | null
-  themes: string[]
-  isCenter: boolean
-}
-
-type ThemeCircle = {
-  key: string
-  label: string
-  count: number
-  x: number
-  y: number
-  r: number
-  fill: string
-  stroke: string
-}
-
-type ThemeRegion = {
-  key: string
-  membership: number[]
-  label: string
-  x: number
-  y: number
-  boxWidth: number
-  boxHeight: number
-  isIntersection: boolean
-  members: ThemeDiagramPoint[]
-  hiddenCount: number
-}
-
-type ThemeRect = {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-const THEME_DIAGRAM_WIDTH = 360
-const THEME_DIAGRAM_HEIGHT = 344
-const THEME_COLORS = [
-  { fill: 'rgba(54, 179, 255, 0.14)', stroke: 'rgba(54, 179, 255, 0.7)' },
-  { fill: 'rgba(167, 243, 208, 0.14)', stroke: 'rgba(167, 243, 208, 0.7)' },
-  { fill: 'rgba(255, 203, 71, 0.14)', stroke: 'rgba(255, 203, 71, 0.7)' },
-] as const
-
-function shortThemeLabel(theme: string): string {
-  const label = themeDisplayName(theme)
-  return label.length > 15 ? `${label.slice(0, 14)}...` : label
-}
-
-function shortTickerLabel(symbol: string): string {
-  return symbol.length > 7 ? `${symbol.slice(0, 6)}...` : symbol
-}
-
-function memberPillLabel(member: ThemeDiagramPoint): string {
-  return member.isCenter ? `${member.symbol} center` : shortTickerLabel(member.symbol)
-}
-
-function memberPillWidth(member: ThemeDiagramPoint): number {
-  const label = memberPillLabel(member)
-  return member.isCenter ? 82 : Math.max(38, label.length * 6.5 + 14)
-}
-
-function regionBoxSize(members: ThemeDiagramPoint[], hiddenCount: number, isIntersection: boolean): { width: number; height: number } {
-  const width = Math.max(48, ...members.map(memberPillWidth)) + 18
-  const height = Math.max(18, members.length * 20) + (hiddenCount > 0 ? 18 : 0) + (isIntersection ? 8 : 4)
-  return { width, height }
-}
-
-function rectForRegion(region: ThemeRegion, x = region.x, y = region.y): ThemeRect {
-  return {
-    x: x - region.boxWidth / 2,
-    y: y - region.boxHeight / 2,
-    width: region.boxWidth,
-    height: region.boxHeight,
-  }
-}
-
-function rectOverlap(a: ThemeRect, b: ThemeRect, gap = 6): number {
-  const overlapX = Math.min(a.x + a.width + gap, b.x + b.width + gap) - Math.max(a.x - gap, b.x - gap)
-  const overlapY = Math.min(a.y + a.height + gap, b.y + b.height + gap) - Math.max(a.y - gap, b.y - gap)
-  if (overlapX <= 0 || overlapY <= 0) return 0
-  return overlapX * overlapY
-}
-
-function clampRegionPoint(region: ThemeRegion, x: number, y: number): { x: number; y: number } {
-  return {
-    x: Math.max(region.boxWidth / 2 + 10, Math.min(THEME_DIAGRAM_WIDTH - region.boxWidth / 2 - 10, x)),
-    y: Math.max(region.boxHeight / 2 + 14, Math.min(THEME_DIAGRAM_HEIGHT - region.boxHeight / 2 - 10, y)),
-  }
-}
-
-function regionCandidates(region: ThemeRegion): Array<{ x: number; y: number }> {
-  const offsets = [
-    [0, 0],
-    [0, -26],
-    [0, 26],
-    [-40, 0],
-    [40, 0],
-    [-42, -24],
-    [42, -24],
-    [-42, 24],
-    [42, 24],
-    [0, -54],
-    [0, 54],
-    [-78, 0],
-    [78, 0],
-    [-78, -36],
-    [78, -36],
-    [-78, 36],
-    [78, 36],
-  ] as const
-  return offsets.map(([dx, dy]) => clampRegionPoint(region, region.x + dx, region.y + dy))
-}
-
-function packThemeRegions(regions: ThemeRegion[]): ThemeRegion[] {
-  const placed: ThemeRegion[] = []
-  const ordered = [...regions].sort(
-    (a, b) =>
-      Number(b.members.some((member) => member.isCenter)) - Number(a.members.some((member) => member.isCenter)) ||
-      b.membership.length - a.membership.length ||
-      b.boxWidth * b.boxHeight - a.boxWidth * a.boxHeight
-  )
-
-  for (const region of ordered) {
-    const candidates = regionCandidates(region)
-    let best = candidates[0]
-    let bestScore = Number.POSITIVE_INFINITY
-    for (const candidate of candidates) {
-      const rect = rectForRegion(region, candidate.x, candidate.y)
-      const overlap = placed.reduce((sum, item) => sum + rectOverlap(rect, rectForRegion(item)), 0)
-      const distance = Math.hypot(candidate.x - region.x, candidate.y - region.y)
-      const score = overlap * 1000 + distance
-      if (score < bestScore) {
-        best = candidate
-        bestScore = score
-      }
-      if (overlap === 0 && distance < 1) break
-    }
-    placed.push({ ...region, x: best.x, y: best.y })
-  }
-
-  const order = new Map(regions.map((region, index) => [region.key, index]))
-  return placed.sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
-}
-
-function circleDistanceForOverlap(a: ThemeCircle, b: ThemeCircle, overlapRatio: number): number {
-  const minDistance = Math.abs(a.r - b.r) + Math.min(a.r, b.r) * 0.52
-  const maxDistance = a.r + b.r - 16
-  return Math.max(minDistance, Math.min(maxDistance, maxDistance - overlapRatio * Math.min(a.r, b.r) * 1.05))
-}
-
-function membershipKey(membership: number[]): string {
-  return membership.join(',')
-}
-
-function ThemeSetDiagram({
-  centerTicker,
-  centerName,
-  relationships,
-}: {
-  centerTicker: string
-  centerName: string | null
-  relationships: TickerRelationships
-}) {
-  const svgId = useId().replace(/:/g, '')
-  const [hover, setHover] = useState<ThemeDiagramPoint | null>(null)
-  const data = useMemo(() => {
-    const nodeLookup = new Map(relationships.nodes.map((node) => [node.ticker, node]))
-    const themeScores = new Map<string, { label: string; members: Set<string>; maxStrength: number }>()
-    for (const peer of relationships.themePeers) {
-      for (const theme of peerThemes(peer)) {
-        const key = themeKey(theme)
-        const current = themeScores.get(key)
-        if (current) {
-          current.members.add(peer.symbol)
-          current.maxStrength = Math.max(current.maxStrength, Math.abs(peer.strength))
-        } else {
-          themeScores.set(key, { label: theme, members: new Set([peer.symbol]), maxStrength: Math.abs(peer.strength) })
-        }
-      }
-    }
-
-    const selectedThemes = [...themeScores.values()]
-      .sort((a, b) => b.members.size - a.members.size || b.maxStrength - a.maxStrength || a.label.localeCompare(b.label))
-      .slice(0, 3)
-      .map((item) => item.label)
-    const selectedKeys = selectedThemes.map(themeKey)
-    const overflowThemes = Math.max(0, themeScores.size - selectedThemes.length)
-    const peerRecords = relationships.themePeers
-      .map((peer) => {
-        const peerThemeKeys = new Set(peerThemes(peer).map(themeKey))
-        const membership = selectedKeys.map((key, index) => (peerThemeKeys.has(key) ? index : -1)).filter((index) => index >= 0)
-        return { peer, membership }
-      })
-      .filter((item) => item.membership.length > 0)
-
-    const counts = selectedKeys.map((key) => peerRecords.filter((item) => item.membership.includes(selectedKeys.indexOf(key))).length + 1)
-    const maxCount = Math.max(1, ...counts)
-    let circles: ThemeCircle[] = selectedThemes.map((theme, index) => ({
-      key: selectedKeys[index],
-      label: theme,
-      count: counts[index],
-      x: 180,
-      y: 138,
-      r: 52 + Math.sqrt(counts[index] / maxCount) * 34,
-      fill: THEME_COLORS[index].fill,
-      stroke: THEME_COLORS[index].stroke,
-    }))
-
-    const pairOverlapRatio = (left: number, right: number) => {
-      const overlap = peerRecords.filter((item) => item.membership.includes(left) && item.membership.includes(right)).length + 1
-      return Math.min(1, overlap / Math.max(1, Math.min(counts[left], counts[right])))
-    }
-
-    if (circles.length === 1) {
-      circles = [{ ...circles[0], x: 180, y: 142 }]
-    } else if (circles.length === 2) {
-      const distance = circleDistanceForOverlap(circles[0], circles[1], pairOverlapRatio(0, 1))
-      circles = [
-        { ...circles[0], x: 180 - distance / 2, y: 142 },
-        { ...circles[1], x: 180 + distance / 2, y: 142 },
-      ]
-    } else if (circles.length === 3) {
-      circles = [
-        { ...circles[0], x: 180, y: 102 },
-        { ...circles[1], x: 132, y: 178 },
-        { ...circles[2], x: 228, y: 178 },
-      ]
-      for (let iteration = 0; iteration < 2; iteration += 1) {
-        for (const [left, right] of [
-          [0, 1],
-          [0, 2],
-          [1, 2],
-        ] as const) {
-          const ratio = pairOverlapRatio(left, right)
-          const dx = circles[right].x - circles[left].x
-          const dy = circles[right].y - circles[left].y
-          const length = Math.max(1, Math.hypot(dx, dy))
-          const target = circleDistanceForOverlap(circles[left], circles[right], ratio)
-          const delta = (length - target) * 0.28
-          const moveX = (dx / length) * delta
-          const moveY = (dy / length) * delta
-          circles[left] = { ...circles[left], x: circles[left].x + moveX, y: circles[left].y + moveY }
-          circles[right] = { ...circles[right], x: circles[right].x - moveX, y: circles[right].y - moveY }
-        }
-      }
-    }
-
-    const diagramCenter = {
-      x: circles.reduce((sum, circle) => sum + circle.x, 0) / Math.max(1, circles.length),
-      y: circles.reduce((sum, circle) => sum + circle.y, 0) / Math.max(1, circles.length),
-    }
-
-    const anchorFor = (membership: number[]) => {
-      if (membership.length === 0 || circles.length === 0) return diagramCenter
-      const selected = membership.map((index) => circles[index])
-      const x = selected.reduce((sum, circle) => sum + circle.x, 0) / selected.length
-      const y = selected.reduce((sum, circle) => sum + circle.y, 0) / selected.length
-      if (membership.length === 1 && circles.length > 1) {
-        const circle = selected[0]
-        const dx = circle.x - diagramCenter.x
-        const dy = circle.y - diagramCenter.y
-        const length = Math.max(1, Math.hypot(dx, dy))
-        return {
-          x: circle.x + (dx / length) * circle.r * 0.34,
-          y: circle.y + (dy / length) * circle.r * 0.34,
-        }
-      }
-      return { x, y }
-    }
-
-    const peersByRegion = new Map<string, RelationshipThemePeer[]>()
-    for (const peer of relationships.themePeers) {
-      const keys = new Set(peerThemes(peer).map(themeKey))
-      const membership = selectedKeys.map((key, index) => (keys.has(key) ? index : -1)).filter((index) => index >= 0)
-      if (membership.length === 0) continue
-      const regionKey = membershipKey(membership)
-      peersByRegion.set(regionKey, [...(peersByRegion.get(regionKey) ?? []), peer])
-    }
-
-    const regions: ThemeRegion[] = []
-    for (const [regionKey, peerItems] of peersByRegion) {
-      const membership = regionKey.split(',').map((index) => Number(index))
-      const anchor = anchorFor(membership)
-      const sortedPeers = [...peerItems].sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol))
-      const visibleLimit = membership.length > 1 ? 2 : 2
-      const members = sortedPeers.slice(0, visibleLimit).map<ThemeDiagramPoint>((peer) => {
-        const node = nodeLookup.get(peer.symbol)
-        return {
-          symbol: peer.symbol,
-          name: node?.name ?? null,
-          country: countryDisplayName(node?.country ?? null, node?.region ?? null),
-          strength: peer.strength,
-          confidence: peer.confidence,
-          themes: peerThemes(peer).filter((theme) => selectedKeys.includes(themeKey(theme))),
-          isCenter: false,
-        }
-      })
-      const hiddenCount = Math.max(0, sortedPeers.length - members.length)
-      const boxSize = regionBoxSize(members, hiddenCount, membership.length > 1)
-      regions.push({
-        key: regionKey,
-        membership,
-        label: membership.map((index) => shortThemeLabel(selectedThemes[index])).join(' ∩ '),
-        x: anchor.x,
-        y: anchor.y,
-        boxWidth: boxSize.width,
-        boxHeight: boxSize.height,
-        isIntersection: membership.length > 1,
-        members,
-        hiddenCount,
-      })
-    }
-
-    const centerNode = relationships.node
-    if (selectedThemes.length > 0) {
-      const centerPoint: ThemeDiagramPoint = {
-        symbol: centerTicker,
-        name: centerName,
-        country: countryDisplayName(centerNode?.country ?? null, centerNode?.region ?? null),
-        strength: null,
-        confidence: null,
-        themes: selectedThemes,
-        isCenter: true,
-      }
-      const centerRegionKey = `center:${membershipKey(circles.map((_, index) => index))}`
-      const boxSize = regionBoxSize([centerPoint], 0, false)
-      regions.push({
-        key: centerRegionKey,
-        membership: circles.map((_, index) => index),
-        label: 'Central company',
-        x: 286,
-        y: 34,
-        boxWidth: boxSize.width,
-        boxHeight: boxSize.height,
-        isIntersection: false,
-        members: [centerPoint],
-        hiddenCount: 0,
-      })
-    }
-
-    return { selectedThemes, overflowThemes, circles, regions: packThemeRegions(regions) }
-  }, [centerName, centerTicker, relationships])
-
-  if (data.selectedThemes.length === 0) {
-    return (
-      <div className="rounded-[8px] border border-dashed border-border p-4 text-sm text-content-muted">
-        No theme baskets for this ticker yet.
-      </div>
-    )
-  }
-
+function RelationshipRows({ rows, compact = false }: { rows: RelationshipRow[]; compact?: boolean }) {
   return (
-    <div className="relative rounded-[8px] border border-border bg-surface p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-filter-label">Theme set</div>
-        {data.overflowThemes > 0 ? <div className="text-caption text-content-muted">+{data.overflowThemes} more themes</div> : null}
-      </div>
-      <div className="mb-2 flex flex-wrap gap-1.5">
-        {data.circles.map((circle) => (
-          <div key={circle.key} className="flex items-center gap-1 rounded-[6px] border border-border bg-surface-elevated px-2 py-1 text-[9px] font-semibold text-content-secondary">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: circle.stroke }} />
-            <span>{shortThemeLabel(circle.label)}</span>
-            <span className="text-content-muted">{circle.count}</span>
+    <ol className={compact ? 'divide-y divide-border/70' : 'mt-3 divide-y divide-border/70'}>
+      {rows.map((item) => (
+        <li key={`${item.relation}:${item.symbol}`} className={compact ? 'grid gap-1.5 py-3' : 'grid gap-2 py-3 sm:grid-cols-[minmax(0,1.25fr)_0.9fr_0.75fr_0.75fr] sm:items-center'}>
+          <div className="min-w-0">
+            <Link href={`/stocks/${item.symbol}`} className="action-link font-semibold">{item.symbol}</Link>
+            {item.name ? <span className="ml-2 text-caption text-content-muted">{item.name}</span> : null}
+            <div className="text-caption text-content-secondary">{item.relation}{item.detail ? ` · ${item.detail}` : ''}</div>
           </div>
-        ))}
-      </div>
-      <svg viewBox={`0 0 ${THEME_DIAGRAM_WIDTH} ${THEME_DIAGRAM_HEIGHT}`} role="img" aria-label={`${centerTicker} theme membership`} className="h-[330px] w-full">
-        <defs>
-          <filter id={`${svgId}-theme-set-shadow`} x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="10" stdDeviation="10" floodColor="#000000" floodOpacity="0.28" />
-          </filter>
-          <filter id={`${svgId}-theme-chip-shadow`} x="-30%" y="-60%" width="160%" height="220%">
-            <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.42" />
-          </filter>
-          {data.circles.map((circle, index) => (
-            <radialGradient key={`gradient:${circle.key}`} id={`${svgId}-theme-gradient-${index}`} cx="38%" cy="30%" r="72%">
-              <stop offset="0%" stopColor={circle.stroke} stopOpacity="0.28" />
-              <stop offset="58%" stopColor={circle.fill} stopOpacity="0.7" />
-              <stop offset="100%" stopColor={circle.fill} stopOpacity="0.24" />
-            </radialGradient>
-          ))}
-        </defs>
-        {data.circles.map((circle, index) => (
-          <g key={circle.key}>
-            <circle
-              cx={circle.x}
-              cy={circle.y}
-              r={circle.r}
-              fill={`url(#${svgId}-theme-gradient-${index})`}
-              stroke={circle.stroke}
-              strokeWidth="1.6"
-              filter={`url(#${svgId}-theme-set-shadow)`}
-            />
-            <circle cx={circle.x - circle.r * 0.24} cy={circle.y - circle.r * 0.26} r={circle.r * 0.28} fill="rgba(247,251,255,0.08)" />
-          </g>
-        ))}
-        {data.regions.map((region) => (
-          <g key={region.key}>
-            {region.members.map((member, memberIndex) => {
-              const y = region.y + (memberIndex - (region.members.length - 1) / 2) * 20
-              const label = memberPillLabel(member)
-              const width = memberPillWidth(member)
-              return (
-                <g
-                  key={`${region.key}:${member.symbol}`}
-                  onMouseEnter={() => setHover(member)}
-                  onMouseLeave={() => setHover(null)}
-                  className="cursor-default"
-                >
-                  <rect
-                    x={region.x - width / 2}
-                    y={y - 8}
-                    width={width}
-                    height="16"
-                    rx="4"
-                    fill={member.isCenter ? 'rgba(247, 251, 255, 0.96)' : region.isIntersection ? 'rgba(7,17,31,0.94)' : 'rgba(7,17,31,0.72)'}
-                    stroke={member.isCenter ? 'rgba(247, 251, 255, 1)' : region.isIntersection ? 'rgba(247,251,255,0.78)' : 'rgba(247,251,255,0.38)'}
-                    strokeWidth={region.isIntersection || member.isCenter ? 1.2 : 0.8}
-                    filter={`url(#${svgId}-theme-chip-shadow)`}
-                  />
-                  <text
-                    x={region.x}
-                    y={y + 3.5}
-                    textAnchor="middle"
-                    className={member.isCenter ? 'fill-[#07111f] text-[9px] font-black' : 'fill-content-primary text-[9px] font-bold'}
-                  >
-                    {label}
-                  </text>
-                </g>
-              )
-            })}
-            {region.hiddenCount > 0 ? (
-              <text
-                x={region.x}
-                y={region.y + (region.members.length / 2) * 20 + 14}
-                textAnchor="middle"
-                className="fill-content-muted text-[8px] font-semibold"
-              >
-                +{region.hiddenCount} more
-              </text>
-            ) : null}
-          </g>
-        ))}
-      </svg>
-      <div className="min-h-[76px] rounded-[8px] border border-border bg-surface-elevated p-3 text-caption">
-        {hover ? (
-          <>
-            <div className="font-semibold text-content-primary">{hover.symbol}</div>
-            <div className="truncate text-content-muted">{hover.name ?? (hover.isCenter ? centerName ?? 'Central company' : 'Related asset')}</div>
-            <div className="mt-2 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1 text-content-secondary">
-              <span className="text-content-muted">Themes</span>
-              <span className="truncate">{hover.themes.map(themeDisplayName).join(', ') || '-'}</span>
-              <span className="text-content-muted">Strength</span>
-              <span>{hover.strength === null ? '-' : formatStrength(hover.strength)}</span>
-              <span className="text-content-muted">Confidence</span>
-              <span>{hover.confidence === null ? '-' : formatConfidence(hover.confidence)}</span>
-            </div>
-          </>
-        ) : (
-          <div className="flex h-full min-h-[52px] items-center text-content-muted">Hover a ticker in the theme set for details.</div>
-        )}
-      </div>
-    </div>
+          <span className="text-caption text-content-secondary">{item.direction || '—'}</span>
+          <span className="text-caption text-content-secondary">Strength {formatStrength(item.strength)}</span>
+          <span className="text-caption text-content-secondary">Confidence {formatPercent(item.confidence)}</span>
+        </li>
+      ))}
+    </ol>
   )
 }
 
-export default function RelationshipOrbit({
-  centerTicker,
-  centerName,
-  relationshipsByWindow,
-  maxNeighborsPerLayer = DEFAULT_LAYER_RENDER_LIMIT,
-}: RelationshipOrbitProps) {
+function useDesktopLayout() {
+  const [desktop, setDesktop] = useState(false)
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    const update = () => setDesktop(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  return desktop
+}
+
+export default function RelationshipOrbit({ centerTicker, centerName, relationshipsByWindow, maxNeighborsPerLayer = DEFAULT_LAYER_RENDER_LIMIT }: RelationshipOrbitProps) {
   const normalizedCenter = centerTicker.trim().toUpperCase()
-  const [window, setWindow] = useState<RelationshipWindow>(252)
-  const [activeLayer, setActiveLayer] = useState<ToggleLayer>('residual')
-  const relationships = relationshipsByWindow[window]
-  const renderLimit = Math.max(1, Math.round(maxNeighborsPerLayer))
-  const { graph, rows, counts, moreCounts } = useMemo(
-    () => buildRelationshipGraph(relationships, normalizedCenter, centerName, activeLayer, renderLimit),
-    [activeLayer, centerName, normalizedCenter, relationships, renderLimit]
+  const availableWindows = useMemo(
+    () => ([126, 252] as RelationshipWindow[]).filter((candidate) =>
+      LAYER_ORDER.some((layer) => layerItems(relationshipsByWindow[candidate], layer).length > 0)
+    ),
+    [relationshipsByWindow]
   )
-  const hasVisibleRelationships = graph.edges.length > 0
+  const [window, setWindow] = useState<RelationshipWindow>(() => availableWindows.includes(252) ? 252 : (availableWindows[0] ?? 252))
+  const [activeLayer, setActiveLayer] = useState<ToggleLayer>(() => preferredLayer(relationshipsByWindow[availableWindows.includes(252) ? 252 : (availableWindows[0] ?? 252)]))
+  const desktop = useDesktopLayout()
+  const relationships = relationshipsByWindow[window]
+  const availableLayers = LAYER_ORDER.filter((layer) => layerItems(relationships, layer).length > 0)
+  const visibleLayer = availableLayers.includes(activeLayer) ? activeLayer : preferredLayer(relationships)
+  const { graph, rows, total } = buildGraph(relationships, normalizedCenter, centerName, visibleLayer, maxNeighborsPerLayer)
+  const allRows = sortRows(layerItems(relationships, visibleLayer))
+  const weakRows = sortRows(relationships.probableSpurious.map((item) => ({
+    symbol: item.symbol,
+    name: relationships.nodes.find((node) => node.ticker === item.symbol)?.name ?? null,
+    relation: 'Weak relationship',
+    detail: null,
+    strength: item.strength,
+    confidence: item.confidence,
+    direction: item.direction || 'Lower confidence',
+  })))
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedControl
-          options={WINDOW_OPTIONS.map((option) => `${option}d`) as ReadonlyArray<'126d' | '252d'>}
-          value={`${window}d` as '126d' | '252d'}
-          onChange={(option) => setWindow(option === '126d' ? 126 : 252)}
-          ariaLabel="Correlation window"
-        />
-
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(LAYER_COPY) as ToggleLayer[]).map((layer) => (
-            <FilterChip
-              key={layer}
-              label={LAYER_COPY[layer].label}
-              active={activeLayer === layer}
-              onClick={() => setActiveLayer(layer)}
-              title={LAYER_COPY[layer].hint}
-              leading={
-                <span
-                  className={cn(
-                    'h-2.5 w-2.5 rounded-full border',
-                    activeLayer === layer ? 'border-primary bg-primary' : 'border-content-muted'
-                  )}
-                />
-              }
-              trailing={
-                <>
-                  <span className="numeric-tabular text-content-muted">{counts[layer]}</span>
-                  {moreCounts[layer] > 0 ? (
-                    <span className="numeric-tabular text-content-muted">+{moreCounts[layer]} more</span>
-                  ) : null}
-                </>
-              }
-            />
-          ))}
+        {availableWindows.length > 1 ? (
+          <SegmentedControl options={WINDOW_OPTIONS.filter((option) => availableWindows.includes(option === '126d' ? 126 : 252))} value={`${window}d`} onChange={(value) => setWindow(value === '126d' ? 126 : 252)} ariaLabel="Relationship window" />
+        ) : (
+          <span className="text-caption text-content-muted">{window}-session window</span>
+        )}
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Relationship category">
+          {availableLayers.map((layer) => {
+            const count = layerItems(relationships, layer).length
+            return <FilterChip key={layer} label={LAYER_COPY[layer].label} active={visibleLayer === layer} onClick={() => setActiveLayer(layer)} title={LAYER_COPY[layer].hint} trailing={<span className="numeric-tabular text-content-muted">{count}</span>} />
+          })}
         </div>
       </div>
+      <p className="text-caption text-content-muted">Strength is the returned relationship magnitude; confidence is model support. Direction is shown in words as well as in the map.</p>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="relative min-h-[380px] overflow-hidden rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-[var(--bg-surface)] p-3">
-          {hasVisibleRelationships ? (
-            <ChartContainer className="h-[380px]" loadingText="Loading relationship map...">
-              {({ width, height }) => (
-                <NetworkGraphCanvas
-                  graph={graph}
-                  mode="peer"
-                  centerTicker={normalizedCenter}
-                  width={width}
-                  height={height}
-                />
-              )}
-            </ChartContainer>
-          ) : (
-            <div className="flex h-[380px] items-center justify-center rounded-[8px] border border-dashed border-border p-6 text-sm text-content-muted">
-              No relationships in the selected layer for this ticker yet.
-            </div>
-          )}
+      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+        <div className="min-h-[420px] overflow-hidden rounded-[8px] border border-border bg-[var(--bg-surface)] p-3">
+          {desktop && graph.edges.length > 0 ? <ChartContainer className="h-[420px]" loadingText="Loading relationship map...">{({ width, height }) => <NetworkGraphCanvas graph={graph} mode="peer" centerTicker={normalizedCenter} width={width} height={height} />}</ChartContainer> : <div className="flex h-[420px] items-center justify-center text-sm text-content-muted">{graph.edges.length > 0 ? 'Preparing relationship map…' : 'No relationships in this layer yet.'}</div>}
         </div>
-
-        <aside className="space-y-3 rounded-[8px] border border-border bg-surface-elevated p-4">
-          <ThemeSetDiagram centerTicker={normalizedCenter} centerName={centerName} relationships={relationships} />
-          <div className="text-filter-label">Legend</div>
-          <div className="space-y-2 text-caption text-content-secondary">
-            <div className="flex items-center gap-2">
-              <span className="h-px w-8 bg-[#36B3FF]" />
-              Residual: mexe junto além do mercado
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-px w-8 border-t-2 border-dashed border-[#A7F3D0] opacity-70" />
-              Theme peers: same theme basket
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-px w-8 border-t-2 border-dashed border-[#FF867B]" />
-              Rotates-against: mexe ao contrário idiossincraticamente
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-px w-8 bg-[#FFCB47]" />
-              Lead-lag: tende a liderar/seguir
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-px w-8 border-t-2 border-dashed border-[#73CBFF] opacity-60" />
-              Market: mexe junto (com o mercado todo)
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-px w-8 border-t-2 border-dashed border-[#94A3B8] opacity-45" />
-              Spurious: provavelmente só ruído de mercado
-            </div>
-          </div>
-          <div className="border-t border-border pt-3 text-caption text-content-muted">
-            {centerName ? `${normalizedCenter}: ${centerName} · ` : null}
-            {relationships.asOf ? `As of ${relationships.asOf} · ` : null}
-            Window {relationships.window}
-          </div>
+        <aside className="rounded-[8px] border border-border bg-surface-elevated p-4">
+          <div className="flex items-baseline justify-between gap-2"><div><h2 className="text-section-title text-content-primary">{LAYER_COPY[visibleLayer].label}</h2><p className="mt-1 text-caption text-content-muted">{LAYER_COPY[visibleLayer].hint}</p></div><span className="text-caption text-content-muted">{total} total · {rows.length} shown</span></div>
+          {rows.length > 0 ? <RelationshipRows rows={rows} compact /> : <p className="mt-5 text-caption text-content-muted">No ranked relationships are available for this layer.</p>}
+          {allRows.length > rows.length ? <details className="mt-3 border-t border-border pt-3"><summary className="cursor-pointer text-caption font-medium text-content-secondary">View all {allRows.length} relationships</summary><RelationshipRows rows={allRows} compact /></details> : null}
         </aside>
       </div>
 
-      {rows.length > 0 ? (
-        <div className="overflow-hidden rounded-[8px] border border-border">
-          <table className="w-full border-collapse text-sm">
-            <thead className="bg-surface-elevated text-caption uppercase tracking-[0.08em] text-content-muted">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold">Ticker</th>
-                <th className="px-3 py-2 text-left font-semibold">Relationship</th>
-                <th className="px-3 py-2 text-right font-semibold">Strength</th>
-                <th className="px-3 py-2 text-right font-semibold">Confidence</th>
-                <th className="px-3 py-2 text-left font-semibold">Country</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={`${row.tone}:${row.symbol}`} className="border-t border-border">
-                  <td className="px-3 py-2">
-                    <Link href={`/stocks/${row.symbol}`} className="font-semibold text-content-primary underline-offset-2 hover:underline">
-                      {row.symbol}
-                    </Link>
-                    <div className="truncate text-caption text-content-muted">{row.name ?? 'Related asset'}</div>
-                  </td>
-                  <td className="px-3 py-2 text-content-secondary">{row.label}</td>
-                  <td className="numeric-tabular px-3 py-2 text-right text-content-primary">{formatStrength(row.strength)}</td>
-                  <td className="numeric-tabular px-3 py-2 text-right text-content-secondary">{formatConfidence(row.confidence)}</td>
-                  <td className="px-3 py-2 text-content-secondary">{countryDisplayName(row.country, row.region)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="lg:hidden">
+        <div className="rounded-[8px] border border-border bg-surface-elevated p-4"><div className="flex items-baseline justify-between gap-2"><div><h2 className="text-section-title text-content-primary">{LAYER_COPY[visibleLayer].label}</h2><p className="mt-1 text-caption text-content-muted">{LAYER_COPY[visibleLayer].hint}</p></div><span className="text-caption text-content-muted">{total} total · {rows.length} shown</span></div>{rows.length > 0 ? <RelationshipRows rows={rows} /> : <p className="mt-5 text-caption text-content-muted">No relationships are available in this layer.</p>}{allRows.length > rows.length ? <details className="mt-3 border-t border-border pt-3"><summary className="cursor-pointer py-2 text-caption font-medium text-content-secondary">Show all {allRows.length}</summary><RelationshipRows rows={allRows.slice(rows.length)} /></details> : null}</div>
+      </div>
+
+      {weakRows.length > 0 ? (
+        <details className="rounded-[8px] border border-border bg-[var(--bg-surface)] px-4">
+          <summary className="cursor-pointer py-4 text-caption font-medium text-content-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45">
+            Weak relationships ({weakRows.length})
+          </summary>
+          <p className="pb-1 text-caption text-content-muted">Lower-confidence links are kept separate from the primary map.</p>
+          <RelationshipRows rows={weakRows} />
+        </details>
       ) : null}
     </div>
   )

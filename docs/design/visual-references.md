@@ -28,6 +28,22 @@ Study the rendered pattern, its responsive states, and its direct styling before
 
 There is not yet a repository-wide modal or drawer exemplar with a complete focus-management contract. Inspect current implementations for local context, but do not promote one to a shared pattern until focus entry, containment, Escape, backdrop behavior, and focus restoration are verified.
 
+## Perspective dial study — 2026-07-21
+
+The isolated Perspective dial transforms mechanics from the references below into a Longbrunch-specific analytical control. No reference code, assets, branding, or layout was copied.
+
+| Reference | Source inspected | Principle retained | Rejected or replaced |
+| --- | --- | --- | --- |
+| [Glass Calendar](https://21st.dev/community/components/ravikatiyar/glass-calendar/default) | Rendered demo, registry component, demo source, and compiled CSS | Native horizontal overflow inside one glass vessel; touch-friendly item selection | Calendar composition, date state, and the absence of snap/radio semantics |
+| [Expandable Tabs](https://21st.dev/community/components/victorwelander/expandable-tabs/default) | Rendered demo, component source, demo source, and compiled CSS | Compact-to-expanded disclosure and short label continuity | Conventional tab row, spring bounce, and button-only semantics |
+| [Sliding Tabs](https://21st.dev/community/components/ruixen.ui/sliding-tabs) | Rendered demo, registry source, and demo source | Measured active geometry, `ResizeObserver`, keyboard model, and continuous indicator motion | A moving tab pill and permanently visible four-option layout |
+| [Tubelight Navbar](https://21st.dev/community/components/ayushmxxn/tubelight-navbar/default) | Rendered demo, component source, and demo source | Restrained shared active-state continuity and responsive density | Navbar styling, icon substitution, and pronounced glow |
+| [Liquid Weather Glass](https://21st.dev/community/components/ui-layouts/liquid-weather-glass/default), [Liquid Glass by Suraj](https://21st.dev/community/components/suraj-xd/liquid-glass), and [Liquid Glass by Pace](https://21st.dev/community/components/paceui/liquid-glass/default) | Rendered demos, registry/component source, demo source, and compiled CSS where exposed | Separate tint, highlight, edge, blur, and content layers | SVG displacement over text, global pointer followers, hidden cursors, elastic drag, and strong refraction |
+| [Skewed Adjacent Hover Tabs](https://recent.design/i/nnkaerr-skewed-adjacent-hover-tabs) | Public demo description and rendered reference | Adjacent choices react with small opacity and scale changes | Skew and decorative hover choreography |
+| [Mixing Horizontal and Vertical Scroll](https://www.awwwards.com/inspiration/mixing-horizontal-and-vertical-scroll) and [Horizontal and Vertical Scroll](https://www.awwwards.com/inspiration/horizontal-and-vertical-scroll) | Rendered inspiration pages and linked project context | Clipped continuation cues for local horizontal movement inside a stable vertical page | Page-level scroll hijacking and narrative scroll effects |
+
+Longbrunch transformation: a stationary center lens sits over a native snap viewport; real radio inputs remain the semantic source of truth; drag only previews; the committed state and URL update after settling. Reduced motion removes smooth travel and scale transitions because none of the inspected implementations supplied a complete reduced-motion path.
+
 ## Add a reference
 
 | Field | Value |

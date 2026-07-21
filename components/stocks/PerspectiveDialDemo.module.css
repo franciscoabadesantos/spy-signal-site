@@ -1,0 +1,155 @@
+.page {
+  display: grid;
+  min-height: 100vh;
+  gap: 42px;
+  padding-block: clamp(32px, 7vw, 88px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header h1 {
+  margin-top: 6px;
+  color: var(--content-primary);
+  font-size: clamp(28px, 4vw, 52px);
+  font-weight: 720;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.kicker {
+  color: var(--brand-spark-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.context {
+  position: relative;
+  display: grid;
+  min-height: min(48vh, 430px);
+  overflow: hidden;
+  border-block: 1px solid var(--border);
+  place-items: center;
+}
+
+.marketField {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+}
+
+.marketField::after {
+  position: absolute;
+  inset: 18% 8%;
+  border-top: 1px solid rgba(18, 181, 166, 0.24);
+  border-bottom: 1px solid rgba(96, 165, 250, 0.12);
+  transform: skewY(-5deg);
+  content: '';
+}
+
+.orbitOne,
+.orbitTwo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 1px solid rgba(141, 183, 218, 0.13);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.orbitOne {
+  width: min(56vw, 560px);
+  aspect-ratio: 1.8;
+}
+
+.orbitTwo {
+  width: min(34vw, 340px);
+  aspect-ratio: 1.45;
+}
+
+.signalLine {
+  position: absolute;
+  top: 50%;
+  right: 12%;
+  left: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(18, 181, 166, 0.42), rgba(96, 165, 250, 0.28), transparent);
+}
+
+.contextCopy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.contextCopy p {
+  color: var(--content-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.contextCopy strong {
+  margin-top: 8px;
+  color: var(--content-primary);
+  font-size: clamp(30px, 5vw, 64px);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.instructions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  color: var(--content-muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .page {
+    gap: 28px;
+    padding-block: 24px 56px;
+  }
+
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .context {
+    min-height: 340px;
+  }
+
+  .orbitOne {
+    width: 620px;
+  }
+
+  .orbitTwo {
+    width: 360px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketField::after {
+    transform: none;
+  }
+}

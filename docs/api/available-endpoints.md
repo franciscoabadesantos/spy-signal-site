@@ -29,7 +29,7 @@ Any pull request that creates, removes, or changes a route or its observable con
 | --- | --- | --- |
 | Tickers | `GET /tickers/index`, `/tickers/:ticker/summary`, `/profile`, `/scorecard`, `/history`, `/ohlc` | `lib/ticker-search.ts`, `ticker-data.ts`, `finance.ts`, `scorecard.ts`, `ohlc-data.ts` |
 | Signals | `GET /signals/history/:ticker`, `/signals/last-flips`, `/signals/flips`, `/screener/signals` | `lib/signals.ts`, `lib/types.ts` |
-| Market network | `GET /network`, `GET /relationships/:ticker` | `lib/network.ts`, `lib/relationships.ts`; network may use a local fixture for selected failures |
+| Market network | `GET /network`, `GET /relationships/:ticker` | `lib/network.ts`, `lib/relationships.ts`; finance-backend is the only product-data source and unavailable responses are not replaced with a local fixture |
 | Watchlists | `GET/POST/DELETE /site/watchlist`, plus `/all-tickers` and `/subscriptions` | `lib/watchlist.ts`, dashboard/server views |
 | AI research | `POST/GET /site/ai-research/runs`, `GET/PATCH /runs/:id`, `POST /feedback` | `lib/ai-research.ts` |
 | Alerts | `POST /site/alerts/reserve`, `/record` | `lib/alerts.ts` |

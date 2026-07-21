@@ -1,13 +1,25 @@
 import type { TabItem } from '@/components/ui/Tabs'
 
-export type StockTabKey = 'overview' | 'financials' | 'holdings-dividends' | 'signal-history' | 'performance'
+export type StockTabKey = 'overview' | 'relationships' | 'research'
 
 export function stockTabItems(ticker: string): TabItem[] {
-  return [
+  const items: TabItem[] = [
     { key: 'overview', label: 'Overview', href: `/stocks/${ticker}` },
-    { key: 'financials', label: 'Financial Summary', href: `/stocks/${ticker}/financials/fund-profile` },
-    { key: 'holdings-dividends', label: 'Holdings / Dividend Status', href: `/stocks/${ticker}/holdings-dividends` },
-    { key: 'signal-history', label: 'Signal History', href: `/stocks/${ticker}/signal-history` },
-    { key: 'performance', label: 'Performance', href: `/stocks/${ticker}/performance` },
+    { key: 'relationships', label: 'Relationships', href: `/stocks/${ticker}/relationships` },
   ]
+  return items
 }
+
+export const stockResearchItems = [
+  ['lens', 'Lens'],
+  ['fundamentals', 'Fundamentals'],
+  ['financials', 'Financial Statements'],
+  ['valuation', 'Valuation History'],
+  ['ownership', 'Ownership & Capital'],
+  ['profile', 'Company Profile'],
+  ['signals', 'Signal History'],
+  ['indicators', 'Indicator Details'],
+  ['events', 'Earnings & Events'],
+  ['ai-research', 'AI Research'],
+  ['methodology', 'Methodology'],
+] as const

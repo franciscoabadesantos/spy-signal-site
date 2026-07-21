@@ -1,25 +1,27 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, use, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import AiAnalystPanel from '@/components/AiAnalystPanel'
-import RelationshipOrbit from '@/components/RelationshipOrbit'
-import ScorecardDisc from '@/components/stocks/ScorecardDisc'
+import { motion, useReducedMotion } from 'framer-motion'
+import { Suspense, use, useEffect, useMemo, useState, type ReactNode } from 'react'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import ChartContainer from '@/components/charts/ChartContainer'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
-import type { TickerRelationships } from '@/lib/relationships'
-import { scoreColor, type Scorecard, type ScorecardReadiness } from '@/lib/scorecard-types'
+import { scoreColor, type Scorecard } from '@/lib/scorecard-types'
 import {
   buildTechnicalSummary,
   type TechnicalAction,
-  type TechnicalIndicatorRow,
   type TechnicalTimeframe,
 } from '@/lib/technicalSignals'
 import { formatMoney, formatSignedMoney } from '@/lib/currency'
 import { hasUsableMaterializedScorecard } from '@/lib/ticker-page-scorecard'
 import { cn } from '@/lib/utils'
+import {
+  LENS_CHART_TIMEFRAME,
+  LENS_TECHNICAL_TIMEFRAME,
+  type InvestmentLensKey,
+} from '@/lib/investment-lens'
 import styles from './StockOverviewClient.module.css'
+import PerspectiveDial from './PerspectiveDial'
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
 type ChartTimeframe = '1D' | '5D' | '1M' | '3M' | 'YTD' | '1Y' | '5Y'
@@ -35,11 +37,42 @@ type OverviewRelatedAsset = {
   name: string | null
   price: number | null
   changePercent: number | null
+  relation: string
+  strength: number | null
+  confidence: number | null
 }
 
 type OverviewFundDetail = {
   label: string
   value: string
+}
+
+type OverviewFundGroup = {
+  key: string
+  label: string
+  rows: OverviewFundDetail[]
+}
+
+type OverviewHolding = {
+  symbol: string
+  name: string
+  weightPercent: number | null
+}
+
+type OverviewProfileDetail = {
+  label: string
+  value: string
+}
+
+type OverviewSectorWeight = {
+  sector: string
+  weightPercent: number | null
+}
+
+type OverviewEarnings = {
+  date: string | null
+  time: string | null
+  fiscalPeriod: string | null
 }
 
 type OverviewSignal = {
@@ -53,10 +86,14 @@ type OverviewRegimePoint = {
   signal_date: string
   direction: SignalDirection
   prob_side: number | null
+  prediction_horizon: number
+  episode_return: number | null
+  episode_status: string | null
 }
 
 type StockOverviewClientProps = {
   ticker: string
+  initialLens: InvestmentLensKey
   currency: string
   displayName: string
   assetBadgeLabel: string
@@ -68,21 +105,18 @@ type StockOverviewClientProps = {
   historicalChartState: HistoricalChartState
   ohlcData: OhlcPoint[]
   keyStats: OverviewStat[]
-  relationship126: Promise<TickerRelationships>
-  relationship252: Promise<TickerRelationships>
-  fundDetails: OverviewFundDetail[]
+  fundamentalGroups: OverviewFundGroup[]
+  holdings: OverviewHolding[]
+  profileDetails: OverviewProfileDetail[]
+  sectorWeights: OverviewSectorWeight[]
+  nextEarnings: OverviewEarnings | null
+  volatility30d: number | null
   relatedAssets: Promise<OverviewRelatedAsset[]>
   regimeSignals: OverviewRegimePoint[]
   scorecard: Scorecard
+  about: string | null
   watchlistSlot?: ReactNode
-  showCopilot: boolean
-  copilot: {
-    isPro: boolean
-    providerEnabled: boolean
-    upgradeHref: string | null
-    initialQuestion: string | null
-    initialPromptLabel: string | null
-  }
+  navigationSlot: ReactNode
 }
 
 const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y']
@@ -113,6 +147,12 @@ function formatCompactPercent(value: number | null): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
+function formatConviction(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  const scaled = Math.abs(value) <= 1 ? value * 100 : value
+  return `${scaled.toFixed(0)}%`
+}
+
 function regimeCopy(direction: SignalDirection | null): string {
   if (direction === 'bullish') return 'Bullish regime'
   if (direction === 'bearish') return 'Bearish regime'
@@ -127,20 +167,9 @@ function regimeTone(direction: SignalDirection | null): 'bullish' | 'bearish' | 
 
 function scorecardReadinessMessage(scorecard: Scorecard): string | null {
   if (hasUsableMaterializedScorecard(scorecard)) return null
-  if (scorecard.hasScorecard !== true || scorecard.overall.score === null) return 'Missing scorecard'
-  if (scorecard.readiness === 'pending_build') return 'Scorecard pending daily build'
-  if (scorecard.readiness === 'not_tracked') return 'Ticker is not tracked yet'
-  if (scorecard.readiness === 'unavailable_missing_inputs') {
-    const missingInputs = scorecard.buildMissingInputs.length > 0 ? scorecard.buildMissingInputs.join('/') : 'required inputs'
-    return `Scorecard unavailable: missing ${missingInputs}`
-  }
-  return 'Scorecard is temporarily unavailable'
-}
-
-function scorecardReadinessTone(readiness: ScorecardReadiness): 'waiting' | 'blocked' | 'neutral' {
-  if (readiness === 'pending_build') return 'waiting'
-  if (readiness === 'unavailable_missing_inputs' || readiness === 'error') return 'blocked'
-  return 'neutral'
+  if (scorecard.readiness === 'pending_build') return 'Data pending'
+  if (scorecard.readiness === 'unavailable_missing_inputs') return 'Partial coverage'
+  return 'Unavailable'
 }
 
 function actionTone(action: TechnicalAction): string {
@@ -224,26 +253,11 @@ function buildXTicks(dates: string[]): XTick[] {
 
 function GradeRing({ grade, score }: { grade: string; score: number | null }) {
   const radius = 24
-  const circumference = 2 * Math.PI * radius
-  const clamped = score === null ? 0 : Math.max(0, Math.min(100, score))
-  const color = score === null ? 'var(--color-neutral)' : scoreColor(clamped)
+  const color = score === null ? 'var(--color-neutral)' : scoreColor(score)
 
   return (
     <svg width={60} height={60} viewBox="0 0 60 60" role="img" aria-label={`Grade ${grade}`} className={styles.gradeRing}>
-      <circle cx={30} cy={30} r={radius} fill="none" stroke="var(--color-border-light)" strokeWidth={4.5} />
-      {score !== null ? (
-        <circle
-          cx={30}
-          cy={30}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={4.5}
-          strokeLinecap="round"
-          strokeDasharray={`${(circumference * clamped) / 100} ${circumference}`}
-          transform="rotate(-90 30 30)"
-        />
-      ) : null}
+      <circle cx={30} cy={30} r={radius} fill="none" stroke={color} strokeWidth={3.5} />
       <text x={30} y={35} textAnchor="middle" fontSize={15} fontWeight={750} fill="var(--color-text-primary)">
         {grade}
       </text>
@@ -532,207 +546,74 @@ function HeroPriceChart({
   )
 }
 
-function SignalTable({
-  title,
-  rows,
-}: {
-  title: string
-  rows: TechnicalIndicatorRow[]
-}) {
-  return (
-    <div className={styles.signalTableCard}>
-      <div className={styles.signalTableHeader}>
-        <span className={styles.signalTableTitle}>{title}</span>
-        <span style={{ textAlign: 'right' }}>Value</span>
-        <span style={{ textAlign: 'right' }}>Action</span>
-      </div>
-      <div>
-        {rows.map((row) => (
-          <div key={row.name} className={styles.signalTableRow}>
-            <div className={styles.signalTableName}>{row.name}</div>
-            <div className={styles.signalTableValue}>{row.value}</div>
-            <div className={cn(styles.signalTableAction, actionTone(row.action))}>{row.action}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function RegimeHistoryChart({
-  signals,
-}: {
-  signals: OverviewRegimePoint[]
-}) {
-  const ordered = useMemo(
-    () =>
-      [...signals]
-        .filter((row) => Boolean(row.signal_date))
-        .sort((a, b) => Date.parse(a.signal_date) - Date.parse(b.signal_date)),
-    [signals]
-  )
-
-  if (ordered.length === 0) {
-    return <div className={styles.emptyState}>Regime history is not available yet.</div>
-  }
-
-  return (
-    <ChartContainer className={styles.regimeChart} loadingText="Loading regime history...">
-      {({ width, height }) => {
-
-        const padding = { top: 12, right: 32, bottom: 24, left: 32 }
-        const innerWidth = Math.max(1, width - padding.left - padding.right)
-        const innerHeight = Math.max(1, height - padding.top - padding.bottom)
-        const directionY = (direction: SignalDirection) => {
-          if (direction === 'bullish') return padding.top + innerHeight * 0.2
-          if (direction === 'bearish') return padding.top + innerHeight * 0.8
-          return padding.top + innerHeight * 0.5
-        }
-        const points = ordered.map((point, index) => ({
-          ...point,
-          x: padding.left + (index / Math.max(1, ordered.length - 1)) * innerWidth,
-          y: directionY(point.direction),
-        }))
-
-        const segments = points.reduce<Array<{ x1: number; x2: number; direction: SignalDirection }>>((acc, point, index) => {
-          const next = points[index + 1]
-          if (!next) return acc
-          acc.push({ x1: point.x, x2: next.x, direction: point.direction })
-          return acc
-        }, [])
-
-        const linePath = points
-          .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-          .join(' ')
-        const xTicks = [0, Math.floor((points.length - 1) / 2), points.length - 1].filter(
-          (value, index, array) => array.indexOf(value) === index
-        )
-
-        const fillForDirection = (direction: SignalDirection) => {
-          if (direction === 'bullish') return 'rgba(22, 163, 74, 0.15)'
-          if (direction === 'bearish') return 'rgba(220, 38, 38, 0.15)'
-          return 'rgba(107, 114, 128, 0.1)'
-        }
-
-        return (
-          <svg width={width} height={height} className="block">
-            {segments.map((segment, index) => (
-              <rect
-                key={`${segment.x1}-${index}`}
-                x={segment.x1}
-                y={padding.top}
-                width={Math.max(1, segment.x2 - segment.x1)}
-                height={innerHeight}
-                fill={fillForDirection(segment.direction)}
-              />
-            ))}
-            <path d={linePath} fill="none" stroke="#6b7280" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-            {points.map((point, index) => (
-              <circle
-                key={`${point.signal_date}-${index}`}
-                cx={point.x}
-                cy={point.y}
-                r="2.5"
-                fill={point.direction === 'bullish' ? '#16a34a' : point.direction === 'bearish' ? '#dc2626' : '#6b7280'}
-              />
-            ))}
-            {xTicks.map((index) => {
-              const point = points[index]
-              if (!point) return null
-              return (
-                <text
-                  key={`tick-${point.signal_date}`}
-                  x={point.x}
-                  y={height - 4}
-                  textAnchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
-                  fontSize="12"
-                  fill="#6b7280"
-                >
-                  {formatDate(point.signal_date, { month: 'short', day: 'numeric' })}
-                </text>
-              )
-            })}
-          </svg>
-        )
-      }}
-    </ChartContainer>
-  )
-}
-
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string
-  onClose: () => void
-  children: ReactNode
-}) {
-  return (
-    <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-label={title}>
-      <div className={styles.modalPanel}>
-        <div className={styles.modalHeader}>
-          <div className={styles.modalTitle}>{title}</div>
-          <button type="button" className={styles.modalClose} onClick={onClose} aria-label={`Close ${title}`}>
-            ×
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function PeerWebContent({
+function RelatedAssetsContent({
   ticker,
-  displayName,
-  relationship126Promise,
-  relationship252Promise,
+  relatedAssetsPromise,
+  lens,
 }: {
   ticker: string
-  displayName: string
-  relationship126Promise: Promise<TickerRelationships>
-  relationship252Promise: Promise<TickerRelationships>
-}) {
-  const relationship126 = use(relationship126Promise)
-  const relationship252 = use(relationship252Promise)
-
-  return (
-    <RelationshipOrbit
-      centerTicker={ticker}
-      centerName={displayName}
-      relationshipsByWindow={{
-        126: relationship126,
-        252: relationship252,
-      }}
-    />
-  )
-}
-
-function RelatedAssetsContent({
-  relatedAssetsPromise,
-}: {
   relatedAssetsPromise: Promise<OverviewRelatedAsset[]>
+  lens: InvestmentLensKey
 }) {
   const relatedAssets = use(relatedAssetsPromise)
-  if (relatedAssets.length === 0) {
-    return <div className={styles.emptyState}>No related assets are available right now.</div>
-  }
+  const rankedAssets = [...relatedAssets].sort((left, right) => {
+    if (lens === 'trade' || lens === 'short') {
+      return Math.abs(right.changePercent ?? 0) - Math.abs(left.changePercent ?? 0)
+    }
+    return Math.abs(right.strength ?? 0) - Math.abs(left.strength ?? 0)
+  })
+  const structural = lens === 'long'
+
   return (
-    <div className={styles.relatedAssets}>
-      {relatedAssets.map((asset) => (
-        <Link key={asset.symbol} href={`/stocks/${asset.symbol}`} className={styles.relatedChip}>
-          <span className={styles.chipTicker}>{asset.symbol}</span>
-          <span>{formatPrice(asset.price, 'USD')}</span>
-          <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span>
-        </Link>
-      ))}
-    </div>
+    <article id="relationships" className={styles.relationshipEditorial} data-lens={lens}>
+      <div className={styles.chapterHeader}>
+        <div>
+          <p className={styles.chapterEyebrow}>{structural ? 'Long-term lens' : 'Current moves'}</p>
+          <h2 className={styles.chapterTitle}>Relationships</h2>
+        </div>
+        <Link href={`/stocks/${ticker}/relationships`} className={styles.inlineArrow}>View all →</Link>
+      </div>
+      {rankedAssets.length > 0 ? (
+        <div className={styles.relationshipPreviewGrid}>
+          <div className={styles.relationshipOrbitPreview} data-relationship-orbit-preview="" aria-hidden="true">
+            <span className={styles.orbitRing} />
+            <span className={styles.orbitCenter}>{ticker}</span>
+            {rankedAssets.slice(0, 3).map((asset, index) => (
+              <span
+                key={asset.symbol}
+                className={styles[`orbitNode${index + 1}`]}
+                style={{ opacity: asset.strength === null ? 0.62 : Math.max(0.48, Math.min(1, Math.abs(asset.strength))) }}
+              >
+                {asset.symbol}
+              </span>
+            ))}
+          </div>
+          <div className={styles.relatedAssets}>
+            {rankedAssets.slice(0, 5).map((asset) => (
+              <Link key={asset.symbol} href={`/stocks/${asset.symbol}`} className={styles.relatedChip}>
+                <span className={styles.relatedIdentity}>
+                  <span className={styles.chipTicker}>{asset.symbol}</span>
+                  <span className={styles.relatedName}>{asset.name ?? asset.relation}</span>
+                </span>
+                {!structural ? <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span> : null}
+                <span className={styles.relatedSemantics}>
+                  <span>{asset.relation}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className={styles.inlineDataState}><span>Relationships</span><strong>Data pending</strong></div>
+      )}
+      {structural ? <span className={styles.previewNote}>Structural classification · Preview</span> : null}
+    </article>
   )
 }
 
 export default function StockOverviewClient({
   ticker,
+  initialLens,
   currency,
   displayName,
   assetBadgeLabel,
@@ -744,29 +625,32 @@ export default function StockOverviewClient({
   historicalChartState,
   ohlcData,
   keyStats,
-  relationship126: relationship126Promise,
-  relationship252: relationship252Promise,
-  fundDetails,
+  fundamentalGroups,
+  holdings,
+  profileDetails,
+  sectorWeights,
+  nextEarnings,
+  volatility30d,
   relatedAssets: relatedAssetsPromise,
-  regimeSignals,
   scorecard,
+  about,
   watchlistSlot,
-  showCopilot,
-  copilot,
+  navigationSlot,
 }: StockOverviewClientProps) {
-  const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1Y')
-  const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
-  const [isChartModalOpen, setChartModalOpen] = useState(false)
-  const [isIndicatorsModalOpen, setIndicatorsModalOpen] = useState(false)
+  const reduceMotion = useReducedMotion()
+  const [lens, setLens] = useState<InvestmentLensKey>(initialLens)
+  const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>(LENS_CHART_TIMEFRAME[initialLens])
+  const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>(LENS_TECHNICAL_TIMEFRAME[initialLens])
   const scorecardMessage = scorecardReadinessMessage(scorecard)
-  const scorecardStateClass = styles[`scorecardState_${scorecardReadinessTone(scorecard.readiness)}`]
 
   const filteredChartData = useMemo(() => filterChartData(historicalData, heroTimeframe), [historicalData, heroTimeframe])
   const technicalSummary = useMemo(
     () => buildTechnicalSummary(ohlcData, signalTimeframe),
     [ohlcData, signalTimeframe]
   )
-
+  const hasTechnicalData =
+    ohlcData.length >= 30 &&
+    [...technicalSummary.oscillatorRows, ...technicalSummary.movingAverageRows].some((row) => row.value !== '—')
   const regimeClass =
     regimeTone(latestSignal?.direction ?? null) === 'bullish'
       ? styles.regimeBullish
@@ -774,33 +658,178 @@ export default function StockOverviewClient({
         ? styles.regimeBearish
         : styles.regimeNeutral
 
-  return (
-    <div className={styles.page}>
-      <section className={styles.heroZone}>
-        <div className={styles.heroHeader}>
-          <div className={styles.heroIdentity}>
-            <h1 className={styles.name}>{displayName}</h1>
-            <span className={styles.tickerBadge}>{ticker}</span>
-            <span className={styles.exchangeBadge}>{assetBadgeLabel}</span>
+  const technicalGauges = [
+    { key: 'summary', label: 'Summary', gauge: technicalSummary.gauges.summary },
+    { key: 'oscillators', label: 'Oscillators', gauge: technicalSummary.gauges.oscillators },
+    { key: 'moving-averages', label: 'Moving averages', gauge: technicalSummary.gauges.movingAverages },
+  ] as const
+  const profileRows = profileDetails
+    .filter((row) => !/ticker|name|market cap|isin|identifier/i.test(row.label))
+    .slice(0, 3)
+  const availableStats = volatility30d === null
+    ? keyStats
+    : [...keyStats, { label: '30D Volatility', value: `${volatility30d.toFixed(1)}%` }]
+  const priorityMetrics = (lens === 'trade'
+    ? ['Volume', '30D Volatility', 'Market Cap', 'P/E']
+    : lens === 'short'
+      ? ['Volume', 'EPS', 'Revenue', 'Market Cap']
+      : lens === 'medium'
+        ? ['Market Cap', 'P/E', 'Revenue', 'EPS']
+        : ['Market Cap', 'Revenue', 'Dividend Yield', 'P/E'])
+    .map((label) => availableStats.find((stat) => stat.label === label))
+    .filter((stat): stat is OverviewStat => Boolean(stat))
+  const orderedFundamentalGroups = assetBadgeLabel === 'ETF'
+    ? [...fundamentalGroups].sort((left, right) => Number(right.key === 'fund') - Number(left.key === 'fund'))
+    : fundamentalGroups
+  const visibleFundamentalGroups = orderedFundamentalGroups.slice(0, 6)
+
+  useEffect(() => {
+    setLens(initialLens)
+    setHeroTimeframe(LENS_CHART_TIMEFRAME[initialLens])
+    setSignalTimeframe(LENS_TECHNICAL_TIMEFRAME[initialLens])
+  }, [initialLens])
+
+  function updateLens(nextLens: InvestmentLensKey) {
+    setLens(nextLens)
+    setHeroTimeframe(LENS_CHART_TIMEFRAME[nextLens])
+    setSignalTimeframe(LENS_TECHNICAL_TIMEFRAME[nextLens])
+  }
+
+  const sectionTransition = reduceMotion
+    ? { duration: 0 }
+    : { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }
+
+  const timingSection = (
+    <article id="signals" className={styles.editorialChapter} aria-labelledby="timing-heading">
+      <div className={styles.chapterHeader}>
+        <div>
+          <p className={styles.chapterEyebrow}>Timing · {signalTimeframe}</p>
+          <h2 id="timing-heading" className={styles.chapterTitle}>Technicals</h2>
+        </div>
+        <SegmentedControl options={SIGNAL_TIMEFRAMES} value={signalTimeframe} onChange={setSignalTimeframe} ariaLabel="Technical signals timeframe" />
+      </div>
+      <div className={styles.timingEditorialGrid}>
+        <div className={styles.technicalRead}>
+          {hasTechnicalData ? (
+            <div className={styles.technicalGaugeGrid}>
+              {technicalGauges.map(({ key, label, gauge }) => (
+                <Gauge key={key} title={label} position={gauge.position} verdict={gauge.verdict} verdictAction={gauge.verdictAction} counts={gauge.counts} />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.technicalGaugeGrid}>
+              {technicalGauges.map(({ key, label }) => <div key={key} className={styles.gaugeDataPending}><span>{label}</span><strong>Data pending</strong></div>)}
+            </div>
+          )}
+          <Link href={`/stocks/${ticker}/indicators`} className={styles.inlineArrow}>Indicator details →</Link>
+        </div>
+        <div className={styles.modelContextEditorial}>
+          <p className={styles.chapterEyebrow}>Signal & events</p>
+          {latestSignal ? (
+            <>
+              <div className={styles.modelSignalHeader}><strong>{regimeCopy(latestSignal.direction)}</strong><span className={cn(styles.regimeBadge, regimeClass)}>{latestSignal.direction}</span></div>
+              <dl className={styles.modelSignalInline}>
+                <div><dt>Conviction</dt><dd>{formatConviction(latestSignal.conviction)}</dd></div>
+                <div><dt>Horizon</dt><dd>{latestSignal.horizon === null ? '—' : `${latestSignal.horizon} sessions`}</dd></div>
+                <div><dt>Signal date</dt><dd>{formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</dd></div>
+              </dl>
+            </>
+          ) : (
+            <div className={styles.inlineDataState}><span>Model signal</span><strong>Unavailable</strong></div>
+          )}
+          <div className={styles.contextLines}>
+            <div><span>Earnings</span><strong>{nextEarnings?.date ? formatDate(nextEarnings.date, { month: 'short', day: 'numeric' }) : 'Data pending'}</strong></div>
+            <div><span>Catalysts</span><strong>Data pending</strong></div>
           </div>
-          <div className={styles.heroBadgeRow}>
-            <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal?.direction ?? null)}</span>
-            {latestSignal?.signalDate ? (
-              <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
-            ) : null}
+          <div className={styles.contextualLinks}><Link href={`/stocks/${ticker}/signals`}>Signal history →</Link><Link href={`/stocks/${ticker}/events`}>Earnings & events →</Link></div>
+        </div>
+      </div>
+    </article>
+  )
+
+  const fundamentalsSection = (
+    <article id="fundamentals" className={styles.editorialChapter} aria-labelledby="fundamentals-heading">
+      <div className={styles.chapterHeader}>
+        <div>
+          <p className={styles.chapterEyebrow}>{assetBadgeLabel === 'ETF' ? 'Fund data' : 'Company data'}</p>
+          <h2 id="fundamentals-heading" className={styles.chapterTitle}>Fundamentals</h2>
+        </div>
+        <Link href={`/stocks/${ticker}/fundamentals`} className={styles.inlineArrow}>Full fundamentals →</Link>
+      </div>
+      {visibleFundamentalGroups.length > 0 ? (
+        <div className={styles.fundamentalEvidenceGrid}>
+          {visibleFundamentalGroups.map((group) => (
+            <section key={group.key}>
+              <h3>{group.label}</h3>
+              {group.rows.slice(0, 3).map((row) => <div key={row.label}><span>{row.label}</span><strong>{row.value}</strong></div>)}
+            </section>
+          ))}
+          {assetBadgeLabel === 'ETF' && holdings.length > 0 ? (
+            <section><h3>Holdings</h3><div><span>Covered holdings</span><strong>{holdings.length}</strong></div></section>
+          ) : null}
+          {assetBadgeLabel === 'ETF' && sectorWeights.length > 0 ? (
+            <section><h3>Exposures</h3><div><span>Covered sectors</span><strong>{sectorWeights.length}</strong></div></section>
+          ) : null}
+        </div>
+      ) : (
+        <div className={styles.inlineDataState}><span>Fundamentals</span><strong>Data pending</strong></div>
+      )}
+      <div className={styles.contextualLinks}>
+        <Link href={`/stocks/${ticker}/financials`}>Financial statements →</Link>
+        <Link href={`/stocks/${ticker}/valuation`}>Valuation history →</Link>
+        <Link href={`/stocks/${ticker}/ownership`}>Ownership & capital →</Link>
+      </div>
+    </article>
+  )
+
+  const relationshipsSection = (
+    <Suspense fallback={<div className={styles.relationshipEditorial}><div className={styles.inlineDataState}><span>Relationships</span><strong>Loading</strong></div></div>}>
+      <RelatedAssetsContent ticker={ticker} relatedAssetsPromise={relatedAssetsPromise} lens={lens} />
+    </Suspense>
+  )
+
+  return (
+    <div className={styles.page} data-lens={lens}>
+      <section className={styles.heroZone}>
+        <div className={styles.headerBand}>
+          <div className={styles.headerPrimary}>
+            <div className={styles.heroIdentity} data-ticker-identity="">
+              <h1 className={styles.name}>{displayName}</h1>
+              <span className={styles.tickerBadge}>{ticker}</span>
+              <span className={styles.exchangeBadge}>{assetBadgeLabel}</span>
+            </div>
+
+            <div className={styles.quoteControlRow}>
+              <div className={styles.priceBlock} data-ticker-price="">
+                <div className={styles.price}>{formatPrice(price, currency)}</div>
+                <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>
+                  {formatSignedDelta(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.heroBadgeRow}>
+              {latestSignal ? (
+                <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal.direction)}</span>
+              ) : null}
+              {latestSignal?.signalDate ? (
+                <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className={styles.controlRail}>
+            <div className={styles.lensDock}>
+              <PerspectiveDial initialValue={initialLens} onCommit={updateLens} />
+            </div>
             {watchlistSlot}
           </div>
         </div>
 
-        <div className={styles.priceBlock}>
-          <div className={styles.price}>{formatPrice(price, currency)}</div>
-          <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>
-            {formatSignedDelta(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
-          </div>
-        </div>
+        <div className={styles.tickerNavigation} data-ticker-navigation="">{navigationSlot}</div>
 
         <div className={styles.heroBody}>
           <div className={styles.heroChartColumn}>
+            <h2 className="sr-only">Quick Read</h2>
             <div className={styles.chartToolbar}>
               <SegmentedControl
                 options={HERO_TIMEFRAMES}
@@ -808,239 +837,46 @@ export default function StockOverviewClient({
                 onChange={setHeroTimeframe}
                 ariaLabel="Chart timeframe"
               />
-              <button type="button" className={styles.chartExpandButton} onClick={() => setChartModalOpen(true)} aria-label="Expand chart">
-                ⤢
-              </button>
             </div>
             <div className={styles.heroChartWrap}>
               <HeroPriceChart data={filteredChartData} state={historicalChartState} currency={currency} />
             </div>
+            <div className={styles.metricRibbon}>
+              {priorityMetrics.map((stat) => <div key={stat.label}><span>{stat.label}</span><strong>{stat.value}</strong></div>)}
+            </div>
           </div>
 
-          <aside className={styles.heroSidebar}>
-            {scorecardMessage ? (
-              <div className={cn(styles.heroScorecardState, scorecardStateClass)}>
-                {scorecardMessage}
+          <aside className={styles.snapshotEditorial} aria-label="Final grade" data-overview-grade="">
+            <Link href={`/stocks/${ticker}/methodology`} className={styles.snapshotGradeLink} aria-label="Open score breakdown">
+              <div className={styles.snapshotGrade}>
+                <GradeRing grade={scorecard.overall.grade || '–'} score={scorecard.overall.score} />
+                <strong>{scorecardMessage ?? scorecard.overall.label}</strong>
               </div>
-            ) : (
-              <div className={styles.scorecardCard}>
-                <div className={styles.scorecardTop}>
-                  <GradeRing grade={scorecard.overall.grade || '–'} score={scorecard.overall.score} />
-                  <div className={styles.scorecardMeta}>
-                    <span className={styles.scorecardGrade}>Grade {scorecard.overall.grade}</span>
-                    <span className={styles.scorecardScore}>
-                      Score {scorecard.overall.score ?? '—'} · {scorecard.overall.label}
-                    </span>
-                    {scorecard.buildReadiness === 'partial' ? (
-                      <span className={styles.scorecardPartialBadge}>Partial inputs</span>
-                    ) : null}
-                  </div>
-                </div>
-                <div className={styles.scorecardAxes}>
-                  {scorecard.axes.map((axis) => (
-                    <div key={axis.key} className={styles.scorecardAxis}>
-                      <span className={styles.scorecardAxisLabel}>{axis.label}</span>
-                      <span className={styles.scorecardAxisValue}>
-                        {axis.available && axis.score !== null ? axis.score : '—'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className={styles.scorecardPopover} aria-hidden="true">
-                  <ScorecardDisc scorecard={scorecard} compact size={230} />
-                  <div className={styles.popoverAxes}>
-                    {scorecard.axes.map((axis, index) => {
-                      const available = axis.available && axis.score !== null
-                      const fillStyle = {
-                        '--axis-fill': `${available ? Math.max(0, Math.min(100, axis.score ?? 0)) : 0}%`,
-                        '--axis-delay': `${120 + index * 70}ms`,
-                        '--axis-color': available ? scoreColor(axis.score ?? 0) : 'var(--color-neutral)',
-                      } as CSSProperties
-                      return (
-                        <div key={axis.key} className={styles.popoverAxisRow} style={fillStyle}>
-                          <span className={styles.popoverAxisLabel}>{axis.label}</span>
-                          <span className={styles.popoverAxisTrack}>
-                            <span className={styles.popoverAxisFill} />
-                          </span>
-                          <span className={styles.popoverAxisValue}>{available ? axis.score : '—'}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className={styles.keyStatsGrid}>
-              {keyStats.map((stat) => (
-                <div key={stat.label} className={styles.keyStatCell}>
-                  <span className={styles.keyStatLabel}>{stat.label}</span>
-                  <span className={styles.keyStatValue}>{stat.value}</span>
-                </div>
-              ))}
-            </div>
+            </Link>
           </aside>
+        </div>
+
+        <div className={styles.profileIntro}>
+          {about ? <p>{about}</p> : <span className={styles.previewNote}>{assetBadgeLabel === 'ETF' ? 'Fund profile' : 'Company profile'} · Data pending</span>}
+          {profileRows.length > 0 ? <dl>{profileRows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl> : null}
+          <Link href={`/stocks/${ticker}/profile`}>{assetBadgeLabel === 'ETF' ? 'Fund profile' : 'Company profile'} →</Link>
         </div>
       </section>
 
-      <section className={styles.zone3Grid}>
-        <article className={cn(styles.zone, styles.dashboardCard, styles.spanWide)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Regime history</div>
-              <div className={styles.cardHint}>Visible state changes over time</div>
-            </div>
-          </div>
-          <RegimeHistoryChart signals={regimeSignals} />
-        </article>
+      <div className={styles.editorialSequence}>
+        <motion.div layout="position" transition={sectionTransition} className={cn(styles.editorialSlot, styles.timingSlot)}>
+          {timingSection}
+        </motion.div>
+        <motion.div layout="position" transition={sectionTransition} className={cn(styles.editorialSlot, styles.fundamentalsSlot)}>
+          {fundamentalsSection}
+        </motion.div>
+        <motion.div layout="position" transition={sectionTransition} className={cn(styles.editorialSlot, styles.relationshipsSlot)}>
+          {relationshipsSection}
+        </motion.div>
+      </div>
 
-        <article className={cn(styles.openPanel, styles.spanNarrow)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Technical signals</div>
-            </div>
-            <SegmentedControl
-              options={SIGNAL_TIMEFRAMES}
-              value={signalTimeframe}
-              onChange={setSignalTimeframe}
-              ariaLabel="Technical signals timeframe"
-            />
-          </div>
-          <div className={styles.gaugeStack}>
-            <Gauge
-              title="Summary"
-              position={technicalSummary.gauges.summary.position}
-              verdict={technicalSummary.gauges.summary.verdict}
-              verdictAction={technicalSummary.gauges.summary.verdictAction}
-              counts={technicalSummary.gauges.summary.counts}
-            />
-            <Gauge
-              title="Oscillators"
-              position={technicalSummary.gauges.oscillators.position}
-              verdict={technicalSummary.gauges.oscillators.verdict}
-              verdictAction={technicalSummary.gauges.oscillators.verdictAction}
-              counts={technicalSummary.gauges.oscillators.counts}
-            />
-            <Gauge
-              title="Moving Averages"
-              position={technicalSummary.gauges.movingAverages.position}
-              verdict={technicalSummary.gauges.movingAverages.verdict}
-              verdictAction={technicalSummary.gauges.movingAverages.verdictAction}
-              counts={technicalSummary.gauges.movingAverages.counts}
-            />
-          </div>
-          <button type="button" className="btn-glass btn-glass-sm mt-2" onClick={() => setIndicatorsModalOpen(true)}>
-            Indicator details →
-          </button>
-        </article>
+      {process.env.NODE_ENV !== 'production' ? <aside className={styles.adPlacement} aria-label="Advertisement placement preview">Advertisement placement <span>Preview · zero runtime space without a campaign</span></aside> : null}
 
-        <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Peer web</div>
-              <div className={styles.cardHint}>Multi-layer relationship map with residual links first</div>
-            </div>
-          </div>
-          <Suspense fallback={<div className={styles.emptyState}>Loading relationship map…</div>}>
-            <PeerWebContent
-              ticker={ticker}
-              displayName={displayName}
-              relationship126Promise={relationship126Promise}
-              relationship252Promise={relationship252Promise}
-            />
-          </Suspense>
-        </article>
-
-        <article className={cn(styles.zone, styles.dashboardCard)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Fund details</div>
-              <div className={styles.cardHint}>Canonical backend fundamentals</div>
-            </div>
-          </div>
-          {fundDetails.length === 0 ? (
-            <div className={styles.emptyState}>No additional fund detail rows are available for this asset.</div>
-          ) : (
-            <div className={styles.fundDetails}>
-              {fundDetails.map((row) => (
-                <div key={row.label} className={styles.fundDetailRow}>
-                  <div className={styles.fundDetailLabel}>{row.label}</div>
-                  <div className={styles.fundDetailValue}>{row.value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className={styles.actionsRow}>
-            <Link href={`/stocks/${ticker}/financials/fund-profile`} className={styles.actionLink}>
-              Financial data
-            </Link>
-            <Link href={`/stocks/${ticker}/holdings-dividends`} className={styles.actionLink}>
-              Holdings / dividends
-            </Link>
-            <Link href={`/stocks/${ticker}/signal-history`} className={styles.actionLink}>
-              Full signal history
-            </Link>
-          </div>
-        </article>
-
-        <article className={cn(styles.zone, styles.dashboardCard)}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Related assets</div>
-              <div className={styles.cardHint}>Compact peer shortcuts</div>
-            </div>
-          </div>
-          <Suspense fallback={<div className={styles.emptyState}>Loading related assets…</div>}>
-            <RelatedAssetsContent relatedAssetsPromise={relatedAssetsPromise} />
-          </Suspense>
-        </article>
-
-        {showCopilot ? (
-          <article className={cn(styles.zone, styles.dashboardCard, styles.fullWidth)}>
-            <div className={styles.cardHeader}>
-              <div>
-                <div className={styles.cardTitle}>Research copilot</div>
-                <div className={styles.cardHint}>Prompt-driven AI follow-up</div>
-              </div>
-            </div>
-            <AiAnalystPanel
-              ticker={ticker}
-              signal={{
-                direction: latestSignal?.direction ?? 'neutral',
-                conviction: latestSignal?.conviction ?? null,
-                predictionHorizon: latestSignal?.horizon ?? null,
-                signalDate: latestSignal?.signalDate ?? new Date().toISOString(),
-              }}
-              news={[]}
-              isPro={copilot.isPro}
-              providerEnabled={copilot.providerEnabled}
-              upgradeHref={copilot.upgradeHref}
-              initialQuestion={copilot.initialQuestion}
-              initialPromptLabel={copilot.initialPromptLabel}
-              compact
-            />
-          </article>
-        ) : null}
-      </section>
-
-      {isChartModalOpen ? (
-        <Modal title="Expanded Price Chart" onClose={() => setChartModalOpen(false)}>
-          <HeroPriceChart
-            data={filteredChartData}
-            state={historicalChartState}
-            className={styles.expandedChart}
-            currency={currency}
-          />
-        </Modal>
-      ) : null}
-
-      {isIndicatorsModalOpen ? (
-        <Modal title={`Indicator details · ${signalTimeframe}`} onClose={() => setIndicatorsModalOpen(false)}>
-          <div className={styles.indicatorModalGrid}>
-            <SignalTable title="Oscillators" rows={technicalSummary.oscillatorRows} />
-            <SignalTable title="Moving Averages" rows={technicalSummary.movingAverageRows} />
-          </div>
-        </Modal>
-      ) : null}
     </div>
   )
 }

@@ -9,9 +9,8 @@ type StockTickerLayoutProps = {
 export default async function StockTickerLayout({ children, params }: StockTickerLayoutProps) {
   const resolvedParams = await params
   const ticker = resolvedParams.ticker.toUpperCase()
-
   return (
-    <div className="container-lg space-y-3 py-4 pb-14 md:space-y-4">
+    <div className="container-lg space-y-3 pt-2 pb-14 md:space-y-4 md:pt-0">
       <StockPageTheme />
       <StockTabsAuto ticker={ticker} />
       <div>{children}</div>

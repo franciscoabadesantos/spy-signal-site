@@ -91,48 +91,6 @@ function tickerEntries(baseUrl: string, row: TickerSignal): MetadataRoute.Sitema
       changeFrequency: 'daily',
       priority: 0.8,
     },
-    {
-      url: `${baseUrl}/stocks/${ticker}/signal-history`,
-      lastModified,
-      changeFrequency: 'daily',
-      priority: 0.75,
-    },
-    {
-      url: `${baseUrl}/stocks/${ticker}/performance`,
-      lastModified,
-      changeFrequency: 'daily',
-      priority: 0.75,
-    },
-    {
-      url: `${baseUrl}/stocks/${ticker}/holdings-dividends`,
-      lastModified,
-      changeFrequency: 'weekly',
-      priority: 0.65,
-    },
-    {
-      url: `${baseUrl}/stocks/${ticker}/financials/fund-profile`,
-      lastModified,
-      changeFrequency: 'weekly',
-      priority: 0.65,
-    },
-    {
-      url: `${baseUrl}/stocks/${ticker}/financials/portfolio`,
-      lastModified,
-      changeFrequency: 'weekly',
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/stocks/${ticker}/financials/distributions`,
-      lastModified,
-      changeFrequency: 'weekly',
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/stocks/${ticker}/financials/risk-metrics`,
-      lastModified,
-      changeFrequency: 'weekly',
-      priority: 0.6,
-    },
   ]
 }
 

@@ -77,7 +77,7 @@ function detectDarkMode(): boolean {
 }
 
 export function useChartPalette(): ChartPalette {
-  const [isDark, setIsDark] = useState(() => detectDarkMode())
+  const [isDark, setIsDark] = useState(false)
 
   useEffect(() => {
     const update = () => setIsDark(detectDarkMode())

@@ -4,29 +4,10 @@ import {
   normalizeOhlcPayload,
   STOCK_OHLC_CACHE_KEY,
   type OhlcLoadResult,
-  type OhlcPoint,
 } from './ohlc-data'
 import { getCachedTickerSummary } from './ticker-data'
 
-const YAHOO_API_BASE = 'https://query1.finance.yahoo.com'
-const YAHOO_HEADERS = {
-  Accept: 'application/json,text/plain,*/*',
-  'User-Agent':
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-}
-
-const RETRY_DELAYS_MS = [250, 600, 1200]
-const YAHOO_COOLDOWN_MS = 5 * 60 * 1000
-const QUOTE_FRESH_MS = 60 * 1000
-const HISTORICAL_FRESH_MS = 60 * 60 * 1000
 const FUNDAMENTALS_FRESH_MS = 6 * 60 * 60 * 1000
-
-let yahooHistoricalCooldownUntil = 0
-let marketCacheAvailable: boolean | null = null
-let missingSchemaLogged = false
-const writeSupportLogged = false
-
-const canWriteCache = false
 
 export interface StockQuote {
   ticker: string
@@ -76,52 +57,13 @@ export interface TickerFundamentals {
   risk: TickerFinancialRow[]
 }
 
-export interface TickerNewsItem {
-  id: string
-  title: string
-  publisher: string
-  url: string
-  publishedAt: string | null
-  imageUrl: string | null
-  sourceUrl: string | null
-}
-
-interface ChartApiResponse {
-  chart?: {
-    result?: Array<{
-      timestamp?: number[]
-      indicators?: {
-        quote?: Array<{
-          close?: Array<number | null>
-        }>
-      }
-    }>
-  }
-}
-
 interface FormattedValue {
   raw?: number | string | null
   fmt?: string | null
   longFmt?: string | null
 }
 
-interface MarketQuoteRow {
-  ticker: string
-  name: string | null
-  price: number | null
-  change: number | null
-  change_percent: number | null
-  market_cap_text: string | null
-  fetched_at: string
-}
-
-interface MarketPriceDailyRow {
-  date: string
-  close: number | string
-  fetched_at: string
-}
-
-type FundamentalsSource = 'backend' | 'fallback_quote'
+type FundamentalsSource = 'backend'
 
 export interface RefreshTickerResult {
   ticker: string
@@ -133,22 +75,8 @@ export interface RefreshTickerResult {
   errors: string[]
 }
 
-class YahooHttpError extends Error {
-  readonly status: number
-
-  constructor(status: number, statusText: string, details?: string) {
-    const suffix = details ? `: ${details}` : ''
-    super(`Yahoo request failed (${status} ${statusText})${suffix}`)
-    this.status = status
-  }
-}
-
 function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase()
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function readFormattedValue(value: unknown): FormattedValue | null {
@@ -188,16 +116,6 @@ function getDisplayValue(value: unknown): string | null {
   return null
 }
 
-function formatPercent(raw: number | null): string | null {
-  if (raw === null || !Number.isFinite(raw)) return null
-  return `${(raw * 100).toFixed(2)}%`
-}
-
-function formatUnixDate(rawSeconds: number | null): string | null {
-  if (rawSeconds === null || !Number.isFinite(rawSeconds)) return null
-  return new Date(rawSeconds * 1000).toISOString().slice(0, 10)
-}
-
 function formatUnixDateDisplay(rawSeconds: number | null): string | null {
   if (rawSeconds === null || !Number.isFinite(rawSeconds)) return null
   return new Date(rawSeconds * 1000).toLocaleDateString('en-US', {
@@ -230,242 +148,10 @@ function formatNumberCompact(raw: number | null): string | null {
   return raw.toLocaleString()
 }
 
-function parseMaybeNumber(value: string): number | null {
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) return null
-  return parsed
-}
-
 function getString(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return trimmed ? trimmed : null
-}
-
-function toTitleCase(value: string): string {
-  return value
-    .replace(/[_-]+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((token) => token[0]?.toUpperCase() + token.slice(1).toLowerCase())
-    .join(' ')
-}
-
-function formatPercentFromValue(value: unknown): string | null {
-  const fmt = getDisplayValue(value)
-  if (fmt && fmt.includes('%')) return fmt
-  const raw = getRawNumber(value)
-  return formatPercent(raw)
-}
-
-function formatNumberFixed(value: unknown, digits: number = 2): string | null {
-  const raw = getRawNumber(value)
-  if (raw === null) return null
-  return raw.toFixed(digits)
-}
-
-function formatRange(low: unknown, high: unknown): string | null {
-  const lowFmt = getDisplayValue(low) ?? formatNumberFixed(low)
-  const highFmt = getDisplayValue(high) ?? formatNumberFixed(high)
-  if (!lowFmt || !highFmt) return null
-  return `${lowFmt} - ${highFmt}`
-}
-
-function formatPayoutFrequency(value: unknown): string | null {
-  const direct = getString(value)
-  if (direct) return toTitleCase(direct)
-  const raw = getRawNumber(value)
-  if (raw === null) return null
-  const freq = Math.round(raw)
-  if (freq === 12) return 'Monthly'
-  if (freq === 4) return 'Quarterly'
-  if (freq === 2) return 'Semi-Annual'
-  if (freq === 1) return 'Annual'
-  return `${freq}x/year`
-}
-
-function isRetriableStatus(status: number): boolean {
-  return status === 408 || status >= 500
-}
-
-function isRateLimitedYahooError(error: unknown): boolean {
-  return error instanceof YahooHttpError && error.status === 429
-}
-
-function errorTreeMatches(
-  error: unknown,
-  predicate: (entry: { name?: string; message?: string; code?: string }) => boolean,
-  seen = new Set<unknown>()
-): boolean {
-  if (!error || (typeof error !== 'object' && typeof error !== 'function')) return false
-  if (seen.has(error)) return false
-  seen.add(error)
-
-  const entry = error as {
-    name?: unknown
-    message?: unknown
-    code?: unknown
-    cause?: unknown
-    errors?: unknown[]
-  }
-
-  if (
-    predicate({
-      name: typeof entry.name === 'string' ? entry.name : undefined,
-      message: typeof entry.message === 'string' ? entry.message : undefined,
-      code: typeof entry.code === 'string' ? entry.code : undefined,
-    })
-  ) {
-    return true
-  }
-
-  if (Array.isArray(entry.errors)) {
-    for (const nested of entry.errors) {
-      if (errorTreeMatches(nested, predicate, seen)) return true
-    }
-  }
-
-  return errorTreeMatches(entry.cause, predicate, seen)
-}
-
-function isTransientNetworkError(error: unknown): boolean {
-  return errorTreeMatches(error, ({ name, message, code }) => {
-    const normalizedCode = code?.toUpperCase()
-    const normalizedMessage = message?.toLowerCase() ?? ''
-    if (name === 'AbortError') return true
-    if (
-      normalizedCode === 'ETIMEDOUT' ||
-      normalizedCode === 'ECONNRESET' ||
-      normalizedCode === 'ECONNREFUSED' ||
-      normalizedCode === 'ENETUNREACH' ||
-      normalizedCode === 'EHOSTUNREACH' ||
-      normalizedCode === 'ENOTFOUND' ||
-      normalizedCode === 'EAI_AGAIN' ||
-      normalizedCode === 'UND_ERR_CONNECT_TIMEOUT'
-    ) {
-      return true
-    }
-    return (
-      normalizedMessage.includes('timed out') ||
-      normalizedMessage.includes('timeout') ||
-      normalizedMessage.includes('operation was aborted') ||
-      normalizedMessage.includes('fetch failed')
-    )
-  })
-}
-
-function isMissingTableError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const err = error as { code?: string; message?: string }
-  if (err.code === '42P01' || err.code === 'PGRST205') return true
-  if (typeof err.message !== 'string') return false
-  return err.message.includes('does not exist') || err.message.includes('Could not find the table')
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (typeof error === 'string') return error
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return 'unknown_error'
-  }
-}
-
-function markMissingSchema() {
-  marketCacheAvailable = false
-  if (!missingSchemaLogged) {
-    console.warn(
-      'Market cache tables are missing. Run the SQL migration in supabase/sql/market_cache.sql to enable Supabase-backed market caching.'
-    )
-    missingSchemaLogged = true
-  }
-}
-
-function shouldUseCache(): boolean {
-  return marketCacheAvailable !== false
-}
-
-function hasFreshTimestamp(fetchedAt: string, maxAgeMs: number): boolean {
-  const ts = Date.parse(fetchedAt)
-  if (!Number.isFinite(ts)) return false
-  return Date.now() - ts <= maxAgeMs
-}
-
-async function fetchYahooJson<T>(url: string): Promise<T> {
-  if (Date.now() < yahooHistoricalCooldownUntil) {
-    throw new YahooHttpError(
-      429,
-      'Too Many Requests',
-      'Yahoo historical cooldown active'
-    )
-  }
-
-  let lastError: unknown = new Error('Yahoo request failed')
-
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    try {
-      const res = await fetch(url, {
-        headers: YAHOO_HEADERS,
-        cache: 'no-store',
-      })
-
-      if (!res.ok) {
-        const snippet = (await res.text().catch(() => '')).slice(0, 160)
-        const error = new YahooHttpError(res.status, res.statusText, snippet || undefined)
-
-        if (res.status === 429) {
-          yahooHistoricalCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS
-          throw error
-        }
-
-        if (attempt < RETRY_DELAYS_MS.length && isRetriableStatus(res.status)) {
-          await sleep(RETRY_DELAYS_MS[attempt])
-          continue
-        }
-
-        throw error
-      }
-
-      return (await res.json()) as T
-    } catch (error) {
-      if (isRateLimitedYahooError(error)) throw error
-
-      lastError = error
-      if (attempt < RETRY_DELAYS_MS.length) {
-        await sleep(RETRY_DELAYS_MS[attempt])
-      }
-    }
-  }
-
-  throw lastError
-}
-
-async function fetchYahooHistorical(ticker: string, periodDays: number): Promise<PricePoint[]> {
-  const period2 = Math.floor(Date.now() / 1000)
-  const period1 = period2 - periodDays * 24 * 60 * 60
-  const url =
-    `${YAHOO_API_BASE}/v8/finance/chart/${encodeURIComponent(ticker)}` +
-    `?period1=${period1}&period2=${period2}&interval=1d&events=history&includePrePost=false`
-
-  const data = await fetchYahooJson<ChartApiResponse>(url)
-  const result = data.chart?.result?.[0]
-  const timestamps = result?.timestamp || []
-  const closes = result?.indicators?.quote?.[0]?.close || []
-  const points: PricePoint[] = []
-
-  for (let i = 0; i < timestamps.length; i++) {
-    const ts = timestamps[i]
-    const close = closes[i]
-    if (typeof ts !== 'number' || typeof close !== 'number' || Number.isNaN(close)) continue
-
-    points.push({
-      date: new Date(ts * 1000).toISOString().split('T')[0],
-      close: Number(close.toFixed(2)),
-    })
-  }
-
-  return points
 }
 
 function emptyFundamentals(): TickerFundamentals {
@@ -495,84 +181,6 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : []
 }
 
-function parseCachedFinancialRows(value: unknown): TickerFinancialRow[] {
-  return asArray(value)
-    .map((item): TickerFinancialRow | null => {
-      const row = asRecord(item)
-      if (!row) return null
-      const label = getString(row.label)
-      const rowValue = getString(row.value)
-      if (!label || !rowValue) return null
-      return { label, value: rowValue }
-    })
-    .filter((row): row is TickerFinancialRow => row !== null)
-}
-
-function parseCachedHoldings(value: unknown): TickerHolding[] {
-  return asArray(value)
-    .map((item): TickerHolding | null => {
-      const row = asRecord(item)
-      if (!row) return null
-      const symbol = getString(row.symbol)
-      const name = getString(row.name)
-      if (!symbol || !name) return null
-      const rawWeight =
-        typeof row.weightPercent === 'number'
-          ? row.weightPercent
-          : typeof row.weightPercent === 'string'
-            ? Number(row.weightPercent)
-            : null
-      return {
-        symbol,
-        name,
-        weightPercent: rawWeight !== null && Number.isFinite(rawWeight) ? rawWeight : null,
-      }
-    })
-    .filter((row): row is TickerHolding => row !== null)
-}
-
-function parseCachedSectorWeights(value: unknown): TickerSectorWeight[] {
-  return asArray(value)
-    .map((item): TickerSectorWeight | null => {
-      const row = asRecord(item)
-      if (!row) return null
-      const sector = getString(row.sector)
-      if (!sector) return null
-      const rawWeight =
-        typeof row.weightPercent === 'number'
-          ? row.weightPercent
-          : typeof row.weightPercent === 'string'
-            ? Number(row.weightPercent)
-            : null
-      return {
-        sector,
-        weightPercent: rawWeight !== null && Number.isFinite(rawWeight) ? rawWeight : null,
-      }
-    })
-    .filter((row): row is TickerSectorWeight => row !== null)
-}
-
-function parseCachedFundamentalsPayload(payload: unknown): TickerFundamentals | null {
-  const record = asRecord(payload)
-  if (!record) return null
-
-  return {
-    about: getString(record.about),
-    marketCap: getString(record.marketCap),
-    snapshot: parseCachedFinancialRows(record.snapshot),
-    holdings: parseCachedHoldings(record.holdings),
-    sectorWeights: parseCachedSectorWeights(record.sectorWeights),
-    dividendRate: getString(record.dividendRate),
-    dividendYield: getString(record.dividendYield),
-    exDividendDate: getString(record.exDividendDate),
-    payoutRatio: getString(record.payoutRatio),
-    profile: parseCachedFinancialRows(record.profile),
-    portfolio: parseCachedFinancialRows(record.portfolio),
-    distributions: parseCachedFinancialRows(record.distributions),
-    risk: parseCachedFinancialRows(record.risk),
-  }
-}
-
 function hasMeaningfulFundamentalsData(fundamentals: TickerFundamentals): boolean {
   if (fundamentals.about || fundamentals.marketCap) return true
   if (fundamentals.holdings.length > 0 || fundamentals.sectorWeights.length > 0) return true
@@ -593,39 +201,6 @@ function hasMeaningfulFundamentalsData(fundamentals: TickerFundamentals): boolea
     return true
   }
   return fundamentals.snapshot.some((row) => row.value !== '—')
-}
-
-function snapshotValue(fundamentals: TickerFundamentals, label: string): string | null {
-  const row = fundamentals.snapshot.find((item) => item.label === label)
-  return row?.value ?? null
-}
-
-function shouldTreatAsInsufficientFundamentals(
-  ticker: string,
-  fundamentals: TickerFundamentals
-): boolean {
-  if (!hasMeaningfulFundamentalsData(fundamentals)) return true
-
-  // Historical fallback rows can look "meaningful" (symbol/name present) while still being blank.
-  // For SPY, require at least one key snapshot metric or structured ETF breakdown rows.
-  if (ticker === 'SPY') {
-    const keySnapshotLabels = ['Assets', 'Expense Ratio', 'Dividend Yield', 'Inception Date', 'Holdings']
-    const hasKeySnapshot = keySnapshotLabels.some((label) => {
-      const value = snapshotValue(fundamentals, label)
-      return Boolean(value && value !== '—')
-    })
-
-    const hasStructuredBreakdown =
-      fundamentals.holdings.length > 0 ||
-      fundamentals.sectorWeights.length > 0 ||
-      fundamentals.portfolio.length > 0 ||
-      fundamentals.distributions.length > 0 ||
-      fundamentals.risk.length > 0
-
-    if (!hasKeySnapshot && !hasStructuredBreakdown) return true
-  }
-
-  return false
 }
 
 function buildPortfolioRows(
@@ -916,52 +491,6 @@ async function fetchBackendTickerProfile(ticker: string): Promise<unknown | null
   }
 }
 
-async function readCachedQuote(
-  _ticker: string,
-  _maxAgeMs?: number
-): Promise<StockQuote | null> {
-  return null
-}
-
-async function readCachedHistorical(
-  _ticker: string,
-  _periodDays: number,
-  _maxAgeMs?: number
-): Promise<PricePoint[]> {
-  return []
-}
-
-async function readCachedFundamentals(
-  _ticker: string,
-  _maxAgeMs?: number
-): Promise<TickerFundamentals | null> {
-  return null
-}
-
-async function writeQuoteCache(
-  _ticker: string,
-  _quote: StockQuote,
-  _source: 'backend'
-): Promise<void> {
-  return
-}
-
-async function writeHistoricalCache(
-  _ticker: string,
-  _points: PricePoint[],
-  _source: 'yahoo'
-): Promise<void> {
-  return
-}
-
-async function writeFundamentalsCache(
-  _ticker: string,
-  _fundamentals: TickerFundamentals,
-  _source: FundamentalsSource
-): Promise<void> {
-  return
-}
-
 async function loadQuote(tickerRaw: string): Promise<StockQuote | null> {
   const ticker = normalizeTicker(tickerRaw)
   const summary = await getCachedTickerSummary(ticker)
@@ -1038,7 +567,7 @@ export async function refreshTickerMarketData(
 ): Promise<RefreshTickerResult> {
   const ticker = normalizeTicker(tickerRaw)
   const quote = await loadQuote(ticker)
-  const historical = await loadHistorical(ticker, 120)
+  const historical = await loadHistorical(ticker, Math.max(1, _periodDays))
   const fundamentals = await loadTickerFundamentals(ticker)
   return {
     ticker,
@@ -1079,10 +608,3 @@ export const getTickerFundamentals = unstable_cache(
   ['stock-fundamentals-cache-v6'],
   { revalidate: 21600 }
 )
-
-export async function getTickerNews(
-  _ticker: string,
-  _limit: number = 5
-): Promise<TickerNewsItem[]> {
-  return []
-}

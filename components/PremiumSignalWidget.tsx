@@ -177,7 +177,7 @@ export default function PremiumSignalWidget({
         </div>
       </div>
 
-      <Link href={`/stocks/${encodeURIComponent(ticker)}/performance`} className={buttonClass({ variant: 'secondary' })}>
+      <Link href={`/stocks/${encodeURIComponent(ticker)}#signals`} className={buttonClass({ variant: 'secondary' })}>
         View Backtest Performance
       </Link>
 

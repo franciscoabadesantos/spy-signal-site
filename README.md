@@ -55,12 +55,9 @@ Use this checklist when you're ready to move from local/dev to production:
    - `SIGNAL_ALERT_CRON_TOKEN`
    - `RESEND_API_KEY`
    - `SIGNAL_ALERT_FROM_EMAIL`
-2. Run SQL migrations in production Supabase:
-   - `supabase/sql/market_cache.sql`
-   - `supabase/sql/market_signals.sql`
-   - `supabase/sql/user_watchlists.sql`
-   - `supabase/sql/signal_alert_dispatches.sql`
-   - `supabase/sql/analytics_events.sql`
+2. Confirm that the separately operated `finance-backend` and data-ops deployment
+   has applied the required database migrations. The SQL under `supabase/sql/`
+   is not loaded or executed by this site at runtime.
 3. Deploy to Vercel (`vercel --prod` or your main-branch auto-deploy flow).
 4. Verify cron config from `vercel.json` is active in production.
 5. Run a cron smoke test:
@@ -70,7 +67,14 @@ Use this checklist when you're ready to move from local/dev to production:
 
 ## Backend Data Contract
 
-`spy-signal-site` no longer talks to Supabase directly at runtime. The site now fetches screener, ticker summary, watchlist, alerts, AI research, and analytics data through `finance-backend`.
+The frontoffice boundary is explicit: the frontend presents and organizes data;
+`finance-backend` is the only product-data source; Clerk owns authentication and
+identity; Stripe owns billing and plans. Supabase may still exist behind the
+separately operated backend/data-ops workflows, but this site has no Supabase
+client, credentials, direct queries, or source fallback at runtime.
+
+The site fetches screener, ticker summary, watchlist, alerts, AI research, and
+analytics data through `finance-backend`.
 
 See `DATA_SOURCE_POLICY.md` before changing ticker autocomplete, stock-page data loading, or backend proxy routes. Ticker autocomplete is index-only: it loads `/api/tickers/index` and filters locally. The old Yahoo-backed `/api/search` autocomplete and its enrichment path were removed and must not be reintroduced.
 
@@ -188,16 +192,18 @@ Dry-run parser check:
 python scripts/upsert_market_signals.py --csv data/signals.csv --dry-run
 ```
 
-## AI Analyst Panel (Perplexity)
+## AI Analyst Integration (Perplexity)
 
-Ticker pages now include a streaming AI analyst panel that summarizes likely catalysts behind the latest model signal.
+The existing AI route remains available for supported product surfaces. The
+ticker page does not render a disabled or simulated copilot while the contextual
+experience is being revisited.
 
 ### Setup
 
 1. Add env vars:
    - `PERPLEXITY_API_KEY` (required)
    - `PERPLEXITY_MODEL` (optional, defaults to `sonar-pro`)
-2. Open any ticker page and click **Generate Analysis**.
+2. Open the supported AI surface and use its analysis action.
 
 The app sends ticker + latest signal + recent headlines to `POST /api/ai-analyst`, which proxies Perplexity streaming output back to the client.
 
@@ -219,12 +225,9 @@ The site now forwards analytics events to `finance-backend`, which writes the un
 - `referrer`
 - `occurred_at`
 
-Quick smoke test (requires running app):
-
-```bash
-set -a; source .env.local; set +a
-node scripts/analytics_e2e_smoke.mjs
-```
+Runtime analytics smoke tests should exercise the local analytics route and its
+`finance-backend` proxy. The removed Supabase client smoke script is not part of
+the frontoffice workflow.
 
 ## Stripe Pro Plan Activation
 

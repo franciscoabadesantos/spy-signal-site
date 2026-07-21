@@ -1,0 +1,340 @@
+.stage {
+  display: flex;
+  width: min(100%, 430px);
+  min-height: 44px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.instrument {
+  position: relative;
+  display: grid;
+  grid-template-columns: 188px 0fr;
+  width: 188px;
+  min-height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  isolation: isolate;
+  color: var(--content-primary);
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.035),
+    var(--glass-shadow);
+  backdrop-filter: blur(30px) saturate(1.55);
+  -webkit-backdrop-filter: blur(30px) saturate(1.55);
+  transition:
+    width var(--motion-slow) var(--motion-ease-soft),
+    grid-template-columns var(--motion-slow) var(--motion-ease-soft),
+    border-color var(--motion-normal) var(--motion-ease-standard),
+    box-shadow var(--motion-normal) var(--motion-ease-standard);
+}
+
+.instrument[data-expanded='true'] {
+  grid-template-columns: 92px minmax(0, 1fr);
+  width: min(100%, 430px);
+  border-color: rgba(151, 179, 216, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.17),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.045),
+    0 18px 54px rgba(0, 0, 0, 0.3);
+}
+
+.vessel {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background:
+    radial-gradient(circle at 48% -40%, rgba(255, 255, 255, 0.16), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+    var(--glass-bg);
+}
+
+.vessel::after {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(108deg, transparent 12%, rgba(255, 255, 255, 0.035) 49%, transparent 74%);
+  content: '';
+  pointer-events: none;
+}
+
+.readout {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.instrument[data-expanded='true'] .readout::after {
+  position: absolute;
+  top: 9px;
+  right: 0;
+  bottom: 9px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.09);
+  content: '';
+}
+
+.readout:focus-visible {
+  outline: 2px solid var(--brand-spark-soft);
+  outline-offset: -3px;
+}
+
+.eyebrow {
+  color: var(--content-muted);
+  font-size: 10px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.readoutValue {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--content-primary);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: nowrap;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--motion-fast) var(--motion-ease-standard),
+    transform var(--motion-fast) var(--motion-ease-standard);
+}
+
+.readoutValue > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.instrument[data-expanded='true'] .readoutValue {
+  opacity: 0;
+  transform: translateY(-3px);
+}
+
+.dialShell {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  contain: paint;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--motion-ease-standard);
+}
+
+.instrument[data-expanded='true'] .dialShell {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 40ms;
+}
+
+.dialShell::before,
+.dialShell::after {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  width: 11%;
+  content: '';
+  pointer-events: none;
+}
+
+.dialShell::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(10, 16, 29, 0.92), transparent);
+}
+
+.dialShell::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(10, 16, 29, 0.92), transparent);
+}
+
+.centerLens {
+  position: absolute;
+  z-index: 3;
+  top: 4px;
+  bottom: 4px;
+  left: 50%;
+  width: 34%;
+  border: 1px solid rgba(141, 183, 218, 0.2);
+  border-radius: var(--radius-pill);
+  background:
+    radial-gradient(circle at 50% -20%, rgba(255, 255, 255, 0.14), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(12, 151, 136, 0.025));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    0 0 24px rgba(12, 151, 136, 0.055);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.centerLens::after {
+  position: absolute;
+  right: 24%;
+  bottom: 4px;
+  left: 24%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brand-spark-soft), transparent);
+  opacity: 0.72;
+  content: '';
+}
+
+.viewport {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-width: 0;
+  height: 44px;
+  align-items: center;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  touch-action: pan-x pan-y pinch-zoom;
+  cursor: grab;
+}
+
+.viewport:active {
+  cursor: grabbing;
+}
+
+.viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.edgeSpace {
+  flex: 0 0 33%;
+  height: 1px;
+}
+
+.option {
+  position: relative;
+  display: flex;
+  flex: 0 0 34%;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding-inline: 6px;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  color: var(--content-secondary);
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  opacity: 0.34;
+  cursor: pointer;
+  transition:
+    color var(--motion-normal) var(--motion-ease-standard),
+    opacity var(--motion-normal) var(--motion-ease-standard);
+}
+
+.optionLabel {
+  transform: scale(0.92);
+  transition: transform var(--motion-normal) var(--motion-ease-standard);
+}
+
+.option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.option[data-distance='1'] {
+  opacity: 0.68;
+}
+
+.option[data-distance='1'] .optionLabel {
+  transform: scale(0.96);
+}
+
+.option[data-preview-active='true'] {
+  color: var(--content-primary);
+  font-weight: 720;
+  opacity: 1;
+}
+
+.option[data-preview-active='true'] .optionLabel {
+  transform: scale(1);
+}
+
+.option:has(input:focus-visible) {
+  border-radius: var(--radius-pill);
+  outline: 2px solid var(--brand-spark-soft);
+  outline-offset: -4px;
+}
+
+.activeTrace {
+  position: absolute;
+  right: 30%;
+  bottom: 7px;
+  left: 30%;
+  height: 1px;
+  background: var(--brand-spark-soft);
+  box-shadow: 0 0 8px rgba(18, 181, 166, 0.28);
+  opacity: 0.8;
+}
+
+@media (max-width: 640px) {
+  .stage {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .instrument[data-expanded='true'] {
+    grid-template-columns: 82px minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .instrument {
+    grid-template-columns: 180px 0fr;
+    width: 180px;
+  }
+
+  .readout {
+    padding-inline: 12px;
+  }
+
+  .option {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .instrument,
+  .dialShell,
+  .option,
+  .optionLabel,
+  .readoutValue {
+    transition: none;
+  }
+
+  .viewport {
+    scroll-behavior: auto;
+  }
+}

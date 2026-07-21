@@ -5,6 +5,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
 import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
 import WatchlistButton from '@/components/WatchlistButton'
+import StockTabs from '@/components/page/StockTabs'
 import StockOverviewClient from '@/components/stocks/StockOverviewClient'
 import { getViewerUserId } from '@/lib/auth'
 import {
@@ -13,11 +14,13 @@ import {
   type BackendRequestLogContext,
 } from '@/lib/backend-request-log'
 import { BackendDataError } from '@/lib/backend'
-import { getStripeUpgradeUrl, getViewerAccess } from '@/lib/billing'
 import { currencyForTicker, formatCompactMoney, formatMoney } from '@/lib/currency'
 import {
   getOhlcData,
   getStockQuote,
+  getTickerFundamentals,
+  type TickerFinancialRow,
+  type TickerFundamentals,
 } from '@/lib/finance'
 import {
   ohlcBackendFailureResult,
@@ -36,18 +39,13 @@ import {
 import { scorecardFromTickerSummary } from '@/lib/ticker-page-scorecard'
 import { canonicalTickerStats } from '@/lib/ticker-page-stats'
 import { isTickerInWatchlist } from '@/lib/watchlist'
+import { parseInvestmentLens } from '@/lib/investment-lens'
 
 export const dynamic = 'force-dynamic'
 
 function singleSearchParam(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null
   return typeof value === 'string' ? value : null
-}
-
-function sanitizeAiQuestion(value: string | null): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed.slice(0, 240) : null
 }
 
 function sanitizeScreenerSignal(value: string | null): string | null {
@@ -97,15 +95,6 @@ function parseCompactCurrencyNumber(value: string | null): number | null {
   return numeric
 }
 
-function findLatestFundamentalValue(
-  rows: LatestFundamentalsRow[],
-  matcher: (metric: string) => boolean
-): string | null {
-  const row = rows.find((item) => matcher(`${item.metric.toLowerCase()} ${item.metricLabel.toLowerCase()}`))
-  if (!row) return null
-  return row.valueDisplay ?? (row.valueNumber !== null ? row.valueNumber.toLocaleString() : null)
-}
-
 function looksLikeEtfAsset({
   ticker,
   displayName,
@@ -127,24 +116,114 @@ function looksLikeEtfAsset({
   }
 
   return latestFundamentals.some((row) =>
-    /(expense|holdings|assets|inception|turnover|distribution|fund family|portfolio p\/e)/i.test(
+    /(expense ratio|number of holdings|top holdings|inception date|turnover rate|fund family|fund category|portfolio p\/e)/i.test(
       `${row.metricLabel} ${row.metric}`
     )
   )
 }
 
-function normalizeFundDetailLabel(label: string): string {
-  return label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+type FundamentalGroup = {
+  key: string
+  label: string
+  rows: Array<{ label: string; value: string }>
 }
 
-function dedupeFundRows(rows: Array<{ label: string; value: string }>): Array<{ label: string; value: string }> {
+function normalizeFundamentalLabel(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+function formatFundamentalValue(label: string, rawValue: string | number, currency: string): string {
+  const text = String(rawValue).trim()
+  if (!text || text === '—') return '—'
+
+  const normalizedLabel = normalizeFundamentalLabel(label)
+  if (/date|inception/.test(normalizedLabel)) {
+    const parsedDate = Date.parse(text)
+    if (Number.isFinite(parsedDate)) {
+      return new Date(parsedDate).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    }
+  }
+
+  if (!/^-?\d[\d,]*(?:\.\d+)?$/.test(text)) return text
+  const numeric = Number.parseFloat(text.replace(/,/g, ''))
+  if (!Number.isFinite(numeric)) return text
+
+  const isPercent = /(yield|margin|growth|return on|\broe\b|\broa\b|percent|pct|payout)/.test(normalizedLabel)
+  if (isPercent) {
+    const scaled = Math.abs(numeric) <= 1.5 ? numeric * 100 : numeric
+    return `${scaled.toFixed(2)}%`
+  }
+
+  const isCurrency = /(market cap|revenue|sales|ebitda|cash|debt|assets|equity|income|flow|fcf|enterprise value|liabilit|profit)/.test(normalizedLabel)
+  if (isCurrency && Math.abs(numeric) >= 1_000) return formatCompactMoney(numeric, currency)
+
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(numeric)
+}
+
+function usableFinancialRows(
+  latestRows: LatestFundamentalsRow[],
+  fundamentals: TickerFundamentals | null,
+  currency: string
+): TickerFinancialRow[] {
+  const rows: TickerFinancialRow[] = [
+    ...latestRows.map((row) => ({
+      label: row.metricLabel,
+      value: formatFundamentalValue(
+        row.metricLabel,
+        row.valueNumber ?? row.valueDisplay ?? '—',
+        currency
+      ),
+    })),
+    ...(fundamentals?.snapshot ?? []),
+    ...(fundamentals?.profile ?? []),
+    ...(fundamentals?.portfolio ?? []),
+    ...(fundamentals?.distributions ?? []),
+    ...(fundamentals?.risk ?? []),
+  ]
+  if (fundamentals?.dividendYield) rows.push({ label: 'Dividend yield', value: fundamentals.dividendYield })
+  if (fundamentals?.dividendRate) rows.push({ label: 'Dividend rate', value: fundamentals.dividendRate })
+  if (fundamentals?.payoutRatio) rows.push({ label: 'Payout ratio', value: fundamentals.payoutRatio })
+  if (fundamentals?.exDividendDate) rows.push({ label: 'Ex-dividend date', value: fundamentals.exDividendDate })
+
   const seen = new Set<string>()
   return rows.filter((row) => {
-    const key = normalizeFundDetailLabel(row.label)
-    if (!key || seen.has(key)) return false
+    const key = normalizeFundamentalLabel(row.label)
+    if (!key || seen.has(key) || !row.value || row.value === '—') return false
+    if (/^(symbol|ticker|name|company name)$/.test(key)) return false
     seen.add(key)
-    return row.value !== '—'
-  })
+    return true
+  }).map((row) => ({
+    label: row.label,
+    value: formatFundamentalValue(row.label, row.value, currency),
+  }))
+}
+
+function buildFundamentalGroups(
+  latestRows: LatestFundamentalsRow[],
+  fundamentals: TickerFundamentals | null,
+  currency: string
+): FundamentalGroup[] {
+  const rows = usableFinancialRows(latestRows, fundamentals, currency)
+  const definitions: Array<{ key: string; label: string; matcher: RegExp }> = [
+    { key: 'valuation', label: 'Valuation', matcher: /(market cap|enterprise|valuation|price.*book|price.*sales|\bp\/?e\b|trailing pe|forward pe|multiple)/i },
+    { key: 'growth-income', label: 'Growth and income', matcher: /(growth|revenue|sales|earnings|\beps\b|net income|cash flow)/i },
+    { key: 'profitability', label: 'Profitability', matcher: /(margin|profit|ebitda|return on|\broe\b|\broa\b)/i },
+    { key: 'balance-sheet', label: 'Balance sheet', matcher: /(cash|debt|asset|liabilit|equity|liquidity|current ratio|quick ratio)/i },
+    { key: 'dividends', label: 'Dividends', matcher: /(dividend|distribution|yield|payout|ex date)/i },
+    { key: 'fund', label: 'Fund information', matcher: /(expense|turnover|inception|fund family|net assets|category)/i },
+  ]
+
+  return definitions
+    .map((definition) => ({
+      key: definition.key,
+      label: definition.label,
+      rows: rows.filter((row) => definition.matcher.test(normalizeFundamentalLabel(row.label))).slice(0, 10),
+    }))
+    .filter((group) => group.rows.length > 0)
 }
 
 function emptyRelationships(ticker: string, window: number): TickerRelationships {
@@ -281,7 +360,7 @@ export async function generateMetadata({
 
   return {
     title: `${ticker} Markets Signal, Research & Overview - Longbrunch`,
-    description: `Real-time price, algorithmic trading signals, and predictive data for ${name} (${ticker}). View conviction scores, performance, and key statistics.`,
+    description: `Explore price history, available signals, scorecard context, fundamentals, and asset relationships for ${name} (${ticker}).`,
   }
 }
 
@@ -291,11 +370,10 @@ export default async function TickerPage({
 }: {
   params: Promise<{ ticker: string }>
   searchParams: Promise<{
-    aiQuestion?: string | string[]
-    aiPromptLabel?: string | string[]
     from?: string | string[]
     screenerSignal?: string | string[]
     modelName?: string | string[]
+    lens?: string | string[]
   }>
 }) {
   const resolvedParams = await params
@@ -310,22 +388,16 @@ export default async function TickerPage({
   logStockPageEvent('info', 'render start', requestLogContext)
 
   const currency = currencyForTicker(ticker)
-  const initialAiQuestion = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiQuestion))
-  const initialAiPromptLabel = sanitizeAiQuestion(singleSearchParam(resolvedSearchParams.aiPromptLabel))
   const sourceContext = singleSearchParam(resolvedSearchParams.from)
   const screenerSignal = sanitizeScreenerSignal(singleSearchParam(resolvedSearchParams.screenerSignal))
   const modelName = sanitizeModelName(singleSearchParam(resolvedSearchParams.modelName))
   const stockEntrySource = stockEntrySourceFromContext(sourceContext)
+  const initialLens = parseInvestmentLens(singleSearchParam(resolvedSearchParams.lens))
   const modelTag = sourceContext === 'model' && modelName ? `From Model: ${modelName}` : null
   const screenerTag =
     sourceContext === 'screener' && screenerSignal ? `From Signals: ${screenerSignal}` : null
 
-  const viewerAccess = await getViewerAccess()
-  const viewerUserId = viewerAccess.userId ?? (await getViewerUserId())
-  const aiAnalystEnabled = Boolean(process.env.PERPLEXITY_API_KEY?.trim())
-  const upgradeHref = viewerAccess.isSignedIn
-    ? getStripeUpgradeUrl(viewerAccess.userId)
-    : '/sign-up?redirect_url=/stocks/' + ticker
+  const viewerUserId = await getViewerUserId()
 
   let tickerSummary: Awaited<ReturnType<typeof getTickerPageSummary>>
 
@@ -340,16 +412,19 @@ export default async function TickerPage({
       timeout: details.timeout,
     })
     return (
-      <EmptyState
-        title="Ticker data is temporarily unavailable"
-        description="The frontend could not load the canonical summary from finance-backend for this ticker."
-        action={<RetryButton>Retry</RetryButton>}
-      />
+      <div className="space-y-4">
+        <StockTabs ticker={ticker} active="overview" />
+        <EmptyState
+          title="Ticker data is temporarily unavailable"
+          description="The frontend could not load the canonical summary from finance-backend for this ticker."
+          action={<RetryButton>Retry</RetryButton>}
+        />
+      </div>
     )
   }
 
   const scorecard = scorecardFromTickerSummary(tickerSummary)
-  const [ohlcResult, recentSignals, latestScreenerRows] = await runWithBackendRequestLogContext(
+  const [ohlcResult, recentSignals, latestScreenerRows, fundamentals] = await runWithBackendRequestLogContext(
     requestLogContext,
     () =>
       Promise.all([
@@ -365,6 +440,12 @@ export default async function TickerPage({
           `/screener/signals?tickers=${ticker}`,
           [],
           () => getCachedLatestScreenerRow(ticker)
+        ),
+        loadOptionalStockDataset<TickerFundamentals | null>(
+          requestLogContext,
+          `/tickers/${ticker}/profile`,
+          null,
+          () => getTickerFundamentals(ticker)
         ),
       ])
   )
@@ -387,18 +468,6 @@ export default async function TickerPage({
         ? 'empty'
         : 'error'
 
-  const relationship126Promise = runWithBackendRequestLogContext(requestLogContext, () =>
-    getTickerRelationships(ticker, { window: 126, topK: 50 }).catch((error) => {
-      const details = backendErrorDetails(error)
-      logStockPageEvent('error', 'relationship dataset unavailable', requestLogContext, {
-        endpoint: `/relationships/${ticker}?window=126`,
-        error: details.message,
-        aborted: details.aborted,
-        timeout: details.timeout,
-      })
-      return emptyRelationships(ticker, 126)
-    })
-  )
   const relationship252Promise = runWithBackendRequestLogContext(requestLogContext, () =>
     getTickerRelationships(ticker, { window: 252, topK: 50 }).catch((error) => {
       const details = backendErrorDetails(error)
@@ -412,36 +481,29 @@ export default async function TickerPage({
     })
   )
 
-  const relatedAssetsPromise: Promise<
-    Array<{ symbol: string; name: string | null; price: number | null; changePercent: number | null }>
-  > = runWithBackendRequestLogContext(requestLogContext, () => relationship252Promise
-    .then((relationships) => {
+  const relationships252 = await relationship252Promise
+  const relatedAssetsPromise = runWithBackendRequestLogContext(requestLogContext, () => {
+      const relationships = relationships252
       const candidates = [
-        ...relationships.residualCoMovers,
-        ...relationships.leadLag.followers,
-        ...relationships.leadLag.leaders,
-        ...relationships.marketCoMovers,
-        ...relationships.probableSpurious,
+        ...relationships.residualCoMovers.map((neighbor) => ({ neighbor, relation: 'Moves together' })),
+        ...relationships.themePeers.map((neighbor) => ({ neighbor, relation: 'Same theme' })),
+        ...relationships.leadLag.followers.map((neighbor) => ({ neighbor, relation: 'Follows' })),
+        ...relationships.leadLag.leaders.map((neighbor) => ({ neighbor, relation: 'Leads' })),
+        ...relationships.marketCoMovers.map((neighbor) => ({ neighbor, relation: 'Market-driven' })),
       ]
-      return candidates
-        .sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength) || a.symbol.localeCompare(b.symbol))
-        .map((neighbor) => neighbor.symbol)
-        .filter((symbol, index, array) => symbol !== ticker && array.indexOf(symbol) === index)
-        .slice(0, 8)
+        .sort((a, b) => Math.abs(b.neighbor.strength) - Math.abs(a.neighbor.strength) || a.neighbor.symbol.localeCompare(b.neighbor.symbol))
+        .filter((item, index, array) => item.neighbor.symbol !== ticker && array.findIndex((candidate) => candidate.neighbor.symbol === item.neighbor.symbol) === index)
+        .slice(0, 6)
+      return Promise.all(candidates.map((item) => getStockQuote(item.neighbor.symbol).catch(() => null).then((quote) => ({
+        symbol: item.neighbor.symbol,
+        name: quote?.name ?? null,
+        price: quote?.price ?? null,
+        changePercent: quote?.changePercent ?? null,
+        relation: item.relation,
+        strength: item.neighbor.strength,
+        confidence: item.neighbor.confidence,
+      }))))
     })
-    .then((relatedTickerSymbols) =>
-      Promise.all(relatedTickerSymbols.map((symbol) => getStockQuote(symbol).catch(() => null))).then((quotes) =>
-        relatedTickerSymbols
-        .map((symbol, index) => ({ symbol, quote: quotes[index] ?? null }))
-        .filter((item) => item.quote !== null)
-        .map((item) => ({
-          symbol: item.symbol,
-          name: item.quote?.name ?? null,
-          price: item.quote?.price ?? null,
-          changePercent: item.quote?.changePercent ?? null,
-        }))
-      )
-    )
     .catch((error) => {
       const details = backendErrorDetails(error)
       logStockPageEvent('error', 'related assets unavailable', requestLogContext, {
@@ -451,7 +513,7 @@ export default async function TickerPage({
         timeout: details.timeout,
       })
       return []
-    }))
+    })
 
   const marketQuote = tickerSummary.quote
   const marketStats = tickerSummary.marketStats
@@ -499,17 +561,19 @@ export default async function TickerPage({
     marketCapNumeric !== null
       ? formatCompactMoney(marketCapNumeric, currency)
       : canonicalStats.marketCapText ?? '—'
-  const previousClose =
-    marketQuote?.price !== null &&
-    marketQuote?.price !== undefined &&
-    marketQuote?.change !== null &&
-    marketQuote?.change !== undefined
-      ? marketQuote.price - marketQuote.change
-      : null
-
   const trailingPe = canonicalStats.trailingPe !== null ? canonicalStats.trailingPe.toFixed(2) : '—'
-  const dividendYield =
-    findLatestFundamentalValue(latestFundamentals, (metric) => metric.includes('yield')) ?? '—'
+  const dividendYieldRow = latestFundamentals.find((item) =>
+    `${item.metric.toLowerCase()} ${item.metricLabel.toLowerCase()}`.includes('yield')
+  )
+  const dividendYield = (() => {
+    if (dividendYieldRow?.valueNumber !== null && dividendYieldRow?.valueNumber !== undefined) {
+      const percentage = Math.abs(dividendYieldRow.valueNumber) <= 1
+        ? dividendYieldRow.valueNumber * 100
+        : dividendYieldRow.valueNumber
+      return `${percentage.toFixed(Math.abs(percentage) < 10 ? 2 : 1).replace(/\.0+$/, '')}%`
+    }
+    return dividendYieldRow?.valueDisplay ?? '—'
+  })()
   const volumeValue = canonicalStats.volume !== null ? Math.round(canonicalStats.volume).toLocaleString() : '—'
   const latestRevenueValue =
     fundamentalsSummary?.latestRevenue !== null && fundamentalsSummary?.latestRevenue !== undefined
@@ -522,34 +586,16 @@ export default async function TickerPage({
 
   const keyStats = [
     { label: 'Market Cap', value: marketCapValue },
-    { label: 'Prev. Close', value: formatMoney(previousClose, currency) },
     { label: 'P/E', value: trailingPe },
     { label: 'Revenue', value: latestRevenueValue },
     { label: 'EPS', value: latestEpsValue },
     { label: 'Dividend Yield', value: dividendYield },
+    { label: 'Volume', value: volumeValue },
     { label: '52W High', value: formatMoney(marketStats?.week52High ?? null, currency) },
     { label: '52W Low', value: formatMoney(marketStats?.week52Low ?? null, currency) },
-    { label: 'Volume', value: volumeValue },
-  ]
-
-  const duplicateLabels = new Set(
-    keyStats.map((item) => normalizeFundDetailLabel(item.label)).concat([
-      '52 week high',
-      '52 week low',
-      'week 52 high',
-      'week 52 low',
-      'trailing pe',
-    ])
-  )
-
-  const fundDetails = dedupeFundRows(
-    latestFundamentals
-      .map((row) => ({
-        label: row.metricLabel,
-        value: row.valueDisplay ?? (row.valueNumber !== null ? row.valueNumber.toLocaleString() : '—'),
-      }))
-      .filter((row) => !duplicateLabels.has(normalizeFundDetailLabel(row.label)))
-  ).slice(0, 18)
+  ].filter((stat) => stat.value !== '—').slice(0, 6)
+  const fundamentalGroups = buildFundamentalGroups(latestFundamentals, fundamentals, currency)
+  const holdings = isEtf ? fundamentals?.holdings ?? [] : []
 
   return (
     <div className="space-y-4 md:space-y-5">
@@ -572,6 +618,7 @@ export default async function TickerPage({
 
       <StockOverviewClient
         ticker={ticker}
+        initialLens={initialLens}
         currency={currency}
         displayName={displayName}
         assetBadgeLabel={isEtf ? 'ETF' : 'Equity'}
@@ -583,31 +630,36 @@ export default async function TickerPage({
         historicalChartState={historicalChartState}
         ohlcData={ohlcData}
         keyStats={keyStats}
-        relationship126={relationship126Promise}
-        relationship252={relationship252Promise}
-        fundDetails={fundDetails}
+        fundamentalGroups={fundamentalGroups}
+        holdings={holdings}
+        profileDetails={fundamentals?.profile ?? []}
+        sectorWeights={fundamentals?.sectorWeights ?? []}
+        nextEarnings={tickerSummary.nextEarnings ? {
+          date: tickerSummary.nextEarnings.earningsDate,
+          time: tickerSummary.nextEarnings.earningsTime,
+          fiscalPeriod: tickerSummary.nextEarnings.fiscalPeriod,
+        } : null}
+        volatility30d={marketStats?.vol30dPct ?? null}
         relatedAssets={relatedAssetsPromise}
         regimeSignals={recentSignals.map((signal) => ({
           signal_date: signal.signal_date,
           direction: signal.direction,
           prob_side: signal.prob_side,
+          prediction_horizon: signal.prediction_horizon,
+          episode_return: signal.live_episode_return_to_date ?? signal.realized_return,
+          episode_status: signal.live_episode_status,
         }))}
         scorecard={scorecard}
+        about={fundamentals?.about ?? null}
+        navigationSlot={<StockTabs ticker={ticker} active="overview" />}
         watchlistSlot={
           <WatchlistButton
+            key="ticker-watchlist"
             ticker={ticker}
             initialInWatchlist={isInWatchlist}
             signedIn={Boolean(viewerUserId)}
           />
         }
-        showCopilot
-        copilot={{
-          isPro: viewerAccess.isPro,
-          providerEnabled: aiAnalystEnabled,
-          upgradeHref,
-          initialQuestion: initialAiQuestion,
-          initialPromptLabel: initialAiPromptLabel,
-        }}
       />
     </div>
   )

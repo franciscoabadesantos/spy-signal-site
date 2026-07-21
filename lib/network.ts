@@ -1,7 +1,6 @@
 import 'server-only'
 
-import { BackendDataError, fetchBackendJson } from './backend'
-import { MOCK_MARKET_NETWORK, sliceMockNetwork } from './network-fixture'
+import { fetchBackendJson } from './backend'
 
 export type NetworkNode = {
   ticker: string
@@ -55,12 +54,6 @@ export type MarketNetworkOptions = {
   window?: string
   minAbsCorrelation?: number
   topK?: number
-}
-
-export type TickerNetworkOptions = {
-  hops?: number
-  topK?: number
-  minAbsCorrelation?: number
 }
 
 function appendNetworkParams(path: string, params: Record<string, string | number | null | undefined>): string {
@@ -180,53 +173,12 @@ export function marketNetworkPath(options: MarketNetworkOptions = {}): string {
   })
 }
 
-function shouldUseFixture(error: unknown): boolean {
-  if (!(error instanceof BackendDataError)) return false
-  return error.status === null || error.status === 404 || error.status === 501 || error.status === 503
-}
-
 export async function getMarketNetwork(options: MarketNetworkOptions = {}): Promise<NetworkGraph> {
   const path = marketNetworkPath(options)
-
-  try {
-    const graph = await fetchBackendJson<BackendNetworkGraph>(path, {
-      context: 'market.network',
-      timeoutMs: 9000,
-      init: currentNetworkInit(),
-    })
-    return normalizeNetworkGraph(graph, null)
-  } catch (error) {
-    if (!shouldUseFixture(error)) throw error
-    return normalizeNetworkGraph(MOCK_MARKET_NETWORK, null)
-  }
-}
-
-export async function getTickerNetwork(
-  tickerRaw: string,
-  options: TickerNetworkOptions = {}
-): Promise<NetworkGraph> {
-  const ticker = tickerRaw.trim().toUpperCase()
-  const hops = Math.max(1, Math.min(2, Math.round(options.hops ?? 1)))
-  // Peer web defaults: surface more peers (incl. moderate/negative ones) than the
-  // global-map defaults, since a single ticker (esp. defensives) has few very-strong links.
-  const topK = Math.max(1, Math.min(50, Math.round(options.topK ?? 10)))
-  const minAbsCorrelation = options.minAbsCorrelation ?? 0.2
-  const path = appendNetworkParams('/network', {
-    focus: ticker,
-    hops,
-    topK,
-    minAbsCorrelation,
+  const graph = await fetchBackendJson<BackendNetworkGraph>(path, {
+    context: 'market.network',
+    timeoutMs: 9000,
+    init: currentNetworkInit(),
   })
-
-  try {
-    const graph = await fetchBackendJson<BackendNetworkGraph>(path, {
-      context: `ticker.network.${ticker}`,
-      timeoutMs: 9000,
-      init: currentNetworkInit(),
-    })
-    return normalizeNetworkGraph(graph, ticker)
-  } catch (error) {
-    if (!shouldUseFixture(error)) throw error
-    return normalizeNetworkGraph(sliceMockNetwork(ticker, hops), ticker)
-  }
+  return normalizeNetworkGraph(graph, null)
 }

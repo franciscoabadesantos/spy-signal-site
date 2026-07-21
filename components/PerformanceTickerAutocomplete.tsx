@@ -14,7 +14,7 @@ export default function PerformanceTickerAutocomplete({
       initialValue={initialTicker}
       label="Ticker"
       placeholder="Search tracked tickers (AAPL, MSFT, SPY...)"
-      routeForTicker={(symbol) => `/stocks/${encodeURIComponent(symbol)}/performance`}
+      routeForTicker={(symbol) => `/stocks/${encodeURIComponent(symbol)}#signals`}
       submitLabel="Load"
       variant="panel"
     />

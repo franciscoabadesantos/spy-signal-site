@@ -5,14 +5,14 @@ import StockTabs from '@/components/page/StockTabs'
 import type { StockTabKey } from '@/components/stocks/stock-nav-config'
 
 function activeTabFromPath(pathname: string): StockTabKey {
-  if (pathname.endsWith('/signal-history')) return 'signal-history'
-  if (pathname.endsWith('/holdings-dividends')) return 'holdings-dividends'
-  if (pathname.includes('/financials/')) return 'financials'
-  if (pathname.endsWith('/performance')) return 'performance'
+  if (pathname.includes('/relationships')) return 'relationships'
+  if (/^\/stocks\/[^/]+\/.+/.test(pathname)) return 'research'
   return 'overview'
 }
 
 export default function StockTabsAuto({ ticker }: { ticker: string }) {
   const pathname = usePathname()
-  return <StockTabs ticker={ticker} active={activeTabFromPath(pathname)} />
+  const active = activeTabFromPath(pathname)
+  if (active === 'overview') return null
+  return <StockTabs ticker={ticker} active={active} />
 }

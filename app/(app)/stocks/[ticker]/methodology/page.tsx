@@ -1,5 +1,6 @@
-import { redirect } from 'next/navigation'
+import StockResearchDestination from '@/components/stocks/StockResearchDestination'
 
-export default async function StockMethodologyPage() {
-  redirect('/product#methodology')
+export default async function StockMethodologyPage({ params }: { params: Promise<{ ticker: string }> }) {
+  const { ticker } = await params
+  return <StockResearchDestination ticker={ticker.toUpperCase()} kind="methodology" />
 }
