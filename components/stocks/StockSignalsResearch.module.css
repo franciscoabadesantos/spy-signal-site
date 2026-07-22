@@ -1,0 +1,511 @@
+.page {
+  --line: color-mix(in srgb, var(--color-border) 84%, transparent);
+  display: grid;
+  gap: 30px;
+  min-width: 0;
+  padding-bottom: 24px;
+  color: var(--color-text-primary);
+}
+
+.intro {
+  display: grid;
+  gap: 8px;
+  padding: 26px 0 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.intro h2,
+.sectionTitle,
+.track h3,
+.currentSignal h2,
+.methodology h2 {
+  margin: 0;
+  letter-spacing: -0.035em;
+}
+
+.intro h2 {
+  font-size: clamp(1.85rem, 4vw, 3.1rem);
+  line-height: 1;
+}
+
+.eyebrow,
+.sectionLabel,
+.metricLabel,
+.statusLabel {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.introMeta,
+.signalMeta,
+.coverageRow,
+.methodMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.currentGrid,
+.secondaryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(250px, 0.5fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.timelinePanel,
+.currentSignal {
+  min-width: 0;
+  border-block: 1px solid var(--line);
+}
+
+.timelinePanel {
+  padding: 18px 0 14px;
+}
+
+.currentSignal {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 18px 0 14px 24px;
+  border-left: 1px solid var(--line);
+}
+
+.currentSignal h2 {
+  font-size: 1.05rem;
+}
+
+.direction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.directionDot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--color-signal-neutral);
+  box-shadow: 0 0 0 5px var(--color-neutral-tint);
+}
+
+.bullish .directionDot,
+.bullish .action {
+  color: var(--color-signal-bullish);
+}
+
+.bullish .directionDot {
+  background: var(--color-signal-bullish);
+  box-shadow: 0 0 0 5px var(--color-bullish-tint);
+}
+
+.bearish .directionDot,
+.bearish .action {
+  color: var(--color-signal-bearish);
+}
+
+.bearish .directionDot {
+  background: var(--color-signal-bearish);
+  box-shadow: 0 0 0 5px var(--color-bearish-tint);
+}
+
+.neutral .directionDot,
+.neutral .action {
+  color: var(--color-signal-neutral);
+}
+
+.facts,
+.signalFacts,
+.metricList {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.factRow,
+.metricRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.factRow dt,
+.factRow dd,
+.metricRow dt,
+.metricRow dd {
+  margin: 0;
+  font-size: 12px;
+}
+
+.factRow dt,
+.metricRow dt {
+  color: var(--color-text-muted);
+}
+
+.factRow dd,
+.metricRow dd {
+  color: var(--color-text-primary);
+  font-weight: 650;
+  text-align: right;
+}
+
+.timelineHeader,
+.sectionHeader,
+.trackHeader,
+.methodHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.sectionTitle {
+  font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+}
+
+.timelineRange {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+}
+
+.chartFrame {
+  position: relative;
+  min-height: 286px;
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-surface-raised) 78%, var(--color-accent-light));
+}
+
+.chartFrame svg {
+  display: block;
+  width: 100%;
+  min-height: 286px;
+}
+
+.chartLine {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chartArea {
+  fill: var(--color-accent-light);
+}
+
+.chartGrid {
+  stroke: var(--color-border-light);
+  stroke-width: 1;
+}
+
+.chartAxis {
+  fill: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.signalMarker {
+  stroke: var(--bg-surface-raised);
+  stroke-width: 2;
+}
+
+.signalBullish {
+  fill: var(--color-signal-bullish);
+}
+
+.signalBearish {
+  fill: var(--color-signal-bearish);
+}
+
+.signalNeutral {
+  fill: var(--color-signal-neutral);
+}
+
+.chartFallback {
+  display: grid;
+  min-height: 286px;
+  place-items: center;
+  padding: 28px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.timelineNotes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 12px 0 0;
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.timelineNotes span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.legendDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+}
+
+.technicalSection,
+.secondarySection,
+.historySection,
+.methodology {
+  display: grid;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.technicalSummary {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.35fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.overallRead {
+  display: grid;
+  gap: 6px;
+}
+
+.overallRead strong {
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+
+.overallRead span,
+.trackMeta,
+.pending,
+.methodology p,
+.methodMeta {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.trackGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 24px;
+}
+
+.track {
+  min-width: 0;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.trackHeader {
+  align-items: center;
+}
+
+.track h3 {
+  font-size: 14px;
+}
+
+.action {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.scale {
+  position: relative;
+  height: 5px;
+  margin: 14px 0 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--color-signal-bearish), var(--color-signal-neutral) 50%, var(--color-signal-bullish));
+  opacity: 0.72;
+}
+
+.scaleMarker {
+  position: absolute;
+  top: -3px;
+  left: var(--technical-position, 50%);
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--bg-surface-raised);
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  box-shadow: 0 0 0 1px var(--color-text-primary);
+  transform: translateX(-50%);
+}
+
+.distribution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.trackDetails {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.trackDetails summary,
+.historySummary {
+  cursor: pointer;
+  padding: 10px 0;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.trackDetails summary:focus-visible,
+.historySummary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.indicatorRows {
+  display: grid;
+  margin-bottom: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.secondarySection {
+  gap: 0;
+}
+
+.secondaryGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 32px;
+}
+
+.secondaryGrid > section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.historySection {
+  gap: 0;
+}
+
+.historyList {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.historyRow {
+  display: grid;
+  grid-template-columns: 110px minmax(100px, 1fr) 100px;
+  gap: 16px;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.historyRow time,
+.historyRow span {
+  color: var(--color-text-muted);
+}
+
+.historyRow strong {
+  font-weight: 700;
+}
+
+.emptyLine,
+.pendingLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pendingLine strong {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.methodology {
+  gap: 10px;
+}
+
+.methodology p {
+  max-width: 780px;
+  margin: 0;
+}
+
+.methodLink {
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.methodLink:hover,
+.methodLink:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+@media (max-width: 800px) {
+  .currentGrid,
+  .secondaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .currentSignal {
+    padding: 18px 0 14px;
+    border-left: 0;
+    border-top: 0;
+  }
+
+  .technicalSummary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .trackGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .track {
+    padding: 14px 0;
+  }
+
+  .historyRow {
+    grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1fr);
+  }
+
+  .historyRow span:last-child {
+    grid-column: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chartLine {
+    transition: none;
+  }
+}

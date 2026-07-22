@@ -60,3 +60,29 @@ The Ownership & Capital view currently uses only market cap, shares outstanding,
 - Fund-specific fields for issuer, AUM, shares outstanding, creation/redemption structure, holder concentration, and fund-level applicability.
 
 The frontend must not infer institutional, insider, retail, or free-float percentages, calculate enterprise value, or classify corporate dilution from the current summary/profile payload.
+
+### Signals and technical evidence
+
+The Signals & Indicators view uses existing `/signals/history/:ticker`, `/screener/signals`, and `/tickers/:ticker/ohlc` helpers. The following future contract gaps remain before deeper history can be shown as canonical evidence:
+
+- Signal history rows with stable identity, direction, date, reported horizon, source, as-of timestamp, and explicit duplicate/error semantics.
+- Canonical regime history with state vocabulary, start/end timestamps, duration semantics, coverage, and methodology.
+- Indicator series by canonical indicator key, family, period, frequency, value, unit, source, as-of timestamp, and missing-data semantics.
+- Explicit chart-range versus signal-horizon semantics; UI ranges must not be treated as model horizons.
+- Technical aggregation methodology and versioned source timestamps for Summary, Oscillators, and Moving Averages.
+- Volume, turnover, spread, and liquidity fields with frequency, currency/unit, and coverage semantics.
+
+The frontend currently uses the existing OHLC-derived technical implementation for the same Summary, Oscillators, and Moving Averages already used by Overview. It does not create a historical indicator series or recalculate signal scores.
+
+### Earnings and events
+
+The current summary exposes a partial next-earnings object and an earnings-history array. A canonical events contract is required for the final event timeline:
+
+- Stable event identity, type, date, time, timezone, fiscal/reporting period, source, certainty, as-of timestamp, and coverage state.
+- Earnings actuals, estimates, surprise fields, guidance, revisions, restatements, and duplicate/version rules.
+- Dividend and distribution events with declaration, record, ex-date, payment/distribution date, amount, currency, and source.
+- Corporate actions including splits, issuance, buybacks, shareholder meetings, and filings with effective dates and asset applicability.
+- Fund-specific distributions, rebalances, index changes, issuer events, splits, and structural changes.
+- Optional event-to-price relationships with an approved methodology; the frontend must not infer event impact.
+
+Until these contracts exist, the page renders only individually safe existing fields and keeps the remaining geometry in `Pending integration`, `Partial coverage`, or `Unavailable` states.

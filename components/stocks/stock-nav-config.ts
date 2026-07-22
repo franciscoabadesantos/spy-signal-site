@@ -44,7 +44,7 @@ export const stockResearchPrimaryItems: readonly StockResearchNavItem[] = [
     subitems: [
       { key: 'current-signal', label: 'Current Signal', slug: 'signals' },
       { key: 'signal-history', label: 'Signal History', slug: 'signal-history' },
-      { key: 'indicators', label: 'Indicator Details', slug: 'indicators' },
+      { key: 'indicators', label: 'Indicator Details', slug: 'signals', query: 'family=oscillators' },
     ],
   },
   { key: 'events', label: 'Events', slug: 'events' },
