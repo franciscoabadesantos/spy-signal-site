@@ -16,13 +16,17 @@ function walkRuntimeFiles(relativeDir: string): string[] {
   })
 }
 
-test('ticker navigation exposes Overview, Relationships, and the complete Research menu', () => {
+test('ticker navigation exposes a stable horizontal Research hierarchy', () => {
   const navigation = readRepoFile('components/stocks/stock-nav-config.ts')
   const overview = readRepoFile('components/stocks/StockOverviewClient.tsx')
 
-  assert.match(navigation, /label: 'Overview'/)
-  assert.match(navigation, /label: 'Relationships'/)
-  for (const label of ['Lens', 'Fundamentals', 'Financial Statements', 'Valuation History', 'Ownership & Capital', 'Company Profile', 'Signal History', 'Indicator Details', 'Earnings & Events', 'AI Research', 'Methodology']) assert.match(navigation, new RegExp(label.replace(/[&]/g, '\\&')))
+  for (const label of ['Overview', 'Fundamentals', 'Financials', 'Valuation', 'Signals', 'Events', 'Relationships', 'Profile', 'Ownership & Capital', 'AI Research', 'Methodology']) assert.match(navigation, new RegExp(`label: '${label.replace(/[&]/g, '\\&')}'`))
+  assert.match(navigation, /Income Statement/)
+  assert.match(navigation, /Balance Sheet/)
+  assert.match(navigation, /Cash Flow/)
+  assert.match(navigation, /Signal History/)
+  assert.match(navigation, /Indicator Details/)
+  assert.doesNotMatch(navigation, /label: 'Lens'/)
   assert.match(overview, /id="fundamentals"/)
   assert.match(overview, /id="signals"/)
   assert.match(overview, /id="relationships"/)
@@ -77,8 +81,37 @@ test('legacy ticker detail routes resolve to stable research destinations', () =
     assert.match(source, /permanentRedirect/)
     assert.ok(source.includes(anchor), `${file} should redirect to ${anchor}`)
   }
-  assert.match(readRepoFile('app/(app)/stocks/[ticker]/fundamentals/page.tsx'), /StockResearchDestination/)
-  assert.match(readRepoFile('app/(app)/stocks/[ticker]/financials/page.tsx'), /kind="financials"/)
+  assert.match(readRepoFile('app/(app)/stocks/[ticker]/profile/page.tsx'), /StockProfileResearch/)
+  assert.match(readRepoFile('app/(app)/stocks/[ticker]/fundamentals/page.tsx'), /StockFundamentalsResearch/)
+  assert.match(readRepoFile('app/(app)/stocks/[ticker]/financials/page.tsx'), /StockFinancialStatementsResearch/)
+})
+
+test('Phase 2 research views preserve Lens and do not simulate statement data', () => {
+  const navigation = readRepoFile('components/stocks/StockResearchNav.tsx')
+  const tabs = readRepoFile('components/stocks/StockTabsAuto.tsx')
+  const profile = readRepoFile('components/stocks/StockProfileResearch.tsx')
+  const fundamentals = readRepoFile('components/stocks/StockFundamentalsResearch.tsx')
+  const financials = readRepoFile('components/stocks/StockFinancialStatementsResearch.tsx')
+  const overviewLink = readRepoFile('components/stocks/ResearchOverviewLink.tsx')
+  const contract = readRepoFile('docs/features/ticker-research-views.md')
+
+  assert.match(navigation, /stockResearchHref\(ticker, item, lens\)/)
+  assert.match(navigation, /aria-label="Ticker research"/)
+  assert.match(navigation, /scrollTo/)
+  assert.match(navigation, /ArrowDown/)
+  assert.match(navigation, /Escape/)
+  assert.doesNotMatch(navigation, /Perspective|lensLabel|Company & fund|Market evidence/)
+  assert.match(tabs, /parseInvestmentLens\(searchParams\.get\('lens'\)\)/)
+  assert.match(profile, /Fund Profile/)
+  assert.match(profile, /Company Profile/)
+  assert.match(fundamentals, /EQUITY_PRIORITY/)
+  assert.match(fundamentals, /FUND_PRIORITY/)
+  assert.match(financials, /Pending integration/)
+  assert.match(financials, /statementHref/)
+  assert.match(financials, /aria-label="Reporting frequency"/)
+  assert.doesNotMatch(financials, /Math\.random|mock|fake/i)
+  assert.match(overviewLink, /\?lens=\$\{lens\}/)
+  assert.match(contract, /No API route, backend contract, scoring logic/i)
 })
 
 test('frontoffice runtime contains no direct Yahoo or Supabase client path', () => {

@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import ResearchOverviewLink from '@/components/stocks/ResearchOverviewLink'
 
 export const researchDestinations = {
   lens: { title: 'Investment Lens', intro: 'A structured view of the evidence currently covered for this ticker.' },
@@ -40,7 +40,7 @@ export default function StockResearchDestination({ ticker, kind }: { ticker: str
           <h1 className="text-page-title text-content-primary">{destination.title}</h1>
           <p className="max-w-2xl text-body text-content-secondary">{destination.intro}</p>
         </div>
-        <Link href={`/stocks/${ticker}`} className="action-link inline-flex">Back to overview →</Link>
+        <ResearchOverviewLink ticker={ticker} />
       </div>
 
       <section className="overflow-hidden rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--bg-surface)] shadow-sm">

@@ -651,7 +651,7 @@ export default async function TickerPage({
         }))}
         scorecard={scorecard}
         about={fundamentals?.about ?? null}
-        navigationSlot={<StockTabs ticker={ticker} active="overview" />}
+        navigationSlot={<StockTabs ticker={ticker} active="overview" lens={initialLens} />}
         watchlistSlot={
           <WatchlistButton
             key="ticker-watchlist"
