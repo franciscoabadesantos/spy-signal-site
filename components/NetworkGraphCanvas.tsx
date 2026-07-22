@@ -975,7 +975,9 @@ export default function NetworkGraphCanvas({
                       ? [{ label: 'Themes', value: centerEdge.relationshipThemes.join(', ') }]
                       : []),
                     { label: 'Strength', value: centerEdge?.correlation.toFixed(2) ?? '-' },
-                    { label: 'Confidence', value: formatTooltipConfidence(centerEdge?.relationshipConfidence) },
+                    ...(centerEdge?.relationshipConfidence !== null && centerEdge?.relationshipConfidence !== undefined
+                      ? [{ label: 'Confidence', value: formatTooltipConfidence(centerEdge.relationshipConfidence) }]
+                      : []),
                   ]
                 : [
                     {

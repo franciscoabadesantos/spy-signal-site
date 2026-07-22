@@ -167,3 +167,45 @@ Status: implemented and visually approved on 2026-07-22. This slice is limited t
   - `test-results/ticker-research-ai-methodo-27873--at-desktop-mobile-and-zoom-chromium/phase2-methodology-aapl-desktop.png`
   - `test-results/ticker-research-ai-methodo-27873--at-desktop-mobile-and-zoom-chromium/phase2-methodology-aapl-mobile.png`
   - `test-results/ticker-research-ai-methodo-27873--at-desktop-mobile-and-zoom-chromium/phase2-methodology-200-zoom.png`
+
+## Phase 3 Relationships
+
+Status: reduced-scope implementation in progress. The only live destination is `/stocks/[ticker]/relationships`.
+
+### Scope
+
+- Relationships is a single Relationship Evidence view, not a collection of Peers, Sector, Macro, Structural, or Business Relationships pages.
+- Runtime relationship data comes exclusively from `GET /relationships/:ticker` through `lib/relationships.ts`.
+- The view uses the backend-returned layers only: residual co-movement, theme relationship, directional relationship, market co-movement, and probable spurious relationships.
+- `strength` is an optional raw field. Missing values remain absent and are not rendered as zero.
+- `confidence` is preserved as optional data but is not shown until its scale and meaning are confirmed.
+- Lead/lag records are presented as `Directional relationship`; the UI does not draw causal arrows or use causal language.
+- Theme records use the neutral `Theme relationship` label until the backend definition is confirmed.
+- The map is supplementary. Desktop uses a bounded graph when the relationship has both a valid node identity and raw strength; mobile is list-first.
+- Weak/probable-spurious records remain closed by default and are shown only under their backend classification.
+
+### URL state and coverage
+
+- `?lens=` is preserved by the Research shell and navigation.
+- `?layer=residual|theme|leadLag|market` selects a supported relationship layer.
+- `?window=126|252` preserves the numeric backend window only; neither value is labelled as a human time horizon until its unit and frequency are confirmed.
+- If no supported layer/window has enough identified relationships, the page shows one compact Partial coverage state.
+- Equity and fund language remains asset-aware. Fund holdings and sector weights continue to belong to Fund Profile/Fund Structure and are not converted into relationship edges.
+
+### Data boundaries
+
+- No client-side relationship, correlation, persistence, beta, influence, lead/lag, or macro calculations are added.
+- No unknown graph nodes are manufactured to complete the map.
+- Rows without a usable symbol are rejected by the normalizer; rows without strength can remain readable in the list but cannot create a visually weighted graph edge.
+- The page explains that observed association does not establish causality, prediction, influence, or a business relationship.
+
+### Phase 3 validation and screenshot matrix
+
+- `npm run verify`: passed; 0 errors, 5 existing lint warnings, and 11 tests passed.
+- Focused Relationships browser QA: 4/4 passed.
+- Focused 320px mobile check: passed.
+- Existing ticker live regression suite: 6/6 passed.
+- `git diff --check`: passed.
+- The focused matrix covers AAPL desktop with each available layer, AAPL mobile at 390px and 320px, QQQ partial fund coverage, 0005.HK partial equity coverage, reduced motion, keyboard focus, and shareable `lens`, `layer`, and `window` state.
+- Existing representative artifacts remain under `test-results/`, including `ticker-page.live-live-tick-bb3a2-op-and-list-first-on-mobile-chromium/aapl-relationships-desktop.png`, `aapl-relationships-mobile.png`, and `ticker-page.live-live-tick-ebc47-on-without-a-current-signal-chromium/0005-partial-equity-desktop.png`.
+- Browser output still includes the pre-existing PerspectiveDial hydration warning and the expected Motion reduced-motion notice; neither is introduced by the Relationships implementation.

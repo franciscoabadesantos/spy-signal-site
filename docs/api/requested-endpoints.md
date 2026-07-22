@@ -86,3 +86,36 @@ The current summary exposes a partial next-earnings object and an earnings-histo
 - Optional event-to-price relationships with an approved methodology; the frontend must not infer event impact.
 
 Until these contracts exist, the page renders only individually safe existing fields and keeps the remaining geometry in `Pending integration`, `Partial coverage`, or `Unavailable` states.
+
+## Phase 3 Relationships contract gaps
+
+The current reduced-scope Relationships view consumes only the existing `/relationships/:ticker` payload. The following fields are still future backend contracts and must not be inferred in the frontend:
+
+### Canonical relationship semantics
+
+- Stable relationship identity, source and target identity, category/layer, and asset applicability.
+- Definition, scale, sign, and null semantics for `strength`.
+- Definition, scale, coverage meaning, and null semantics for `confidence`.
+- Explicit direction semantics for directional relationships. Direction must not be treated as causality.
+- Dataset and edge-level `asOf`, source timestamps, observed start/end, frequency, session, timezone, and currency/market compatibility.
+- Methodology identifier/version and source metadata.
+
+### Historical and directional evidence
+
+- Historical or rolling correlation series with period and frequency semantics.
+- Lead/lag interval, method, direction, statistical support, and non-causal interpretation.
+- Relationship persistence or structural classification with a defined observation window.
+- Canonical recent-relationship semantics rather than relying only on numeric windows.
+
+### Entity and market relationships
+
+- Canonical peers, sector, and industry membership with source and effective dates.
+- Index and ETF membership, weights, and membership snapshots.
+- Market sensitivity/beta and macro exposures for rates, currencies, commodities, and market factors.
+- Supplier, customer, competitor, value-chain, and geographic relationships with evidence and source.
+
+### Fund relationships
+
+- Holdings overlap, issuer, index tracked, AUM, constituent comparison, fund-level factors, creation/redemption data, and fund relationship methodology.
+
+Until these contracts are defined and verified by finance-backend owners, the frontend must keep these areas deferred. It must not label co-movement as influence, derive peers from prices, infer structural relationships, or fabricate strength/confidence values.

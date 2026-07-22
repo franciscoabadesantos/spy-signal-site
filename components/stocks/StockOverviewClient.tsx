@@ -562,16 +562,16 @@ function RelatedAssetsContent({
     }
     return Math.abs(right.strength ?? 0) - Math.abs(left.strength ?? 0)
   })
-  const structural = lens === 'long'
+  const viewAllParams = new URLSearchParams({ lens })
 
   return (
     <article id="relationships" className={styles.relationshipEditorial} data-lens={lens}>
       <div className={styles.chapterHeader}>
         <div>
-          <p className={styles.chapterEyebrow}>{structural ? 'Long-term lens' : 'Current moves'}</p>
+          <p className={styles.chapterEyebrow}>Observed associations</p>
           <h2 className={styles.chapterTitle}>Relationships</h2>
         </div>
-        <Link href={`/stocks/${ticker}/relationships`} className={styles.inlineArrow}>View all →</Link>
+        <Link href={`/stocks/${ticker}/relationships?${viewAllParams.toString()}`} className={styles.inlineArrow}>View all →</Link>
       </div>
       {rankedAssets.length > 0 ? (
         <div className={styles.relationshipPreviewGrid}>
@@ -595,7 +595,7 @@ function RelatedAssetsContent({
                   <span className={styles.chipTicker}>{asset.symbol}</span>
                   <span className={styles.relatedName}>{asset.name ?? asset.relation}</span>
                 </span>
-                {!structural ? <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span> : null}
+                {lens !== 'long' ? <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span> : null}
                 <span className={styles.relatedSemantics}>
                   <span>{asset.relation}</span>
                 </span>
@@ -606,7 +606,6 @@ function RelatedAssetsContent({
       ) : (
         <div className={styles.inlineDataState}><span>Relationships</span><strong>Data pending</strong></div>
       )}
-      {structural ? <span className={styles.previewNote}>Structural classification · Preview</span> : null}
     </article>
   )
 }

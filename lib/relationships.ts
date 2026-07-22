@@ -7,8 +7,8 @@ export type RelationshipLayer = 'residual' | 'leadLag' | 'market' | 'spurious' |
 
 export type RelationshipNeighbor = {
   symbol: string
-  strength: number
-  confidence: number
+  strength: number | null
+  confidence: number | null
   direction: string
 }
 
@@ -82,9 +82,10 @@ function cachedRelationshipInit(ticker: string): RequestInit & { next: { revalid
   }
 }
 
-function finiteNumber(value: unknown, fallback = 0): number {
+function finiteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
   const numeric = Number(value)
-  return Number.isFinite(numeric) ? numeric : fallback
+  return Number.isFinite(numeric) ? numeric : null
 }
 
 function normalizeNode(node: BackendRelationshipNode | null | undefined): NetworkNode | null {
@@ -106,7 +107,6 @@ function normalizeNeighbor(neighbor: BackendRelationshipNeighbor): RelationshipN
   const symbol = (neighbor.symbol ?? neighbor.ticker ?? '').trim().toUpperCase()
   if (!symbol) return null
   const strength = finiteNumber(neighbor.strength)
-  if (!Number.isFinite(strength)) return null
   return {
     symbol,
     strength,
@@ -125,7 +125,6 @@ function normalizeThemePeer(neighbor: BackendRelationshipThemePeer): Relationshi
   const symbol = (neighbor.symbol ?? neighbor.ticker ?? '').trim().toUpperCase()
   if (!symbol) return null
   const strength = finiteNumber(neighbor.strength)
-  if (!Number.isFinite(strength)) return null
   const theme = typeof neighbor.theme === 'string' && neighbor.theme.trim() ? neighbor.theme.trim() : null
   const themes = Array.isArray(neighbor.themes)
     ? neighbor.themes.map((item) => String(item ?? '').trim()).filter(Boolean)
@@ -156,7 +155,7 @@ function normalizeRelationships(raw: BackendTickerRelationships, ticker: string,
   return {
     asOf: raw.asOf ?? null,
     ticker: (raw.ticker ?? ticker).trim().toUpperCase(),
-    window: finiteNumber(raw.window, window),
+    window: finiteNumber(raw.window) ?? window,
     node,
     nodes: normalizedNodes,
     marketCoMovers: normalizeNeighbors(raw.marketCoMovers),

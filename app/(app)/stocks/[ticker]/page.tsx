@@ -29,7 +29,12 @@ import {
   STOCK_OHLC_CACHE_KEY,
   type OhlcLoadResult,
 } from '@/lib/ohlc-data'
-import { getTickerRelationships, type TickerRelationships } from '@/lib/relationships'
+import {
+  getTickerRelationships,
+  type RelationshipNeighbor,
+  type RelationshipThemePeer,
+  type TickerRelationships,
+} from '@/lib/relationships'
 import { getCachedLatestScreenerRow, getCachedSignalHistoryForTicker } from '@/lib/signals'
 import {
   getTickerPageSummary,
@@ -484,15 +489,25 @@ export default async function TickerPage({
   const relationships252 = await relationship252Promise
   const relatedAssetsPromise = runWithBackendRequestLogContext(requestLogContext, () => {
       const relationships = relationships252
-      const candidates = [
-        ...relationships.residualCoMovers.map((neighbor) => ({ neighbor, relation: 'Moves together' })),
-        ...relationships.themePeers.map((neighbor) => ({ neighbor, relation: 'Same theme' })),
-        ...relationships.leadLag.followers.map((neighbor) => ({ neighbor, relation: 'Follows' })),
-        ...relationships.leadLag.leaders.map((neighbor) => ({ neighbor, relation: 'Leads' })),
-        ...relationships.marketCoMovers.map((neighbor) => ({ neighbor, relation: 'Market-driven' })),
+      type RelationshipCandidate = { neighbor: RelationshipNeighbor | RelationshipThemePeer; relation: string }
+      const candidates: RelationshipCandidate[] = [
+        ...relationships.residualCoMovers.map((neighbor) => ({ neighbor, relation: 'Residual co-movement' })),
+        ...relationships.themePeers.map((neighbor) => ({ neighbor, relation: 'Theme relationship' })),
+        ...relationships.leadLag.followers.map((neighbor) => ({ neighbor, relation: 'Directional relationship' })),
+        ...relationships.leadLag.leaders.map((neighbor) => ({ neighbor, relation: 'Directional relationship' })),
+        ...relationships.marketCoMovers.map((neighbor) => ({ neighbor, relation: 'Market co-movement' })),
       ]
-        .sort((a, b) => Math.abs(b.neighbor.strength) - Math.abs(a.neighbor.strength) || a.neighbor.symbol.localeCompare(b.neighbor.symbol))
-        .filter((item, index, array) => item.neighbor.symbol !== ticker && array.findIndex((candidate) => candidate.neighbor.symbol === item.neighbor.symbol) === index)
+        .sort((a, b) => Math.abs(b.neighbor.strength ?? 0) - Math.abs(a.neighbor.strength ?? 0) || a.neighbor.symbol.localeCompare(b.neighbor.symbol))
+        .filter((item) => item.neighbor.symbol !== ticker)
+        .reduce<RelationshipCandidate[]>((items, item) => {
+          const existing = items.find((candidate) => candidate.neighbor.symbol === item.neighbor.symbol)
+          if (existing) {
+            if (!existing.relation.split(' · ').includes(item.relation)) existing.relation = `${existing.relation} · ${item.relation}`
+          } else {
+            items.push({ ...item })
+          }
+          return items
+        }, [])
         .slice(0, 6)
       return Promise.all(candidates.map((item) => getStockQuote(item.neighbor.symbol).catch(() => null).then((quote) => ({
         symbol: item.neighbor.symbol,
