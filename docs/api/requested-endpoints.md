@@ -33,3 +33,30 @@ The existing `/tickers/:ticker/profile` normalizer remains the only current sour
 - Explicit partial/empty/unsupported semantics and available history window.
 
 No statement-series contract is currently available to the frontend. The Financial Statements view must not treat summary fundamentals as a substitute for complete statements.
+
+### Valuation history
+
+The Valuation History view currently uses only the canonical current trailing P/E, market cap, currency, reporting period, and available earnings context from the existing summary payload. The following future contract is required before historical modules can display live values:
+
+- Metric series for P/E, P/S, P/B, P/FCF, EV/EBITDA, and future supported multiples.
+- Explicit frequency and period semantics for annual and quarterly observations.
+- Ordered observations with metric key, period end, value, unit, currency, source, as-of timestamp, and restatement/version metadata.
+- Canonical historical range statistics such as minimum, maximum, mean/median, and current position or percentile, with methodology defined by the backend.
+- Peer and sector benchmark observations with stable identities, comparison period, membership/as-of rules, and aggregation method.
+- Event or market-period markers that can be associated with valuation observations.
+
+The frontend must not derive unsupported multiples, historical ranges, percentiles, peer medians, or sector comparisons from current summary fields or price history.
+
+### Ownership and capital structure
+
+The Ownership & Capital view currently uses only market cap, shares outstanding, currency, and reporting period when those fields are present. The following asset-aware contract is required for live ownership and capital modules:
+
+- Ownership categories with percentages, share counts, as-of dates, source, and explicit null/coverage semantics.
+- Top holders with stable identifiers, holder type, position, percentage, date, and ranking methodology.
+- Free float, closely held shares, share classes, and voting/non-voting semantics.
+- Debt, cash and equivalents, minority interest, and enterprise value with consistent currency, unit, period, and source metadata.
+- Shares-outstanding history with ordered observations and period semantics.
+- Issuance, buyback, split, and other capital-action history with dated events and share-count impact.
+- Fund-specific fields for issuer, AUM, shares outstanding, creation/redemption structure, holder concentration, and fund-level applicability.
+
+The frontend must not infer institutional, insider, retail, or free-float percentages, calculate enterprise value, or classify corporate dilution from the current summary/profile payload.
