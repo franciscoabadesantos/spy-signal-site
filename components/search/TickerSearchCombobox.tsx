@@ -564,12 +564,12 @@ export default function TickerSearchCombobox({
 
   const inputClassName =
     variant === 'header'
-      ? 'no-lift-interaction h-12 rounded-full border-slate-950/8 bg-white/80 pl-11 pr-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.84),0_12px_28px_rgba(20,33,51,0.05)] backdrop-blur-xl placeholder:text-content-muted/80 hover:border-slate-950/14 hover:bg-white focus-visible:border-primary/55 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-white/[0.07] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] dark:hover:border-white/18 dark:hover:bg-white/[0.09]'
+      ? 'no-lift-interaction h-12 rounded-full border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] pl-11 pr-10 shadow-[var(--glass-shadow)] backdrop-blur-xl placeholder:text-content-muted/80 hover:border-[color:var(--app-border-strong,var(--glass-border))] hover:bg-[color:var(--surface-hover)] focus-visible:border-brand-spark focus-visible:ring-brand-spark/30'
       : 'h-11 pr-24 pl-9 uppercase'
 
   const panelClassName =
     variant === 'header'
-      ? 'ticker-search__panel mt-2 rounded-[18px] border border-slate-950/8 bg-white/96 shadow-[0_20px_48px_rgba(20,33,51,0.12)] ring-1 ring-slate-950/6 backdrop-blur-[24px] dark:border-white/10 dark:bg-[#0a1220]/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.34)] dark:ring-white/8'
+      ? 'ticker-search__panel mt-2 rounded-[18px] border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] shadow-[var(--glass-shadow-strong,var(--glass-shadow))] ring-1 ring-[color:var(--glass-border)] backdrop-blur-[24px]'
       : 'mt-1 rounded-xl border border-border bg-surface-card shadow-sm'
 
   return (

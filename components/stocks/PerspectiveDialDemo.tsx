@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { INVESTMENT_LENSES, type InvestmentLensKey } from '@/lib/investment-lens'
-import StockPageTheme from './StockPageTheme'
 import PerspectiveDial from './PerspectiveDial'
 import styles from './PerspectiveDialDemo.module.css'
 
@@ -12,7 +11,6 @@ export default function PerspectiveDialDemo({ initialValue }: { initialValue: In
 
   return (
     <div className={`container-lg ${styles.page}`}>
-      <StockPageTheme />
       <header className={styles.header}>
         <div>
           <p className={styles.kicker}>Interaction study</p>

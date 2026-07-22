@@ -57,10 +57,12 @@ export default function BrandHomeMenu({
   className,
   textClassName,
   menuShellClassName,
+  appTheme = false,
 }: {
   className?: string
   textClassName?: string
   menuShellClassName?: string
+  appTheme?: boolean
 }) {
   const pathname = usePathname()
   const currentSection = appNavSectionFromPath(pathname)
@@ -186,16 +188,17 @@ export default function BrandHomeMenu({
             <div
               ref={panelRef}
               aria-hidden={!open}
+              data-app-theme={appTheme ? 'light' : undefined}
               className={cn(
-                'fixed z-[120] w-[22rem] origin-top-left overflow-hidden rounded-none transition-all duration-200 ease-out',
-                menuShellClassName ?? 'border border-slate-950/8 bg-white/88 backdrop-blur-[28px] saturate-[1.8] dark:border-white/8 dark:bg-[#020611]/58',
+                'fixed z-[120] w-[22rem] origin-top-left overflow-hidden rounded-[20px] transition-all duration-200 ease-out',
+                menuShellClassName ?? 'border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] shadow-[var(--glass-shadow)] backdrop-blur-[28px] saturate-[1.8]',
                 open
                   ? 'translate-y-0 scale-100 opacity-100 blur-0'
                   : 'pointer-events-none -translate-y-3 scale-[0.97] opacity-0 blur-[2px]'
               )}
             >
               <div className="relative z-10 grid gap-1.5 px-2.5 py-2.5">
-                <div className="ml-5 w-[calc(100%-1.4rem)] rounded-[18px] border border-slate-950/8 bg-white/88 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_18px_30px_rgba(20,33,51,0.08)] dark:border-white/10 dark:bg-[#04070d]/94 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_30px_rgba(0,0,0,0.2)]">
+                <div className="ml-5 w-[calc(100%-1.4rem)] rounded-[18px] border border-border bg-surface-card p-1.5 shadow-[var(--glass-shadow)]">
                   <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-3.5 rounded-[14px] px-3 py-2.5">
                     <Layers3 className="h-5 w-5 text-content-secondary" strokeWidth={2} />
                     <div>
@@ -206,7 +209,7 @@ export default function BrandHomeMenu({
                     </div>
                   </div>
 
-                  <div className="mt-1 space-y-1 border-t border-slate-950/8 pt-1.5 dark:border-white/10">
+                  <div className="mt-1 space-y-1 border-t border-border pt-1.5">
                     {PRIMARY_APP_ITEMS.map((item) => {
                       const active = currentSection === item.key
                       const Icon = item.icon
@@ -218,9 +221,9 @@ export default function BrandHomeMenu({
                           onClick={() => setOpen(false)}
                           className={cn(
                             'grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-3.5 rounded-[14px] px-3 py-2.5 transition',
-                            active
-                              ? 'bg-slate-950/[0.05] text-content-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:bg-white/[0.08] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                              : 'text-content-secondary hover:bg-slate-950/[0.04] hover:text-content-primary dark:hover:bg-white/[0.05]'
+                              active
+                              ? 'bg-surface-hover text-content-primary shadow-[inset_0_1px_0_var(--glass-highlight)]'
+                              : 'text-content-secondary hover:bg-surface-hover hover:text-content-primary'
                           )}
                         >
                           <Icon
@@ -237,7 +240,7 @@ export default function BrandHomeMenu({
                   </div>
                 </div>
 
-                <div className="ml-5 w-[calc(100%-1.4rem)] rounded-[18px] border border-slate-950/8 bg-white/84 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_18px_30px_rgba(20,33,51,0.05)] dark:border-white/10 dark:bg-[#04070d]/88 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_30px_rgba(0,0,0,0.18)]">
+                <div className="ml-5 w-[calc(100%-1.4rem)] rounded-[18px] border border-border bg-surface-card px-3 py-3 shadow-[var(--glass-shadow)]">
                   <div className="px-1 text-[11px] uppercase tracking-[0.18em] text-content-muted">
                     Learn
                   </div>
@@ -252,8 +255,8 @@ export default function BrandHomeMenu({
                           className={cn(
                             'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
                             active
-                              ? 'border-slate-950/12 bg-slate-950/[0.05] text-content-primary dark:border-white/10 dark:bg-white/[0.08]'
-                              : 'border-slate-950/8 bg-white/70 text-content-secondary hover:text-content-primary dark:border-white/10 dark:bg-white/[0.04]'
+                              ? 'border-border-strong bg-surface-hover text-content-primary'
+                              : 'border-border bg-surface-elevated text-content-secondary hover:border-border-strong hover:text-content-primary'
                           )}
                         >
                           {item.label}

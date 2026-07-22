@@ -17,7 +17,7 @@ export const sharedHeaderShellClass = 'fixed inset-x-0 top-0 z-[90]'
 export const sharedHeaderInnerClass = 'mx-auto max-w-[1500px] px-6 py-3 sm:px-10 lg:px-14'
 
 export const sharedHeaderMenuShellClass =
-  'border border-slate-950/8 bg-white/84 backdrop-blur-[28px] saturate-[1.75] dark:border-white/8 dark:bg-[#00040a]/38'
+  'border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] shadow-[var(--glass-shadow)] backdrop-blur-[28px] saturate-[1.75]'
 
 export const sharedHeaderDesktopSearchClass = 'ml-auto w-full max-w-[520px] lg:max-w-[480px]'
 

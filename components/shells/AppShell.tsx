@@ -22,7 +22,7 @@ export default function AppShell({
   container = 'lg',
 }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div data-app-theme="light" data-theme="light" className="app-shell min-h-screen text-foreground">
       <Nav active={active} />
       <main className={cn(containerClass(container), sharedHeaderOffsetClass, 'pb-8 section-gap', className)}>
         {controls ? <div>{controls}</div> : null}

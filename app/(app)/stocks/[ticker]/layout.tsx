@@ -1,5 +1,4 @@
 import StockTabsAuto from '@/components/stocks/StockTabsAuto'
-import StockPageTheme from '@/components/stocks/StockPageTheme'
 
 type StockTickerLayoutProps = {
   children: React.ReactNode
@@ -11,7 +10,6 @@ export default async function StockTickerLayout({ children, params }: StockTicke
   const ticker = resolvedParams.ticker.toUpperCase()
   return (
     <div className="container-lg space-y-3 pt-2 pb-14 md:space-y-4 md:pt-0">
-      <StockPageTheme />
       <StockTabsAuto ticker={ticker} />
       <div>{children}</div>
     </div>
