@@ -122,7 +122,7 @@ test.describe('ticker research views Phase 2 slice', () => {
     expect(runtimeWarnings).toEqual([])
   })
 
-  test('Financial Statements exposes shareable Annual and Quarterly placeholders', async ({ page }, testInfo) => {
+  test('Financial Statements exposes shareable canonical Annual and Quarterly observations', async ({ page }, testInfo) => {
     const runtimeWarnings = watchForReactRuntimeWarnings(page)
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/stocks/AAPL/financials?lens=long&statement=balance-sheet&period=annual')
@@ -134,14 +134,14 @@ test.describe('ticker research views Phase 2 slice', () => {
     await expect(researchNav.locator('[data-active="true"]')).toHaveCount(1)
     await expect(page.getByRole('link', { name: 'Balance Sheet', exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('link', { name: 'Annual', exact: true })).toHaveAttribute('aria-current', 'page')
-    await expect(page.getByText('Pending integration', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText(/canonical (line items|statement rows)/i).first()).toBeVisible()
     await expectNoHorizontalOverflow(page)
-    await capture(page, testInfo, 'phase2-aapl-statements-annual-placeholder')
+    await capture(page, testInfo, 'canonical-aapl-statements-annual')
 
     await page.getByRole('link', { name: 'Quarterly', exact: true }).click()
     await expect(page).toHaveURL(/period=quarterly/)
     await expect(page.getByRole('link', { name: 'Quarterly', exact: true })).toHaveAttribute('aria-current', 'page')
-    await capture(page, testInfo, 'phase2-aapl-statements-quarterly-placeholder')
+    await capture(page, testInfo, 'canonical-aapl-statements-quarterly')
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expectNoHorizontalOverflow(page)

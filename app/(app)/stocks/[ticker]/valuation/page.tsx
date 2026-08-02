@@ -3,6 +3,7 @@ import StockValuationResearch, {
   type ValuationPeriod,
 } from '@/components/stocks/StockValuationResearch'
 import ResearchUnavailable from '@/components/stocks/ResearchUnavailable'
+import { getTickerMarketMetrics } from '@/lib/canonical-research'
 import { parseInvestmentLens } from '@/lib/investment-lens'
 import { getStockResearchData } from '@/lib/stock-research'
 
@@ -19,6 +20,14 @@ function parsePeriod(value: string | undefined): ValuationPeriod {
   return value === 'quarterly' ? 'quarterly' : 'annual'
 }
 
+const MARKET_METRICS: Record<ValuationMetric, string> = {
+  pe: 'trailing_pe',
+  ps: 'price_to_sales',
+  pb: 'price_to_book',
+  pfcf: 'price_to_free_cash_flow',
+  'ev-ebitda': 'enterprise_value_to_ebitda',
+}
+
 export default async function ValuationPage({
   params,
   searchParams,
@@ -32,7 +41,14 @@ export default async function ValuationPage({
   const lens = parseInvestmentLens(singleParam(query.lens))
   const metric = parseMetric(singleParam(query.metric))
   const period = parsePeriod(singleParam(query.period))
-  const data = await getStockResearchData(ticker).catch(() => null)
+  const [data, observations] = await Promise.all([
+    getStockResearchData(ticker).catch(() => null),
+    getTickerMarketMetrics(ticker, {
+      metric: MARKET_METRICS[metric],
+      latestOnly: false,
+      limit: 250,
+    }).catch(() => null),
+  ])
   if (!data) return <ResearchUnavailable ticker={ticker} />
-  return <StockValuationResearch data={data} lens={lens} metric={metric} period={period} />
+  return <StockValuationResearch data={data} lens={lens} metric={metric} period={period} observations={observations} />
 }

@@ -29,7 +29,7 @@ Status: Phase 2 first vertical slice implemented for visual review.
 - Income Statement, Balance Sheet, and Cash Flow are stable URL states through `?statement=`.
 - Annual and Quarterly are stable URL states through `?period=`.
 - The current summary snapshot is explicitly separate from a complete statement series.
-- Statement trajectories, comparative periods, growth, units, and restatements remain `Pending integration`; no values or dates are simulated.
+- Financial Statements consumes the canonical financial statement contract through the server-only backend helper. It displays reported line items and period ends, selects the latest known observation for repeated line-item/period snapshots, and does not calculate comparative growth or restatement relationships.
 - Mobile exposes the selected period as the primary column rather than making horizontal scrolling the main interaction.
 
 ## Data boundaries
@@ -100,7 +100,7 @@ Status: closed and visually approved. `/stocks/[ticker]/signals` is the single S
 ### Pending modules
 
 - Regime History remains `Pending integration` because no canonical regime-history contract exists.
-- Historical indicator series, liquidity fields, event feed, corporate actions, filings, guidance, and fund-specific event feeds remain `Pending integration` or `Partial coverage`.
+- Historical indicator series and liquidity fields remain deferred. The Events view consumes ticker-scoped canonical calendar and disclosure streams for earnings, corporate actions, investor events, fund distributions/rebalances, filings, guidance and equity-capital candidates.
 - Earnings history is shown only when server normalization finds no duplicate date/fiscal-period keys; otherwise it remains a partial-coverage state.
 
 ### Final slice decisions

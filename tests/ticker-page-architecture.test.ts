@@ -106,12 +106,31 @@ test('Phase 2 research views preserve Lens and do not simulate statement data', 
   assert.match(profile, /Company Profile/)
   assert.match(fundamentals, /EQUITY_PRIORITY/)
   assert.match(fundamentals, /FUND_PRIORITY/)
-  assert.match(financials, /Pending integration/)
+  assert.match(financials, /canonicalRows/)
+  assert.match(financials, /lineItemId/)
   assert.match(financials, /statementHref/)
   assert.match(financials, /aria-label="Reporting frequency"/)
   assert.doesNotMatch(financials, /Math\.random|mock|fake/i)
   assert.match(overviewLink, /\?lens=\$\{lens\}/)
-  assert.match(contract, /No API route, backend contract, scoring logic/i)
+  assert.match(contract, /canonical financial statement contract/i)
+})
+
+test('canonical research views use shared ticker-scoped backend contracts', () => {
+  const helper = readRepoFile('lib/canonical-research.ts')
+  const financialsPage = readRepoFile('app/(app)/stocks/[ticker]/financials/page.tsx')
+  const eventsPage = readRepoFile('app/(app)/stocks/[ticker]/events/page.tsx')
+  const valuationPage = readRepoFile('app/(app)/stocks/[ticker]/valuation/page.tsx')
+
+  assert.match(helper, /import 'server-only'/)
+  assert.match(helper, /\/tickers\/\$\{encodeURIComponent\(ticker\)\}\/financial-statements/)
+  assert.match(helper, /\/tickers\/\$\{encodeURIComponent\(ticker\)\}\/market-metrics/)
+  assert.match(helper, /\/tickers\/\$\{encodeURIComponent\(ticker\)\}\/events/)
+  assert.match(helper, /\/tickers\/\$\{encodeURIComponent\(ticker\)\}\/disclosures/)
+  assert.doesNotMatch(helper, /\/analyst\//)
+  assert.match(financialsPage, /getTickerFinancialStatements/)
+  assert.match(eventsPage, /getTickerEvents/)
+  assert.match(eventsPage, /getTickerDisclosures/)
+  assert.match(valuationPage, /getTickerMarketMetrics/)
 })
 
 test('frontoffice runtime contains no direct Yahoo or Supabase client path', () => {

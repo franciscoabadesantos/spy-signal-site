@@ -175,6 +175,21 @@
   font-size: 12px;
 }
 
+.eventRow a {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.eventRow a:hover,
+.eventRow a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .eventRow time {
   font-family: var(--font-mono, ui-monospace, monospace);
 }

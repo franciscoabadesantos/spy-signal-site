@@ -3,6 +3,7 @@ import StockFinancialStatementsResearch, {
   type StatementPeriod,
 } from '@/components/stocks/StockFinancialStatementsResearch'
 import ResearchUnavailable from '@/components/stocks/ResearchUnavailable'
+import { getTickerFinancialStatements, type FinancialStatementType } from '@/lib/canonical-research'
 import { parseInvestmentLens } from '@/lib/investment-lens'
 import { getStockResearchData } from '@/lib/stock-research'
 
@@ -17,6 +18,12 @@ function parseStatement(value: string | undefined, lens: ReturnType<typeof parse
 
 function parsePeriod(value: string | undefined): StatementPeriod {
   return value === 'quarterly' ? 'quarterly' : 'annual'
+}
+
+const STATEMENT_TYPES: Record<StatementKey, FinancialStatementType> = {
+  income: 'income_statement',
+  'balance-sheet': 'balance_sheet',
+  'cash-flow': 'cash_flow',
 }
 
 export default async function FinancialsPage({
@@ -36,7 +43,14 @@ export default async function FinancialsPage({
   const lens = parseInvestmentLens(singleParam(query.lens))
   const statement = parseStatement(singleParam(query.statement), lens)
   const period = parsePeriod(singleParam(query.period))
-  const data = await getStockResearchData(ticker).catch(() => null)
+  const [data, statements] = await Promise.all([
+    getStockResearchData(ticker).catch(() => null),
+    getTickerFinancialStatements(ticker, {
+      statementType: STATEMENT_TYPES[statement],
+      periodType: period,
+      limit: 500,
+    }).catch(() => null),
+  ])
   if (!data) return <ResearchUnavailable ticker={ticker} />
-  return <StockFinancialStatementsResearch data={data} lens={lens} statement={statement} period={period} />
+  return <StockFinancialStatementsResearch data={data} lens={lens} statement={statement} period={period} statements={statements} />
 }

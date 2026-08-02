@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
 import { formatCompactMoney } from '@/lib/currency'
+import type { FinancialStatementLineItem, FinancialStatementsPayload } from '@/lib/canonical-research'
 import type { InvestmentLensKey } from '@/lib/investment-lens'
 import type { StockResearchData } from '@/lib/stock-research'
 import styles from './ResearchViews.module.css'
@@ -8,10 +9,10 @@ import styles from './ResearchViews.module.css'
 export type StatementKey = 'income' | 'balance-sheet' | 'cash-flow'
 export type StatementPeriod = 'annual' | 'quarterly'
 
-const STATEMENTS: Array<{ key: StatementKey; label: string; rows: string[] }> = [
-  { key: 'income', label: 'Income Statement', rows: ['Revenue', 'Cost of revenue', 'Gross profit', 'Operating income', 'Net income', 'Earnings per share'] },
-  { key: 'balance-sheet', label: 'Balance Sheet', rows: ['Cash and equivalents', 'Total assets', 'Total debt', 'Total liabilities', 'Shareholders’ equity', 'Shares outstanding'] },
-  { key: 'cash-flow', label: 'Cash Flow', rows: ['Operating cash flow', 'Capital expenditure', 'Free cash flow', 'Financing cash flow', 'Investing cash flow', 'Cash change'] },
+const STATEMENTS: Array<{ key: StatementKey; label: string }> = [
+  { key: 'income', label: 'Income Statement' },
+  { key: 'balance-sheet', label: 'Balance Sheet' },
+  { key: 'cash-flow', label: 'Cash Flow' },
 ]
 
 function statementHref({
@@ -35,19 +36,53 @@ function formatPercent(value: number | null): string | null {
   return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(scaled)}%`
 }
 
+function formatPeriod(row: FinancialStatementLineItem): string {
+  if (row.periodType === 'quarterly' && row.fiscalQuarter) {
+    return `${row.fiscalYear ?? ''} ${row.fiscalQuarter}`.trim()
+  }
+  return row.fiscalYear ? `FY ${row.fiscalYear}` : row.periodEnd
+}
+
+function formatStatementValue(row: FinancialStatementLineItem | undefined, fallbackCurrency: string): string {
+  if (!row || row.value === null || !Number.isFinite(row.value)) return '—'
+  const id = row.lineItemId.toLowerCase()
+  if (id.includes('per_share') || id.includes('eps')) {
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 }).format(row.value)
+  }
+  if (id.includes('shares')) {
+    return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(row.value)
+  }
+  return formatCompactMoney(row.value, row.currency || fallbackCurrency)
+}
+
 export default function StockFinancialStatementsResearch({
   data,
   lens,
   statement,
   period,
+  statements,
 }: {
   data: StockResearchData
   lens: InvestmentLensKey
   statement: StatementKey
   period: StatementPeriod
+  statements: FinancialStatementsPayload | null
 }) {
   const activeStatement = STATEMENTS.find((item) => item.key === statement) ?? STATEMENTS[0]
   const fundamentals = data.summary.fundamentalsSummary
+  const canonicalRows = statements?.available ? statements.rows : []
+  const periodRows = new Map<string, FinancialStatementLineItem>()
+  for (const row of canonicalRows) {
+    const key = `${row.lineItemId}:${row.periodEnd}`
+    if (!periodRows.has(key)) periodRows.set(key, row)
+  }
+  const periods = [...new Map(canonicalRows.map((row) => [row.periodEnd, row])).values()].slice(0, 5)
+  const lineItems = [...new Map(canonicalRows.map((row) => [row.lineItemId, row])).values()]
+  const latestKnownAt = canonicalRows.reduce<string | null>(
+    (latest, row) => !latest || row.knownAt > latest ? row.knownAt : latest,
+    null,
+  )
+  const currencies = [...new Set(canonicalRows.map((row) => row.currency).filter(Boolean))]
   const snapshot = [
     fundamentals?.latestRevenue !== null && fundamentals?.latestRevenue !== undefined
       ? { label: 'Revenue', value: formatCompactMoney(fundamentals.latestRevenue, data.currency) }
@@ -106,33 +141,37 @@ export default function StockFinancialStatementsResearch({
           <p>{period === 'annual' ? 'Annual' : 'Quarterly'} periods</p>
         </div>
         <div className={styles.statementCanvas}>
-          <div className={styles.trajectory} aria-label="Financial trajectory preview">
-            <strong>Financial trajectory</strong>
-            <span>Pending integration</span>
+          <div className={styles.trajectory} aria-label="Canonical statement coverage">
+            <strong>{lineItems.length > 0 ? `${lineItems.length} canonical line items` : 'No canonical statement rows'}</strong>
+            <span>{periods.length > 0 ? `${periods.length} latest reported periods · latest known ${latestKnownAt ?? 'unknown'}` : statements?.reason ?? 'Statement read model unavailable'}</span>
           </div>
           <aside className={styles.statementContext} aria-label="Statement context">
-            <div className={styles.contextRow}><span>Coverage</span><strong>Pending integration</strong></div>
-            <div className={styles.contextRow}><span>Currency</span><strong>{data.currency}</strong></div>
+            <div className={styles.contextRow}><span>Coverage</span><strong>{statements?.available ? `${statements.count} observations` : 'Unavailable'}</strong></div>
+            <div className={styles.contextRow}><span>Currency</span><strong>{currencies.join(', ') || data.currency}</strong></div>
             <div className={styles.contextRow}><span>Unit</span><strong>As reported</strong></div>
-            <div className={styles.contextRow}><span>Restatements</span><strong>Data pending</strong></div>
+            <div className={styles.contextRow}><span>Known at</span><strong>{latestKnownAt ?? '—'}</strong></div>
           </aside>
         </div>
 
         <div className={styles.statementTableWrap}>
           <table className={styles.statementTable}>
-            <caption>{activeStatement.label} · {period === 'annual' ? 'annual' : 'quarterly'} structure preview</caption>
+            <caption>{activeStatement.label} · {period === 'annual' ? 'annual' : 'quarterly'} canonical observations</caption>
             <thead>
-              <tr><th scope="col">Metric</th><th scope="col">Selected period</th><th scope="col">Comparison</th><th scope="col">Growth</th></tr>
+              <tr>
+                <th scope="col">Line item</th>
+                {periods.map((row) => <th scope="col" key={row.periodEnd}>{formatPeriod(row)}<small>{row.periodEnd}</small></th>)}
+              </tr>
             </thead>
             <tbody>
-              {activeStatement.rows.map((row) => (
-                <tr key={row}>
-                  <th scope="row">{row}</th>
-                  <td className={styles.pendingCell}>Data pending</td>
-                  <td className={styles.pendingCell}>Pending</td>
-                  <td className={styles.pendingCell}>Pending</td>
+              {lineItems.map((lineItem) => (
+                <tr key={lineItem.lineItemId}>
+                  <th scope="row">{lineItem.displayLabel}<small>{lineItem.lineItemId}</small></th>
+                  {periods.map((periodRow) => (
+                    <td key={periodRow.periodEnd}>{formatStatementValue(periodRows.get(`${lineItem.lineItemId}:${periodRow.periodEnd}`), data.currency)}</td>
+                  ))}
                 </tr>
               ))}
+              {lineItems.length === 0 ? <tr><td className={styles.pendingCell} colSpan={Math.max(2, periods.length + 1)}>{statements?.reason ?? 'Canonical statement data unavailable'}</td></tr> : null}
             </tbody>
           </table>
         </div>

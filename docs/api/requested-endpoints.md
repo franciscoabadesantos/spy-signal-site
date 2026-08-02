@@ -12,7 +12,7 @@ Use `api-request-template.md`, assign an owner, and keep status one of `draft`, 
 
 ## Confirmed Phase 2 contract gaps
 
-These are frontend-observed data requirements, not active or available endpoints. The first Research Views slice must continue to render intentional placeholders until finance-backend owners define and verify the contracts.
+These are frontend-observed data requirements. Implemented portions are recorded explicitly; unresolved fields remain gaps and must not be inferred.
 
 ### Complete company and fund profile
 
@@ -25,6 +25,8 @@ The existing `/tickers/:ticker/profile` normalizer remains the only current sour
 
 ### Financial statement series
 
+Status: partially implemented through `GET /tickers/:ticker/financial-statements`.
+
 - Statement type: Income Statement, Balance Sheet, or Cash Flow.
 - Frequency: Annual or Quarterly.
 - Ordered line items with stable keys, labels, values, period end, filing date, currency, unit, and scaling.
@@ -32,11 +34,13 @@ The existing `/tickers/:ticker/profile` normalizer remains the only current sour
 - Restatement/version metadata and source context.
 - Explicit partial/empty/unsupported semantics and available history window.
 
-No statement-series contract is currently available to the frontend. The Financial Statements view must not treat summary fundamentals as a substitute for complete statements.
+The shared ticker contract supplies canonical line items, annual/quarterly periods, period end, currency, source, `knownAt`, methodology and quality flags. Filing date, backend-supplied ordering/hierarchy, scaling, comparative growth and explicit restatement relationships remain gaps. The frontend does not substitute summary fundamentals for missing statement rows.
 
 ### Valuation history
 
-The Valuation History view currently uses only the canonical current trailing P/E, market cap, currency, reporting period, and available earnings context from the existing summary payload. The following future contract is required before historical modules can display live values:
+Status: partially implemented through `GET /tickers/:ticker/market-metrics`.
+
+The Valuation History view now displays direct temporal observations for supported canonical metric keys, preserving observation date, `knownAt`, source and methodology. Current summary fields remain a narrow fallback for current P/E context only. The following contract gaps remain:
 
 - Metric series for P/E, P/S, P/B, P/FCF, EV/EBITDA, and future supported multiples.
 - Explicit frequency and period semantics for annual and quarterly observations.
@@ -76,7 +80,9 @@ The frontend currently uses the existing OHLC-derived technical implementation f
 
 ### Earnings and events
 
-The current summary exposes a partial next-earnings object and an earnings-history array. A canonical events contract is required for the final event timeline:
+Status: partially implemented through `GET /tickers/:ticker/events` and `GET /tickers/:ticker/disclosures`.
+
+The shared ticker-scoped surfaces provide canonical event identity, domain/type, date role, date, source, `knownAt`, candidate classification/confidence and disclosure links. The summary still supplies the richer next-earnings facts. The following richer product fields remain gaps:
 
 - Stable event identity, type, date, time, timezone, fiscal/reporting period, source, certainty, as-of timestamp, and coverage state.
 - Earnings actuals, estimates, surprise fields, guidance, revisions, restatements, and duplicate/version rules.
@@ -85,7 +91,7 @@ The current summary exposes a partial next-earnings object and an earnings-histo
 - Fund-specific distributions, rebalances, index changes, issuer events, splits, and structural changes.
 - Optional event-to-price relationships with an approved methodology; the frontend must not infer event impact.
 
-Until these contracts exist, the page renders only individually safe existing fields and keeps the remaining geometry in `Pending integration`, `Partial coverage`, or `Unavailable` states.
+The page renders the canonical calendar/disclosure stream and preserves candidate semantics. Rich earnings actuals/estimates, action amounts, event detail fields and any event-to-price relationship need separate approved product contracts; the frontend does not derive them.
 
 ## Phase 3 Relationships contract gaps
 

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
+import type { CanonicalEvent, DisclosurePayload, EventCalendarPayload } from '@/lib/canonical-research'
 import type { InvestmentLensKey } from '@/lib/investment-lens'
 import type { StockResearchData } from '@/lib/stock-research'
 import { normalizeEarningsHistory } from '@/lib/event-research'
@@ -29,23 +30,34 @@ function viewHref(ticker: string, lens: InvestmentLensKey, view: EventView): str
   return `/stocks/${ticker}/events?lens=${lens}&view=${view}`
 }
 
-function NextEvent({ data }: { data: StockResearchData }) {
+function NextEvent({
+  data,
+  events,
+  view,
+}: {
+  data: StockResearchData
+  events: EventCalendarPayload | null
+  view: EventView
+}) {
   const earnings = data.summary.nextEarnings
   const distributionDate = data.fundamentals.exDividendDate
+  const nextCanonical = view === 'upcoming'
+    ? [...(events?.rows ?? [])].sort((a, b) => Date.parse(a.occursAt ?? '') - Date.parse(b.occursAt ?? ''))[0]
+    : undefined
 
   if (data.kind === 'fund') {
     return (
       <section className={styles.nextEvent} aria-labelledby="next-event-heading">
         <div>
           <span className={styles.eyebrow}>Fund Events</span>
-          <h2 id="next-event-heading">{distributionDate ? 'Distribution date' : 'Fund event coverage'}</h2>
+          <h2 id="next-event-heading">{nextCanonical?.title ?? (distributionDate ? 'Distribution date' : 'Fund event coverage')}</h2>
           <div className={styles.nextMeta}>
-            <span>{distributionDate ? formatDate(distributionDate) : 'Pending integration'}</span>
-            <span>Issuer, rebalance and structural events are not connected.</span>
+            <span>{formatDate(nextCanonical?.occursAt ?? distributionDate)}</span>
+            <span>{nextCanonical ? `${nextCanonical.eventType} · ${nextCanonical.source ?? 'canonical source'}` : 'No upcoming canonical fund event'}</span>
           </div>
         </div>
         <div className={styles.nextFacts}>
-          <div className={styles.fact}><span>Distributions</span><strong>{distributionDate ? 'Date available' : 'Pending integration'}</strong></div>
+          <div className={styles.fact}><span>Distributions</span><strong>{distributionDate ? 'Date available' : 'No canonical date'}</strong></div>
           <div className={styles.fact}><span>Fund coverage</span><strong>{data.coverageLabel}</strong></div>
         </div>
       </section>
@@ -56,11 +68,11 @@ function NextEvent({ data }: { data: StockResearchData }) {
     <section className={styles.nextEvent} aria-labelledby="next-event-heading">
       <div>
         <span className={styles.eyebrow}>Next event</span>
-        <h2 id="next-event-heading">Next event</h2>
+        <h2 id="next-event-heading">{nextCanonical?.title ?? 'Next event'}</h2>
         <div className={styles.nextMeta}>
-          <span>{earnings?.earningsDate ? formatDate(earnings.earningsDate) : 'Pending integration'}</span>
+          <span>{formatDate(nextCanonical?.occursAt ?? earnings?.earningsDate ?? null)}</span>
           <span>{earnings?.fiscalPeriod ?? 'Fiscal period unavailable'}</span>
-          <span>{earnings?.earningsTime ?? 'Time unavailable'}</span>
+          <span>{nextCanonical?.source ?? earnings?.earningsTime ?? 'Source unavailable'}</span>
         </div>
       </div>
       <div className={styles.nextFacts}>
@@ -73,19 +85,29 @@ function NextEvent({ data }: { data: StockResearchData }) {
   )
 }
 
-function EventModules({ data }: { data: StockResearchData }) {
-  const modules = data.kind === 'fund'
+function EventModules({
+  data,
+  events,
+  disclosures,
+}: {
+  data: StockResearchData
+  events: EventCalendarPayload | null
+  disclosures: DisclosurePayload | null
+}) {
+  const allRows = [...(events?.rows ?? []), ...(disclosures?.rows ?? [])]
+  const count = (...domains: string[]) => allRows.filter((row) => domains.includes(row.domain)).length
+  const modules: Array<[string, number]> = data.kind === 'fund'
     ? [
-        ['Distributions', data.fundamentals.exDividendDate ? `Date · ${formatDate(data.fundamentals.exDividendDate)}` : 'Pending integration'],
-        ['Rebalances', 'Pending integration'],
-        ['Index changes', 'Pending integration'],
-        ['Issuer & structural events', 'Pending integration'],
+        ['Distributions', count('fundDistributions')],
+        ['Rebalances', count('fundRebalances')],
+        ['Investor events', count('investorEvents')],
+        ['Issuer disclosures', count('filings', 'guidance', 'equityCapitalEvents')],
       ]
     : [
-        ['Dividends', data.fundamentals.exDividendDate ? `Ex-date · ${formatDate(data.fundamentals.exDividendDate)}` : 'Pending integration'],
-        ['Corporate actions', 'Pending integration'],
-        ['Guidance & revisions', 'Pending integration'],
-        ['Filings & shareholder events', 'Pending integration'],
+        ['Earnings', count('earningsEvents')],
+        ['Corporate actions', count('corporateActions')],
+        ['Guidance & capital', count('guidance', 'equityCapitalEvents')],
+        ['Filings & investor events', count('filings', 'investorEvents')],
       ]
 
   return (
@@ -99,12 +121,46 @@ function EventModules({ data }: { data: StockResearchData }) {
       <div className={styles.eventModules}>
         {modules.map(([label, value]) => (
           <div className={styles.moduleRow} key={label}>
-            <div><strong>{label}</strong><p>{value}</p></div>
-            <span className={styles.status}>{value === 'Pending integration' ? 'Pending integration' : 'Partial coverage'}</span>
+            <div><strong>{label}</strong><p>{value} canonical {value === 1 ? 'event' : 'events'} in this view</p></div>
+            <span className={styles.status}>{value > 0 ? 'Available' : 'No rows'}</span>
           </div>
         ))}
       </div>
     </section>
+  )
+}
+
+function CanonicalTimeline({
+  rows,
+  view,
+  reason,
+}: {
+  rows: CanonicalEvent[]
+  view: EventView
+  reason: string | null
+}) {
+  const ordered = [...rows].sort((a, b) => {
+    const left = Date.parse(a.occursAt ?? '') || 0
+    const right = Date.parse(b.occursAt ?? '') || 0
+    return view === 'upcoming' ? left - right : right - left
+  })
+  if (ordered.length === 0) {
+    return <div className={styles.moduleRow}><div><strong>No canonical events</strong><p>{reason ?? 'No observations fall inside this date window.'}</p></div><span className={styles.status}>No rows</span></div>
+  }
+  return (
+    <div className={styles.timeline}>
+      {ordered.map((row) => (
+        <div className={styles.eventRow} key={`${row.domain}:${row.eventId ?? row.title}:${row.knownAt ?? ''}`}>
+          <time dateTime={row.occursAt ?? undefined}>{formatDate(row.occursAt)}</time>
+          <div>
+            <strong>{row.title}</strong>
+            <p>{row.domain} · {row.occursAtRole.replaceAll('_', ' ')} · known {formatDate(row.knownAt)}</p>
+            {row.documentUrl ? <a href={row.documentUrl} target="_blank" rel="noreferrer">Open {row.documentType ?? 'document'}</a> : null}
+          </div>
+          <span className={styles.eventStatus}>{row.classification === 'candidate' ? `Candidate${row.confidence ? ` · ${row.confidence}` : ''}` : row.source ?? 'Canonical'}</span>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -133,9 +189,24 @@ function EarningsHistory({ data }: { data: StockResearchData }) {
   )
 }
 
-export default function StockEventsResearch({ data, lens, view: rawView }: { data: StockResearchData; lens: InvestmentLensKey; view?: string }) {
+export default function StockEventsResearch({
+  data,
+  lens,
+  view: rawView,
+  events,
+  disclosures,
+}: {
+  data: StockResearchData
+  lens: InvestmentLensKey
+  view?: string
+  events: EventCalendarPayload | null
+  disclosures: DisclosurePayload | null
+}) {
   const view = parseView(rawView)
   const isFund = data.kind === 'fund'
+  const timelineRows = view === 'upcoming'
+    ? events?.rows ?? []
+    : [...(events?.rows ?? []), ...(disclosures?.rows ?? [])]
 
   return (
     <ResearchViewShell data={data} lens={lens} title={isFund ? 'Fund Events' : 'Earnings & Events'}>
@@ -145,7 +216,7 @@ export default function StockEventsResearch({ data, lens, view: rawView }: { dat
           <div className={styles.introMeta}><span>{data.coverageLabel}</span><span>{isFund ? 'Earnings are not applicable to this asset.' : 'No event impact is inferred.'}</span></div>
         </header>
 
-        <NextEvent data={data} />
+        <NextEvent data={data} events={events} view={view} />
 
         <nav className={styles.viewNav} aria-label="Event view">
           {(['upcoming', 'recent', 'history'] as const).map((item) => (
@@ -164,19 +235,11 @@ export default function StockEventsResearch({ data, lens, view: rawView }: { dat
               </div>
               <span className={styles.status}>{view}</span>
             </div>
-            {view === 'history' && !isFund ? <EarningsHistory data={data} /> : (
-              <div className={styles.timeline}>
-                <div className={styles.eventRow}>
-                  <time>{view === 'upcoming' ? 'Next' : 'Recent'}</time>
-                  <div><strong>{isFund ? 'Fund events' : 'Earnings and events'}</strong><p>{view === 'upcoming' ? 'Only the next earnings fields are currently connected.' : 'Historical event feed is pending canonical normalization.'}</p></div>
-                  <span className={styles.eventStatus}>{view === 'upcoming' && data.summary.nextEarnings ? 'Partial coverage' : 'Pending integration'}</span>
-                </div>
-                {view !== 'upcoming' ? <div className={styles.eventRow}><time>Future</time><div><strong>{isFund ? 'Distribution and rebalance history' : 'Filings, actions and guidance'}</strong><p>Final timeline geometry reserved for the approved event contract.</p></div><span className={styles.eventStatus}>Pending integration</span></div> : null}
-              </div>
-            )}
+            <CanonicalTimeline rows={timelineRows} view={view} reason={events?.reason ?? disclosures?.reason ?? null} />
+            {view === 'history' && !isFund ? <EarningsHistory data={data} /> : null}
           </section>
 
-          <EventModules data={data} />
+          <EventModules data={data} events={events} disclosures={disclosures} />
         </div>
 
         <section className={styles.methodology} aria-labelledby="events-methodology-heading">
@@ -187,7 +250,7 @@ export default function StockEventsResearch({ data, lens, view: rawView }: { dat
             </div>
             <Link href={`/stocks/${data.ticker}/methodology?lens=${lens}`} className={styles.methodLink}>Open methodology →</Link>
           </div>
-          <p>Dates, fiscal periods and estimates are presented only when supplied by the existing summary or profile payloads. Historical earnings are withheld when duplicate date and period keys prevent safe normalization. No timezone, certainty, source, guidance, restatement or price impact is inferred.</p>
+          <p>Calendar rows and disclosures come from ticker-scoped canonical read models. Event date roles, source, known-at time and candidate confidence remain explicit. No certainty, price impact, filing interpretation or missing event is inferred.</p>
         </section>
 
         <ResearchAdPlacement />

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
+import type { MarketMetricObservation, MarketMetricsPayload } from '@/lib/canonical-research'
 import type { InvestmentLensKey } from '@/lib/investment-lens'
 import {
   currentResearchSnapshot,
@@ -14,12 +15,12 @@ import styles from './StockValuationResearch.module.css'
 export type ValuationMetric = 'pe' | 'ps' | 'pb' | 'pfcf' | 'ev-ebitda'
 export type ValuationPeriod = 'annual' | 'quarterly'
 
-const METRICS: Array<{ key: ValuationMetric; label: string; available: boolean }> = [
-  { key: 'pe', label: 'P/E', available: true },
-  { key: 'ps', label: 'P/S', available: false },
-  { key: 'pb', label: 'P/B', available: false },
-  { key: 'pfcf', label: 'P/FCF', available: false },
-  { key: 'ev-ebitda', label: 'EV/EBITDA', available: false },
+const METRICS: Array<{ key: ValuationMetric; label: string }> = [
+  { key: 'pe', label: 'P/E' },
+  { key: 'ps', label: 'P/S' },
+  { key: 'pb', label: 'P/B' },
+  { key: 'pfcf', label: 'P/FCF' },
+  { key: 'ev-ebitda', label: 'EV/EBITDA' },
 ]
 
 function valuationHref(
@@ -32,29 +33,42 @@ function valuationHref(
   return `/stocks/${ticker}/valuation?${params.toString()}`
 }
 
-function SnapshotContext({ snapshot, metric }: { snapshot: CurrentResearchSnapshot; metric: ValuationMetric }) {
+function formatObservationValue(row: MarketMetricObservation | null): string {
+  if (!row || row.value === null || !Number.isFinite(row.value)) return '—'
+  return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(row.value)}x`
+}
+
+function SnapshotContext({
+  snapshot,
+  metric,
+  latest,
+}: {
+  snapshot: CurrentResearchSnapshot
+  metric: ValuationMetric
+  latest: MarketMetricObservation | null
+}) {
   const metricLabel = METRICS.find((item) => item.key === metric)?.label ?? 'Multiple'
-  const currentValue = metric === 'pe' ? formatResearchMultiple(snapshot.trailingPe) : '—'
-  const metricAvailable = metric === 'pe' && snapshot.trailingPe !== null
+  const currentValue = latest ? formatObservationValue(latest) : metric === 'pe' ? formatResearchMultiple(snapshot.trailingPe) : '—'
+  const metricAvailable = latest !== null || metric === 'pe' && snapshot.trailingPe !== null
 
   return (
     <aside className={styles.contextColumn} aria-label="Current valuation context">
       <div>
         <div className={styles.contextHeader}>
           <h2>Current value</h2>
-          <span>{metricAvailable ? 'Available' : 'Pending integration'}</span>
+          <span>{metricAvailable ? 'Available' : 'No canonical rows'}</span>
         </div>
         <div className={styles.currentValue}>
           <span>{metricLabel}</span>
           <strong>{currentValue}</strong>
-          <small>{snapshot.reportingPeriod ? `Reported ${formatResearchDate(snapshot.reportingPeriod)}` : 'Reporting period unavailable'}</small>
+          <small>{latest ? `Observed ${formatResearchDate(latest.observationDate)}` : snapshot.reportingPeriod ? `Reported ${formatResearchDate(snapshot.reportingPeriod)}` : 'Observation date unavailable'}</small>
         </div>
       </div>
       <dl className={styles.contextList}>
         <div><dt>Market cap</dt><dd>{formatResearchMoney(snapshot.marketCap, snapshot.currency)}</dd></div>
         <div><dt>Currency</dt><dd>{snapshot.currency}</dd></div>
-        <div><dt>Historical range</dt><dd className={styles.pendingValue}>Pending integration</dd></div>
-        <div><dt>Peer / sector context</dt><dd className={styles.pendingValue}>Pending integration</dd></div>
+        <div><dt>Known at</dt><dd>{latest ? formatResearchDate(latest.knownAt) : '—'}</dd></div>
+        <div><dt>Source</dt><dd>{latest?.source ?? '—'}</dd></div>
       </dl>
     </aside>
   )
@@ -65,15 +79,19 @@ export default function StockValuationResearch({
   lens,
   metric,
   period,
+  observations,
 }: {
   data: StockResearchData
   lens: InvestmentLensKey
   metric: ValuationMetric
   period: ValuationPeriod
+  observations: MarketMetricsPayload | null
 }) {
   const snapshot = currentResearchSnapshot(data)
   const metricLabel = METRICS.find((item) => item.key === metric)?.label ?? 'Multiple'
   const earnings = data.summary.nextEarnings
+  const rows = observations?.available ? observations.rows : []
+  const latest = rows[0] ?? null
 
   return (
     <ResearchViewShell data={data} lens={lens} title="Valuation History">
@@ -86,21 +104,8 @@ export default function StockValuationResearch({
                 key={item.key}
                 href={valuationHref(data.ticker, lens, item.key, period)}
                 aria-current={item.key === metric ? 'page' : undefined}
-                data-pending={!item.available || undefined}
               >
                 {item.label}
-              </Link>
-            ))}
-          </div>
-          <div className={styles.controlGroup} aria-label="Valuation frequency">
-            <span className={styles.controlLabel}>Frequency</span>
-            {(['annual', 'quarterly'] as const).map((item) => (
-              <Link
-                key={item}
-                href={valuationHref(data.ticker, lens, metric, item)}
-                aria-current={item === period ? 'page' : undefined}
-              >
-                {item === 'annual' ? 'Annual' : 'Quarterly'}
               </Link>
             ))}
           </div>
@@ -110,43 +115,49 @@ export default function StockValuationResearch({
           <div className={styles.chartColumn}>
             <div className={styles.chartHeader}>
               <h2 id="valuation-history-chart">Historical {metricLabel}</h2>
-              <span>{period === 'annual' ? 'Annual series' : 'Quarterly series'}</span>
+              <span>Temporal observations</span>
             </div>
-            <div className={styles.chartFrame} role="img" aria-label={`${metricLabel} historical series pending integration`}>
-              <div className={styles.chartPlaceholder}>
-                <strong>Historical multiple series</strong>
-                <span>Pending integration · no series rendered</span>
+            <div className={styles.chartFrame} aria-label={`${metricLabel} canonical temporal observations`}>
+              <div className={styles.observationList}>
+                {rows.slice(0, 18).map((row) => (
+                  <div className={styles.observationRow} key={`${row.observationDate}:${row.knownAt}:${row.metric}`}>
+                    <time dateTime={row.observationDate}>{formatResearchDate(row.observationDate)}</time>
+                    <strong>{formatObservationValue(row)}</strong>
+                    <span>known {formatResearchDate(row.knownAt)}</span>
+                  </div>
+                ))}
+                {rows.length === 0 ? <div className={styles.chartPlaceholder}><strong>No canonical {metricLabel} history</strong><span>{observations?.reason ?? 'Market metric read model unavailable'}</span></div> : null}
               </div>
               <div className={styles.chartFooter}>
-                <span>Current value is shown in the context panel</span>
-                <span>Range and position pending</span>
+                <span>{rows.length} temporal {rows.length === 1 ? 'observation' : 'observations'}</span>
+                <span>No range or percentile inferred</span>
               </div>
             </div>
           </div>
-          <SnapshotContext snapshot={snapshot} metric={metric} />
+          <SnapshotContext snapshot={snapshot} metric={metric} latest={latest} />
         </section>
 
         <section className={styles.secondaryGrid} aria-label="Valuation comparisons">
           <div className={styles.secondaryModule}>
             <div className={styles.sectionHeader}>
-              <h2>Range context</h2>
-              <span>Future data</span>
+              <h2>Series coverage</h2>
+              <span>Canonical</span>
             </div>
             <dl className={styles.moduleRows}>
-              <div><dt>Historical interval</dt><dd>Pending integration</dd></div>
-              <div><dt>Median / average</dt><dd>Pending integration</dd></div>
-              <div><dt>Current position</dt><dd>Pending integration</dd></div>
+              <div><dt>First observation</dt><dd>{rows.length ? formatResearchDate(rows.at(-1)?.observationDate ?? null) : '—'}</dd></div>
+              <div><dt>Latest observation</dt><dd>{latest ? formatResearchDate(latest.observationDate) : '—'}</dd></div>
+              <div><dt>Methodology</dt><dd>{latest?.methodologyVersion ?? '—'}</dd></div>
             </dl>
           </div>
           <div className={styles.secondaryModule}>
             <div className={styles.sectionHeader}>
               <h2>Peer and sector comparison</h2>
-              <span>Future data</span>
+              <span>Not supplied</span>
             </div>
             <dl className={styles.moduleRows}>
-              <div><dt>Comparable companies</dt><dd>Pending integration</dd></div>
-              <div><dt>Sector reference</dt><dd>Pending integration</dd></div>
-              <div><dt>Method</dt><dd>Pending integration</dd></div>
+              <div><dt>Comparable companies</dt><dd>Not in this contract</dd></div>
+              <div><dt>Sector reference</dt><dd>Not in this contract</dd></div>
+              <div><dt>Method</dt><dd>No frontend inference</dd></div>
             </dl>
           </div>
         </section>
@@ -167,7 +178,7 @@ export default function StockValuationResearch({
             <p>Current values are separated from future historical comparisons.</p>
           </div>
           <div>
-            <p>Historical ranges, peer definitions, sector references and as-of rules will be supplied by the canonical finance-backend contract.</p>
+            <p>Values are direct temporal market-metric observations. Known-at dates remain distinct from observation dates; ranges, percentiles and peer comparisons are not calculated in the frontend.</p>
             <Link href={`/stocks/${data.ticker}/methodology?lens=${lens}`}>Open methodology →</Link>
           </div>
         </section>

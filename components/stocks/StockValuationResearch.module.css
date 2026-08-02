@@ -153,6 +153,40 @@
   text-transform: uppercase;
 }
 
+.observationList {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: 300px;
+  align-content: end;
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+}
+
+.observationRow {
+  display: grid;
+  grid-template-columns: minmax(118px, 0.8fr) minmax(80px, 0.45fr) minmax(130px, 1fr);
+  gap: 16px;
+  align-items: baseline;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--valuation-line);
+  font-size: 11px;
+}
+
+.observationRow time,
+.observationRow span {
+  color: var(--color-text-muted);
+}
+
+.observationRow strong {
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.observationRow span {
+  text-align: right;
+}
+
 .chartFooter {
   display: flex;
   justify-content: space-between;
@@ -349,6 +383,15 @@
 
   .chartFrame {
     min-height: 285px;
+  }
+
+  .observationRow {
+    grid-template-columns: minmax(100px, 1fr) auto;
+  }
+
+  .observationRow span {
+    grid-column: 1 / -1;
+    text-align: left;
   }
 
   .contextColumn {
