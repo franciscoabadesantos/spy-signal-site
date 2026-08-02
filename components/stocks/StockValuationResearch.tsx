@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import TemporalLineChart from '@/components/charts/TemporalLineChart'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
 import type { MarketMetricObservation, MarketMetricsPayload } from '@/lib/canonical-research'
 import type { InvestmentLensKey } from '@/lib/investment-lens'
@@ -35,7 +36,11 @@ function valuationHref(
 
 function formatObservationValue(row: MarketMetricObservation | null): string {
   if (!row || row.value === null || !Number.isFinite(row.value)) return '—'
-  return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(row.value)}x`
+  return formatMultiple(row.value)
+}
+
+function formatMultiple(value: number): string {
+  return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value)}x`
 }
 
 function SnapshotContext({
@@ -91,7 +96,16 @@ export default function StockValuationResearch({
   const metricLabel = METRICS.find((item) => item.key === metric)?.label ?? 'Multiple'
   const earnings = data.summary.nextEarnings
   const rows = observations?.available ? observations.rows : []
-  const latest = rows[0] ?? null
+  const latest = rows.find((row) => row.value !== null && Number.isFinite(row.value)) ?? null
+  const chartPoints = rows
+    .filter((row): row is MarketMetricObservation & { value: number } => row.value !== null && Number.isFinite(row.value))
+    .map((row) => ({
+      date: row.observationDate,
+      value: row.value,
+      key: `${row.observationDate}:${row.knownAt}:${row.metric}`,
+      tooltipMeta: `Known ${formatResearchDate(row.knownAt)}`,
+    }))
+    .sort((left, right) => left.date.localeCompare(right.date) || left.key.localeCompare(right.key))
 
   return (
     <ResearchViewShell data={data} lens={lens} title="Valuation History">
@@ -117,19 +131,21 @@ export default function StockValuationResearch({
               <h2 id="valuation-history-chart">Historical {metricLabel}</h2>
               <span>Temporal observations</span>
             </div>
-            <div className={styles.chartFrame} aria-label={`${metricLabel} canonical temporal observations`}>
-              <div className={styles.observationList}>
-                {rows.slice(0, 18).map((row) => (
-                  <div className={styles.observationRow} key={`${row.observationDate}:${row.knownAt}:${row.metric}`}>
-                    <time dateTime={row.observationDate}>{formatResearchDate(row.observationDate)}</time>
-                    <strong>{formatObservationValue(row)}</strong>
-                    <span>known {formatResearchDate(row.knownAt)}</span>
+            <div className={styles.chartFrame} data-empty={chartPoints.length === 0}>
+              <TemporalLineChart
+                className={styles.valuationChart}
+                points={chartPoints}
+                ariaLabel={`${metricLabel} canonical temporal observations`}
+                valueFormat="multiple"
+                emptyState={
+                  <div className={styles.chartPlaceholder}>
+                    <strong>No canonical {metricLabel} history</strong>
+                    <span>{observations?.reason ?? 'Market metric read model unavailable'}</span>
                   </div>
-                ))}
-                {rows.length === 0 ? <div className={styles.chartPlaceholder}><strong>No canonical {metricLabel} history</strong><span>{observations?.reason ?? 'Market metric read model unavailable'}</span></div> : null}
-              </div>
+                }
+              />
               <div className={styles.chartFooter}>
-                <span>{rows.length} temporal {rows.length === 1 ? 'observation' : 'observations'}</span>
+                <span>{chartPoints.length} temporal {chartPoints.length === 1 ? 'observation' : 'observations'}</span>
                 <span>No range or percentile inferred</span>
               </div>
             </div>
@@ -144,7 +160,7 @@ export default function StockValuationResearch({
               <span>Canonical</span>
             </div>
             <dl className={styles.moduleRows}>
-              <div><dt>First observation</dt><dd>{rows.length ? formatResearchDate(rows.at(-1)?.observationDate ?? null) : '—'}</dd></div>
+              <div><dt>First observation</dt><dd>{chartPoints.length ? formatResearchDate(chartPoints[0]?.date ?? null) : '—'}</dd></div>
               <div><dt>Latest observation</dt><dd>{latest ? formatResearchDate(latest.observationDate) : '—'}</dd></div>
               <div><dt>Methodology</dt><dd>{latest?.methodologyVersion ?? '—'}</dd></div>
             </dl>

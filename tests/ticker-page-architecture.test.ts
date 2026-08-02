@@ -120,6 +120,10 @@ test('canonical research views use shared ticker-scoped backend contracts', () =
   const financialsPage = readRepoFile('app/(app)/stocks/[ticker]/financials/page.tsx')
   const eventsPage = readRepoFile('app/(app)/stocks/[ticker]/events/page.tsx')
   const valuationPage = readRepoFile('app/(app)/stocks/[ticker]/valuation/page.tsx')
+  const overview = readRepoFile('components/stocks/StockOverviewClient.tsx')
+  const valuation = readRepoFile('components/stocks/StockValuationResearch.tsx')
+  const temporalChart = readRepoFile('components/charts/TemporalLineChart.tsx')
+  const temporalChartStyles = readRepoFile('components/charts/TemporalLineChart.module.css')
 
   assert.match(helper, /import 'server-only'/)
   assert.match(helper, /\/tickers\/\$\{encodeURIComponent\(ticker\)\}\/financial-statements/)
@@ -131,6 +135,13 @@ test('canonical research views use shared ticker-scoped backend contracts', () =
   assert.match(eventsPage, /getTickerEvents/)
   assert.match(eventsPage, /getTickerDisclosures/)
   assert.match(valuationPage, /getTickerMarketMetrics/)
+  assert.match(overview, /TemporalLineChart/)
+  assert.match(valuation, /TemporalLineChart/)
+  assert.doesNotMatch(valuation, /observationRow/)
+  assert.match(temporalChart, /data-temporal-line-chart/)
+  assert.match(temporalChart, /showRangeChange/)
+  assert.match(temporalChartStyles, /animation: draw-line/)
+  assert.match(temporalChartStyles, /prefers-reduced-motion: reduce/)
 })
 
 test('frontoffice runtime contains no direct Yahoo or Supabase client path', () => {

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Suspense, use, useEffect, useMemo, useState, type ReactNode } from 'react'
 import SegmentedControl from '@/components/ui/SegmentedControl'
-import ChartContainer from '@/components/charts/ChartContainer'
+import TemporalLineChart from '@/components/charts/TemporalLineChart'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
 import { scoreColor, type Scorecard } from '@/lib/scorecard-types'
 import {
@@ -189,68 +189,6 @@ function parseChartDate(value: string): number {
   return new Date(`${value}T00:00:00Z`).getTime()
 }
 
-type XTick = {
-  index: number
-  label: string
-}
-
-function thinTicks(ticks: XTick[], max: number): XTick[] {
-  if (ticks.length <= max) return ticks
-  const step = Math.ceil(ticks.length / max)
-  return ticks.filter((_, position) => position % step === 0)
-}
-
-function buildXTicks(dates: string[]): XTick[] {
-  const total = dates.length
-  if (total === 0) return []
-  if (total === 1) return [{ index: 0, label: formatDate(dates[0], { month: 'short', day: 'numeric' }) }]
-
-  const spanDays = (parseChartDate(dates[total - 1]) - parseChartDate(dates[0])) / 86_400_000
-
-  if (spanDays > 700) {
-    const ticks: XTick[] = []
-    let previousYear: number | null = null
-    dates.forEach((date, index) => {
-      const year = new Date(`${date}T00:00:00Z`).getUTCFullYear()
-      if (previousYear !== null && year !== previousYear) {
-        ticks.push({ index, label: String(year) })
-      }
-      previousYear = year
-    })
-    return thinTicks(ticks, 10)
-  }
-
-  if (spanDays > 45) {
-    const ticks: XTick[] = []
-    let previousMonth: number | null = null
-    dates.forEach((date, index) => {
-      const parsed = new Date(`${date}T00:00:00Z`)
-      const monthKey = parsed.getUTCFullYear() * 12 + parsed.getUTCMonth()
-      if (previousMonth !== null && monthKey !== previousMonth) {
-        ticks.push({
-          index,
-          label:
-            parsed.getUTCMonth() === 0
-              ? String(parsed.getUTCFullYear())
-              : parsed.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }),
-        })
-      }
-      previousMonth = monthKey
-    })
-    return thinTicks(ticks, 8)
-  }
-
-  const count = Math.min(6, total)
-  const ticks: XTick[] = []
-  for (let position = 0; position < count; position++) {
-    const index = Math.round((position / Math.max(1, count - 1)) * (total - 1))
-    if (!ticks.some((tick) => tick.index === index)) {
-      ticks.push({ index, label: formatDate(dates[index], { month: 'short', day: 'numeric' }) })
-    }
-  }
-  return ticks
-}
-
 function GradeRing({ grade, score }: { grade: string; score: number | null }) {
   const radius = 24
   const color = score === null ? 'var(--color-neutral)' : scoreColor(score)
@@ -374,175 +312,20 @@ function HeroPriceChart({
   className?: string
   currency: string
 }) {
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
-
   return (
-    <ChartContainer className={cn(styles.heroChart, className)} loadingText="Loading chart...">
-      {({ width, height }) => {
-        if (data.length === 0) {
-          return (
-            <div className={styles.emptyState}>
-              {state === 'error'
-                ? 'Historical price data could not be loaded.'
-                : 'Historical price data is unavailable.'}
-            </div>
-          )
-        }
-
-        const padding = { top: 12, right: 52, bottom: 22, left: 6 }
-        const innerWidth = Math.max(1, width - padding.left - padding.right)
-        const innerHeight = Math.max(1, height - padding.top - padding.bottom)
-        const closes = data.map((point) => point.close)
-        const min = Math.min(...closes)
-        const max = Math.max(...closes)
-        const spread = max - min || Math.max(1, min * 0.03)
-        const floor = min - spread * 0.08
-        const ceiling = max + spread * 0.08
-        const points = data.map((point, index) => {
-          const x = padding.left + (index / Math.max(1, data.length - 1)) * innerWidth
-          const y = padding.top + (1 - (point.close - floor) / (ceiling - floor)) * innerHeight
-          return { ...point, x, y }
-        })
-
-        const linePath = points
-          .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-          .join(' ')
-        const areaPath = `${linePath} L${points[points.length - 1]?.x.toFixed(2)} ${(padding.top + innerHeight).toFixed(2)} L${points[0]?.x.toFixed(2)} ${(padding.top + innerHeight).toFixed(2)} Z`
-        const xTicks = buildXTicks(data.map((point) => point.date))
-        const yTicks = Array.from({ length: 5 }, (_, index) => floor + ((ceiling - floor) / 4) * index)
-        const hoverPoint = hoverIndex === null ? null : points[hoverIndex] ?? null
-        const tooltipLeft = hoverPoint ? Math.min(width - 148, Math.max(8, hoverPoint.x + 14)) : 0
-        const tooltipTop = hoverPoint ? Math.max(8, Math.min(height - 92, hoverPoint.y - 76)) : 0
-        const chartKey = `${data.length}:${data[0]?.date ?? ''}:${data[data.length - 1]?.date ?? ''}`
-        const rangeBaseClose = data[0]?.close ?? null
-        const hoverDeltaPct =
-          hoverPoint && rangeBaseClose ? ((hoverPoint.close - rangeBaseClose) / rangeBaseClose) * 100 : null
-
-        return (
-          <div className="relative h-full w-full">
-            <svg width={width} height={height} className="block">
-              {yTicks.map((tick) => {
-                const y = padding.top + (1 - (tick - floor) / (ceiling - floor)) * innerHeight
-                return (
-                  <line
-                    key={tick}
-                    x1={padding.left}
-                    y1={y}
-                    x2={padding.left + innerWidth}
-                    y2={y}
-                    stroke="var(--color-border-light)"
-                    strokeWidth="1"
-                  />
-                )
-              })}
-
-              <path key={`area-${chartKey}`} className={styles.chartArea} d={areaPath} fill="var(--color-accent-light)" />
-              <path
-                key={`line-${chartKey}`}
-                className={styles.chartLine}
-                d={linePath}
-                pathLength={1}
-                fill="none"
-                stroke="var(--color-accent)"
-                strokeWidth="2.25"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              <defs>
-                <linearGradient id="lbCrosshairGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="var(--color-accent)" stopOpacity="0" />
-                  <stop offset="0.2" stopColor="var(--color-accent)" stopOpacity="0.55" />
-                  <stop offset="1" stopColor="var(--color-accent)" stopOpacity="0.06" />
-                </linearGradient>
-              </defs>
-
-              {hoverPoint ? (
-                <>
-                  <g className={styles.crosshairGroup} style={{ transform: `translateX(${hoverPoint.x}px)` }}>
-                    <line
-                      x1={0}
-                      y1={padding.top}
-                      x2={0}
-                      y2={padding.top + innerHeight}
-                      stroke="url(#lbCrosshairGradient)"
-                      strokeWidth="1.4"
-                    />
-                  </g>
-                  <g
-                    className={styles.hoverDotGroup}
-                    style={{ transform: `translate(${hoverPoint.x}px, ${hoverPoint.y}px)` }}
-                  >
-                    <circle r="9" fill="var(--color-accent)" opacity="0.16" />
-                    <circle r="4.2" fill="var(--color-accent)" stroke="var(--bg-surface)" strokeWidth="2" />
-                  </g>
-                </>
-              ) : null}
-
-              {xTicks.map(({ index, label }) => {
-                const point = points[index]
-                if (!point) return null
-                const clampedX = Math.max(padding.left + 14, Math.min(padding.left + innerWidth - 14, point.x))
-                return (
-                  <text
-                    key={`${point.date}-${index}`}
-                    x={clampedX}
-                    y={height - 4}
-                    textAnchor="middle"
-                    fontSize="11"
-                    fill="var(--color-text-muted)"
-                  >
-                    {label}
-                  </text>
-                )
-              })}
-
-              {yTicks.map((tick) => {
-                const y = padding.top + (1 - (tick - floor) / (ceiling - floor)) * innerHeight
-                return (
-                  <text
-                    key={`y-${tick}`}
-                    x={width - 4}
-                    y={y + 4}
-                    textAnchor="end"
-                    fontSize="12"
-                    fill="var(--color-text-muted)"
-                  >
-                    {formatMoney(tick, currency)}
-                  </text>
-                )
-              })}
-
-              <rect
-                x={padding.left}
-                y={padding.top}
-                width={innerWidth}
-                height={innerHeight}
-                fill="transparent"
-                onMouseMove={(event) => {
-                  const rect = event.currentTarget.getBoundingClientRect()
-                  const localX = event.clientX - rect.left
-                  const ratio = Math.max(0, Math.min(1, localX / innerWidth))
-                  setHoverIndex(Math.round(ratio * Math.max(0, points.length - 1)))
-                }}
-                onMouseLeave={() => setHoverIndex(null)}
-              />
-            </svg>
-
-            {hoverPoint ? (
-              <div className={styles.chartTooltip} style={{ left: tooltipLeft, top: tooltipTop }}>
-                <div className={styles.chartTooltipPrice}>{formatPrice(hoverPoint.close, currency)}</div>
-                <div className={cn(styles.chartTooltipDelta, directionToneClass(hoverDeltaPct))}>
-                  {formatCompactPercent(hoverDeltaPct)}
-                  <span className={styles.chartTooltipSubtle}> in range</span>
-                </div>
-                <div className={styles.chartTooltipSubtle}>{formatDate(hoverPoint.date)}</div>
-              </div>
-            ) : null}
-          </div>
-        )
-      }}
-    </ChartContainer>
+    <TemporalLineChart
+      className={cn(styles.heroChart, className)}
+      points={data.map((point) => ({ date: point.date, value: point.close }))}
+      ariaLabel="Historical closing price"
+      valueFormat="currency"
+      currency={currency}
+      showRangeChange
+      emptyState={
+        <div className={styles.emptyState}>
+          {state === 'error' ? 'Historical price data could not be loaded.' : 'Historical price data is unavailable.'}
+        </div>
+      }
+    />
   )
 }
 

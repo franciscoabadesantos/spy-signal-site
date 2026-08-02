@@ -47,7 +47,9 @@ Status: Phase 2 first vertical slice implemented for visual review.
 
 ## Valuation History and Ownership & Capital slice
 
-Status: implemented and visually approved for commit on 2026-07-22. The slice uses the existing summary/profile payloads only. Current valuation evidence is limited to the canonical current trailing P/E and its available metadata; current ownership evidence is limited to market cap, shares outstanding, currency, and reporting period. Historical multiples, ownership composition, holders, capital changes, debt, cash, and enterprise-value terms remain intentional integration states documented in `docs/api/requested-endpoints.md`.
+Status: implemented. Valuation combines summary/profile context with canonical `/tickers/:ticker/market-metrics` observations; the currently populated historical multiple is trailing P/E. Ownership evidence remains limited to market cap, shares outstanding, currency, and reporting period. Other historical multiples, ownership composition, holders, capital changes, debt, cash, and enterprise-value terms remain intentional integration states documented in `docs/api/requested-endpoints.md`.
+
+Valuation history and Overview now share `components/charts/TemporalLineChart`. The reusable chart owns responsive measurement, temporal axes, line/area entry animation, hover crosshair and tooltip, and reduced-motion behavior. Valuation supplies canonical multiple observations; Overview supplies closing prices. Empty valuation metrics keep the compact accent-line availability state and do not reserve an empty chart canvas.
 
 ### Final validation record
 
