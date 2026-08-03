@@ -25,7 +25,7 @@ test.describe('ticker AI Research and Methodology preview', () => {
     })
 
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/stocks/AAPL/ai-research?lens=short')
+    await page.goto('/stocks/AAPL/ai-research')
     await expect(page.getByRole('heading', { name: 'AI Research', exact: true })).toBeVisible()
     await expect(page.getByText('Capability preview', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Ask', exact: true })).toBeDisabled()
@@ -38,7 +38,7 @@ test.describe('ticker AI Research and Methodology preview', () => {
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'phase2-ai-research-aapl-mobile')
 
-    await page.goto('/stocks/0005.HK/ai-research?lens=long')
+    await page.goto('/stocks/0005.HK/ai-research')
     await expect(page.getByRole('heading', { name: 'AI Research', exact: true })).toBeVisible()
     await expect(page.getByText(/Available|Partial coverage/, { exact: true }).first()).toBeVisible()
     await expectNoHorizontalOverflow(page)
@@ -54,7 +54,7 @@ test.describe('ticker AI Research and Methodology preview', () => {
 
   test('Methodology preserves Lens context and editorial reading at desktop, mobile and zoom', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/stocks/AAPL/methodology?lens=long')
+    await page.goto('/stocks/AAPL/methodology')
     await expect(page.getByRole('heading', { name: 'Methodology', exact: true })).toBeVisible()
     await expect(page.getByLabel('Methodology contents').getByRole('link', { name: 'Disclosures', exact: true })).toBeVisible()
     await expect(page.getByText('Long term', { exact: true }).first()).toBeVisible()

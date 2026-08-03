@@ -4,16 +4,15 @@ import StockFinancialStatementsResearch, {
 } from '@/components/stocks/StockFinancialStatementsResearch'
 import ResearchUnavailable from '@/components/stocks/ResearchUnavailable'
 import { getTickerFinancialStatements, type FinancialStatementType } from '@/lib/canonical-research'
-import { parseInvestmentLens } from '@/lib/investment-lens'
 import { getStockResearchData } from '@/lib/stock-research'
 
 function singleParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value
 }
 
-function parseStatement(value: string | undefined, lens: ReturnType<typeof parseInvestmentLens>): StatementKey {
+function parseStatement(value: string | undefined): StatementKey {
   if (value === 'income' || value === 'balance-sheet' || value === 'cash-flow') return value
-  return lens === 'long' ? 'balance-sheet' : 'income'
+  return 'income'
 }
 
 function parsePeriod(value: string | undefined): StatementPeriod {
@@ -32,7 +31,6 @@ export default async function FinancialsPage({
 }: {
   params: Promise<{ ticker: string }>
   searchParams: Promise<{
-    lens?: string | string[]
     statement?: string | string[]
     period?: string | string[]
   }>
@@ -40,8 +38,7 @@ export default async function FinancialsPage({
   const { ticker: rawTicker } = await params
   const ticker = rawTicker.toUpperCase()
   const query = await searchParams
-  const lens = parseInvestmentLens(singleParam(query.lens))
-  const statement = parseStatement(singleParam(query.statement), lens)
+  const statement = parseStatement(singleParam(query.statement))
   const period = parsePeriod(singleParam(query.period))
   const [data, statements] = await Promise.all([
     getStockResearchData(ticker).catch(() => null),
@@ -52,5 +49,5 @@ export default async function FinancialsPage({
     }).catch(() => null),
   ])
   if (!data) return <ResearchUnavailable ticker={ticker} />
-  return <StockFinancialStatementsResearch data={data} lens={lens} statement={statement} period={period} statements={statements} />
+  return <StockFinancialStatementsResearch data={data} statement={statement} period={period} statements={statements} />
 }

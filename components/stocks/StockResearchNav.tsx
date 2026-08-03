@@ -17,7 +17,6 @@ import {
   type StockResearchLink,
   type StockResearchNavKey,
 } from '@/components/stocks/stock-nav-config'
-import { parseInvestmentLens, type InvestmentLensKey } from '@/lib/investment-lens'
 import styles from './StockResearchNav.module.css'
 
 type OpenMenuKey = 'financials' | 'signals' | 'more'
@@ -35,13 +34,7 @@ function activeKeyFromPath(pathname: string): StockResearchNavKey {
   return 'more'
 }
 
-export default function StockResearchNav({
-  ticker,
-  initialLens,
-}: {
-  ticker: string
-  initialLens?: InvestmentLensKey
-}) {
+export default function StockResearchNav({ ticker }: { ticker: string }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [openMenu, setOpenMenu] = useState<OpenMenuKey | null>(null)
@@ -52,7 +45,6 @@ export default function StockResearchNav({
   const triggerRefs = useRef<Partial<Record<OpenMenuKey, HTMLButtonElement | null>>>({})
   const focusOnOpenRef = useRef(false)
   const menuId = useId()
-  const lens = parseInvestmentLens(searchParams.get('lens') ?? initialLens)
   const activeKey = activeKeyFromPath(pathname)
 
   useEffect(() => {
@@ -173,7 +165,7 @@ export default function StockResearchNav({
                   </button>
                 ) : (
                   <Link
-                    href={stockResearchHref(ticker, item, lens)}
+                    href={stockResearchHref(ticker, item)}
                     aria-current={selected ? 'page' : undefined}
                     className={styles.link}
                     onClick={() => setOpenMenu(null)}
@@ -217,7 +209,7 @@ export default function StockResearchNav({
           onKeyDown={onMenuKeyDown}
         >
           {menuItems.map((item) => {
-            const href = stockResearchHref(ticker, item, lens)
+            const href = stockResearchHref(ticker, item)
             const itemParams = new URLSearchParams(item.query)
             const statement = itemParams.get('statement')
             const selected = pathname === href.split('?')[0]

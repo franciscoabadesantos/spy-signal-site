@@ -8,7 +8,6 @@ import type { RelationshipWindow, ToggleLayer } from '@/components/RelationshipO
 import { hasRelationshipExperience } from '@/lib/relationship-visibility'
 import { getTickerRelationships, type TickerRelationships } from '@/lib/relationships'
 import { getStockResearchData } from '@/lib/stock-research'
-import { parseInvestmentLens } from '@/lib/investment-lens'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,7 +67,6 @@ export default async function RelationshipsPage({
   const { ticker: rawTicker } = await params
   const ticker = rawTicker.toUpperCase()
   const query = await searchParams
-  const lens = parseInvestmentLens(singleParam(query.lens))
   const initialWindow = parseWindow(singleParam(query.window))
   const initialLayer = parseLayer(singleParam(query.layer))
   const [researchResult, relationship126, relationship252] = await Promise.all([
@@ -87,7 +85,7 @@ export default async function RelationshipsPage({
   const selected = relationshipsByWindow[initialWindow]
 
   return (
-    <ResearchViewShell data={researchResult} lens={lens} title="Relationships">
+    <ResearchViewShell data={researchResult} title="Relationships">
       <div className="space-y-6" data-relationship-page="">
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
           <div>
@@ -122,7 +120,7 @@ export default async function RelationshipsPage({
         <section className="border-t border-border pt-5" aria-labelledby="relationship-method-heading">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 id="relationship-method-heading" className="text-section-title text-content-primary">How to read relationships</h2>
-            <a href={`/stocks/${ticker}/methodology?lens=${lens}#relationships`} className="action-link text-caption">Methodology →</a>
+            <a href={`/stocks/${ticker}/methodology#relationships`} className="action-link text-caption">Methodology →</a>
           </div>
           <p className="mt-2 max-w-3xl text-body-sm text-content-secondary">These are observed associations returned by finance-backend. An association does not establish causality, influence, prediction, or a business relationship.</p>
           <div className="mt-4 flex min-w-0 flex-col gap-2 text-caption text-content-muted sm:flex-row sm:flex-wrap sm:gap-x-5">

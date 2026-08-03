@@ -35,7 +35,7 @@ function thinTicks(ticks: XTick[], max: number): XTick[] {
   return ticks.filter((_, position) => position % step === 0)
 }
 
-function buildXTicks(dates: string[]): XTick[] {
+function buildXTicks(dates: string[], maxTicks = 6): XTick[] {
   const total = dates.length
   if (total === 0) return []
   if (total === 1) return [{ index: 0, label: formatDate(dates[0], { month: 'short', day: 'numeric' }) }]
@@ -49,7 +49,7 @@ function buildXTicks(dates: string[]): XTick[] {
       if (previousYear !== null && year !== previousYear) ticks.push({ index, label: String(year) })
       previousYear = year
     })
-    return thinTicks(ticks, 10)
+    return thinTicks(ticks, maxTicks)
   }
 
   if (spanDays > 45) {
@@ -68,10 +68,10 @@ function buildXTicks(dates: string[]): XTick[] {
       }
       previousMonth = monthKey
     })
-    return thinTicks(ticks, 8)
+    return thinTicks(ticks, maxTicks)
   }
 
-  const count = Math.min(6, total)
+  const count = Math.min(maxTicks, total)
   const ticks: XTick[] = []
   for (let position = 0; position < count; position++) {
     const index = Math.round((position / Math.max(1, count - 1)) * (total - 1))
@@ -135,7 +135,8 @@ export default function TemporalLineChart({
         }))
         const linePath = renderedPoints.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ')
         const areaPath = `${linePath} L${renderedPoints.at(-1)?.x.toFixed(2)} ${(padding.top + innerHeight).toFixed(2)} L${renderedPoints[0]?.x.toFixed(2)} ${(padding.top + innerHeight).toFixed(2)} Z`
-        const xTicks = buildXTicks(points.map((point) => point.date))
+        const xTickLimit = width < 420 ? 3 : width < 720 ? 4 : 6
+        const xTicks = buildXTicks(points.map((point) => point.date), xTickLimit)
         const yTicks = Array.from({ length: 5 }, (_, index) => floor + ((ceiling - floor) / 4) * index)
         const hoverPoint = hoverIndex === null ? null : renderedPoints[hoverIndex] ?? null
         const tooltipLeft = hoverPoint ? Math.min(width - 156, Math.max(8, hoverPoint.x + 14)) : 0
@@ -180,7 +181,8 @@ export default function TemporalLineChart({
               {xTicks.map(({ index, label }) => {
                 const point = renderedPoints[index]
                 if (!point) return null
-                const x = Math.max(padding.left + 14, Math.min(padding.left + innerWidth - 14, point.x))
+                const labelInset = width < 420 ? 28 : 34
+                const x = Math.max(padding.left + labelInset, Math.min(padding.left + innerWidth - labelInset, point.x))
                 return <text key={`${point.date}-${index}`} x={x} y={height - 4} textAnchor="middle" className={styles.axisLabel}>{label}</text>
               })}
 

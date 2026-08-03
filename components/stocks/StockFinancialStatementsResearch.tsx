@@ -2,7 +2,6 @@ import Link from 'next/link'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
 import { formatCompactMoney } from '@/lib/currency'
 import type { FinancialStatementLineItem, FinancialStatementsPayload } from '@/lib/canonical-research'
-import type { InvestmentLensKey } from '@/lib/investment-lens'
 import type { StockResearchData } from '@/lib/stock-research'
 import styles from './ResearchViews.module.css'
 
@@ -17,16 +16,14 @@ const STATEMENTS: Array<{ key: StatementKey; label: string }> = [
 
 function statementHref({
   ticker,
-  lens,
   statement,
   period,
 }: {
   ticker: string
-  lens: InvestmentLensKey
   statement: StatementKey
   period: StatementPeriod
 }) {
-  const params = new URLSearchParams({ lens, statement, period })
+  const params = new URLSearchParams({ statement, period })
   return `/stocks/${ticker}/financials?${params.toString()}`
 }
 
@@ -57,13 +54,11 @@ function formatStatementValue(row: FinancialStatementLineItem | undefined, fallb
 
 export default function StockFinancialStatementsResearch({
   data,
-  lens,
   statement,
   period,
   statements,
 }: {
   data: StockResearchData
-  lens: InvestmentLensKey
   statement: StatementKey
   period: StatementPeriod
   statements: FinancialStatementsPayload | null
@@ -95,13 +90,13 @@ export default function StockFinancialStatementsResearch({
   ].filter((item): item is { label: string; value: string } => Boolean(item?.value))
 
   return (
-    <ResearchViewShell data={data} lens={lens} title="Financial Statements">
+    <ResearchViewShell data={data} title="Financial Statements">
       <div className={styles.statementToolbar}>
         <nav className={styles.statementTabs} aria-label="Financial statement">
           {STATEMENTS.map((item) => (
             <Link
               key={item.key}
-              href={statementHref({ ticker: data.ticker, lens, statement: item.key, period })}
+              href={statementHref({ ticker: data.ticker, statement: item.key, period })}
               aria-current={item.key === statement ? 'page' : undefined}
               scroll={false}
             >
@@ -113,7 +108,7 @@ export default function StockFinancialStatementsResearch({
           {(['annual', 'quarterly'] as const).map((item) => (
             <Link
               key={item}
-              href={statementHref({ ticker: data.ticker, lens, statement, period: item })}
+              href={statementHref({ ticker: data.ticker, statement, period: item })}
               aria-current={item === period ? 'page' : undefined}
               scroll={false}
             >

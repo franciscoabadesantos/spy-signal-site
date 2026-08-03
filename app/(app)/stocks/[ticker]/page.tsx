@@ -44,7 +44,6 @@ import {
 import { scorecardFromTickerSummary } from '@/lib/ticker-page-scorecard'
 import { canonicalTickerStats } from '@/lib/ticker-page-stats'
 import { isTickerInWatchlist } from '@/lib/watchlist'
-import { parseInvestmentLens } from '@/lib/investment-lens'
 
 export const dynamic = 'force-dynamic'
 
@@ -378,7 +377,6 @@ export default async function TickerPage({
     from?: string | string[]
     screenerSignal?: string | string[]
     modelName?: string | string[]
-    lens?: string | string[]
   }>
 }) {
   const resolvedParams = await params
@@ -397,7 +395,6 @@ export default async function TickerPage({
   const screenerSignal = sanitizeScreenerSignal(singleSearchParam(resolvedSearchParams.screenerSignal))
   const modelName = sanitizeModelName(singleSearchParam(resolvedSearchParams.modelName))
   const stockEntrySource = stockEntrySourceFromContext(sourceContext)
-  const initialLens = parseInvestmentLens(singleSearchParam(resolvedSearchParams.lens))
   const modelTag = sourceContext === 'model' && modelName ? `From Model: ${modelName}` : null
   const screenerTag =
     sourceContext === 'screener' && screenerSignal ? `From Signals: ${screenerSignal}` : null
@@ -633,7 +630,6 @@ export default async function TickerPage({
 
       <StockOverviewClient
         ticker={ticker}
-        initialLens={initialLens}
         currency={currency}
         displayName={displayName}
         assetBadgeLabel={isEtf ? 'ETF' : 'Equity'}
@@ -666,7 +662,7 @@ export default async function TickerPage({
         }))}
         scorecard={scorecard}
         about={fundamentals?.about ?? null}
-        navigationSlot={<StockTabs ticker={ticker} active="overview" lens={initialLens} />}
+        navigationSlot={<StockTabs ticker={ticker} active="overview" />}
         watchlistSlot={
           <WatchlistButton
             key="ticker-watchlist"

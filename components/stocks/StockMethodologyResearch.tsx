@@ -1,24 +1,15 @@
 import Link from 'next/link'
 import ResearchViewShell from '@/components/stocks/ResearchViewShell'
-import type { InvestmentLensKey } from '@/lib/investment-lens'
 import type { StockResearchData } from '@/lib/stock-research'
 import styles from './AiMethodologyResearch.module.css'
 
-const lensRows = [
-  ['Trade', 'Short chart range and current technical evidence', 'trade'],
-  ['Short term', 'Recent signals, events and technical context', 'short'],
-  ['Medium term', 'Valuation, growth and broader trend context', 'medium'],
-  ['Long term', 'Business quality, financial health and structural context', 'long'],
-] as const
-
-export default function StockMethodologyResearch({ data, lens }: { data: StockResearchData; lens: InvestmentLensKey }) {
+export default function StockMethodologyResearch({ data }: { data: StockResearchData }) {
   return (
-    <ResearchViewShell data={data} lens={lens} title="Methodology">
+    <ResearchViewShell data={data} title="Methodology">
       <main className={styles.methodology}>
         <aside className={styles.index} aria-label="Methodology contents">
           <span className={styles.kicker}>On this page</span>
           <nav>
-            <a href="#lens">Investment Lens</a>
             <a href="#evidence">Score, signal and technical read</a>
             <a href="#data">Data and timestamps</a>
             <a href="#coverage">Coverage states</a>
@@ -31,16 +22,8 @@ export default function StockMethodologyResearch({ data, lens }: { data: StockRe
           <p className={styles.kicker}>How to read Longbrunch</p>
           <p className={styles.intro}>Longbrunch presents market, company and fund evidence in separate layers. The page does not turn these layers into a trading instruction.</p>
 
-          <section id="lens" className={styles.methodSection}>
-            <div className={styles.sectionLabel}>01</div><div>
-              <h2>Investment Lens</h2>
-              <p className={styles.sectionCopy}>The selected Lens changes emphasis and defaults while keeping the underlying evidence available.</p>
-              <div className={styles.lensTable}>{lensRows.map(([label, detail, key]) => <div key={key} className={key === lens ? styles.activeLensRow : ''}><strong>{label}</strong><span>{detail}</span></div>)}</div>
-            </div>
-          </section>
-
           <section id="evidence" className={styles.methodSection}>
-            <div className={styles.sectionLabel}>02</div><div>
+            <div className={styles.sectionLabel}>01</div><div>
               <h2>Score, signal and technical read</h2>
               <div className={styles.definitionList}>
                 <div><strong>Score</strong><p>The canonical scorecard summary, built from the product’s defined evidence axes.</p></div>
@@ -51,7 +34,7 @@ export default function StockMethodologyResearch({ data, lens }: { data: StockRe
           </section>
 
           <section id="data" className={styles.methodSection}>
-            <div className={styles.sectionLabel}>03</div><div>
+            <div className={styles.sectionLabel}>02</div><div>
               <h2>Data and timestamps</h2>
               <p className={styles.sectionCopy}>Product data is requested server-side from finance-backend. The frontend presents the fields and periods returned by those contracts.</p>
               <dl className={styles.factList}>
@@ -64,7 +47,7 @@ export default function StockMethodologyResearch({ data, lens }: { data: StockRe
           </section>
 
           <section id="coverage" className={styles.methodSection}>
-            <div className={styles.sectionLabel}>04</div><div>
+            <div className={styles.sectionLabel}>03</div><div>
               <h2>Coverage states</h2>
               <div className={styles.statusList}>
                 <div><strong>Available</strong><span>Usable fields are present.</span></div>
@@ -77,7 +60,7 @@ export default function StockMethodologyResearch({ data, lens }: { data: StockRe
           </section>
 
           <section id="limits" className={styles.methodSection}>
-            <div className={styles.sectionLabel}>05</div><div>
+            <div className={styles.sectionLabel}>04</div><div>
               <h2>Limitations</h2>
               <ul className={styles.limitList}>
                 <li>Coverage varies by asset, field and reporting period.</li>
@@ -89,14 +72,14 @@ export default function StockMethodologyResearch({ data, lens }: { data: StockRe
           </section>
 
           <section id="assets" className={styles.methodSection}>
-            <div className={styles.sectionLabel}>06</div><div>
+            <div className={styles.sectionLabel}>05</div><div>
               <h2>Equities and funds</h2>
               <p className={styles.sectionCopy}>The language and applicable evidence adapt to {data.kind === 'fund' ? 'funds and ETFs' : 'equities'}. Corporate fundamentals, ownership and earnings do not automatically apply to ETFs or funds.</p>
             </div>
           </section>
 
           <section id="disclosures" className={styles.methodSection}>
-            <div className={styles.sectionLabel}>07</div><div>
+            <div className={styles.sectionLabel}>06</div><div>
               <h2>Disclosures</h2>
               <p className={styles.sectionCopy}>Review the product limits and the questions commonly covered by the platform.</p>
               <div className={styles.linkRow}><Link href="/product#limits">Product limits</Link><Link href="/faq">FAQ</Link></div>

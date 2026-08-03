@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
-import type { InvestmentLensKey } from '@/lib/investment-lens'
 import type { StockResearchData } from '@/lib/stock-research'
 import styles from './ResearchViews.module.css'
 
@@ -29,19 +28,13 @@ function DataPending({ children }: { children: ReactNode }) {
   )
 }
 
-export default function StockProfileResearch({
-  data,
-  lens,
-}: {
-  data: StockResearchData
-  lens: InvestmentLensKey
-}) {
+export default function StockProfileResearch({ data }: { data: StockResearchData }) {
   const isFund = data.kind === 'fund'
   const profileTitle = isFund ? 'Fund Profile' : 'Company Profile'
   const visibleFacts = data.profileFacts.slice(0, 12)
 
   return (
-    <ResearchViewShell data={data} lens={lens} title={profileTitle}>
+    <ResearchViewShell data={data} title={profileTitle}>
       <section className={styles.profileGrid} aria-labelledby="profile-description">
         <div>
           <h2 id="profile-description" className="sr-only">Description</h2>

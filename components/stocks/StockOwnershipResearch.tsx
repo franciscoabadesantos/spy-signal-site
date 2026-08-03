@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
-import type { InvestmentLensKey } from '@/lib/investment-lens'
 import {
   currentResearchSnapshot,
   formatResearchDate,
@@ -31,7 +30,7 @@ function CurrentSnapshot({ data }: { data: StockResearchData }) {
   )
 }
 
-function EquityOwnership({ data, lens }: { data: StockResearchData; lens: InvestmentLensKey }) {
+function EquityOwnership({ data }: { data: StockResearchData }) {
   return (
     <>
       <section className={styles.hero} aria-labelledby="ownership-breakdown">
@@ -62,10 +61,6 @@ function EquityOwnership({ data, lens }: { data: StockResearchData; lens: Invest
               <div><dt>Largest holder</dt><dd className={styles.pendingValue}>Pending integration</dd></div>
               <div><dt>Free float</dt><dd className={styles.pendingValue}>Pending integration</dd></div>
             </dl>
-          </div>
-          <div>
-            <div className={styles.moduleHeader}><h2>Lens focus</h2><span>{lens === 'long' || lens === 'medium' ? 'Structural' : 'Recent'}</span></div>
-            <p className={styles.pendingNote}>The current lens changes emphasis when float, concentration and capital-change history are available.</p>
           </div>
         </aside>
       </section>
@@ -155,20 +150,14 @@ function FundStructure() {
   )
 }
 
-export default function StockOwnershipResearch({
-  data,
-  lens,
-}: {
-  data: StockResearchData
-  lens: InvestmentLensKey
-}) {
+export default function StockOwnershipResearch({ data }: { data: StockResearchData }) {
   const isFund = data.kind === 'fund'
 
   return (
-    <ResearchViewShell data={data} lens={lens} title={isFund ? 'Fund Structure' : 'Ownership & Capital'}>
-      <div className={styles.page} data-lens={lens}>
+    <ResearchViewShell data={data} title={isFund ? 'Fund Structure' : 'Ownership & Capital'}>
+      <div className={styles.page}>
         <CurrentSnapshot data={data} />
-        {isFund ? <FundStructure /> : <EquityOwnership data={data} lens={lens} />}
+        {isFund ? <FundStructure /> : <EquityOwnership data={data} />}
         <section className={styles.methodology} aria-labelledby="ownership-methodology">
           <div>
             <h2 id="ownership-methodology">Methodology</h2>
@@ -176,7 +165,7 @@ export default function StockOwnershipResearch({
           </div>
           <div>
             <p>Percentages, holder rankings, bridge terms and capital changes will remain unavailable until the canonical contract supplies source and as-of metadata.</p>
-            <Link href={`/stocks/${data.ticker}/methodology?lens=${lens}`}>Open methodology →</Link>
+            <Link href={`/stocks/${data.ticker}/methodology`}>Open methodology →</Link>
           </div>
         </section>
         <ResearchAdPlacement />

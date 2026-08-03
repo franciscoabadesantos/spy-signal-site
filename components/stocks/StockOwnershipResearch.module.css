@@ -6,11 +6,6 @@
   padding-bottom: 24px;
 }
 
-.page[data-lens='long'] .capitalSection,
-.page[data-lens='medium'] .capitalSection {
-  padding-top: 30px;
-}
-
 .snapshotStrip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -51,14 +46,9 @@
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
   gap: 36px;
   min-width: 0;
-}
-
-.page[data-lens='trade'] .hero,
-.page[data-lens='short'] .hero {
-  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
 }
 
 .ownershipCanvas,
@@ -359,8 +349,6 @@
 
 @media (max-width: 900px) {
   .hero,
-  .page[data-lens='trade'] .hero,
-  .page[data-lens='short'] .hero,
   .capitalIntro,
   .detailGrid,
   .fundStructure {

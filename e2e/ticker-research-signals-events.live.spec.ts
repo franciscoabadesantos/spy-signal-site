@@ -15,7 +15,6 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 async function expectResearchContext(page: Page, active: 'Signals' | 'Events') {
-  await expect(page.getByRole('main').locator('[data-perspective-dial]')).toHaveAttribute('data-hydrated', 'true')
   const nav = page.getByRole('navigation', { name: 'Ticker research' })
   await expect(nav).toBeVisible()
   const trigger = active === 'Signals'
@@ -30,7 +29,7 @@ test.describe('ticker Signals & Events Phase 2 slice', () => {
 
   test('Signals consolidates indicator families and redirects the legacy indicators route', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/stocks/AAPL/signals?lens=trade')
+    await page.goto('/stocks/AAPL/signals')
     await expectResearchContext(page, 'Signals')
     await expect(page.locator('h1')).toHaveText('Signals & Indicators')
     await expect(page.locator('#current-signal-heading')).toBeVisible()
@@ -42,9 +41,9 @@ test.describe('ticker Signals & Events Phase 2 slice', () => {
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'phase2-signals-aapl-trade-desktop')
 
-    await page.goto('/stocks/AAPL/signals?lens=long&family=oscillators')
+    await page.goto('/stocks/AAPL/signals?family=oscillators')
     await expectResearchContext(page, 'Signals')
-    await expect(page).toHaveURL(/lens=long.*family=oscillators/)
+    await expect(page).toHaveURL(/family=oscillators/)
     await expect(page.locator('details[open]').filter({ hasText: 'Indicator details' })).toHaveCount(1)
     await capture(page, testInfo, 'phase2-signals-aapl-long-desktop')
 
@@ -52,8 +51,8 @@ test.describe('ticker Signals & Events Phase 2 slice', () => {
     await expect(page.getByRole('menu', { name: 'Signals' })).toBeVisible()
     await capture(page, testInfo, 'phase2-signals-submenu-active')
 
-    await page.goto('/stocks/AAPL/indicators?lens=long&family=moving-averages')
-    await expect(page).toHaveURL(/\/stocks\/AAPL\/signals\?lens=long&family=moving-averages/)
+    await page.goto('/stocks/AAPL/indicators?family=moving-averages')
+    await expect(page).toHaveURL(/\/stocks\/AAPL\/signals\?family=moving-averages/)
     await expect(page.locator('h1')).toHaveText('Signals & Indicators')
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -69,7 +68,7 @@ test.describe('ticker Signals & Events Phase 2 slice', () => {
 
   test('Signals and Events keep asset-aware partial states', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1366, height: 768 })
-    await page.goto('/stocks/0005.HK/signals?lens=long')
+    await page.goto('/stocks/0005.HK/signals')
     await expectResearchContext(page, 'Signals')
     await expect(page.locator('h1')).toHaveText('Signals & Indicators')
     await expect(page.getByText(/Unavailable|Partial coverage|Pending integration/).first()).toBeVisible()
@@ -77,7 +76,7 @@ test.describe('ticker Signals & Events Phase 2 slice', () => {
     await capture(page, testInfo, 'phase2-signals-partial-equity')
 
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/stocks/AAPL/events?lens=trade')
+    await page.goto('/stocks/AAPL/events')
     await expectResearchContext(page, 'Events')
     await expect(page.locator('h1')).toHaveText('Earnings & Events')
     await expect(page.getByRole('heading', { name: /Next event|Earnings coverage/ })).toBeVisible()
@@ -88,13 +87,13 @@ test.describe('ticker Signals & Events Phase 2 slice', () => {
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'phase2-events-aapl-mobile')
 
-    await page.goto('/stocks/QQQ/events?lens=long')
+    await page.goto('/stocks/QQQ/events')
     await expect(page.locator('h1')).toHaveText('Fund Events')
     await expect(page.getByText('Earnings are not applicable to this asset.', { exact: true })).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'phase2-events-qqq-fund')
 
-    await page.goto('/stocks/AAPL/events?lens=long&view=history')
+    await page.goto('/stocks/AAPL/events?view=history')
     await expect(page.locator('h1')).toHaveText('Earnings & Events')
     await expect(page.getByRole('link', { name: 'History', exact: true })).toHaveAttribute('aria-current', 'page')
     await expectNoHorizontalOverflow(page)

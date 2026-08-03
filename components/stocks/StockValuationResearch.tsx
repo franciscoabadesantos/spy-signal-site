@@ -2,7 +2,6 @@ import Link from 'next/link'
 import TemporalLineChart from '@/components/charts/TemporalLineChart'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
 import type { MarketMetricObservation, MarketMetricsPayload } from '@/lib/canonical-research'
-import type { InvestmentLensKey } from '@/lib/investment-lens'
 import {
   currentResearchSnapshot,
   formatResearchDate,
@@ -26,11 +25,10 @@ const METRICS: Array<{ key: ValuationMetric; label: string }> = [
 
 function valuationHref(
   ticker: string,
-  lens: InvestmentLensKey,
   metric: ValuationMetric,
   period: ValuationPeriod,
 ): string {
-  const params = new URLSearchParams({ lens, metric, period })
+  const params = new URLSearchParams({ metric, period })
   return `/stocks/${ticker}/valuation?${params.toString()}`
 }
 
@@ -81,13 +79,11 @@ function SnapshotContext({
 
 export default function StockValuationResearch({
   data,
-  lens,
   metric,
   period,
   observations,
 }: {
   data: StockResearchData
-  lens: InvestmentLensKey
   metric: ValuationMetric
   period: ValuationPeriod
   observations: MarketMetricsPayload | null
@@ -108,15 +104,15 @@ export default function StockValuationResearch({
     .sort((left, right) => left.date.localeCompare(right.date) || left.key.localeCompare(right.key))
 
   return (
-    <ResearchViewShell data={data} lens={lens} title="Valuation History">
-      <div className={styles.page} data-lens={lens}>
+    <ResearchViewShell data={data} title="Valuation History">
+      <div className={styles.page}>
         <nav className={styles.controls} aria-label="Valuation controls">
           <div className={styles.controlGroup} aria-label="Valuation metric">
             <span className={styles.controlLabel}>Metric</span>
             {METRICS.map((item) => (
               <Link
                 key={item.key}
-                href={valuationHref(data.ticker, lens, item.key, period)}
+                href={valuationHref(data.ticker, item.key, period)}
                 aria-current={item.key === metric ? 'page' : undefined}
               >
                 {item.label}
@@ -195,7 +191,7 @@ export default function StockValuationResearch({
           </div>
           <div>
             <p>Values are direct temporal market-metric observations. Known-at dates remain distinct from observation dates; ranges, percentiles and peer comparisons are not calculated in the frontend.</p>
-            <Link href={`/stocks/${data.ticker}/methodology?lens=${lens}`}>Open methodology →</Link>
+            <Link href={`/stocks/${data.ticker}/methodology`}>Open methodology →</Link>
           </div>
         </section>
 

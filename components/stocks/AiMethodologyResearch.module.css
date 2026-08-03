@@ -112,11 +112,10 @@
 .sectionLabel { color: var(--color-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .methodSection h2 { margin: 0; color: var(--color-text-primary); font-size: clamp(1.2rem, 2vw, 1.55rem); letter-spacing: -.03em; }
 .sectionCopy { max-width: 650px; margin: 9px 0 0; color: var(--color-text-muted); font-size: 12px; line-height: 1.55; }
-.lensTable, .definitionList, .statusList, .factList { margin-top: 18px; }
-.lensTable > div, .definitionList > div, .statusList > div, .factList > div { display: grid; grid-template-columns: minmax(130px, .42fr) minmax(0, 1fr); gap: 20px; padding: 11px 0; border-bottom: 1px solid var(--research-line); }
-.lensTable strong, .definitionList strong, .statusList strong, .factList dt { color: var(--color-text-secondary); font-size: 12px; font-weight: 700; }
-.lensTable span, .definitionList p, .statusList span, .factList dd { margin: 0; color: var(--color-text-muted); font-size: 12px; line-height: 1.45; }
-.activeLensRow { padding-inline: 10px !important; border-left: 2px solid var(--color-accent); background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+.definitionList, .statusList, .factList { margin-top: 18px; }
+.definitionList > div, .statusList > div, .factList > div { display: grid; grid-template-columns: minmax(130px, .42fr) minmax(0, 1fr); gap: 20px; padding: 11px 0; border-bottom: 1px solid var(--research-line); }
+.definitionList strong, .statusList strong, .factList dt { color: var(--color-text-secondary); font-size: 12px; font-weight: 700; }
+.definitionList p, .statusList span, .factList dd { margin: 0; color: var(--color-text-muted); font-size: 12px; line-height: 1.45; }
 .definitionList p { margin: 0; }
 .factList dt { font-weight: 600; }
 .factList dd { text-align: right; }
@@ -133,7 +132,7 @@
   .index { position: static; overflow-x: auto; padding-bottom: 4px; }
   .index nav { display: flex; gap: 15px; min-width: max-content; }
   .methodSection { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; }
-  .lensTable > div, .definitionList > div, .statusList > div, .factList > div { grid-template-columns: minmax(100px, .45fr) minmax(0, 1fr); gap: 12px; }
+  .definitionList > div, .statusList > div, .factList > div { grid-template-columns: minmax(100px, .45fr) minmax(0, 1fr); gap: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

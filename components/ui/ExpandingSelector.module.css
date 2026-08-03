@@ -18,13 +18,8 @@
   isolation: isolate;
   color: var(--content-primary);
   user-select: none;
-  -webkit-user-select: none;
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    inset 0 -1px 0 color-mix(in srgb, var(--glass-highlight) 32%, transparent),
-    var(--glass-shadow);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
   backdrop-filter: blur(30px) saturate(1.55);
-  -webkit-backdrop-filter: blur(30px) saturate(1.55);
   transition:
     width var(--motion-slow) var(--motion-ease-soft),
     grid-template-columns var(--motion-slow) var(--motion-ease-soft),
@@ -36,10 +31,7 @@
   grid-template-columns: 92px minmax(0, 1fr);
   width: min(100%, 430px);
   border-color: color-mix(in srgb, var(--brand-spark) 34%, var(--glass-border));
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    inset 0 -1px 0 color-mix(in srgb, var(--glass-highlight) 38%, transparent),
-    var(--glass-shadow-strong, var(--glass-shadow));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow-strong, var(--glass-shadow));
 }
 
 .vessel {
@@ -50,15 +42,6 @@
     radial-gradient(circle at 48% -40%, var(--glass-highlight), transparent 58%),
     linear-gradient(180deg, color-mix(in srgb, var(--glass-highlight) 48%, transparent), transparent),
     var(--glass-bg);
-}
-
-.vessel::after {
-  position: absolute;
-  inset: 1px;
-  border-radius: inherit;
-  background: linear-gradient(108deg, transparent 12%, color-mix(in srgb, var(--glass-highlight) 34%, transparent) 49%, transparent 74%);
-  content: '';
-  pointer-events: none;
 }
 
 .readout {
@@ -97,7 +80,6 @@
   color: var(--content-muted);
   font-size: 10px;
   font-weight: 620;
-  letter-spacing: 0.01em;
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -111,11 +93,7 @@
   font-weight: 650;
   line-height: 1.3;
   white-space: nowrap;
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity var(--motion-fast) var(--motion-ease-standard),
-    transform var(--motion-fast) var(--motion-ease-standard);
+  transition: opacity var(--motion-fast) var(--motion-ease-standard), transform var(--motion-fast) var(--motion-ease-standard);
 }
 
 .readoutValue > span {
@@ -129,7 +107,7 @@
   transform: translateY(-3px);
 }
 
-.dialShell {
+.selectorShell {
   position: relative;
   min-width: 0;
   overflow: hidden;
@@ -140,14 +118,14 @@
   transition: opacity var(--motion-fast) var(--motion-ease-standard);
 }
 
-.instrument[data-expanded='true'] .dialShell {
+.instrument[data-expanded='true'] .selectorShell {
   opacity: 1;
   pointer-events: auto;
   transition-delay: 40ms;
 }
 
-.dialShell::before,
-.dialShell::after {
+.selectorShell::before,
+.selectorShell::after {
   position: absolute;
   z-index: 5;
   top: 0;
@@ -157,17 +135,17 @@
   pointer-events: none;
 }
 
-.dialShell::before {
+.selectorShell::before {
   left: 0;
   background: linear-gradient(90deg, color-mix(in srgb, var(--page-bg) 94%, transparent), transparent);
 }
 
-.dialShell::after {
+.selectorShell::after {
   right: 0;
   background: linear-gradient(270deg, color-mix(in srgb, var(--page-bg) 94%, transparent), transparent);
 }
 
-.centerLens {
+.centerWindow {
   position: absolute;
   z-index: 3;
   top: 4px;
@@ -176,25 +154,10 @@
   width: 34%;
   border: 1px solid color-mix(in srgb, var(--brand-spark) 28%, var(--glass-border));
   border-radius: var(--radius-pill);
-  background:
-    radial-gradient(circle at 50% -20%, var(--glass-highlight), transparent 58%),
-    linear-gradient(180deg, color-mix(in srgb, var(--glass-highlight) 62%, transparent), color-mix(in srgb, var(--brand-spark) 5%, transparent));
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    0 0 24px color-mix(in srgb, var(--brand-spark) 12%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--glass-highlight) 62%, transparent), color-mix(in srgb, var(--brand-spark) 5%, transparent));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 0 24px color-mix(in srgb, var(--brand-spark) 12%, transparent);
   transform: translateX(-50%);
   pointer-events: none;
-}
-
-.centerLens::after {
-  position: absolute;
-  right: 24%;
-  bottom: 4px;
-  left: 24%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--brand-spark-soft), transparent);
-  opacity: 0.72;
-  content: '';
 }
 
 .viewport {
@@ -234,20 +197,16 @@
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
   padding-inline: 6px;
   scroll-snap-align: center;
   scroll-snap-stop: always;
   color: var(--content-secondary);
   font-size: 11px;
   font-weight: 560;
-  letter-spacing: -0.01em;
   white-space: nowrap;
   opacity: 0.34;
   cursor: pointer;
-  transition:
-    color var(--motion-normal) var(--motion-ease-standard),
-    opacity var(--motion-normal) var(--motion-ease-standard);
+  transition: color var(--motion-normal) var(--motion-ease-standard), opacity var(--motion-normal) var(--motion-ease-standard);
 }
 
 .optionLabel {
@@ -260,7 +219,6 @@
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
   clip-path: inset(50%);
   white-space: nowrap;
 }
@@ -303,38 +261,21 @@
 @media (max-width: 640px) {
   .stage {
     width: 100%;
-    justify-content: flex-end;
   }
 
   .instrument[data-expanded='true'] {
     grid-template-columns: 82px minmax(0, 1fr);
     width: 100%;
   }
-
-  .instrument {
-    grid-template-columns: 180px 0fr;
-    width: 180px;
-  }
-
-  .readout {
-    padding-inline: 12px;
-  }
-
-  .option {
-    min-height: 44px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .instrument,
-  .dialShell,
+  .readoutValue,
+  .selectorShell,
   .option,
-  .optionLabel,
-  .readoutValue {
-    transition: none;
-  }
-
-  .viewport {
+  .optionLabel {
     scroll-behavior: auto;
+    transition-duration: 0ms;
   }
 }

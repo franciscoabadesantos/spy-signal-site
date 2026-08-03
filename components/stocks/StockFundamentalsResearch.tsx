@@ -1,25 +1,14 @@
 import Link from 'next/link'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
-import type { InvestmentLensKey } from '@/lib/investment-lens'
 import type { ResearchTheme, StockResearchData } from '@/lib/stock-research'
 import styles from './ResearchViews.module.css'
 
-const EQUITY_PRIORITY: Record<InvestmentLensKey, string[]> = {
-  trade: ['financial-health', 'growth', 'valuation', 'profitability', 'shareholder-return', 'other'],
-  short: ['growth', 'valuation', 'financial-health', 'profitability', 'shareholder-return', 'other'],
-  medium: ['growth', 'valuation', 'profitability', 'financial-health', 'shareholder-return', 'other'],
-  long: ['profitability', 'financial-health', 'growth', 'valuation', 'shareholder-return', 'other'],
-}
+const EQUITY_PRIORITY = ['financial-health', 'growth', 'valuation', 'profitability', 'shareholder-return', 'other']
 
-const FUND_PRIORITY: Record<InvestmentLensKey, string[]> = {
-  trade: ['risk', 'exposure', 'portfolio', 'valuation', 'distributions', 'other'],
-  short: ['exposure', 'risk', 'portfolio', 'valuation', 'distributions', 'other'],
-  medium: ['portfolio', 'exposure', 'valuation', 'risk', 'distributions', 'other'],
-  long: ['portfolio', 'exposure', 'distributions', 'valuation', 'risk', 'other'],
-}
+const FUND_PRIORITY = ['risk', 'exposure', 'portfolio', 'valuation', 'distributions', 'other']
 
-function orderedThemes(data: StockResearchData, lens: InvestmentLensKey): ResearchTheme[] {
-  const order = data.kind === 'fund' ? FUND_PRIORITY[lens] : EQUITY_PRIORITY[lens]
+function orderedThemes(data: StockResearchData): ResearchTheme[] {
+  const order = data.kind === 'fund' ? FUND_PRIORITY : EQUITY_PRIORITY
   return [...data.themes].sort((left, right) => {
     const leftIndex = order.indexOf(left.key)
     const rightIndex = order.indexOf(right.key)
@@ -27,18 +16,12 @@ function orderedThemes(data: StockResearchData, lens: InvestmentLensKey): Resear
   })
 }
 
-export default function StockFundamentalsResearch({
-  data,
-  lens,
-}: {
-  data: StockResearchData
-  lens: InvestmentLensKey
-}) {
-  const themes = orderedThemes(data, lens)
+export default function StockFundamentalsResearch({ data }: { data: StockResearchData }) {
+  const themes = orderedThemes(data)
   const primaryTheme = themes[0]?.key
 
   return (
-    <ResearchViewShell data={data} lens={lens} title="Fundamentals">
+    <ResearchViewShell data={data} title="Fundamentals">
       <nav className={styles.themeNav} aria-label="Fundamental themes">
         {themes.map((theme) => <a key={theme.key} href={`#${theme.key}`}>{theme.label}</a>)}
       </nav>
@@ -84,7 +67,7 @@ export default function StockFundamentalsResearch({
           <p>Statement-level periods and line items live in the dedicated view.</p>
         </div>
         <div className={styles.chapterBody}>
-          <Link className="action-link inline-flex" href={`/stocks/${data.ticker}/financials?lens=${lens}`}>Open Financial Statements →</Link>
+          <Link className="action-link inline-flex" href={`/stocks/${data.ticker}/financials`}>Open Financial Statements →</Link>
         </div>
       </div>
 

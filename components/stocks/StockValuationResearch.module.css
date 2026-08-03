@@ -60,15 +60,10 @@
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.5fr);
+  grid-template-columns: minmax(0, 1.28fr) minmax(280px, 0.72fr);
   gap: 34px;
   min-width: 0;
   align-items: stretch;
-}
-
-.page[data-lens='trade'] .hero,
-.page[data-lens='short'] .hero {
-  grid-template-columns: minmax(0, 1.28fr) minmax(280px, 0.72fr);
 }
 
 .chartColumn,
@@ -229,11 +224,6 @@
   border-top: 1px solid var(--valuation-line);
 }
 
-.page[data-lens='long'] .secondaryGrid,
-.page[data-lens='medium'] .secondaryGrid {
-  grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
-}
-
 .secondaryModule {
   min-width: 0;
 }
@@ -317,11 +307,7 @@
 
 @media (max-width: 900px) {
   .hero,
-  .page[data-lens='trade'] .hero,
-  .page[data-lens='short'] .hero,
-  .secondaryGrid,
-  .page[data-lens='long'] .secondaryGrid,
-  .page[data-lens='medium'] .secondaryGrid {
+  .secondaryGrid {
     grid-template-columns: 1fr;
   }
 

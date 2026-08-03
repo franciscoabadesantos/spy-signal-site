@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
 import type { CanonicalEvent, DisclosurePayload, EventCalendarPayload } from '@/lib/canonical-research'
-import type { InvestmentLensKey } from '@/lib/investment-lens'
 import type { StockResearchData } from '@/lib/stock-research'
 import { normalizeEarningsHistory } from '@/lib/event-research'
 import styles from './StockEventsResearch.module.css'
@@ -26,8 +25,8 @@ function parseView(value: string | undefined): EventView {
   return value === 'recent' || value === 'history' ? value : 'upcoming'
 }
 
-function viewHref(ticker: string, lens: InvestmentLensKey, view: EventView): string {
-  return `/stocks/${ticker}/events?lens=${lens}&view=${view}`
+function viewHref(ticker: string, view: EventView): string {
+  return `/stocks/${ticker}/events?view=${view}`
 }
 
 function NextEvent({
@@ -191,13 +190,11 @@ function EarningsHistory({ data }: { data: StockResearchData }) {
 
 export default function StockEventsResearch({
   data,
-  lens,
   view: rawView,
   events,
   disclosures,
 }: {
   data: StockResearchData
-  lens: InvestmentLensKey
   view?: string
   events: EventCalendarPayload | null
   disclosures: DisclosurePayload | null
@@ -209,7 +206,7 @@ export default function StockEventsResearch({
     : [...(events?.rows ?? []), ...(disclosures?.rows ?? [])]
 
   return (
-    <ResearchViewShell data={data} lens={lens} title={isFund ? 'Fund Events' : 'Earnings & Events'}>
+    <ResearchViewShell data={data} title={isFund ? 'Fund Events' : 'Earnings & Events'}>
       <div className={styles.page} data-events-research="" data-event-view={view}>
         <header className={styles.intro}>
           <span className={styles.eyebrow}>{data.ticker} · {isFund ? 'Fund event evidence' : 'Corporate event evidence'}</span>
@@ -220,7 +217,7 @@ export default function StockEventsResearch({
 
         <nav className={styles.viewNav} aria-label="Event view">
           {(['upcoming', 'recent', 'history'] as const).map((item) => (
-            <Link key={item} href={viewHref(data.ticker, lens, item)} className={`${styles.viewLink} ${view === item ? styles.viewActive : ''}`} aria-current={view === item ? 'page' : undefined}>
+            <Link key={item} href={viewHref(data.ticker, item)} className={`${styles.viewLink} ${view === item ? styles.viewActive : ''}`} aria-current={view === item ? 'page' : undefined}>
               {item === 'upcoming' ? 'Upcoming' : item === 'recent' ? 'Recent' : 'History'}
             </Link>
           ))}
@@ -248,7 +245,7 @@ export default function StockEventsResearch({
               <span className={styles.sectionLabel}>Method and coverage</span>
               <h2 id="events-methodology-heading">Methodology</h2>
             </div>
-            <Link href={`/stocks/${data.ticker}/methodology?lens=${lens}`} className={styles.methodLink}>Open methodology →</Link>
+            <Link href={`/stocks/${data.ticker}/methodology`} className={styles.methodLink}>Open methodology →</Link>
           </div>
           <p>Calendar rows and disclosures come from ticker-scoped canonical read models. Event date roles, source, known-at time and candidate confidence remain explicit. No certainty, price impact, filing interpretation or missing event is inferred.</p>
         </section>

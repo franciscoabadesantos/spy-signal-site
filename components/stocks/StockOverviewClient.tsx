@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { motion, useReducedMotion } from 'framer-motion'
-import { Suspense, use, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, use, useMemo, useState, type ReactNode } from 'react'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import TemporalLineChart from '@/components/charts/TemporalLineChart'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
@@ -15,13 +14,8 @@ import {
 import { formatMoney, formatSignedMoney } from '@/lib/currency'
 import { hasUsableMaterializedScorecard } from '@/lib/ticker-page-scorecard'
 import { cn } from '@/lib/utils'
-import {
-  LENS_CHART_TIMEFRAME,
-  LENS_TECHNICAL_TIMEFRAME,
-  type InvestmentLensKey,
-} from '@/lib/investment-lens'
 import styles from './StockOverviewClient.module.css'
-import PerspectiveDial from './PerspectiveDial'
+import TickerRelationshipField, { TickerRelationshipFieldFallback } from './TickerRelationshipField'
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
 type ChartTimeframe = '1D' | '5D' | '1M' | '3M' | 'YTD' | '1Y' | '5Y'
@@ -93,7 +87,6 @@ type OverviewRegimePoint = {
 
 type StockOverviewClientProps = {
   ticker: string
-  initialLens: InvestmentLensKey
   currency: string
   displayName: string
   assetBadgeLabel: string
@@ -332,29 +325,23 @@ function HeroPriceChart({
 function RelatedAssetsContent({
   ticker,
   relatedAssetsPromise,
-  lens,
 }: {
   ticker: string
   relatedAssetsPromise: Promise<OverviewRelatedAsset[]>
-  lens: InvestmentLensKey
 }) {
   const relatedAssets = use(relatedAssetsPromise)
-  const rankedAssets = [...relatedAssets].sort((left, right) => {
-    if (lens === 'trade' || lens === 'short') {
-      return Math.abs(right.changePercent ?? 0) - Math.abs(left.changePercent ?? 0)
-    }
-    return Math.abs(right.strength ?? 0) - Math.abs(left.strength ?? 0)
-  })
-  const viewAllParams = new URLSearchParams({ lens })
+  const rankedAssets = [...relatedAssets].sort(
+    (left, right) => Math.abs(right.strength ?? 0) - Math.abs(left.strength ?? 0),
+  )
 
   return (
-    <article id="relationships" className={styles.relationshipEditorial} data-lens={lens}>
+    <article id="relationships" className={styles.relationshipEditorial}>
       <div className={styles.chapterHeader}>
         <div>
           <p className={styles.chapterEyebrow}>Observed associations</p>
           <h2 className={styles.chapterTitle}>Relationships</h2>
         </div>
-        <Link href={`/stocks/${ticker}/relationships?${viewAllParams.toString()}`} className={styles.inlineArrow}>View all →</Link>
+        <Link href={`/stocks/${ticker}/relationships`} className={styles.inlineArrow}>View all →</Link>
       </div>
       {rankedAssets.length > 0 ? (
         <div className={styles.relationshipPreviewGrid}>
@@ -378,7 +365,7 @@ function RelatedAssetsContent({
                   <span className={styles.chipTicker}>{asset.symbol}</span>
                   <span className={styles.relatedName}>{asset.name ?? asset.relation}</span>
                 </span>
-                {lens !== 'long' ? <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span> : null}
+                <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span>
                 <span className={styles.relatedSemantics}>
                   <span>{asset.relation}</span>
                 </span>
@@ -395,7 +382,6 @@ function RelatedAssetsContent({
 
 export default function StockOverviewClient({
   ticker,
-  initialLens,
   currency,
   displayName,
   assetBadgeLabel,
@@ -419,10 +405,8 @@ export default function StockOverviewClient({
   watchlistSlot,
   navigationSlot,
 }: StockOverviewClientProps) {
-  const reduceMotion = useReducedMotion()
-  const [lens, setLens] = useState<InvestmentLensKey>(initialLens)
-  const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>(LENS_CHART_TIMEFRAME[initialLens])
-  const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>(LENS_TECHNICAL_TIMEFRAME[initialLens])
+  const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1M')
+  const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
   const scorecardMessage = scorecardReadinessMessage(scorecard)
 
   const filteredChartData = useMemo(() => filterChartData(historicalData, heroTimeframe), [historicalData, heroTimeframe])
@@ -451,13 +435,7 @@ export default function StockOverviewClient({
   const availableStats = volatility30d === null
     ? keyStats
     : [...keyStats, { label: '30D Volatility', value: `${volatility30d.toFixed(1)}%` }]
-  const priorityMetrics = (lens === 'trade'
-    ? ['Volume', '30D Volatility', 'Market Cap', 'P/E']
-    : lens === 'short'
-      ? ['Volume', 'EPS', 'Revenue', 'Market Cap']
-      : lens === 'medium'
-        ? ['Market Cap', 'P/E', 'Revenue', 'EPS']
-        : ['Market Cap', 'Revenue', 'Dividend Yield', 'P/E'])
+  const priorityMetrics = ['Volume', '30D Volatility', 'Market Cap', 'P/E']
     .map((label) => availableStats.find((stat) => stat.label === label))
     .filter((stat): stat is OverviewStat => Boolean(stat))
   const orderedFundamentalGroups = assetBadgeLabel === 'ETF'
@@ -465,21 +443,7 @@ export default function StockOverviewClient({
     : fundamentalGroups
   const visibleFundamentalGroups = orderedFundamentalGroups.slice(0, 6)
 
-  useEffect(() => {
-    setLens(initialLens)
-    setHeroTimeframe(LENS_CHART_TIMEFRAME[initialLens])
-    setSignalTimeframe(LENS_TECHNICAL_TIMEFRAME[initialLens])
-  }, [initialLens])
-
-  function updateLens(nextLens: InvestmentLensKey) {
-    setLens(nextLens)
-    setHeroTimeframe(LENS_CHART_TIMEFRAME[nextLens])
-    setSignalTimeframe(LENS_TECHNICAL_TIMEFRAME[nextLens])
-  }
-
-  const sectionTransition = reduceMotion
-    ? { duration: 0 }
-    : { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const }
+  const selectedTone = latestSignal ? regimeTone(latestSignal.direction) : 'brand'
 
   const timingSection = (
     <article id="signals" className={styles.editorialChapter} aria-labelledby="timing-heading">
@@ -566,43 +530,50 @@ export default function StockOverviewClient({
 
   const relationshipsSection = (
     <Suspense fallback={<div className={styles.relationshipEditorial}><div className={styles.inlineDataState}><span>Relationships</span><strong>Loading</strong></div></div>}>
-      <RelatedAssetsContent ticker={ticker} relatedAssetsPromise={relatedAssetsPromise} lens={lens} />
+      <RelatedAssetsContent ticker={ticker} relatedAssetsPromise={relatedAssetsPromise} />
     </Suspense>
   )
 
   return (
-    <div className={styles.page} data-lens={lens}>
-      <section className={styles.heroZone}>
+    <div className={styles.page}>
+      <section className={styles.heroZone} data-ticker-hero="">
+        <Suspense fallback={<TickerRelationshipFieldFallback tone={selectedTone} />}>
+          <TickerRelationshipField ticker={ticker} tone={selectedTone} relationships={relatedAssetsPromise} />
+        </Suspense>
         <div className={styles.headerBand}>
           <div className={styles.headerPrimary}>
-            <div className={styles.heroIdentity} data-ticker-identity="">
-              <h1 className={styles.name}>{displayName}</h1>
-              <span className={styles.tickerBadge}>{ticker}</span>
-              <span className={styles.exchangeBadge}>{assetBadgeLabel}</span>
-            </div>
+            <div className={styles.selectedTickerRead}>
+              <span className={styles.selectedNodeRail} data-selected-ticker-node="" data-tone={selectedTone} aria-hidden="true">
+                <span className={styles.selectedNode} data-selected-ticker-anchor="" />
+              </span>
+              <div className={styles.selectedTickerContent}>
+                <div className={styles.heroIdentity} data-ticker-identity="">
+                  <h1 className={styles.name}>{displayName}</h1>
+                  <span className={styles.tickerBadge}>{ticker}</span>
+                  <span className={styles.exchangeBadge}>{assetBadgeLabel}</span>
+                </div>
 
-            <div className={styles.quoteControlRow}>
-              <div className={styles.priceBlock} data-ticker-price="">
-                <div className={styles.price}>{formatPrice(price, currency)}</div>
-                <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>
-                  {formatSignedDelta(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
+                <div className={styles.quoteControlRow}>
+                  <div className={styles.priceBlock} data-ticker-price="">
+                    <div className={styles.price}>{formatPrice(price, currency)}</div>
+                    <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>
+                      {formatSignedDelta(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.heroBadgeRow}>
+                  {latestSignal ? (
+                    <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal.direction)}</span>
+                  ) : null}
+                  {latestSignal?.signalDate ? (
+                    <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
+                  ) : null}
                 </div>
               </div>
             </div>
-
-            <div className={styles.heroBadgeRow}>
-              {latestSignal ? (
-                <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal.direction)}</span>
-              ) : null}
-              {latestSignal?.signalDate ? (
-                <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
-              ) : null}
-            </div>
           </div>
           <div className={styles.controlRail}>
-            <div className={styles.lensDock}>
-              <PerspectiveDial initialValue={initialLens} onCommit={updateLens} />
-            </div>
             {watchlistSlot}
           </div>
         </div>
@@ -646,15 +617,15 @@ export default function StockOverviewClient({
       </section>
 
       <div className={styles.editorialSequence}>
-        <motion.div layout="position" transition={sectionTransition} className={cn(styles.editorialSlot, styles.timingSlot)}>
+        <div className={cn(styles.editorialSlot, styles.timingSlot)}>
           {timingSection}
-        </motion.div>
-        <motion.div layout="position" transition={sectionTransition} className={cn(styles.editorialSlot, styles.fundamentalsSlot)}>
+        </div>
+        <div className={cn(styles.editorialSlot, styles.fundamentalsSlot)}>
           {fundamentalsSection}
-        </motion.div>
-        <motion.div layout="position" transition={sectionTransition} className={cn(styles.editorialSlot, styles.relationshipsSlot)}>
+        </div>
+        <div className={cn(styles.editorialSlot, styles.relationshipsSlot)}>
           {relationshipsSection}
-        </motion.div>
+        </div>
       </div>
 
       {process.env.NODE_ENV !== 'production' ? <aside className={styles.adPlacement} aria-label="Advertisement placement preview">Advertisement placement <span>Preview · zero runtime space without a campaign</span></aside> : null}

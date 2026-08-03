@@ -14,18 +14,13 @@ async function capture(page: Page, testInfo: TestInfo, name: string, fullPage = 
   await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage })
 }
 
-async function expectPerspectiveHydrated(page: Page) {
-  await expect(page.locator('[data-perspective-dial]')).toHaveAttribute('data-hydrated', 'true')
-}
-
 test.describe('ticker valuation and ownership Phase 2 slice', () => {
   test.skip(!runLiveTickerQa, 'Set RUN_TICKER_LIVE_QA=1 to exercise finance-backend coverage states.')
   test.describe.configure({ mode: 'serial', timeout: 240_000 })
 
-  test('Valuation History preserves metric and Lens state with canonical observations', async ({ page }, testInfo) => {
+  test('Valuation History preserves metric state with canonical observations', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/stocks/AAPL/valuation?lens=trade&metric=pe&period=annual')
-    await expectPerspectiveHydrated(page)
+    await page.goto('/stocks/AAPL/valuation?metric=pe&period=annual')
     await expect(page.getByRole('heading', { name: 'Valuation History', exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'P/E', exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByText('Temporal observations', { exact: true })).toBeVisible()
@@ -51,8 +46,7 @@ test.describe('ticker valuation and ownership Phase 2 slice', () => {
     await capture(page, testInfo, 'phase2-valuation-aapl-trade-mobile')
 
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/stocks/AAPL/valuation?lens=long&metric=ps&period=annual')
-    await expectPerspectiveHydrated(page)
+    await page.goto('/stocks/AAPL/valuation?metric=ps&period=annual')
     await expect(page.getByRole('link', { name: 'P/S', exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByText('Temporal observations', { exact: true })).toBeVisible()
     await expect(page.locator('[data-chart-state="empty"]')).toBeVisible()
@@ -62,8 +56,7 @@ test.describe('ticker valuation and ownership Phase 2 slice', () => {
 
   test('Ownership and Fund Structure preserve asset-aware semantics', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/stocks/AAPL/ownership?lens=long')
-    await expectPerspectiveHydrated(page)
+    await page.goto('/stocks/AAPL/ownership')
     await expect(page.getByRole('heading', { name: 'Ownership & Capital', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Ownership breakdown', exact: true })).toBeVisible()
     await expect(page.getByText('Enterprise value', { exact: true })).toBeVisible()
@@ -77,8 +70,7 @@ test.describe('ticker valuation and ownership Phase 2 slice', () => {
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'phase2-ownership-aapl-long-mobile')
 
-    await page.goto('/stocks/QQQ/ownership?lens=trade')
-    await expectPerspectiveHydrated(page)
+    await page.goto('/stocks/QQQ/ownership')
     await expect(page.getByRole('heading', { name: 'Fund Structure', exact: true })).toBeVisible()
     await expect(page.getByText(/no corporate ownership model applied/)).toBeVisible()
     await expect(page.getByText('Insider', { exact: true })).toHaveCount(0)

@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import ResearchViewShell from '@/components/stocks/ResearchViewShell'
-import type { InvestmentLensKey } from '@/lib/investment-lens'
 import type { StockResearchData } from '@/lib/stock-research'
 import { getViewerAccess } from '@/lib/billing'
 import styles from './AiMethodologyResearch.module.css'
@@ -11,13 +10,12 @@ const SUGGESTIONS = [
   'What are the main business risks?',
 ]
 
-export default async function StockAiResearch({ data, lens }: { data: StockResearchData; lens: InvestmentLensKey }) {
+export default async function StockAiResearch({ data }: { data: StockResearchData }) {
   const access = await getViewerAccess()
   const accessLabel = access.isPro ? 'Pro access' : 'Plan required'
-  const lensLabel = lens === 'trade' ? 'Trade' : lens === 'short' ? 'Short term' : lens === 'medium' ? 'Medium term' : 'Long term'
 
   return (
-    <ResearchViewShell data={data} lens={lens} title="AI Research">
+    <ResearchViewShell data={data} title="AI Research">
       <main className={styles.aiPage} aria-label="AI Research capability preview">
         <section className={styles.context} aria-labelledby="ai-context-title">
           <div>
@@ -26,7 +24,7 @@ export default async function StockAiResearch({ data, lens }: { data: StockResea
           </div>
           <dl className={styles.contextFacts}>
             <div><dt>Asset</dt><dd>{data.name} · {data.kind === 'fund' ? 'Fund' : 'Equity'}</dd></div>
-            <div><dt>Lens</dt><dd>{lensLabel}</dd></div>
+            <div><dt>Evidence</dt><dd>Current ticker research</dd></div>
             <div><dt>Coverage</dt><dd>{data.coverageLabel}</dd></div>
           </dl>
         </section>

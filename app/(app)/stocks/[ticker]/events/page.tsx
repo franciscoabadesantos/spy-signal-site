@@ -1,7 +1,6 @@
 import StockEventsResearch from '@/components/stocks/StockEventsResearch'
 import ResearchUnavailable from '@/components/stocks/ResearchUnavailable'
 import { getTickerDisclosures, getTickerEvents } from '@/lib/canonical-research'
-import { parseInvestmentLens } from '@/lib/investment-lens'
 import { getStockResearchData } from '@/lib/stock-research'
 
 function isoDate(value: Date): string {
@@ -27,9 +26,7 @@ export default async function EventsPage({
 }) {
   const { ticker } = await params
   const query = await searchParams
-  const lensValue = Array.isArray(query.lens) ? query.lens[0] : query.lens
   const view = Array.isArray(query.view) ? query.view[0] : query.view
-  const lens = parseInvestmentLens(lensValue)
 
   const window = eventWindow(view)
   const [data, events, disclosures] = await Promise.all([
@@ -38,5 +35,5 @@ export default async function EventsPage({
     getTickerDisclosures(ticker, { latestOnly: true, limit: 100 }).catch(() => null),
   ])
   if (!data) return <ResearchUnavailable ticker={ticker.toUpperCase()} />
-  return <StockEventsResearch data={data} lens={lens} view={view} events={events} disclosures={disclosures} />
+  return <StockEventsResearch data={data} view={view} events={events} disclosures={disclosures} />
 }

@@ -4,7 +4,6 @@ import StockValuationResearch, {
 } from '@/components/stocks/StockValuationResearch'
 import ResearchUnavailable from '@/components/stocks/ResearchUnavailable'
 import { getTickerMarketMetrics } from '@/lib/canonical-research'
-import { parseInvestmentLens } from '@/lib/investment-lens'
 import { getStockResearchData } from '@/lib/stock-research'
 
 function singleParam(value: string | string[] | undefined): string | undefined {
@@ -33,12 +32,11 @@ export default async function ValuationPage({
   searchParams,
 }: {
   params: Promise<{ ticker: string }>
-  searchParams: Promise<{ lens?: string | string[]; metric?: string | string[]; period?: string | string[] }>
+  searchParams: Promise<{ metric?: string | string[]; period?: string | string[] }>
 }) {
   const { ticker: rawTicker } = await params
   const ticker = rawTicker.toUpperCase()
   const query = await searchParams
-  const lens = parseInvestmentLens(singleParam(query.lens))
   const metric = parseMetric(singleParam(query.metric))
   const period = parsePeriod(singleParam(query.period))
   const [data, observations] = await Promise.all([
@@ -50,5 +48,5 @@ export default async function ValuationPage({
     }).catch(() => null),
   ])
   if (!data) return <ResearchUnavailable ticker={ticker} />
-  return <StockValuationResearch data={data} lens={lens} metric={metric} period={period} observations={observations} />
+  return <StockValuationResearch data={data} metric={metric} period={period} observations={observations} />
 }

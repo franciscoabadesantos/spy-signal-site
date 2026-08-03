@@ -1,7 +1,6 @@
 import ResearchOverviewLink from '@/components/stocks/ResearchOverviewLink'
 
 export const researchDestinations = {
-  lens: { title: 'Investment Lens', intro: 'A structured view of the evidence currently covered for this ticker.' },
   fundamentals: { title: 'Fundamentals', intro: 'Canonical company or fund fundamentals, with deeper coverage added progressively.' },
   financials: { title: 'Financial Statements', intro: 'Statement-level research is planned for a later phase.' },
   valuation: { title: 'Valuation History', intro: 'Historical valuation context is pending integration.' },
@@ -20,7 +19,6 @@ export default function StockResearchDestination({ ticker, kind }: { ticker: str
   const destination = researchDestinations[kind]
   const planned = ['financials', 'valuation', 'ownership', 'profile', 'events', 'ai-research'].includes(kind)
   const structures: Record<DestinationKey, string[]> = {
-    lens: ['Conclusion', 'Evidence', 'Countercase', 'Metrics', 'Risks', 'Catalysts', 'Next step', 'Sources & methodology'],
     fundamentals: ['Valuation', 'Profitability', 'Growth', 'Balance sheet', 'Income'],
     financials: ['Income statement', 'Balance sheet', 'Cash flow', 'Financial story'],
     valuation: ['Historical multiples', 'Range context', 'Peer context', 'Drivers'],

@@ -1,14 +1,14 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import ResearchViewShell, { ResearchAdPlacement } from '@/components/stocks/ResearchViewShell'
-import type { InvestmentLensKey } from '@/lib/investment-lens'
-import { LENS_CHART_TIMEFRAME, LENS_TECHNICAL_TIMEFRAME } from '@/lib/investment-lens'
 import { buildTechnicalSummary, type TechnicalGaugeData, type TechnicalIndicatorRow } from '@/lib/technicalSignals'
 import type { OhlcPoint } from '@/lib/ohlc-data'
 import type { SignalResearchData } from '@/lib/signal-research'
 import styles from './StockSignalsResearch.module.css'
 
 const RANGE_DAYS = { '1M': 31, '3M': 93, '1Y': 366, '5Y': 1826 } as const
+const SIGNAL_CHART_RANGE = '1M' as const
+const SIGNAL_TECHNICAL_TIMEFRAME = '1D' as const
 
 function formatDate(value: string | null, withYear = true): string {
   if (!value || Number.isNaN(Date.parse(value))) return '—'
@@ -38,9 +38,8 @@ function hasTechnicalEvidence(summary: ReturnType<typeof buildTechnicalSummary>)
   return [...summary.oscillatorRows, ...summary.movingAverageRows].some((row) => row.value !== '—')
 }
 
-function rangeRows(rows: OhlcPoint[], lens: InvestmentLensKey): OhlcPoint[] {
-  const range = LENS_CHART_TIMEFRAME[lens]
-  const days = RANGE_DAYS[range]
+function rangeRows(rows: OhlcPoint[]): OhlcPoint[] {
+  const days = RANGE_DAYS[SIGNAL_CHART_RANGE]
   const sorted = rows.slice().sort((left, right) => left.date.localeCompare(right.date))
   const latest = sorted.at(-1)
   if (!latest) return []
@@ -48,8 +47,8 @@ function rangeRows(rows: OhlcPoint[], lens: InvestmentLensKey): OhlcPoint[] {
   return sorted.filter((row) => Date.parse(row.date) >= cutoff)
 }
 
-function PriceSignalTimeline({ data, lens }: { data: SignalResearchData; lens: InvestmentLensKey }) {
-  const rows = rangeRows(data.ohlc.rows, lens)
+function PriceSignalTimeline({ data }: { data: SignalResearchData }) {
+  const rows = rangeRows(data.ohlc.rows)
   if (rows.length < 2) {
     return (
       <div className={styles.chartFallback} role="status">
@@ -195,9 +194,9 @@ function SignalHistory({ data }: { data: SignalResearchData }) {
   )
 }
 
-export default function StockSignalsResearch({ data, lens, family }: { data: SignalResearchData; lens: InvestmentLensKey; family?: string }) {
+export default function StockSignalsResearch({ data, family }: { data: SignalResearchData; family?: string }) {
   const research = data.research
-  const technicalFrame = LENS_TECHNICAL_TIMEFRAME[lens]
+  const technicalFrame = SIGNAL_TECHNICAL_TIMEFRAME
   const technical = buildTechnicalSummary(data.ohlc.rows, technicalFrame)
   const available = hasTechnicalEvidence(technical) && data.ohlc.rows.length >= 30
   const current = data.currentSignal
@@ -205,12 +204,12 @@ export default function StockSignalsResearch({ data, lens, family }: { data: Sig
   const currentSignalClass = current ? styles[current.direction] : styles.neutral
 
   return (
-    <ResearchViewShell data={research} lens={lens} title="Signals & Indicators">
+    <ResearchViewShell data={research} title="Signals & Indicators">
       <div className={styles.page} data-signal-research="">
         <header className={styles.intro}>
           <span className={styles.eyebrow}>{research.ticker} · Technical evidence</span>
           <div className={styles.introMeta}>
-            <span>Chart range · {LENS_CHART_TIMEFRAME[lens]}</span>
+            <span>Chart range · {SIGNAL_CHART_RANGE}</span>
             <span>Technical aggregation · {technicalFrame}</span>
             <span>{research.kind === 'fund' ? 'Fund' : 'Equity'}</span>
           </div>
@@ -223,9 +222,9 @@ export default function StockSignalsResearch({ data, lens, family }: { data: Sig
                 <span className={styles.sectionLabel}>Price and observations</span>
                 <h2 className={styles.sectionTitle}>Signal timeline</h2>
               </div>
-              <span className={styles.timelineRange}>{LENS_CHART_TIMEFRAME[lens]}</span>
+              <span className={styles.timelineRange}>{SIGNAL_CHART_RANGE}</span>
             </div>
-            <PriceSignalTimeline data={data} lens={lens} />
+            <PriceSignalTimeline data={data} />
             <div className={styles.timelineNotes} aria-label="Signal direction legend">
               <span><i className={`${styles.legendDot} ${styles.signalBullish}`} />Bullish</span>
               <span><i className={`${styles.legendDot} ${styles.signalNeutral}`} />Neutral</span>
@@ -326,7 +325,7 @@ export default function StockSignalsResearch({ data, lens, family }: { data: Sig
               <span className={styles.sectionLabel}>Method and coverage</span>
               <h2 id="signals-methodology-heading">Methodology</h2>
             </div>
-            <Link href={`/stocks/${research.ticker}/methodology?lens=${lens}`} className={styles.methodLink}>Open methodology →</Link>
+            <Link href={`/stocks/${research.ticker}/methodology`} className={styles.methodLink}>Open methodology →</Link>
           </div>
           <p>Summary, Oscillators and Moving Averages reuse the existing OHLC-derived implementation used by the Overview. Signal observations are shown as supplied after server-side shape and date validation. No probability, accuracy, performance or regime conclusion is calculated here.</p>
           <div className={styles.methodMeta}><span>Coverage · {research.coverageLabel}</span><span>Source · finance-backend through existing helpers</span></div>

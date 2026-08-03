@@ -10,7 +10,7 @@ export default async function IndicatorsPage({
   const { ticker } = await params
   const query = await searchParams
   const next = new URLSearchParams()
-  for (const key of ['lens', 'family']) {
+  for (const key of ['family']) {
     const value = Array.isArray(query[key]) ? query[key][0] : query[key]
     if (typeof value === 'string' && value.trim()) next.set(key, value)
   }

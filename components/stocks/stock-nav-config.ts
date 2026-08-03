@@ -1,5 +1,3 @@
-import type { InvestmentLensKey } from '@/lib/investment-lens'
-
 export type StockTabKey = 'overview' | 'relationships' | 'research'
 export type StockResearchNavKey =
   | 'overview'
@@ -66,11 +64,9 @@ export const stockResearchItems: readonly StockResearchLink[] = [
 export function stockResearchHref(
   ticker: string,
   item: Pick<StockResearchLink, 'slug' | 'query'>,
-  lens?: InvestmentLensKey,
 ): string {
   const pathname = item.slug ? `/stocks/${ticker}/${item.slug}` : `/stocks/${ticker}`
   const params = new URLSearchParams(item.query)
-  if (lens) params.set('lens', lens)
   const query = params.toString()
   return query ? `${pathname}?${query}` : pathname
 }
