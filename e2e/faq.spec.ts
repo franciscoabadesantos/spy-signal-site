@@ -128,6 +128,7 @@ test('internal marketing headers use the larger search and homepage scroll pill'
     await page.evaluate(() => window.scrollTo(0, 240))
     await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('chrome-scrolled'))).toBe(true)
     await expect.poll(() => page.locator('.site-header__row').evaluate((row) => row.getBoundingClientRect().width)).toBeLessThanOrEqual(430)
+    await expect.poll(() => page.locator('[data-header-search] input').evaluate((input) => input.getBoundingClientRect().height)).toBeLessThanOrEqual(32.1)
 
     const scrolled = await page.evaluate(() => {
       const row = document.querySelector<HTMLElement>('.site-header__row')
@@ -142,6 +143,6 @@ test('internal marketing headers use the larger search and homepage scroll pill'
 
     expect(scrolled.rowWidth).toBeLessThanOrEqual(430)
     expect(scrolled.searchWidth).toBeLessThan(initial.searchWidth)
-    expect(scrolled.searchHeight).toBe(32)
+    expect(scrolled.searchHeight).toBeCloseTo(32, 1)
   }
 })

@@ -3,6 +3,7 @@
 import { forwardRef, useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { Activity } from 'lucide-react'
 import { GlassPanel } from '@/components/marketing/site-chrome'
+import { useScrollRuntime } from '@/components/motion/ScrollRuntime'
 import { cn } from '@/lib/utils'
 
 type TickerTone = 'bullish' | 'defensive' | 'watch'
@@ -730,6 +731,7 @@ function TickerSceneBackground() {
 }
 
 export default function HomeTickerStory() {
+  const { reducedMotion, runtime } = useScrollRuntime()
   const sectionRef = useRef<HTMLElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const desktopTrackViewportRef = useRef<HTMLDivElement | null>(null)
@@ -738,7 +740,6 @@ export default function HomeTickerStory() {
   const [displayProgress, setDisplayProgress] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
   const [viewportWidth, setViewportWidth] = useState(1280)
-  const [reducedMotion, setReducedMotion] = useState(false)
   const [capturedFrame, setCapturedFrame] = useState<CapturedFrame | null>(null)
   const captureKeyRef = useRef<string | null>(null)
   const capturedFrameRef = useRef<CapturedFrame | null>(null)
@@ -754,12 +755,10 @@ export default function HomeTickerStory() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const syncReducedMotion = () => {
-      setReducedMotion(media.matches)
+    const syncLayoutMode = () => {
       const nextWidth = window.innerWidth
       const nextIsMobile = nextWidth < 1024
-      const nextProgress = media.matches ? 1 : 0
+      const nextProgress = reducedMotion ? 1 : 0
       targetProgressRef.current = nextProgress
       displayProgressRef.current = nextProgress
       setDisplayProgress(nextProgress)
@@ -775,15 +774,13 @@ export default function HomeTickerStory() {
       setCapturedFrame(null)
     }
 
-    syncReducedMotion()
-    media.addEventListener('change', syncReducedMotion)
-    window.addEventListener('resize', syncReducedMotion)
+    syncLayoutMode()
+    window.addEventListener('resize', syncLayoutMode)
 
     return () => {
-      media.removeEventListener('change', syncReducedMotion)
-      window.removeEventListener('resize', syncReducedMotion)
+      window.removeEventListener('resize', syncLayoutMode)
     }
-  }, [])
+  }, [reducedMotion])
 
   useEffect(() => {
     if (reducedMotion) return
@@ -870,15 +867,15 @@ export default function HomeTickerStory() {
     }
 
     requestUpdate()
-    window.addEventListener('scroll', requestUpdate, { passive: true })
+    const unsubscribe = runtime.subscribeScroll(requestUpdate)
     window.addEventListener('resize', requestUpdate)
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame)
-      window.removeEventListener('scroll', requestUpdate)
+      unsubscribe()
       window.removeEventListener('resize', requestUpdate)
     }
-  }, [reducedMotion])
+  }, [reducedMotion, runtime])
 
   useEffect(() => {
     if (reducedMotion) return

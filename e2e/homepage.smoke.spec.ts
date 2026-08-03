@@ -82,3 +82,59 @@ for (const viewport of viewports) {
     }
   })
 }
+
+test('homepage owns one narrative scroll runtime with a reversible pinned scene', async ({ page }) => {
+  await page.route('**/api/tickers/index', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [] }),
+    })
+  )
+  await page.route('**/api/analytics/event', (route) => route.fulfill({ status: 204 }))
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/', { waitUntil: 'load' })
+
+  await expect(page.locator('html')).toHaveAttribute('data-scroll-runtime', 'smooth')
+  await expect(page.locator('html')).toHaveAttribute('data-scroll-profile', 'narrative')
+
+  await page.mouse.wheel(0, 900)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(120)
+  const forwardState = await page.evaluate(() => {
+    const stage = document.querySelector<HTMLElement>('#hc-stage')
+    const progress = document.querySelector<HTMLElement>('#hc-prog')
+    return {
+      progress: progress ? Number.parseFloat(progress.style.width) : 0,
+      stageTop: stage?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY,
+    }
+  })
+  expect(Math.abs(forwardState.stageTop)).toBeLessThanOrEqual(1)
+  expect(forwardState.progress).toBeGreaterThan(0)
+
+  await page.mouse.wheel(0, -900)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(20)
+  await expect.poll(() => page.locator('#hc-prog').evaluate((element) => Number.parseFloat((element as HTMLElement).style.width))).toBeLessThan(1)
+})
+
+test('reduced motion keeps the homepage narrative in native static flow', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.route('**/api/tickers/index', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [] }),
+    })
+  )
+  await page.route('**/api/analytics/event', (route) => route.fulfill({ status: 204 }))
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/', { waitUntil: 'load' })
+
+  await expect(page.locator('html')).toHaveAttribute('data-scroll-runtime', 'native-reduced')
+  await expect(page.locator('html')).toHaveAttribute('data-scroll-profile', 'narrative')
+  await expect(page.locator('.hc-root')).toHaveAttribute('data-reduced-motion', 'true')
+  const staticScene = await page.locator('#hc-stage').evaluate((stage) => ({
+    hasInlineHeight: (stage as HTMLElement).style.height !== '',
+    hasPinSpacer: stage.parentElement?.classList.contains('pin-spacer') ?? false,
+  }))
+  expect(staticScene).toEqual({ hasInlineHeight: false, hasPinSpacer: false })
+})

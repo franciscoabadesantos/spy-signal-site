@@ -1,15 +1,16 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useScrollRuntime } from '@/components/motion/ScrollRuntime'
 
 /**
  * Headless controller for the marketing site chrome.
  *
  * Mirrors the technique used on wolverineworldwide.com: JS only maintains a
  * handful of *state classes* on <html> and lets CSS own every transition. It
- * intentionally does NOT create a Lenis instance — the approved hero
- * (HeroConstellation) already owns the single Lenis and drives the real
- * document scroll, so reading window.scrollY here stays in sync everywhere.
+ * It consumes the shared site scroll runtime, which owns the single
+ * Lenis instance and keeps this CSS state machine synchronized with both
+ * smooth and reduced-motion native scrolling.
  *
  * Classes toggled on documentElement:
  *   chrome-scrolled     scrollY past the "condense" threshold — the header goes
@@ -30,6 +31,8 @@ const FOLD = 1200
 const DELTA = 5
 
 export default function SiteChromeMotion() {
+  const { runtime } = useScrollRuntime()
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     const root = document.documentElement
@@ -55,11 +58,10 @@ export default function SiteChromeMotion() {
       })
     }
 
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
+    const unsubscribe = runtime.subscribeScroll(onScroll)
 
     return () => {
-      window.removeEventListener('scroll', onScroll)
+      unsubscribe()
       root.classList.remove(
         'chrome-scrolled',
         'chrome-past-fold',
@@ -67,7 +69,7 @@ export default function SiteChromeMotion() {
         'chrome-scroll-up'
       )
     }
-  }, [])
+  }, [runtime])
 
   return null
 }

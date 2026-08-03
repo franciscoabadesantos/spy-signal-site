@@ -650,7 +650,7 @@ export default function TickerSearchCombobox({
         aria-hidden={!shouldShowDropdown}
         inert={!shouldShowDropdown ? true : undefined}
       >
-          <div className="ticker-search__scroll max-h-[28rem] overflow-auto p-1.5">
+          <div data-lenis-prevent className="ticker-search__scroll max-h-[28rem] overflow-auto p-1.5">
             {visibleSections.map((section, sectionGroupIndex) => {
               let runningIndex = 0
               for (const previousSection of visibleSections) {

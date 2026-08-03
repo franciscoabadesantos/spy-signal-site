@@ -227,7 +227,7 @@ export default function MarketCorrelationNetwork({
 
           <div>
             <div className="text-filter-label">{colorMode === 'field' && hasSectorData ? 'Field legend' : 'Zone legend'}</div>
-            <div className="mt-2 max-h-48 space-y-2 overflow-auto pr-1">
+            <div data-lenis-prevent className="mt-2 max-h-48 space-y-2 overflow-auto pr-1">
               {activeColorLegend.map((item) => (
                 <div key={item.key} className="flex items-center justify-between gap-2 text-caption text-content-secondary">
                   <span className="inline-flex items-center gap-2">

@@ -12,7 +12,7 @@ export function TableShell({
 }) {
   return (
     <Card padding="none" className={cn('overflow-hidden', className)}>
-      <div className={cn('overflow-auto', contentClassName)}>{children}</div>
+      <div data-lenis-prevent-horizontal className={cn('overflow-auto', contentClassName)}>{children}</div>
     </Card>
   )
 }

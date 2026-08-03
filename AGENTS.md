@@ -37,7 +37,7 @@ Do not manually start a server, choose a QA port, kill processes, or launch Chro
 - Keep pages and layouts as Server Components unless a focused interactive boundary needs `'use client'`.
 - Use semantic HTML, strict TypeScript, accessible React, existing primitives, and the current navy/electric, teal, and signal-color language. Do not introduce a parallel design system.
 - Design mobile-first through wide desktop. Preserve keyboard operation, visible focus, contrast, zoom, touch behavior, and reduced motion.
-- Use CSS for simple transitions, Framer Motion for React state/orchestration, and GSAP/ScrollTrigger only for complex scroll narratives. The homepage hero owns the single Lenis instance.
+- Use CSS for simple transitions, Framer Motion for React state/orchestration, and GSAP/ScrollTrigger only for complex scroll narratives. The root scroll runtime owns the site's single Lenis instance; route groups register profiles and narrative components register scoped scenes instead of creating another controller.
 - Canvas, 3D, or force graphs need a real data/interaction requirement, cleanup, a nonblank fallback, reduced-motion behavior, and browser QA.
 - Do not add dependencies unless the repository cannot meet the requirement without them; record cost, runtime impact, and rejected existing options.
 - Do not copy third-party branding, layouts, copy, code, or assets. Record transformed reference principles in `docs/design/visual-references.md`.

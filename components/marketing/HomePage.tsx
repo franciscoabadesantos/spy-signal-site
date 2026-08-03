@@ -5,6 +5,7 @@ import { MarketingHeader } from '@/components/marketing/site-chrome'
 import HomeTickerStory from '@/components/marketing/HomeTickerStory'
 import HeroConstellation from '@/components/marketing/HeroConstellation'
 import DockingSearch from '@/components/marketing/DockingSearch'
+import { ScrollExperience } from '@/components/motion/ScrollRuntime'
 
 const sora = Sora({ subsets: ['latin'], weight: ['400', '600', '700', '800'], display: 'swap' })
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
@@ -69,20 +70,22 @@ function Sections() {
 
 export default function MarketingHomePage() {
   return (
-    <main
-      data-theme="light"
-      style={{
-        ['--font-display' as never]: sora.style.fontFamily,
-        ['--font-body' as never]: inter.style.fontFamily,
-        ['--font-mono' as never]: mono.style.fontFamily,
-        fontFamily: 'var(--font-body)',
-      }}
-      className="marketing-home relative min-h-screen bg-[var(--page-bg)] text-content-primary"
-    >
-      <MarketingHeader activeHref="/" />
-      <DockingSearch />
-      <HeroConstellation />
-      <Sections />
-    </main>
+    <ScrollExperience profile="narrative">
+      <main
+        data-theme="light"
+        style={{
+          ['--font-display' as never]: sora.style.fontFamily,
+          ['--font-body' as never]: inter.style.fontFamily,
+          ['--font-mono' as never]: mono.style.fontFamily,
+          fontFamily: 'var(--font-body)',
+        }}
+        className="marketing-home relative min-h-screen bg-[var(--page-bg)] text-content-primary"
+      >
+        <MarketingHeader activeHref="/" />
+        <DockingSearch />
+        <HeroConstellation />
+        <Sections />
+      </main>
+    </ScrollExperience>
   )
 }

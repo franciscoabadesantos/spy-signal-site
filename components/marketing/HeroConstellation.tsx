@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import Lenis from 'lenis'
 import { Sora, JetBrains_Mono, Inter } from 'next/font/google'
+import { useScrollRuntime } from '@/components/motion/ScrollRuntime'
+import { scrollMotionTokens } from '@/components/motion/scroll-tokens'
 
 const sora = Sora({ subsets: ['latin'], weight: ['400', '600', '700', '800'], display: 'swap' })
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
@@ -92,6 +92,7 @@ html[data-theme="dark"] .hc-root #hc-focusDim,.hc-root[data-theme="dark"] #hc-fo
 
 export default function HeroConstellation() {
   const rootRef = useRef<HTMLDivElement>(null)
+  const { reducedMotion, runtime } = useScrollRuntime()
 
   useEffect(() => {
     const root = rootRef.current
@@ -100,7 +101,6 @@ export default function HeroConstellation() {
     const c = $('hc-bg') as HTMLCanvasElement
     const x = c.getContext('2d')!
     const stageEl = $('hc-stage')
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const darkMode = Boolean(root.closest('[data-theme="dark"]') || document.documentElement.matches('[data-theme="dark"]'))
     root.dataset.reducedMotion = String(reducedMotion)
 
@@ -108,9 +108,9 @@ export default function HeroConstellation() {
     let nodes: HcNode[] = [], pairs: number[] = []
     const pulses: HcPulse[] = []
     let mx = 0, my = 0, tmx = 0, tmy = 0, mpx = -1e4, mpy = -1e4
-    let lenis: Lenis | null = null, rafId = 0
+    let rafId = 0
     let heroVisible = true
-    let scrollTrigger: ScrollTrigger | null = null, hideTrigger: ScrollTrigger | null = null
+    let releaseScrollLock: (() => void) | null = null
 
     const TICKERS = ['SPY','NVDA','AAPL','MSFT','QQQ','AMZN','META','TSLA','GOOGL','JPM','XOM','AVGO','AMD','LLY','V','COST','NFLX','HD','BRK.B','GLD']
     const COLORS: [number, number, number][] = darkMode ? [[25,201,182],[63,224,205],[139,123,255],[110,168,255]] : [[43,73,96],[78,103,119],[110,110,128],[86,106,123]]
@@ -265,20 +265,33 @@ export default function HeroConstellation() {
     updateBeats(0)
     const setP = (v: number) => { targetP = v; $('hc-prog').style.width = (v * 100) + '%'; const cue = $('hc-cue'); if (cue) cue.style.opacity = v > 0.02 ? '0' : '1'; updateBeats(v) }
 
-    let tickerFn: ((t: number) => void) | null = null
-    if (!reducedMotion) {
-      gsap.registerPlugin(ScrollTrigger)
-      const activeLenis = new Lenis({ lerp: 0.1, smoothWheel: true })
-      lenis = activeLenis
-      activeLenis.on('scroll', ScrollTrigger.update)
-      tickerFn = (t: number) => activeLenis.raf(t * 1000)
-      gsap.ticker.add(tickerFn); gsap.ticker.lagSmoothing(0)
+    const unregisterScrollScene = runtime.registerScene(({ gsap: runtimeGsap, ScrollTrigger }) => {
       const s = { p: 0 }
-      const tween = gsap.to(s, { p: 1, ease: 'none', scrollTrigger: { trigger: stageEl, start: 'top top', end: '+=3200', scrub: 1, pin: true, anticipatePin: 1, onUpdate: self => setP(self.progress) } })
-      scrollTrigger = tween.scrollTrigger || null
+      const tween = runtimeGsap.to(s, {
+        p: 1,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: stageEl,
+          start: 'top top',
+          end: `+=${scrollMotionTokens.homepage.pinDistance}`,
+          scrub: scrollMotionTokens.scrub.cinematic,
+          pin: true,
+          anticipatePin: 1,
+          onUpdate: self => setP(self.progress),
+        },
+      })
       // esconder o canvas quando saímos do hero
-      hideTrigger = ScrollTrigger.create({ trigger: stageEl, start: 'top top', end: '+=3400', onUpdate: self => { const vis = self.progress < 0.999; heroVisible = vis; c.style.opacity = vis ? '1' : '0'; c.style.pointerEvents = vis ? 'auto' : 'none'; const veil = root.querySelector<HTMLElement>('.hc-veil'); if (veil) veil.style.opacity = vis ? '1' : '0'; const prog = root.querySelector<HTMLElement>('.hc-progress'); if (prog) prog.style.opacity = vis ? '1' : '0' } })
-    }
+      const hideTrigger = ScrollTrigger.create({ trigger: stageEl, start: 'top top', end: `+=${scrollMotionTokens.homepage.visibilityDistance}`, onUpdate: self => { const vis = self.progress < 0.999; heroVisible = vis; c.style.opacity = vis ? '1' : '0'; c.style.pointerEvents = vis ? 'auto' : 'none'; const veil = root.querySelector<HTMLElement>('.hc-veil'); if (veil) veil.style.opacity = vis ? '1' : '0'; const prog = root.querySelector<HTMLElement>('.hc-progress'); if (prog) prog.style.opacity = vis ? '1' : '0' } })
+
+      return () => {
+        tween.scrollTrigger?.kill()
+        tween.kill()
+        hideTrigger.kill()
+        heroVisible = true
+        c.style.opacity = '1'
+        c.style.pointerEvents = 'auto'
+      }
+    })
 
     // focus / zoom-into-node
     const NAMES: Record<string, string> = { SPY:'S&P 500 ETF',NVDA:'NVIDIA',AAPL:'Apple',MSFT:'Microsoft',QQQ:'Nasdaq 100 ETF',AMZN:'Amazon',META:'Meta Platforms',TSLA:'Tesla',GOOGL:'Alphabet',JPM:'JPMorgan',XOM:'Exxon Mobil',AVGO:'Broadcom',AMD:'AMD',LLY:'Eli Lilly',V:'Visa',COST:'Costco',NFLX:'Netflix',HD:'Home Depot','BRK.B':'Berkshire H.','GLD':'Gold ETF' }
@@ -303,7 +316,7 @@ export default function HeroConstellation() {
       $('hc-fcS').innerHTML = '<div class="s"><div class="k">Price</div><div class="v">$' + sk.price + '</div></div><div class="s"><div class="k">Δ day</div><div class="v" style="color:' + (change >= 0 ? '#34d399' : '#fb7185') + '">' + (change >= 0 ? '+' : '') + sk.chg + '%</div></div><div class="s"><div class="k">Score</div><div class="v" style="color:#19c9b6">' + sk.score + '</div></div>'
       ;($('hc-fcO') as HTMLAnchorElement).href = '/stocks/' + encodeURIComponent(n.label)
       focusReturn = document.activeElement instanceof HTMLElement ? document.activeElement : null
-      focus.i = idx; fL.setAttribute('aria-hidden', 'false'); fL.style.pointerEvents = 'auto'; if (lenis) lenis.stop()
+      focus.i = idx; fL.setAttribute('aria-hidden', 'false'); fL.style.pointerEvents = 'auto'; releaseScrollLock ??= runtime.acquireLock()
       if (reducedMotion) { focus.t = 1; updateCard(); backBtn.focus() } else gsap.to(focus, { t: 1, duration: 0.55, ease: 'power2.out', onUpdate: updateCard, onComplete: () => backBtn.focus() })
     }
     const closeFocus = () => {
@@ -312,7 +325,8 @@ export default function HeroConstellation() {
       fL.style.pointerEvents = 'none'
       const finishClose = () => {
         focus.t = 0; focus.i = -1; fL.setAttribute('aria-hidden', 'true'); updateCard()
-        if (lenis) lenis.start()
+        releaseScrollLock?.()
+        releaseScrollLock = null
         if (focusReturn?.isConnected) focusReturn.focus()
         focusReturn = null
       }
@@ -351,11 +365,10 @@ export default function HeroConstellation() {
       window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClick, true)
       window.removeEventListener('mousedown', onDown, true); window.removeEventListener('meridian:search-focus', onSearchFocus)
       backBtn.removeEventListener('click', closeFocus); fDim.removeEventListener('click', closeFocus)
-      if (tickerFn) gsap.ticker.remove(tickerFn)
-      if (scrollTrigger) scrollTrigger.kill(); if (hideTrigger) hideTrigger.kill()
-      if (lenis) lenis.destroy()
+      releaseScrollLock?.()
+      unregisterScrollScene()
     }
-  }, [])
+  }, [reducedMotion, runtime])
 
   return (
     <div className="hc-root" ref={rootRef} style={{ ['--font-display' as never]: sora.style.fontFamily, ['--font-body' as never]: inter.style.fontFamily, ['--font-mono' as never]: mono.style.fontFamily }}>

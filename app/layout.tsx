@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import OptionalSessionReplay from '@/components/analytics/OptionalSessionReplay'
+import { ScrollRuntimeProvider } from '@/components/motion/ScrollRuntime'
 import SiteFooter from '@/components/SiteFooter'
+import 'lenis/dist/lenis.css'
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,9 +34,11 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ClerkProvider>
-          <OptionalSessionReplay />
-          {children}
-          <SiteFooter />
+          <ScrollRuntimeProvider defaultProfile="standard">
+            <OptionalSessionReplay />
+            {children}
+            <SiteFooter />
+          </ScrollRuntimeProvider>
         </ClerkProvider>
       </body>
     </html>
