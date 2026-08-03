@@ -11,8 +11,9 @@ import {
   type LatestFundamentalsRow,
   type TickerPageSummary,
 } from '@/lib/ticker-data'
+import { stockAssetKind, type StockAssetKind } from '@/lib/stock-asset-kind'
 
-export type ResearchAssetKind = 'equity' | 'fund'
+export type ResearchAssetKind = StockAssetKind
 
 export type ResearchMetric = {
   key: string
@@ -42,22 +43,8 @@ export type StockResearchData = {
   coverageLabel: 'Available' | 'Partial coverage'
 }
 
-const ETF_TICKERS = new Set(['SPY', 'QQQ', 'DIA', 'IWM', 'VOO', 'IVV', 'VTI', 'XLK', 'XLF', 'XLE'])
-
 function normalizeLabel(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-}
-
-function looksLikeFund(ticker: string, name: string, rows: LatestFundamentalsRow[]): boolean {
-  if (ETF_TICKERS.has(ticker)) return true
-  if (/\b(etf|trust|fund|portfolio|index|spdr|ishares|vanguard|invesco|proshares|direxion|ark)\b/i.test(name)) {
-    return true
-  }
-  return rows.some((row) =>
-    /(expense ratio|number of holdings|top holdings|inception date|turnover rate|fund family|fund category|portfolio p\/?e)/i.test(
-      `${row.metricLabel} ${row.metric}`,
-    ),
-  )
 }
 
 function formatMetricValue(row: LatestFundamentalsRow, currency: string): string | null {
@@ -184,7 +171,7 @@ export async function getStockResearchData(tickerRaw: string): Promise<StockRese
     getTickerFundamentals(ticker),
   ])
   const name = summary.quote?.name?.trim() || ticker
-  const kind: ResearchAssetKind = looksLikeFund(ticker, name, summary.latestFundamentals) ? 'fund' : 'equity'
+  const kind = stockAssetKind({ ticker, name, latestFundamentals: summary.latestFundamentals })
   const currency = summary.fundamentalsSummary?.currency || currencyForTicker(ticker)
   const { profileFacts, identifiers } = splitProfileRows(fundamentals.profile)
   const hasProfileEvidence = Boolean(

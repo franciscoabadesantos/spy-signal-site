@@ -1,21 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, use, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, use, useMemo, useState } from 'react'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import TemporalLineChart from '@/components/charts/TemporalLineChart'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
-import { scoreColor, type Scorecard } from '@/lib/scorecard-types'
+import type { Scorecard } from '@/lib/scorecard-types'
 import {
   buildTechnicalSummary,
   type TechnicalAction,
   type TechnicalTimeframe,
 } from '@/lib/technicalSignals'
-import { formatMoney, formatSignedMoney } from '@/lib/currency'
 import { hasUsableMaterializedScorecard } from '@/lib/ticker-page-scorecard'
 import { cn } from '@/lib/utils'
 import styles from './StockOverviewClient.module.css'
-import TickerRelationshipField, { TickerRelationshipFieldFallback } from './TickerRelationshipField'
+import ScorecardDisc from './ScorecardDisc'
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
 type ChartTimeframe = '1D' | '5D' | '1M' | '3M' | 'YTD' | '1Y' | '5Y'
@@ -88,11 +87,7 @@ type OverviewRegimePoint = {
 type StockOverviewClientProps = {
   ticker: string
   currency: string
-  displayName: string
   assetBadgeLabel: string
-  price: number | null
-  dailyMoveAmount: number | null
-  dailyMovePercent: number | null
   latestSignal: OverviewSignal | null
   historicalData: PricePoint[]
   historicalChartState: HistoricalChartState
@@ -108,20 +103,10 @@ type StockOverviewClientProps = {
   regimeSignals: OverviewRegimePoint[]
   scorecard: Scorecard
   about: string | null
-  watchlistSlot?: ReactNode
-  navigationSlot: ReactNode
 }
 
 const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y']
 const SIGNAL_TIMEFRAMES: TechnicalTimeframe[] = ['1D', '1W', '1M']
-
-function formatPrice(value: number | null | undefined, currency = 'USD'): string {
-  return formatMoney(value, currency)
-}
-
-function formatSignedDelta(value: number | null | undefined, currency = 'USD'): string {
-  return formatSignedMoney(value, currency)
-}
 
 function formatDate(value: string | null, options?: Intl.DateTimeFormatOptions): string {
   if (!value) return '—'
@@ -144,6 +129,17 @@ function formatConviction(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—'
   const scaled = Math.abs(value) <= 1 ? value * 100 : value
   return `${scaled.toFixed(0)}%`
+}
+
+function formatRelationshipStrength(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)}`
+}
+
+function formatConfidence(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  const scaled = Math.abs(value) <= 1 ? value * 100 : value
+  return `${Math.max(0, Math.min(100, scaled)).toFixed(0)}%`
 }
 
 function regimeCopy(direction: SignalDirection | null): string {
@@ -180,20 +176,6 @@ function directionToneClass(value: number | null): string {
 
 function parseChartDate(value: string): number {
   return new Date(`${value}T00:00:00Z`).getTime()
-}
-
-function GradeRing({ grade, score }: { grade: string; score: number | null }) {
-  const radius = 24
-  const color = score === null ? 'var(--color-neutral)' : scoreColor(score)
-
-  return (
-    <svg width={60} height={60} viewBox="0 0 60 60" role="img" aria-label={`Grade ${grade}`} className={styles.gradeRing}>
-      <circle cx={30} cy={30} r={radius} fill="none" stroke={color} strokeWidth={3.5} />
-      <text x={30} y={35} textAnchor="middle" fontSize={15} fontWeight={750} fill="var(--color-text-primary)">
-        {grade}
-      </text>
-    </svg>
-  )
 }
 
 function startDateForHeroTimeframe(timeframe: ChartTimeframe, latestDate: Date): number | null {
@@ -338,25 +320,45 @@ function RelatedAssetsContent({
     <article id="relationships" className={styles.relationshipEditorial}>
       <div className={styles.chapterHeader}>
         <div>
-          <p className={styles.chapterEyebrow}>Observed associations</p>
           <h2 className={styles.chapterTitle}>Relationships</h2>
+          <p className={styles.chapterDescription}>The strongest observed associations, ranked by relationship strength.</p>
         </div>
         <Link href={`/stocks/${ticker}/relationships`} className={styles.inlineArrow}>View all →</Link>
       </div>
       {rankedAssets.length > 0 ? (
         <div className={styles.relationshipPreviewGrid}>
-          <div className={styles.relationshipOrbitPreview} data-relationship-orbit-preview="" aria-hidden="true">
-            <span className={styles.orbitRing} />
-            <span className={styles.orbitCenter}>{ticker}</span>
-            {rankedAssets.slice(0, 3).map((asset, index) => (
-              <span
-                key={asset.symbol}
-                className={styles[`orbitNode${index + 1}`]}
-                style={{ opacity: asset.strength === null ? 0.62 : Math.max(0.48, Math.min(1, Math.abs(asset.strength))) }}
-              >
-                {asset.symbol}
-              </span>
-            ))}
+          <div className={styles.relationshipTopology} data-relationship-topology="" aria-hidden="true">
+            <svg viewBox="0 0 760 300" preserveAspectRatio="xMidYMid meet">
+              <circle cx="286" cy="150" r="92" className={styles.topologyHalo} />
+              {rankedAssets.slice(0, 4).map((asset, index) => {
+                const coordinates = [
+                  { x: 92, y: 64 },
+                  { x: 552, y: 55 },
+                  { x: 676, y: 176 },
+                  { x: 474, y: 252 },
+                ][index]
+                const strength = Math.max(0.12, Math.min(1, Math.abs(asset.strength ?? 0.28)))
+                if (!coordinates) return null
+                return (
+                  <g key={asset.symbol}>
+                    <line
+                      x1="286"
+                      y1="150"
+                      x2={coordinates.x}
+                      y2={coordinates.y}
+                      className={styles.topologyLink}
+                      strokeWidth={0.8 + strength * 2.4}
+                      strokeOpacity={0.18 + strength * 0.5}
+                    />
+                    <circle cx={coordinates.x} cy={coordinates.y} r="29" className={styles.topologyNode} />
+                    <text x={coordinates.x} y={coordinates.y + 4} className={styles.topologyLabel}>{asset.symbol}</text>
+                  </g>
+                )
+              })}
+              <circle cx="286" cy="150" r="38" className={styles.topologyCenter} />
+              <circle cx="286" cy="150" r="48" className={styles.topologyCenterRing} />
+              <text x="286" y="155" className={styles.topologyCenterLabel}>{ticker}</text>
+            </svg>
           </div>
           <div className={styles.relatedAssets}>
             {rankedAssets.slice(0, 5).map((asset) => (
@@ -365,9 +367,14 @@ function RelatedAssetsContent({
                   <span className={styles.chipTicker}>{asset.symbol}</span>
                   <span className={styles.relatedName}>{asset.name ?? asset.relation}</span>
                 </span>
-                <span className={directionToneClass(asset.changePercent)}>{formatCompactPercent(asset.changePercent)}</span>
+                <span className={styles.relationshipMagnitude}>
+                  <strong>{formatRelationshipStrength(asset.strength)}</strong>
+                  <span>Strength</span>
+                </span>
                 <span className={styles.relatedSemantics}>
                   <span>{asset.relation}</span>
+                  <span>Confidence {formatConfidence(asset.confidence)}</span>
+                  <span className={directionToneClass(asset.changePercent)}>Today {formatCompactPercent(asset.changePercent)}</span>
                 </span>
               </Link>
             ))}
@@ -383,11 +390,7 @@ function RelatedAssetsContent({
 export default function StockOverviewClient({
   ticker,
   currency,
-  displayName,
   assetBadgeLabel,
-  price,
-  dailyMoveAmount,
-  dailyMovePercent,
   latestSignal,
   historicalData,
   historicalChartState,
@@ -402,8 +405,6 @@ export default function StockOverviewClient({
   relatedAssets: relatedAssetsPromise,
   scorecard,
   about,
-  watchlistSlot,
-  navigationSlot,
 }: StockOverviewClientProps) {
   const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1M')
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
@@ -432,25 +433,49 @@ export default function StockOverviewClient({
   const profileRows = profileDetails
     .filter((row) => !/ticker|name|market cap|isin|identifier/i.test(row.label))
     .slice(0, 3)
-  const availableStats = volatility30d === null
-    ? keyStats
-    : [...keyStats, { label: '30D Volatility', value: `${volatility30d.toFixed(1)}%` }]
-  const priorityMetrics = ['Volume', '30D Volatility', 'Market Cap', 'P/E']
-    .map((label) => availableStats.find((stat) => stat.label === label))
-    .filter((stat): stat is OverviewStat => Boolean(stat))
+  const marketReference = ['Market Cap', 'Net Assets', 'Volume', 'P/E']
+    .map((label) => keyStats.find((stat) => stat.label === label))
+    .find((stat): stat is OverviewStat => Boolean(stat))
   const orderedFundamentalGroups = assetBadgeLabel === 'ETF'
     ? [...fundamentalGroups].sort((left, right) => Number(right.key === 'fund') - Number(left.key === 'fund'))
     : fundamentalGroups
   const visibleFundamentalGroups = orderedFundamentalGroups.slice(0, 6)
+  const availableScorecardAxes = scorecard.axes.filter((axis) => axis.available && axis.score !== null).length
 
-  const selectedTone = latestSignal ? regimeTone(latestSignal.direction) : 'brand'
+  const researchSnapshot = [
+    {
+      label: 'Model signal',
+      value: latestSignal ? regimeCopy(latestSignal.direction) : 'Unavailable',
+      detail: latestSignal ? `${formatConviction(latestSignal.conviction)} conviction` : 'No current model signal',
+    },
+    {
+      label: `Technical · ${signalTimeframe}`,
+      value: hasTechnicalData ? technicalSummary.gauges.summary.verdict : 'Data pending',
+      detail: hasTechnicalData ? `${Math.round(technicalSummary.gauges.summary.position)} / 100` : 'Insufficient price history',
+    },
+    {
+      label: '30D volatility',
+      value: volatility30d === null ? '—' : `${volatility30d.toFixed(1)}%`,
+      detail: 'Realized price movement',
+    },
+    {
+      label: marketReference?.label ?? 'Market reference',
+      value: marketReference?.value ?? '—',
+      detail: 'Latest available observation',
+    },
+    {
+      label: 'Next earnings',
+      value: nextEarnings?.date ? formatDate(nextEarnings.date, { month: 'short', day: 'numeric' }) : 'Data pending',
+      detail: nextEarnings?.fiscalPeriod ?? 'No confirmed fiscal period',
+    },
+  ]
 
   const timingSection = (
     <article id="signals" className={styles.editorialChapter} aria-labelledby="timing-heading">
       <div className={styles.chapterHeader}>
         <div>
-          <p className={styles.chapterEyebrow}>Timing · {signalTimeframe}</p>
           <h2 id="timing-heading" className={styles.chapterTitle}>Technicals</h2>
+          <p className={styles.chapterDescription}>Summary, oscillators, and moving averages for the selected timeframe.</p>
         </div>
         <SegmentedControl options={SIGNAL_TIMEFRAMES} value={signalTimeframe} onChange={setSignalTimeframe} ariaLabel="Technical signals timeframe" />
       </div>
@@ -470,7 +495,7 @@ export default function StockOverviewClient({
           <Link href={`/stocks/${ticker}/indicators`} className={styles.inlineArrow}>Indicator details →</Link>
         </div>
         <div className={styles.modelContextEditorial}>
-          <p className={styles.chapterEyebrow}>Signal & events</p>
+          <h3 className={styles.contextTitle}>Signal & events</h3>
           {latestSignal ? (
             <>
               <div className={styles.modelSignalHeader}><strong>{regimeCopy(latestSignal.direction)}</strong><span className={cn(styles.regimeBadge, regimeClass)}>{latestSignal.direction}</span></div>
@@ -497,8 +522,8 @@ export default function StockOverviewClient({
     <article id="fundamentals" className={styles.editorialChapter} aria-labelledby="fundamentals-heading">
       <div className={styles.chapterHeader}>
         <div>
-          <p className={styles.chapterEyebrow}>{assetBadgeLabel === 'ETF' ? 'Fund data' : 'Company data'}</p>
           <h2 id="fundamentals-heading" className={styles.chapterTitle}>Fundamentals</h2>
+          <p className={styles.chapterDescription}>A compact read of the latest {assetBadgeLabel === 'ETF' ? 'fund composition and exposures' : 'company financial evidence'}.</p>
         </div>
         <Link href={`/stocks/${ticker}/fundamentals`} className={styles.inlineArrow}>Full fundamentals →</Link>
       </div>
@@ -507,7 +532,7 @@ export default function StockOverviewClient({
           {visibleFundamentalGroups.map((group) => (
             <section key={group.key}>
               <h3>{group.label}</h3>
-              {group.rows.slice(0, 3).map((row) => <div key={row.label}><span>{row.label}</span><strong>{row.value}</strong></div>)}
+              {group.rows.slice(0, 3).map((row, index) => <div key={row.label} className={index === 0 ? styles.primaryFundamental : undefined}><span>{row.label}</span><strong>{row.value}</strong></div>)}
             </section>
           ))}
           {assetBadgeLabel === 'ETF' && holdings.length > 0 ? (
@@ -536,50 +561,7 @@ export default function StockOverviewClient({
 
   return (
     <div className={styles.page}>
-      <section className={styles.heroZone} data-ticker-hero="">
-        <Suspense fallback={<TickerRelationshipFieldFallback tone={selectedTone} />}>
-          <TickerRelationshipField ticker={ticker} tone={selectedTone} relationships={relatedAssetsPromise} />
-        </Suspense>
-        <div className={styles.headerBand}>
-          <div className={styles.headerPrimary}>
-            <div className={styles.selectedTickerRead}>
-              <span className={styles.selectedNodeRail} data-selected-ticker-node="" data-tone={selectedTone} aria-hidden="true">
-                <span className={styles.selectedNode} data-selected-ticker-anchor="" />
-              </span>
-              <div className={styles.selectedTickerContent}>
-                <div className={styles.heroIdentity} data-ticker-identity="">
-                  <h1 className={styles.name}>{displayName}</h1>
-                  <span className={styles.tickerBadge}>{ticker}</span>
-                  <span className={styles.exchangeBadge}>{assetBadgeLabel}</span>
-                </div>
-
-                <div className={styles.quoteControlRow}>
-                  <div className={styles.priceBlock} data-ticker-price="">
-                    <div className={styles.price}>{formatPrice(price, currency)}</div>
-                    <div className={cn(styles.delta, directionToneClass(dailyMoveAmount))}>
-                      {formatSignedDelta(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.heroBadgeRow}>
-                  {latestSignal ? (
-                    <span className={cn(styles.regimeBadge, regimeClass)}>{regimeCopy(latestSignal.direction)}</span>
-                  ) : null}
-                  {latestSignal?.signalDate ? (
-                    <span className={styles.signalDateBadge}>Signal: {formatDate(latestSignal.signalDate, { month: 'short', day: 'numeric' })}</span>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className={styles.controlRail}>
-            {watchlistSlot}
-          </div>
-        </div>
-
-        <div className={styles.tickerNavigation} data-ticker-navigation="">{navigationSlot}</div>
-
+      <section className={styles.overviewLead}>
         <div className={styles.heroBody}>
           <div className={styles.heroChartColumn}>
             <h2 className="sr-only">Quick Read</h2>
@@ -594,20 +576,31 @@ export default function StockOverviewClient({
             <div className={styles.heroChartWrap}>
               <HeroPriceChart data={filteredChartData} state={historicalChartState} currency={currency} />
             </div>
-            <div className={styles.metricRibbon}>
-              {priorityMetrics.map((stat) => <div key={stat.label}><span>{stat.label}</span><strong>{stat.value}</strong></div>)}
-            </div>
           </div>
 
           <aside className={styles.snapshotEditorial} aria-label="Final grade" data-overview-grade="">
             <Link href={`/stocks/${ticker}/methodology`} className={styles.snapshotGradeLink} aria-label="Open score breakdown">
-              <div className={styles.snapshotGrade}>
-                <GradeRing grade={scorecard.overall.grade || '–'} score={scorecard.overall.score} />
-                <strong>{scorecardMessage ?? scorecard.overall.label}</strong>
+              <div className={styles.snapshotScorecard}>
+                <ScorecardDisc scorecard={scorecard} size={184} compact className={styles.overviewScorecardDisc} />
+                <div className={styles.snapshotSummary}>
+                  <span>Research score</span>
+                  <strong>{scorecardMessage ?? scorecard.overall.label}</strong>
+                  <p>{availableScorecardAxes} of {scorecard.axes.length} dimensions observed</p>
+                </div>
               </div>
             </Link>
           </aside>
         </div>
+
+        <section className={styles.researchSnapshot} aria-label="Current research snapshot">
+          {researchSnapshot.map((item) => (
+            <div key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </div>
+          ))}
+        </section>
 
         <div className={styles.profileIntro}>
           {about ? <p>{about}</p> : <span className={styles.previewNote}>{assetBadgeLabel === 'ETF' ? 'Fund profile' : 'Company profile'} · Data pending</span>}

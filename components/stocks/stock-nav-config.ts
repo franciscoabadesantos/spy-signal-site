@@ -8,58 +8,31 @@ export type StockResearchNavKey =
   | 'events'
   | 'relationships'
   | 'profile'
-  | 'more'
+  | 'ownership'
+  | 'ai-research'
+  | 'methodology'
 
 export type StockResearchLink = {
   key: string
   label: string
+  loadingTitle?: string
   slug: string
   query?: string
 }
 
-export type StockResearchNavItem = StockResearchLink & {
-  subitems?: readonly StockResearchLink[]
-}
-
-export const stockResearchPrimaryItems: readonly StockResearchNavItem[] = [
-  { key: 'overview', label: 'Overview', slug: '' },
+export const stockResearchPrimaryItems: readonly StockResearchLink[] = [
+  { key: 'overview', label: 'Overview', loadingTitle: '', slug: '' },
   { key: 'fundamentals', label: 'Fundamentals', slug: 'fundamentals' },
-  {
-    key: 'financials',
-    label: 'Financials',
-    slug: 'financials',
-    subitems: [
-      { key: 'income', label: 'Income Statement', slug: 'financials', query: 'statement=income&period=annual' },
-      { key: 'balance-sheet', label: 'Balance Sheet', slug: 'financials', query: 'statement=balance-sheet&period=annual' },
-      { key: 'cash-flow', label: 'Cash Flow', slug: 'financials', query: 'statement=cash-flow&period=annual' },
-    ],
-  },
-  { key: 'valuation', label: 'Valuation', slug: 'valuation' },
-  {
-    key: 'signals',
-    label: 'Signals',
-    slug: 'signals',
-    subitems: [
-      { key: 'current-signal', label: 'Current Signal', slug: 'signals' },
-      { key: 'signal-history', label: 'Signal History', slug: 'signal-history' },
-      { key: 'indicators', label: 'Indicator Details', slug: 'signals', query: 'family=oscillators' },
-    ],
-  },
+  { key: 'financials', label: 'Financials', loadingTitle: 'Financial Statements', slug: 'financials' },
+  { key: 'valuation', label: 'Valuation', loadingTitle: 'Valuation History', slug: 'valuation' },
+  { key: 'signals', label: 'Signals', loadingTitle: 'Signals & Indicators', slug: 'signals' },
   { key: 'events', label: 'Events', slug: 'events' },
   { key: 'relationships', label: 'Relationships', slug: 'relationships' },
   { key: 'profile', label: 'Profile', slug: 'profile' },
-] as const
-
-export const stockResearchMoreItems: readonly StockResearchLink[] = [
   { key: 'ownership', label: 'Ownership & Capital', slug: 'ownership' },
   { key: 'ai-research', label: 'AI Research', slug: 'ai-research' },
   { key: 'methodology', label: 'Methodology', slug: 'methodology' },
 ] as const
-
-export const stockResearchItems: readonly StockResearchLink[] = [
-  ...stockResearchPrimaryItems.flatMap((item) => [item, ...(item.subitems ?? [])]),
-  ...stockResearchMoreItems,
-]
 
 export function stockResearchHref(
   ticker: string,
@@ -69,4 +42,20 @@ export function stockResearchHref(
   const params = new URLSearchParams(item.query)
   const query = params.toString()
   return query ? `${pathname}?${query}` : pathname
+}
+
+export function stockResearchKeyFromPath(pathname: string): StockResearchNavKey {
+  const segment = pathname.split('/').filter(Boolean)[2]
+  if (!segment) return 'overview'
+  if (segment === 'relationships') return 'relationships'
+  if (segment === 'fundamentals') return 'fundamentals'
+  if (segment === 'financials') return 'financials'
+  if (segment === 'valuation') return 'valuation'
+  if (['signals', 'signal-history', 'indicators', 'performance'].includes(segment)) return 'signals'
+  if (segment === 'events') return 'events'
+  if (segment === 'profile') return 'profile'
+  if (segment === 'ownership') return 'ownership'
+  if (segment === 'ai-research') return 'ai-research'
+  if (segment === 'methodology') return 'methodology'
+  return 'overview'
 }

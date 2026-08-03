@@ -1,34 +1,31 @@
-import Link from 'next/link'
 import type { ReactNode } from 'react'
 import type { StockResearchData } from '@/lib/stock-research'
 import styles from './ResearchViews.module.css'
 
 export default function ResearchViewShell({
   data,
+  coverageLabel,
   title,
   children,
+  busy = false,
 }: {
-  data: StockResearchData
+  data?: Pick<StockResearchData, 'coverageLabel'>
+  coverageLabel?: string
   title: string
   children: ReactNode
+  busy?: boolean
 }) {
+  const resolvedCoverageLabel = coverageLabel ?? data?.coverageLabel ?? 'Coverage pending'
+
   return (
-    <div className={styles.page} data-research-view="">
+    <div className={styles.page} data-research-view="" aria-busy={busy || undefined}>
       <header className={styles.header}>
-        <div>
-          <nav className={styles.breadcrumb} aria-label="Research breadcrumb">
-            <Link href={`/stocks/${data.ticker}`}>{data.ticker}</Link>
-            <span aria-hidden="true">/</span>
-            <span>Research</span>
-          </nav>
-          <div className={styles.headingRow}>
-            <h1>{title}</h1>
-            <span className={styles.assetContext}>{data.name} · {data.kind === 'fund' ? 'Fund' : 'Equity'}</span>
+        <h1>{title}</h1>
+        {!busy ? (
+          <div className={styles.headerMeta}>
+            <span className={styles.coverage}>{resolvedCoverageLabel}</span>
           </div>
-        </div>
-        <div className={styles.headerMeta}>
-          <span className={styles.coverage}>{data.coverageLabel}</span>
-        </div>
+        ) : null}
       </header>
       {children}
     </div>

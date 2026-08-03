@@ -61,8 +61,9 @@ test.describe('ticker valuation and ownership Phase 2 slice', () => {
     await expect(page.getByRole('heading', { name: 'Ownership breakdown', exact: true })).toBeVisible()
     await expect(page.getByText('Enterprise value', { exact: true })).toBeVisible()
     await expect(page.getByText('Market cap', { exact: true }).first()).toBeVisible()
-    await expect(page.getByRole('button', { name: 'More', exact: true })).toHaveAttribute('aria-expanded', 'false')
-    await expect(page.getByRole('button', { name: 'More', exact: true }).locator('..')).toHaveAttribute('data-active', 'true')
+    const researchNav = page.getByRole('navigation', { name: 'Ticker research' })
+    await expect(researchNav.getByRole('link', { name: 'Ownership & Capital', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(researchNav.getByRole('button')).toHaveCount(0)
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'phase2-ownership-aapl-long-desktop')
 

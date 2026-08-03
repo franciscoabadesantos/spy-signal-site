@@ -41,6 +41,13 @@ export type TickerRelationshipOptions = {
   layers?: RelationshipLayer[]
 }
 
+export type TickerRelationshipCandidate = {
+  symbol: string
+  strength: number | null
+  confidence: number | null
+  relations: string[]
+}
+
 const RELATIONSHIP_REVALIDATE_SECONDS = 900
 
 type BackendRelationshipNeighbor = Partial<RelationshipNeighbor> & {
@@ -185,4 +192,41 @@ export async function getTickerRelationships(
   })
 
   return normalizeRelationships(response, ticker, window)
+}
+
+export function rankTickerRelationshipCandidates(
+  relationships: TickerRelationships,
+  tickerRaw: string,
+  limit = 6,
+): TickerRelationshipCandidate[] {
+  const ticker = tickerRaw.trim().toUpperCase()
+  const layered = [
+    ...relationships.residualCoMovers.map((neighbor) => ({ neighbor, relation: 'Residual co-movement' })),
+    ...relationships.themePeers.map((neighbor) => ({ neighbor, relation: 'Theme relationship' })),
+    ...relationships.leadLag.followers.map((neighbor) => ({ neighbor, relation: 'Directional relationship' })),
+    ...relationships.leadLag.leaders.map((neighbor) => ({ neighbor, relation: 'Directional relationship' })),
+    ...relationships.marketCoMovers.map((neighbor) => ({ neighbor, relation: 'Market co-movement' })),
+  ]
+    .filter((item) => item.neighbor.symbol !== ticker)
+    .sort(
+      (left, right) =>
+        Math.abs(right.neighbor.strength ?? 0) - Math.abs(left.neighbor.strength ?? 0) ||
+        left.neighbor.symbol.localeCompare(right.neighbor.symbol),
+    )
+
+  const candidates = new Map<string, TickerRelationshipCandidate>()
+  for (const item of layered) {
+    const existing = candidates.get(item.neighbor.symbol)
+    if (existing) {
+      if (!existing.relations.includes(item.relation)) existing.relations.push(item.relation)
+      continue
+    }
+    candidates.set(item.neighbor.symbol, {
+      symbol: item.neighbor.symbol,
+      strength: item.neighbor.strength,
+      confidence: item.neighbor.confidence,
+      relations: [item.relation],
+    })
+  }
+  return [...candidates.values()].slice(0, Math.max(1, limit))
 }

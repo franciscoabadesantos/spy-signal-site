@@ -1,0 +1,28 @@
+.root {
+  display: grid;
+  min-height: clamp(210px, 32vh, 300px);
+  place-items: center;
+  padding: 32px 0 48px;
+  opacity: 0;
+  animation: loading-pulse-arrive 180ms var(--motion-ease-soft) 120ms both;
+}
+
+@keyframes loading-pulse-arrive {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .root {
+    min-height: 220px;
+    padding-block: 24px 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root {
+    opacity: 1;
+    animation: none;
+  }
+}

@@ -4,10 +4,7 @@ import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
 import TrackEventOnMount from '@/components/analytics/TrackEventOnMount'
-import WatchlistButton from '@/components/WatchlistButton'
-import StockTabs from '@/components/page/StockTabs'
 import StockOverviewClient from '@/components/stocks/StockOverviewClient'
-import { getViewerUserId } from '@/lib/auth'
 import {
   backendErrorDetails,
   runWithBackendRequestLogContext,
@@ -31,8 +28,7 @@ import {
 } from '@/lib/ohlc-data'
 import {
   getTickerRelationships,
-  type RelationshipNeighbor,
-  type RelationshipThemePeer,
+  rankTickerRelationshipCandidates,
   type TickerRelationships,
 } from '@/lib/relationships'
 import { getCachedLatestScreenerRow, getCachedSignalHistoryForTicker } from '@/lib/signals'
@@ -43,7 +39,7 @@ import {
 } from '@/lib/ticker-data'
 import { scorecardFromTickerSummary } from '@/lib/ticker-page-scorecard'
 import { canonicalTickerStats } from '@/lib/ticker-page-stats'
-import { isTickerInWatchlist } from '@/lib/watchlist'
+import { stockAssetKind } from '@/lib/stock-asset-kind'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,33 +93,6 @@ function parseCompactCurrencyNumber(value: string | null): number | null {
   if (suffix === 'M') return numeric * 1_000_000
   if (suffix === 'K') return numeric * 1_000
   return numeric
-}
-
-function looksLikeEtfAsset({
-  ticker,
-  displayName,
-  latestFundamentals,
-}: {
-  ticker: string
-  displayName: string
-  latestFundamentals: LatestFundamentalsRow[]
-}): boolean {
-  const etfTickers = new Set(['SPY', 'QQQ', 'DIA', 'IWM', 'VOO', 'IVV', 'VTI', 'XLK', 'XLF', 'XLE'])
-  if (etfTickers.has(ticker)) return true
-
-  if (
-    /\b(etf|trust|fund|portfolio|index|spdr|ishares|vanguard|invesco|proshares|direxion|ark)\b/i.test(
-      displayName
-    )
-  ) {
-    return true
-  }
-
-  return latestFundamentals.some((row) =>
-    /(expense ratio|number of holdings|top holdings|inception date|turnover rate|fund family|fund category|portfolio p\/e)/i.test(
-      `${row.metricLabel} ${row.metric}`
-    )
-  )
 }
 
 type FundamentalGroup = {
@@ -399,8 +368,6 @@ export default async function TickerPage({
   const screenerTag =
     sourceContext === 'screener' && screenerSignal ? `From Signals: ${screenerSignal}` : null
 
-  const viewerUserId = await getViewerUserId()
-
   let tickerSummary: Awaited<ReturnType<typeof getTickerPageSummary>>
 
   try {
@@ -415,7 +382,6 @@ export default async function TickerPage({
     })
     return (
       <div className="space-y-4">
-        <StockTabs ticker={ticker} active="overview" />
         <EmptyState
           title="Ticker data is temporarily unavailable"
           description="The frontend could not load the canonical summary from finance-backend for this ticker."
@@ -486,34 +452,15 @@ export default async function TickerPage({
   const relationships252 = await relationship252Promise
   const relatedAssetsPromise = runWithBackendRequestLogContext(requestLogContext, () => {
       const relationships = relationships252
-      type RelationshipCandidate = { neighbor: RelationshipNeighbor | RelationshipThemePeer; relation: string }
-      const candidates: RelationshipCandidate[] = [
-        ...relationships.residualCoMovers.map((neighbor) => ({ neighbor, relation: 'Residual co-movement' })),
-        ...relationships.themePeers.map((neighbor) => ({ neighbor, relation: 'Theme relationship' })),
-        ...relationships.leadLag.followers.map((neighbor) => ({ neighbor, relation: 'Directional relationship' })),
-        ...relationships.leadLag.leaders.map((neighbor) => ({ neighbor, relation: 'Directional relationship' })),
-        ...relationships.marketCoMovers.map((neighbor) => ({ neighbor, relation: 'Market co-movement' })),
-      ]
-        .sort((a, b) => Math.abs(b.neighbor.strength ?? 0) - Math.abs(a.neighbor.strength ?? 0) || a.neighbor.symbol.localeCompare(b.neighbor.symbol))
-        .filter((item) => item.neighbor.symbol !== ticker)
-        .reduce<RelationshipCandidate[]>((items, item) => {
-          const existing = items.find((candidate) => candidate.neighbor.symbol === item.neighbor.symbol)
-          if (existing) {
-            if (!existing.relation.split(' · ').includes(item.relation)) existing.relation = `${existing.relation} · ${item.relation}`
-          } else {
-            items.push({ ...item })
-          }
-          return items
-        }, [])
-        .slice(0, 6)
-      return Promise.all(candidates.map((item) => getStockQuote(item.neighbor.symbol).catch(() => null).then((quote) => ({
-        symbol: item.neighbor.symbol,
+      const candidates = rankTickerRelationshipCandidates(relationships, ticker)
+      return Promise.all(candidates.map((item) => getStockQuote(item.symbol).catch(() => null).then((quote) => ({
+        symbol: item.symbol,
         name: quote?.name ?? null,
         price: quote?.price ?? null,
         changePercent: quote?.changePercent ?? null,
-        relation: item.relation,
-        strength: item.neighbor.strength,
-        confidence: item.neighbor.confidence,
+        relation: item.relations.join(' · '),
+        strength: item.strength,
+        confidence: item.confidence,
       }))))
     })
     .catch((error) => {
@@ -533,13 +480,11 @@ export default async function TickerPage({
   const latestFundamentals = tickerSummary.latestFundamentals
   const quote = tickerSummary.quote
   const displayName = marketQuote?.name ?? quote?.name ?? ticker
-  const isEtf = looksLikeEtfAsset({
+  const isEtf = stockAssetKind({
     ticker,
-    displayName,
+    name: displayName,
     latestFundamentals,
-  })
-
-  const isInWatchlist = viewerUserId ? await isTickerInWatchlist(viewerUserId, ticker).catch(() => false) : false
+  }) === 'fund'
 
   const latestHistorySignal = recentSignals[0] ?? null
   const latestScreenerSignal = latestScreenerRows[0] ?? null
@@ -631,11 +576,7 @@ export default async function TickerPage({
       <StockOverviewClient
         ticker={ticker}
         currency={currency}
-        displayName={displayName}
         assetBadgeLabel={isEtf ? 'ETF' : 'Equity'}
-        price={marketQuote?.price ?? quote?.price ?? null}
-        dailyMoveAmount={marketQuote?.change ?? quote?.change ?? null}
-        dailyMovePercent={marketQuote?.changePercent ?? quote?.changePercent ?? null}
         latestSignal={latestSignal}
         historicalData={historicalData}
         historicalChartState={historicalChartState}
@@ -662,15 +603,6 @@ export default async function TickerPage({
         }))}
         scorecard={scorecard}
         about={fundamentals?.about ?? null}
-        navigationSlot={<StockTabs ticker={ticker} active="overview" />}
-        watchlistSlot={
-          <WatchlistButton
-            key="ticker-watchlist"
-            ticker={ticker}
-            initialInWatchlist={isInWatchlist}
-            signedIn={Boolean(viewerUserId)}
-          />
-        }
       />
     </div>
   )

@@ -1,18 +1,26 @@
 'use client'
 
+import { Suspense } from 'react'
 import { usePathname } from 'next/navigation'
-import StockTabs from '@/components/page/StockTabs'
-import type { StockTabKey } from '@/components/stocks/stock-nav-config'
+import StockTickerChrome, { StockTickerChromeFallback } from '@/components/stocks/StockTickerChrome'
+import type { StockTickerChromeData } from '@/lib/stock-ticker-chrome'
 
-function activeTabFromPath(pathname: string): StockTabKey {
-  if (pathname.includes('/relationships')) return 'relationships'
-  if (/^\/stocks\/[^/]+\/.+/.test(pathname)) return 'research'
-  return 'overview'
+function isOverviewPath(pathname: string): boolean {
+  return /^\/stocks\/[^/]+\/?$/.test(pathname)
 }
 
-export default function StockTabsAuto({ ticker }: { ticker: string }) {
+export default function StockTabsAuto({
+  chromeData,
+}: {
+  chromeData: Promise<StockTickerChromeData>
+}) {
   const pathname = usePathname()
-  const active = activeTabFromPath(pathname)
-  if (active === 'overview') return null
-  return <StockTabs ticker={ticker} active={active} />
+  const ticker = decodeURIComponent(pathname.split('/').filter(Boolean)[1] ?? '').toUpperCase()
+  const isOverview = isOverviewPath(pathname)
+
+  return (
+    <Suspense fallback={<StockTickerChromeFallback ticker={ticker} isOverview={isOverview} />}>
+      <StockTickerChrome data={chromeData} isOverview={isOverview} />
+    </Suspense>
+  )
 }
