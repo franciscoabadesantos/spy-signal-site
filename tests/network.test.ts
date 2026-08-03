@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { marketNetworkPath, normalizeNetworkGraph } from '../lib/network'
+import {
+  deriveFallbackAtlas,
+  marketAtlasCommunityPath,
+  marketAtlasNeighborhoodPath,
+  marketAtlasPath,
+  marketNetworkPath,
+  normalizeNetworkGraph,
+  normalizeRelationshipAtlas,
+} from '../lib/network'
 
 test('forwards global-map source controls to the backend endpoint', () => {
   assert.equal(
@@ -90,4 +98,60 @@ test('preserves latest-metadata provenance for network node sizing/display', () 
 
   assert.equal(graph.nodes[0]?.marketCap, 3_000_000_000_000)
   assert.equal(graph.nodes[0]?.marketCapSource, 'latest_metadata')
+})
+
+test('builds progressive atlas paths without exposing backend credentials to the browser', () => {
+  assert.equal(marketAtlasPath(126, 'timing'), '/network/atlas?window=126&view=timing')
+  assert.equal(
+    marketAtlasCommunityPath('timing-abc', { window: 126, view: 'timing', limit: 40 }),
+    '/network/communities/timing-abc?window=126&view=timing&limit=40'
+  )
+  assert.equal(
+    marketAtlasNeighborhoodPath('aapl', { view: 'residual' }),
+    '/network/neighborhoods/AAPL?window=252&view=residual&limit=28'
+  )
+})
+
+test('normalizes community positions and confidence for the three-dimensional atlas', () => {
+  const atlas = normalizeRelationshipAtlas({
+    asOf: '2026-07-31',
+    window: 252,
+    view: 'theme',
+    communities: [{
+      id: 'theme-cloud',
+      label: 'Cloud infrastructure',
+      memberCount: 12,
+      averageConfidence: 1.4,
+      dominantSector: 'Technology',
+      position: { x: 1, y: -2, z: 3 },
+      representativeSymbols: ['msft'],
+      themes: ['Cloud infrastructure'],
+    }],
+    links: [],
+  })
+
+  assert.equal(atlas.communities[0]?.averageConfidence, 1)
+  assert.deepEqual(atlas.communities[0]?.position, { x: 1, y: -2, z: 3 })
+  assert.deepEqual(atlas.communities[0]?.representativeSymbols, ['MSFT'])
+})
+
+test('legacy fail-open collapses the global payload into community-level data', () => {
+  const graph = normalizeNetworkGraph({
+    asOf: '2026-07-31',
+    window: '252',
+    nodes: [
+      { ticker: 'AAPL', name: 'Apple', sector: 'Technology' },
+      { ticker: 'MSFT', name: 'Microsoft', sector: 'Technology' },
+      { ticker: 'JPM', name: 'JPMorgan', sector: 'Financials' },
+    ],
+    edges: [
+      { source: 'AAPL', target: 'MSFT', strength: 0.8, confidence: 0.9 },
+      { source: 'AAPL', target: 'JPM', strength: 0.4, confidence: 0.6 },
+    ],
+  }, null)
+
+  const fallback = deriveFallbackAtlas(graph, 'market')
+  assert.equal(fallback.atlas.materialized, false)
+  assert.equal(fallback.atlas.communities.length, 2)
+  assert.ok(Object.keys(fallback.details).every((id) => id.startsWith('fallback-')))
 })

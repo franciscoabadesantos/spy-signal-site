@@ -1,15 +1,18 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import MarketCorrelationNetwork from '@/components/MarketCorrelationNetwork'
+import { Suspense } from 'react'
+import MarketUniverse from '@/components/MarketUniverse'
 import EmptyState from '@/components/ui/EmptyState'
-import PageHeader from '@/components/ui/PageHeader'
 import RetryButton from '@/components/ui/RetryButton'
-import { buttonClass } from '@/components/ui/Button'
-import { getMarketNetwork } from '@/lib/network'
+import {
+  deriveFallbackAtlas,
+  getMarketNetwork,
+  getRelationshipAtlas,
+  type AtlasView,
+} from '@/lib/network'
 
 export const metadata: Metadata = {
-  title: 'Market Relationship Map - Longbrunch',
-  description: 'Explore the global market relationship graph by layer, region, and ticker neighborhood.',
+  title: 'Market Universe - Longbrunch',
+  description: 'Move through the market as a progressive universe of observed relationships.',
 }
 
 function singleSearchParam(value: string | string[] | undefined): string | null {
@@ -17,63 +20,50 @@ function singleSearchParam(value: string | string[] | undefined): string | null 
   return typeof value === 'string' ? value : null
 }
 
-function parseNumberParam(value: string | null, min: number, max: number): number | undefined {
-  if (!value) return undefined
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) return undefined
-  return Math.max(min, Math.min(max, parsed))
+function atlasView(value: string | null): AtlasView {
+  return value === 'residual' || value === 'timing' || value === 'theme' ? value : 'market'
+}
+
+function evidenceWindow(value: string | null): 126 | 252 {
+  return value === '126' ? 126 : 252
 }
 
 export default async function MarketNetworkPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    window?: string | string[]
-    minAbsCorrelation?: string | string[]
-    topK?: string | string[]
-  }>
+  searchParams: Promise<{ window?: string | string[]; view?: string | string[] }>
 }) {
-  const resolvedSearchParams = await searchParams
-  const window = singleSearchParam(resolvedSearchParams.window) ?? undefined
-  const minAbsCorrelation = parseNumberParam(singleSearchParam(resolvedSearchParams.minAbsCorrelation), 0, 1)
-  const topK = parseNumberParam(singleSearchParam(resolvedSearchParams.topK), 1, 50)
-  const requestedMinAbsCorrelation = minAbsCorrelation ?? 0.3
-  const requestedTopK = topK ?? 6
+  const resolved = await searchParams
+  const window = evidenceWindow(singleSearchParam(resolved.window))
+  const view = atlasView(singleSearchParam(resolved.view))
 
-  const graph = await getMarketNetwork({
-    window,
-    minAbsCorrelation: requestedMinAbsCorrelation,
-    topK: requestedTopK,
-  }).catch(() => null)
+  let fallbackDetails = {}
+  const materialized = await getRelationshipAtlas(window, view).catch(() => null)
+  let atlas = materialized
+  if (!atlas) {
+    const legacy = await getMarketNetwork({ window: String(window), minAbsCorrelation: 0.28, topK: 8 }).catch(() => null)
+    if (legacy) {
+      const fallback = deriveFallbackAtlas(legacy, view)
+      atlas = fallback.atlas
+      fallbackDetails = fallback.details
+    }
+  }
 
-  if (!graph) {
+  if (!atlas) {
     return (
-      <EmptyState
-        title="Network is temporarily unavailable"
-        description="The frontend could not load the precomputed market relationship graph from finance-backend."
-        action={<RetryButton>Retry</RetryButton>}
-      />
+      <div className="container-lg py-16">
+        <EmptyState
+          title="The market universe is temporarily unavailable"
+          description="The latest relationship snapshot could not be loaded."
+          action={<RetryButton>Retry</RetryButton>}
+        />
+      </div>
     )
   }
 
   return (
-    <div className="container-lg section-gap">
-      <PageHeader
-        title="Market relationship map"
-        subtitle="A precomputed, layer-separated graph. Position reflects relationship strength; line thickness and opacity reflect reliability when the backend provides confidence."
-        action={
-          <Link href="/markets" className={buttonClass({ variant: 'secondary' })}>
-            Back to Markets
-          </Link>
-        }
-      />
-
-      <MarketCorrelationNetwork
-        key={`${requestedMinAbsCorrelation}:${requestedTopK}`}
-        graph={graph}
-        initialMinAbsCorrelation={requestedMinAbsCorrelation}
-        initialTopK={requestedTopK}
-      />
-    </div>
+    <Suspense fallback={<div className="min-h-[70svh]" aria-hidden="true" />}>
+      <MarketUniverse initialAtlas={atlas} fallbackDetails={fallbackDetails} />
+    </Suspense>
   )
 }
