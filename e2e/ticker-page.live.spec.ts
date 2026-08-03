@@ -175,19 +175,19 @@ test.describe('live ticker architecture', () => {
     await capture(page, testInfo, '0005-partial-equity-desktop')
   })
 
-  test('Relationships is graph-first on desktop and list-first on mobile', async ({ page }, testInfo) => {
+  test('Relationships keeps the universe and company discovery across viewports', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/stocks/AAPL/relationships')
-    await expect(page.getByRole('heading', { name: 'Relationships', exact: true })).toBeVisible()
-    await expect(page.locator('canvas')).toBeVisible()
+    await expect(page.locator('[data-relationship-evidence] canvas')).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'aapl-relationships-desktop')
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.reload()
-    await expect(page.locator('[data-relationship-evidence] canvas')).toHaveCount(0)
+    await expect(page.locator('[data-relationship-evidence] canvas')).toBeVisible()
+    await expect(page.locator('[data-relationship-node]').first()).toBeVisible()
     await expect(page.locator('[data-ticker-chrome] [data-ticker-relationship-field] canvas')).toBeVisible()
-    await expect(page.getByRole('list').first()).toBeVisible()
+    await expect(page.locator('[data-relationship-card]').first()).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'aapl-relationships-mobile')
   })

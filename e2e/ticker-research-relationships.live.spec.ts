@@ -14,6 +14,24 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1)
 }
 
+async function selectRelationshipView(page: Page, value: string, label: string) {
+  const selector = page.locator('[data-expanding-selector]')
+  const trigger = selector.locator('button[aria-expanded]')
+  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click()
+  const options = (await selector.getAttribute('data-options'))?.split(' ') ?? []
+  if (!options.includes(value)) return false
+  for (let step = 0; step < options.length; step += 1) {
+    if (await selector.getAttribute('data-value') === value) {
+      await expect(selector.getByRole('radio', { name: `Current view: ${label}`, exact: true })).toHaveAttribute('aria-checked', 'true')
+      return true
+    }
+    const currentValue = await selector.getAttribute('data-value')
+    await selector.getByRole('radio', { name: /^Next view:/ }).click()
+    await expect.poll(() => selector.getAttribute('data-value')).not.toBe(currentValue)
+  }
+  throw new Error(`Relationship view ${value} did not become active`)
+}
+
 test.describe('Phase 3 relationship evidence', () => {
   test.skip(!runLiveTickerQa, 'Set RUN_TICKER_LIVE_QA=1 to exercise finance-backend relationship coverage states.')
   test.describe.configure({ mode: 'serial', timeout: 240_000 })
@@ -22,54 +40,83 @@ test.describe('Phase 3 relationship evidence', () => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/stocks/AAPL/relationships?layer=market&window=252')
 
-    await expect(page.getByRole('heading', { name: 'Relationships', exact: true })).toBeVisible()
     await expect(page.locator('[data-relationship-evidence]')).toBeVisible()
-    await expect(page.getByText('Confidence', { exact: true })).toHaveCount(0)
-    await expect(page.locator('canvas')).toBeVisible()
+    await expect(page.getByText('Confidence', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Confidence = clearer', { exact: true })).toBeVisible()
+    await expect(page.locator('[data-relationship-evidence] canvas')).toBeVisible()
+    await expect(page.locator('#relationship-map-guide')).toBeVisible()
+    await expect(page.locator('[data-company-name]')).toBeVisible()
+    await expect(page.locator('[data-company-ticker]')).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'aapl-relationships-market-desktop')
 
-    const residual = page.getByRole('button', { name: 'Residual co-movement', exact: true })
-    await expect(residual).toBeVisible()
-    await residual.click()
+    await selectRelationshipView(page, 'residual', 'Moves independently')
     await expect(page).toHaveURL(/layer=residual&window=252|window=252&layer=residual/)
+    await expect(page.locator('[data-ticker-research-loading]')).toHaveCount(0)
     await capture(page, testInfo, 'aapl-relationships-residual-desktop')
 
-    for (const layer of ['Directional relationship', 'Market co-movement', 'Theme relationship']) {
-      const button = page.getByRole('button', { name: layer, exact: true })
-      if (await button.count()) {
-        await button.click()
-        await expect(button).toHaveAttribute('aria-pressed', 'true')
-        await capture(page, testInfo, `aapl-relationships-${layer.toLowerCase().replaceAll(' ', '-')}`)
+    for (const layer of [
+      { value: 'leadLag', label: 'Moves before / after' },
+      { value: 'market', label: 'Moves with the market' },
+      { value: 'theme', label: 'Same investment theme' },
+    ]) {
+      if (await selectRelationshipView(page, layer.value, layer.label)) {
+        await capture(page, testInfo, `aapl-relationships-${layer.value.toLowerCase()}`)
       }
     }
+
+    const node = page.locator('[data-relationship-node]').nth(1)
+    if (await node.count()) {
+      const routeBeforeSelection = page.url()
+      await node.click()
+      await expect(node).toHaveAttribute('aria-pressed', 'true')
+      expect(page.url()).toBe(routeBeforeSelection)
+      await expect(page.locator('[data-relationship-evidence] aside').getByRole('link', { name: /^Explore / })).toBeVisible()
+    }
+
+    const windowSelector = page.getByRole('tablist', { name: 'Evidence window' })
+    await windowSelector.getByRole('tab', { name: '126', exact: true }).click()
+    await expect(page).toHaveURL(/window=126/)
+    await expect(windowSelector.getByRole('tab', { name: '126', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.locator('[data-ticker-research-loading]')).toHaveCount(0)
   })
 
-  test('AAPL is list-first on mobile and remains usable at 320px', async ({ page }, testInfo) => {
+  test('AAPL keeps a touch-first universe and company discovery cards on mobile', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/stocks/AAPL/relationships?window=252')
-    await expect(page.locator('canvas')).toHaveCount(0)
-    await expect(page.locator('[data-relationship-evidence] ol:visible').first()).toBeVisible()
+    await expect(page.locator('[data-relationship-evidence] canvas')).toBeVisible()
+    await expect(page.locator('[data-relationship-node]').first()).toBeVisible()
+    await expect(page.locator('[data-relationship-card]').first()).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'aapl-relationships-mobile')
 
     await page.setViewportSize({ width: 320, height: 568 })
     await page.reload()
-    await expect(page.locator('[data-relationship-evidence] ol:visible').first()).toBeVisible()
+    await expect(page.locator('[data-relationship-evidence] canvas')).toBeVisible()
+    await expect(page.locator('[data-relationship-card]').first()).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'aapl-relationships-320')
+  })
+
+  test('PFE keeps extreme return differences readable in an overlaid comparison', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/stocks/PFE/relationships?layer=leadLag&window=252')
+
+    await expect(page.locator('[data-relationship-evidence]')).toBeVisible()
+    await expect(page.getByText('Overlaid paths use separate vertical scales.', { exact: false })).toBeVisible()
+    await expect(page.locator('svg[aria-label*="separate vertical scales"]')).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+    await capture(page, testInfo, 'pfe-relationships-independent-price-lanes')
   })
 
   test('fund and partial equity states stay compact and asset-aware', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/stocks/QQQ/relationships')
-    await expect(page.getByRole('heading', { name: 'Relationships', exact: true })).toBeVisible()
     await expect(page.getByText('Partial coverage', { exact: true }).last()).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'qqq-relationships-partial')
 
     await page.goto('/stocks/0005.HK/relationships')
-    await expect(page.getByRole('heading', { name: 'Relationships', exact: true })).toBeVisible()
     await expect(page.getByText(/Partial coverage|Dataset as of/).first()).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, '0005-relationships-partial')
@@ -79,9 +126,14 @@ test.describe('Phase 3 relationship evidence', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/stocks/AAPL/relationships?layer=market&window=252')
-    const typeGroup = page.getByRole('group', { name: 'Relationship type' })
-    await typeGroup.getByRole('button', { name: 'Market co-movement', exact: true }).focus()
-    await expect(typeGroup.getByRole('button', { name: 'Market co-movement', exact: true })).toBeFocused()
+    const relationshipView = page.locator('[data-expanding-selector]')
+    await relationshipView.getByRole('button').focus()
+    await expect(relationshipView.getByRole('button')).toBeFocused()
+    const firstNode = page.locator('[data-relationship-node]').first()
+    await firstNode.focus()
+    await expect(firstNode).toBeFocused()
+    await firstNode.press('ArrowRight')
+    await expect(page.locator('[data-relationship-node]').nth(1)).toBeFocused()
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'aapl-relationships-reduced-motion')
   })

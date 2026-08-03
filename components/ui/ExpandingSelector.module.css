@@ -1,7 +1,7 @@
 .stage {
   display: flex;
   width: min(100%, 430px);
-  min-height: 44px;
+  min-height: 46px;
   align-items: center;
   justify-content: flex-end;
 }
@@ -11,7 +11,7 @@
   display: grid;
   grid-template-columns: 188px 0fr;
   width: 188px;
-  min-height: 44px;
+  min-height: 46px;
   overflow: hidden;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
@@ -28,7 +28,7 @@
 }
 
 .instrument[data-expanded='true'] {
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 62px minmax(0, 1fr);
   width: min(100%, 430px);
   border-color: color-mix(in srgb, var(--brand-spark) 34%, var(--glass-border));
   box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow-strong, var(--glass-shadow));
@@ -49,7 +49,7 @@
   z-index: 4;
   display: flex;
   min-width: 0;
-  min-height: 44px;
+  min-height: 46px;
   align-items: center;
   gap: 8px;
   padding: 0 12px;
@@ -59,6 +59,11 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.instrument[data-expanded='true'] .readout {
+  justify-content: center;
+  padding-inline: 8px;
 }
 
 .instrument[data-expanded='true'] .readout::after {
@@ -71,7 +76,8 @@
   content: '';
 }
 
-.readout:focus-visible {
+.readout:focus-visible,
+.reelOption:focus-visible {
   outline: 2px solid var(--brand-spark-soft);
   outline-offset: -3px;
 }
@@ -103,8 +109,7 @@
 }
 
 .instrument[data-expanded='true'] .readoutValue {
-  opacity: 0;
-  transform: translateY(-3px);
+  display: none;
 }
 
 .selectorShell {
@@ -130,132 +135,97 @@
   z-index: 5;
   top: 0;
   bottom: 0;
-  width: 11%;
+  width: 15%;
   content: '';
   pointer-events: none;
 }
 
 .selectorShell::before {
   left: 0;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--page-bg) 94%, transparent), transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--page-bg) 92%, transparent), transparent);
 }
 
 .selectorShell::after {
   right: 0;
-  background: linear-gradient(270deg, color-mix(in srgb, var(--page-bg) 94%, transparent), transparent);
+  background: linear-gradient(270deg, color-mix(in srgb, var(--page-bg) 92%, transparent), transparent);
 }
 
-.centerWindow {
-  position: absolute;
-  z-index: 3;
-  top: 4px;
-  bottom: 4px;
-  left: 50%;
-  width: 34%;
-  border: 1px solid color-mix(in srgb, var(--brand-spark) 28%, var(--glass-border));
-  border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--glass-highlight) 62%, transparent), color-mix(in srgb, var(--brand-spark) 5%, transparent));
-  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 0 24px color-mix(in srgb, var(--brand-spark) 12%, transparent);
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.viewport {
+.reel {
   position: relative;
   z-index: 2;
-  display: flex;
-  min-width: 0;
-  height: 44px;
-  align-items: center;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  scrollbar-width: none;
-  scroll-behavior: smooth;
-  scroll-snap-type: x mandatory;
-  touch-action: pan-x pan-y pinch-zoom;
+  display: grid;
+  height: 46px;
+  grid-template-columns: minmax(0, 0.85fr) minmax(118px, 1.5fr) minmax(0, 0.85fr);
+  align-items: stretch;
+  touch-action: pan-y pinch-zoom;
   cursor: grab;
 }
 
-.viewport:active {
+.instrument[data-dragging='true'] .reel {
   cursor: grabbing;
 }
 
-.viewport::-webkit-scrollbar {
-  display: none;
-}
-
-.edgeSpace {
-  flex: 0 0 33%;
-  height: 1px;
-}
-
-.option {
+.reelOption {
   position: relative;
-  display: flex;
-  flex: 0 0 34%;
+  display: grid;
   min-width: 0;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  padding-inline: 6px;
-  scroll-snap-align: center;
-  scroll-snap-stop: always;
+  place-items: center;
+  overflow: hidden;
+  padding: 0 7px;
+  border: 0;
+  background: transparent;
   color: var(--content-secondary);
-  font-size: 11px;
-  font-weight: 560;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 590;
   white-space: nowrap;
   opacity: 0.34;
   cursor: pointer;
-  transition: color var(--motion-normal) var(--motion-ease-standard), opacity var(--motion-normal) var(--motion-ease-standard);
+  transition: color var(--motion-normal) var(--motion-ease-standard), opacity var(--motion-normal) var(--motion-ease-standard), background var(--motion-normal) var(--motion-ease-standard);
 }
 
-.optionLabel {
-  transform: scale(0.92);
-  transition: transform var(--motion-normal) var(--motion-ease-standard);
-}
-
-.option input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.option[data-distance='1'] {
-  opacity: 0.68;
-}
-
-.option[data-distance='1'] .optionLabel {
-  transform: scale(0.96);
-}
-
-.option[data-preview-active='true'] {
+.reelOption[data-position='current'] {
+  border-inline: 1px solid color-mix(in srgb, var(--brand-spark) 18%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--glass-highlight) 58%, transparent), color-mix(in srgb, var(--brand-spark) 5%, transparent));
   color: var(--content-primary);
+  font-size: 10.5px;
   font-weight: 720;
   opacity: 1;
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 0 22px color-mix(in srgb, var(--brand-spark) 9%, transparent);
 }
 
-.option[data-preview-active='true'] .optionLabel {
-  transform: scale(1);
-}
-
-.option:has(input:focus-visible) {
-  border-radius: var(--radius-pill);
-  outline: 2px solid var(--brand-spark-soft);
-  outline-offset: -4px;
-}
-
-.activeTrace {
+.reelOption[data-position='current']::after {
   position: absolute;
-  right: 30%;
+  right: 34%;
   bottom: 7px;
-  left: 30%;
+  left: 34%;
   height: 1px;
   background: var(--brand-spark-soft);
   box-shadow: 0 0 8px var(--brand-cyan-glow);
-  opacity: 0.8;
+  content: '';
+  opacity: 0.82;
+}
+
+.reelOption[data-position='previous'] {
+  justify-items: end;
+  padding-right: 12px;
+}
+
+.reelOption[data-position='next'] {
+  justify-items: start;
+  padding-left: 12px;
+}
+
+.reelOption:hover {
+  color: var(--content-primary);
+  opacity: 0.72;
+}
+
+.reelLabel {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 640px) {
@@ -264,8 +234,12 @@
   }
 
   .instrument[data-expanded='true'] {
-    grid-template-columns: 82px minmax(0, 1fr);
+    grid-template-columns: 54px minmax(0, 1fr);
     width: 100%;
+  }
+
+  .reel {
+    grid-template-columns: minmax(0, 0.72fr) minmax(112px, 1.56fr) minmax(0, 0.72fr);
   }
 }
 
@@ -273,9 +247,7 @@
   .instrument,
   .readoutValue,
   .selectorShell,
-  .option,
-  .optionLabel {
-    scroll-behavior: auto;
+  .reelOption {
     transition-duration: 0ms;
   }
 }

@@ -8,25 +8,29 @@ export default function ResearchViewShell({
   title,
   children,
   busy = false,
+  showHeader = true,
 }: {
   data?: Pick<StockResearchData, 'coverageLabel'>
   coverageLabel?: string
   title: string
   children: ReactNode
   busy?: boolean
+  showHeader?: boolean
 }) {
   const resolvedCoverageLabel = coverageLabel ?? data?.coverageLabel ?? 'Coverage pending'
 
   return (
     <div className={styles.page} data-research-view="" aria-busy={busy || undefined}>
-      <header className={styles.header}>
-        <h1>{title}</h1>
-        {!busy ? (
-          <div className={styles.headerMeta}>
-            <span className={styles.coverage}>{resolvedCoverageLabel}</span>
-          </div>
-        ) : null}
-      </header>
+      {showHeader ? (
+        <header className={styles.header}>
+          <h1>{title}</h1>
+          {!busy ? (
+            <div className={styles.headerMeta}>
+              <span className={styles.coverage}>{resolvedCoverageLabel}</span>
+            </div>
+          ) : null}
+        </header>
+      ) : null}
       {children}
     </div>
   )

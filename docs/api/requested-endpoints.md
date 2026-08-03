@@ -101,7 +101,7 @@ The current reduced-scope Relationships view consumes only the existing `/relati
 
 - Stable relationship identity, source and target identity, category/layer, and asset applicability.
 - Definition, scale, sign, and null semantics for `strength`.
-- Definition, scale, coverage meaning, and null semantics for `confidence`.
+- Canonical methodology, coverage meaning, and null semantics for `confidence`, beyond the frontend's existing 0–1/percentage normalization convention.
 - Explicit direction semantics for directional relationships. Direction must not be treated as causality.
 - Dataset and edge-level `asOf`, source timestamps, observed start/end, frequency, session, timezone, and currency/market compatibility.
 - Methodology identifier/version and source metadata.

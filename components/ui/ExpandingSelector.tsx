@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
   type FocusEvent,
@@ -31,11 +30,40 @@ type ExpandingSelectorProps = {
 
 type PointerSession = {
   id: number
-  pointerType: string
   startX: number
   startY: number
-  startScrollLeft: number
+  lastX: number
   dragging: boolean
+}
+
+function wrapIndex(index: number, length: number): number {
+  if (length <= 0) return 0
+  return ((index % length) + length) % length
+}
+
+function ReelLabel({
+  label,
+  direction,
+  reduceMotion,
+}: {
+  label: string
+  direction: -1 | 0 | 1
+  reduceMotion: boolean
+}) {
+  return (
+    <AnimatePresence mode="popLayout" initial={false}>
+      <motion.span
+        key={label}
+        className={styles.reelLabel}
+        initial={reduceMotion ? false : { opacity: 0, x: direction * 10, filter: 'blur(3px)' }}
+        animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+        exit={reduceMotion ? undefined : { opacity: 0, x: direction * -10, filter: 'blur(3px)' }}
+        transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {label}
+      </motion.span>
+    </AnimatePresence>
+  )
 }
 
 export default function ExpandingSelector({
@@ -46,149 +74,72 @@ export default function ExpandingSelector({
   onValueChange,
   className,
 }: ExpandingSelectorProps) {
-  const reduceMotion = useReducedMotion()
-  const groupName = useId()
+  const reduceMotion = Boolean(useReducedMotion())
   const viewportId = useId()
   const instrumentRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const optionRefs = useRef<Array<HTMLLabelElement | null>>([])
+  const currentRef = useRef<HTMLButtonElement>(null)
   const pointerRef = useRef<PointerSession | null>(null)
-  const scrollFrameRef = useRef<number | null>(null)
-  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const suppressClickRef = useRef(false)
-  const [previewIndex, setPreviewIndex] = useState(() => Math.max(0, options.findIndex((option) => option.value === value)))
   const [hovered, setHovered] = useState(false)
   const [focusWithin, setFocusWithin] = useState(false)
   const [pinned, setPinned] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [direction, setDirection] = useState<-1 | 0 | 1>(0)
 
   const valueIndex = Math.max(0, options.findIndex((option) => option.value === value))
-  const lastIndex = Math.max(0, options.length - 1)
-  const expanded = hovered || focusWithin || pinned || dragging
-  const displayIndex = expanded ? previewIndex : valueIndex
-  const displayOption = options[displayIndex] ?? options[0]
+  const hasChoices = options.length > 1
+  const expanded = hasChoices && (hovered || focusWithin || pinned || dragging)
+  const currentOption = options[valueIndex] ?? options[0]
+  const previousOption = options[wrapIndex(valueIndex - 1, options.length)] ?? currentOption
+  const nextOption = options[wrapIndex(valueIndex + 1, options.length)] ?? currentOption
 
-  const clampIndex = useCallback((index: number) => Math.max(0, Math.min(lastIndex, index)), [lastIndex])
-
-  const nearestIndex = useCallback(() => {
-    const viewport = viewportRef.current
-    if (!viewport) return valueIndex
-    const center = viewport.scrollLeft + viewport.clientWidth / 2
-    let nearest = valueIndex
-    let nearestDistance = Number.POSITIVE_INFINITY
-    optionRefs.current.forEach((option, index) => {
-      if (!option) return
-      const distance = Math.abs(option.offsetLeft + option.offsetWidth / 2 - center)
-      if (distance < nearestDistance) {
-        nearest = index
-        nearestDistance = distance
-      }
-    })
-    return nearest
-  }, [valueIndex])
-
-  const scrollToIndex = useCallback((index: number, behavior: ScrollBehavior = 'smooth') => {
-    const viewport = viewportRef.current
-    const option = optionRefs.current[index]
-    if (!viewport || !option) return
-    const left = option.offsetLeft - viewport.clientWidth / 2 + option.offsetWidth / 2
-    viewport.scrollTo({ left, behavior: reduceMotion ? 'auto' : behavior })
-  }, [reduceMotion])
-
-  const commitIndex = useCallback((index: number, focus = false) => {
-    const nextIndex = clampIndex(index)
-    const option = options[nextIndex]
+  const commitIndex = useCallback((index: number, movement: -1 | 0 | 1, focusCurrent = false) => {
+    const option = options[wrapIndex(index, options.length)]
     if (!option) return
-    setPreviewIndex(nextIndex)
-    scrollToIndex(nextIndex)
-    if (option.value !== value) onValueChange(option.value)
-    if (focus) optionRefs.current[nextIndex]?.querySelector('input')?.focus({ preventScroll: true })
-  }, [clampIndex, onValueChange, options, scrollToIndex, value])
-
-  const settle = useCallback(() => {
-    const index = nearestIndex()
-    setDragging(false)
-    commitIndex(index)
-  }, [commitIndex, nearestIndex])
-
-  const queueSettle = useCallback(() => {
-    if (settleTimerRef.current) clearTimeout(settleTimerRef.current)
-    settleTimerRef.current = setTimeout(settle, reduceMotion ? 0 : 90)
-  }, [reduceMotion, settle])
-
-  const reveal = useCallback(() => {
+    setDirection(movement)
     setPinned(true)
-    window.requestAnimationFrame(() => scrollToIndex(valueIndex, 'auto'))
-  }, [scrollToIndex, valueIndex])
+    if (option.value !== value) onValueChange(option.value)
+    if (focusCurrent) window.requestAnimationFrame(() => currentRef.current?.focus({ preventScroll: true }))
+  }, [onValueChange, options, value])
 
-  useLayoutEffect(() => {
-    const frame = window.requestAnimationFrame(() => scrollToIndex(valueIndex, 'auto'))
-    return () => window.cancelAnimationFrame(frame)
-  }, [scrollToIndex, valueIndex])
+  const cycleBy = useCallback((movement: -1 | 1, focusCurrent = false) => {
+    commitIndex(valueIndex + movement, movement, focusCurrent)
+  }, [commitIndex, valueIndex])
 
-  useEffect(() => {
-    setPreviewIndex(valueIndex)
-  }, [valueIndex])
-
-  useEffect(() => {
-    const viewport = viewportRef.current
-    if (!viewport) return
-    const observer = new ResizeObserver(() => scrollToIndex(valueIndex, 'auto'))
-    observer.observe(viewport)
-    optionRefs.current.forEach((option) => {
-      if (option) observer.observe(option)
-    })
-    return () => observer.disconnect()
-  }, [scrollToIndex, valueIndex])
-
-  useEffect(() => {
-    const close = (event: globalThis.PointerEvent) => {
-      if (instrumentRef.current?.contains(event.target as Node)) return
-      setPinned(false)
-      setHovered(false)
-      setFocusWithin(false)
-      setPreviewIndex(valueIndex)
-    }
-    const escape = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Escape' || !expanded) return
-      setPinned(false)
-      setHovered(false)
-      setFocusWithin(false)
-      setPreviewIndex(valueIndex)
-      scrollToIndex(valueIndex, 'auto')
-      triggerRef.current?.focus()
-    }
-    document.addEventListener('pointerdown', close)
-    document.addEventListener('keydown', escape)
-    return () => {
-      document.removeEventListener('pointerdown', close)
-      document.removeEventListener('keydown', escape)
-    }
-  }, [expanded, scrollToIndex, valueIndex])
-
-  useEffect(() => () => {
-    if (scrollFrameRef.current) window.cancelAnimationFrame(scrollFrameRef.current)
-    if (settleTimerRef.current) clearTimeout(settleTimerRef.current)
+  const close = useCallback(() => {
+    setPinned(false)
+    setHovered(false)
+    setFocusWithin(false)
+    setDragging(false)
+    setDirection(0)
   }, [])
 
-  function handleScroll() {
-    if (!expanded || scrollFrameRef.current) return
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
-      scrollFrameRef.current = null
-      setPreviewIndex(nearestIndex())
-    })
-    queueSettle()
-  }
+  useEffect(() => {
+    const handleOutsidePointer = (event: globalThis.PointerEvent) => {
+      if (instrumentRef.current?.contains(event.target as Node)) return
+      close()
+    }
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape' || !expanded) return
+      close()
+      triggerRef.current?.focus()
+    }
+    document.addEventListener('pointerdown', handleOutsidePointer)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointer)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [close, expanded])
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    reveal()
+    setPinned(true)
     pointerRef.current = {
       id: event.pointerId,
-      pointerType: event.pointerType,
       startX: event.clientX,
       startY: event.clientY,
-      startScrollLeft: event.currentTarget.scrollLeft,
+      lastX: event.clientX,
       dragging: false,
     }
   }
@@ -196,17 +147,16 @@ export default function ExpandingSelector({
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     const pointer = pointerRef.current
     if (!pointer || pointer.id !== event.pointerId) return
+    pointer.lastX = event.clientX
     const deltaX = event.clientX - pointer.startX
     const deltaY = event.clientY - pointer.startY
-    if (!pointer.dragging && Math.abs(deltaX) > 6 && Math.abs(deltaX) > Math.abs(deltaY)) {
+    if (!pointer.dragging && Math.abs(deltaX) > 7 && Math.abs(deltaX) > Math.abs(deltaY)) {
       pointer.dragging = true
       suppressClickRef.current = true
-      if (pointer.pointerType !== 'touch') event.currentTarget.setPointerCapture(event.pointerId)
+      event.currentTarget.setPointerCapture(event.pointerId)
       setDragging(true)
     }
-    if (!pointer.dragging || pointer.pointerType === 'touch') return
-    event.preventDefault()
-    event.currentTarget.scrollLeft = pointer.startScrollLeft - deltaX
+    if (pointer.dragging) event.preventDefault()
   }
 
   function handlePointerEnd(event: PointerEvent<HTMLDivElement>) {
@@ -214,25 +164,38 @@ export default function ExpandingSelector({
     if (!pointer || pointer.id !== event.pointerId) return
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     pointerRef.current = null
-    if (pointer.dragging) queueSettle()
+    setDragging(false)
+    const deltaX = pointer.lastX - pointer.startX
+    if (pointer.dragging && Math.abs(deltaX) >= 24) cycleBy(deltaX < 0 ? 1 : -1, true)
     window.setTimeout(() => {
       suppressClickRef.current = false
     }, 0)
   }
 
+  function handlePointerCancel(event: PointerEvent<HTMLDivElement>) {
+    const pointer = pointerRef.current
+    if (!pointer || pointer.id !== event.pointerId) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    pointerRef.current = null
+    suppressClickRef.current = false
+    setDragging(false)
+  }
+
   function handleKeyboard(event: KeyboardEvent<HTMLDivElement>) {
-    const focusedIndex = optionRefs.current.findIndex((option) => option?.contains(document.activeElement))
-    const origin = focusedIndex >= 0 ? focusedIndex : valueIndex
-    let nextIndex: number | null = null
-    if (event.key === 'ArrowRight') nextIndex = origin + 1
-    else if (event.key === 'ArrowLeft') nextIndex = origin - 1
-    else if (event.key === 'Home') nextIndex = 0
-    else if (event.key === 'End') nextIndex = lastIndex
-    else if ((event.key === 'Enter' || event.key === ' ') && focusedIndex >= 0) nextIndex = focusedIndex
-    if (nextIndex === null) return
-    event.preventDefault()
-    setPinned(true)
-    commitIndex(nextIndex, true)
+    if (!hasChoices) return
+    if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      cycleBy(1, true)
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      cycleBy(-1, true)
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      commitIndex(0, valueIndex === 0 ? 0 : -1, true)
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      commitIndex(options.length - 1, valueIndex === options.length - 1 ? 0 : 1, true)
+    }
   }
 
   function handleBlur(event: FocusEvent<HTMLDivElement>) {
@@ -240,7 +203,7 @@ export default function ExpandingSelector({
     setFocusWithin(false)
   }
 
-  if (!displayOption || options.length === 0) return null
+  if (!currentOption || options.length === 0) return null
 
   return (
     <div className={cn(styles.stage, className)}>
@@ -251,12 +214,14 @@ export default function ExpandingSelector({
         data-expanded={expanded ? 'true' : 'false'}
         data-dragging={dragging ? 'true' : 'false'}
         data-value={value}
+        data-options={options.map((option) => option.value).join(' ')}
         onPointerEnter={(event) => {
           if (event.pointerType === 'mouse' && window.matchMedia('(hover: hover)').matches) setHovered(true)
         }}
         onPointerLeave={() => setHovered(false)}
         onFocusCapture={() => setFocusWithin(true)}
         onBlurCapture={handleBlur}
+        onKeyDown={handleKeyboard}
       >
         <span className={styles.vessel} aria-hidden="true" />
         <button
@@ -264,88 +229,82 @@ export default function ExpandingSelector({
           type="button"
           className={styles.readout}
           aria-expanded={expanded}
-          aria-controls={viewportId}
+          aria-controls={hasChoices ? viewportId : undefined}
           onClick={() => {
-            if (expanded && pinned) {
-              setPinned(false)
-              setHovered(false)
-              setFocusWithin(false)
-              setPreviewIndex(valueIndex)
-            } else {
-              reveal()
-            }
+            if (expanded && pinned) close()
+            else setPinned(true)
           }}
         >
           <span className={styles.eyebrow}>{label}</span>
           <span className={styles.readoutValue}>
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.span
-                key={displayOption.value}
+                key={currentOption.value}
                 initial={reduceMotion ? false : { opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
                 transition={{ duration: reduceMotion ? 0 : 0.14 }}
               >
-                {displayOption.label}
+                {currentOption.label}
               </motion.span>
             </AnimatePresence>
           </span>
-          <span className="sr-only" aria-live="polite">{label} selected: {options[valueIndex]?.label}</span>
+          <span className="sr-only" aria-live="polite">{label} selected: {currentOption.label}</span>
         </button>
 
         <div className={styles.selectorShell} aria-hidden={expanded ? undefined : 'true'} inert={expanded ? undefined : true}>
-          <span className={styles.centerWindow} aria-hidden="true" />
           <div
-            ref={viewportRef}
             id={viewportId}
-            className={styles.viewport}
+            className={styles.reel}
             role="radiogroup"
             aria-label={ariaLabel}
-            onScroll={handleScroll}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerEnd}
-            onPointerCancel={handlePointerEnd}
-            onKeyDown={handleKeyboard}
+            onPointerCancel={handlePointerCancel}
+            onClickCapture={(event) => {
+              if (!suppressClickRef.current) return
+              event.preventDefault()
+              event.stopPropagation()
+            }}
           >
-            <span className={styles.edgeSpace} aria-hidden="true" />
-            {options.map((option, index) => (
-              <label
-                key={option.value}
-                ref={(node) => { optionRefs.current[index] = node }}
-                className={styles.option}
-                data-preview-active={previewIndex === index ? 'true' : 'false'}
-                data-distance={Math.min(2, Math.abs(previewIndex - index))}
-                onClick={(event) => {
-                  if (suppressClickRef.current) {
-                    event.preventDefault()
-                    return
-                  }
-                  if (event.target instanceof HTMLInputElement) return
-                  event.preventDefault()
-                  commitIndex(index, true)
-                }}
-              >
-                <input
-                  type="radio"
-                  name={groupName}
-                  value={option.value}
-                  checked={value === option.value}
-                  tabIndex={expanded && value === option.value ? 0 : -1}
-                  onChange={() => commitIndex(index)}
-                />
-                {previewIndex === index ? (
-                  <motion.span
-                    layoutId={`${groupName}-active`}
-                    className={styles.activeTrace}
-                    transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                    aria-hidden="true"
-                  />
-                ) : null}
-                <span className={styles.optionLabel}>{option.label}</span>
-              </label>
-            ))}
-            <span className={styles.edgeSpace} aria-hidden="true" />
+            <button
+              type="button"
+              role="radio"
+              aria-checked="false"
+              aria-label={`Previous view: ${previousOption.label}`}
+              className={styles.reelOption}
+              data-position="previous"
+              tabIndex={-1}
+              onClick={() => cycleBy(-1, true)}
+            >
+              <ReelLabel label={previousOption.label} direction={direction} reduceMotion={reduceMotion} />
+            </button>
+            <button
+              ref={currentRef}
+              type="button"
+              role="radio"
+              aria-checked="true"
+              aria-label={`Current view: ${currentOption.label}`}
+              className={styles.reelOption}
+              data-position="current"
+              tabIndex={0}
+              onClick={() => setPinned(true)}
+            >
+              <ReelLabel label={currentOption.label} direction={direction} reduceMotion={reduceMotion} />
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked="false"
+              aria-label={`Next view: ${nextOption.label}`}
+              className={styles.reelOption}
+              data-position="next"
+              tabIndex={-1}
+              onClick={() => cycleBy(1, true)}
+            >
+              <ReelLabel label={nextOption.label} direction={direction} reduceMotion={reduceMotion} />
+            </button>
           </div>
         </div>
       </div>

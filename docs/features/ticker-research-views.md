@@ -149,7 +149,7 @@ Status: implemented and visually approved on 2026-07-22. This slice is limited t
 
 ### Final validation and screenshot evidence
 
-- `npm run verify`: passed; 0 errors, 5 existing lint warnings, and 11 tests passed.
+- `npm run verify`: passed; 0 errors, 5 existing lint warnings, and 12 tests passed.
 - Focused browser QA: 2/2 passed with live ticker coverage.
 - `git diff --check`: passed.
 - The AI preview test also verifies that no request is made to `/api/ai-analyst`.
@@ -173,16 +173,22 @@ Status: reduced-scope implementation in progress. The only live destination is `
 - Runtime relationship data comes exclusively from `GET /relationships/:ticker` through `lib/relationships.ts`.
 - The view uses the backend-returned layers only: residual co-movement, theme relationship, directional relationship, market co-movement, and probable spurious relationships.
 - `strength` is an optional raw field. Missing values remain absent and are not rendered as zero.
-- `confidence` is preserved as optional data but is not shown until its scale and meaning are confirmed.
-- Lead/lag records are presented as `Directional relationship`; the UI does not draw causal arrows or use causal language.
-- Theme records use the neutral `Theme relationship` label until the backend definition is confirmed.
-- The map is supplementary. Desktop uses a bounded graph when the relationship has both a valid node identity and raw strength; mobile is list-first.
-- Weak/probable-spurious records remain closed by default and are shown only under their backend classification.
+- `confidence` remains optional and follows the stock overview's existing 0–1/percentage presentation convention. Within the active view it controls relative prominence only; missing confidence stays visually neutral and is never relabelled as probability.
+- Lead/lag records are presented under the user-facing `Timing` mode as observed before/after ordering. Directional traces remain non-causal and no lag interval is invented.
+- The four relationship views use immediate movement language: `Moves independently`, `Moves before / after`, `Same investment theme`, and `Moves with the market`; backend layer keys remain unchanged in URL state and data handling.
+- The ticker navigation already identifies the route, so Relationships omits a duplicate page title and starts with one compact control deck. The expanding selector owns the relationship view; the numeric evidence window uses the shared segmented toggle and dataset metadata remains subordinate.
+- The relationship selector is cyclic rather than a finite tab row: previous and next views remain visible, wrap in both directions, and support pointer, horizontal drag, touch, and keyboard arrows.
+- The primary interaction is a deterministic, sector-colored universe with accessible DOM nodes over a Canvas connection layer. All returned rows for the active layer can appear, while size, distance, and connection weight encode relative raw strength within that view.
+- A visible map guide explains the active layer and its encodings. The center anchor remains the researched asset but uses a smaller footprint; the comparison inspector leads with the selected company name and keeps its ticker secondary.
+- Every active-layer edge remains in the Canvas field. Relative raw `strength` controls distance, node size, and a deliberately nonlinear connection thickness; `confidence` controls line and node prominence. Selecting an edge restores full focus even when its resting confidence is low. `probableSpurious` remains unencoded.
+- Selecting a node updates a comparison panel without navigating. The panel loads canonical history for only the selected pair through `/api/stocks/relationship-comparison` and indexes both series to 100 on their first common date. It overlays both paths in one shared frame while retaining independent vertical scales, so direction and timing remain directly comparable under extreme return divergence while the return labels preserve true magnitude.
+- Desktop places the universe beside the comparison panel. Mobile keeps the touch-first universe followed immediately by the same panel and a horizontally scrollable company-card deck.
+- Connected-company cards expose the active layer beyond the strongest labelled universe nodes; expanding the deck reveals every returned row in that active view. Opening the related ticker remains a separate action.
 
 ### URL state and coverage
 
 - `?layer=residual|theme|leadLag|market` selects a supported relationship layer.
-- `?window=126|252` preserves the numeric backend window only; neither value is labelled as a human time horizon until its unit and frequency are confirmed.
+- `?window=126|252` preserves the numeric backend window only. The compact segmented toggle keeps these canonical values and does not relabel them as trading horizons until unit and frequency are confirmed.
 - If no supported layer/window has enough identified relationships, the page shows one compact Partial coverage state.
 - Equity and fund language remains asset-aware. Fund holdings and sector weights continue to belong to Fund Profile/Fund Structure and are not converted into relationship edges.
 
@@ -195,7 +201,7 @@ Status: reduced-scope implementation in progress. The only live destination is `
 
 ### Phase 3 validation and screenshot matrix
 
-- `npm run verify`: passed; 0 errors, 5 existing lint warnings, and 11 tests passed.
+- `npm run verify`: passed; 0 errors, 5 existing lint warnings, and 12 tests passed.
 - Focused Relationships browser QA: 4/4 passed.
 - Focused 320px mobile check: passed.
 - Existing ticker live regression suite: 6/6 passed.

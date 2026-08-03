@@ -3,8 +3,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
 import ResearchViewShell from '@/components/stocks/ResearchViewShell'
 import ResearchUnavailable from '@/components/stocks/ResearchUnavailable'
-import RelationshipsList from '@/components/stocks/RelationshipsList'
-import type { RelationshipWindow, ToggleLayer } from '@/components/RelationshipOrbit'
+import RelationshipOrbit, { type RelationshipWindow, type ToggleLayer } from '@/components/RelationshipOrbit'
 import { hasRelationshipExperience } from '@/lib/relationship-visibility'
 import { getTickerRelationships, type TickerRelationships } from '@/lib/relationships'
 import { getStockResearchData } from '@/lib/stock-research'
@@ -82,27 +81,15 @@ export default async function RelationshipsPage({
 
   const relationshipsByWindow = { 126: relationship126.data, 252: relationship252.data } as Record<RelationshipWindow, TickerRelationships>
   const hasAnyExperience = hasRelationshipExperience(relationshipsByWindow[126]) || hasRelationshipExperience(relationshipsByWindow[252])
-  const selected = relationshipsByWindow[initialWindow]
-
   return (
-    <ResearchViewShell data={researchResult} title="Relationships">
+    <ResearchViewShell data={researchResult} title="Relationships" showHeader={false}>
       <div className="space-y-6" data-relationship-page="">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
-          <div>
-            <p className="text-caption uppercase tracking-[0.16em] text-content-muted">Observed relationship evidence</p>
-            <p className="mt-2 text-body-sm text-content-secondary">{researchResult.kind === 'fund' ? 'Fund relationships' : 'Asset relationships'} · {ticker}</p>
-          </div>
-          <div className="flex min-w-0 flex-col gap-1 text-caption text-content-muted sm:flex-row sm:flex-wrap sm:gap-x-4">
-            <span className="min-w-0 break-words [overflow-wrap:anywhere]">Dataset as of {selected.asOf ?? '—'}</span>
-            <span className="min-w-0 break-words [overflow-wrap:anywhere]">Window {selected.window}</span>
-          </div>
-        </header>
-
         {hasAnyExperience ? (
-          <RelationshipsList
+          <RelationshipOrbit
             relationshipsByWindow={relationshipsByWindow}
             centerTicker={ticker}
             centerName={researchResult.name}
+            coverageLabel={researchResult.coverageLabel}
             initialWindow={initialWindow}
             initialLayer={initialLayer}
           />
@@ -124,8 +111,6 @@ export default async function RelationshipsPage({
           </div>
           <p className="mt-2 max-w-3xl text-body-sm text-content-secondary">These are observed associations returned by finance-backend. An association does not establish causality, influence, prediction, or a business relationship.</p>
           <div className="mt-4 flex min-w-0 flex-col gap-2 text-caption text-content-muted sm:flex-row sm:flex-wrap sm:gap-x-5">
-            <span className="min-w-0 break-words [overflow-wrap:anywhere]">Dataset as of {selected.asOf ?? '—'}</span>
-            <span className="min-w-0 break-words [overflow-wrap:anywhere]">Observed window {selected.window}</span>
             <span className="min-w-0 break-words [overflow-wrap:anywhere]">Coverage: {researchResult.coverageLabel}</span>
           </div>
         </section>
