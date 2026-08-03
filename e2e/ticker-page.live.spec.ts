@@ -129,6 +129,13 @@ test.describe('live ticker architecture', () => {
     expect(secondStaticFrame).toBe(firstStaticFrame)
     await expectNoHorizontalOverflow(page)
     await capture(page, testInfo, 'aapl-overview-selected-node-reduced-motion')
+
+    await page.goto('/stocks/MSFT')
+    await expect(page.locator('[data-ticker-relationship-field]')).toHaveAttribute('data-motion', 'static')
+    const differentTickerFrame = await page.locator('[data-ticker-relationship-field] canvas').evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL())
+    expect(differentTickerFrame).not.toBe(firstStaticFrame)
+    await expectNoHorizontalOverflow(page)
+    await capture(page, testInfo, 'msft-overview-selected-node-reduced-motion')
   })
 
   test('ETF with no relationship coverage stays a complete mobile page', async ({ page }, testInfo) => {

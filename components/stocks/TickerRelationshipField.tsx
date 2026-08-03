@@ -89,6 +89,24 @@ function fibonacciPoint(index: number, total: number): [number, number, number] 
   return [Math.cos(theta) * radius, y, Math.sin(theta) * radius]
 }
 
+function rotateFieldPoint(
+  [x, y, z]: [number, number, number],
+  yaw: number,
+  pitch: number,
+  roll: number,
+): [number, number, number] {
+  const yawX = x * Math.cos(yaw) - z * Math.sin(yaw)
+  const yawZ = x * Math.sin(yaw) + z * Math.cos(yaw)
+  const pitchY = y * Math.cos(pitch) - yawZ * Math.sin(pitch)
+  const pitchZ = y * Math.sin(pitch) + yawZ * Math.cos(pitch)
+
+  return [
+    yawX * Math.cos(roll) - pitchY * Math.sin(roll),
+    yawX * Math.sin(roll) + pitchY * Math.cos(roll),
+    pitchZ,
+  ]
+}
+
 function colorWithAlpha(color: string, alpha: number): string {
   const match = color.match(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i)
   if (!match) return color
@@ -106,9 +124,21 @@ function buildField(
     .slice(0, width < 640 ? 4 : 6)
   const seedInput = `${ticker}:${rankedRelationships.map((item) => `${item.symbol}:${item.strength ?? ''}`).join(':')}`
   const random = seededRandom(hashString(seedInput))
+  const motifRandom = seededRandom(hashString(`${ticker}:ambient-field`))
   const worldRadius = Math.max(width, height) * 0.5
   const ambientCount = width < 640 ? 24 : width < 1024 ? 38 : 58
   const nodes: FieldNode[] = []
+  const motifPhase = motifRandom() * Math.PI * 2
+  const motifFrequency = 1.25 + motifRandom() * 2.35
+  const motifYaw = (motifRandom() - 0.5) * Math.PI * 2
+  const motifPitch = (motifRandom() - 0.5) * 1.3
+  const motifRoll = (motifRandom() - 0.5) * 1.05
+  const motifStretchX = 0.72 + motifRandom() * 0.58
+  const motifStretchY = 0.64 + motifRandom() * 0.5
+  const motifStretchZ = 0.72 + motifRandom() * 0.54
+  const motifBendX = (motifRandom() < 0.5 ? -1 : 1) * (0.08 + motifRandom() * 0.16)
+  const motifBendY = (motifRandom() < 0.5 ? -1 : 1) * (0.06 + motifRandom() * 0.13)
+  const motifBendZ = (motifRandom() < 0.5 ? -1 : 1) * (0.05 + motifRandom() * 0.1)
 
   rankedRelationships.forEach((relationship, index) => {
     const position = RELATIONSHIP_POSITIONS[index] ?? RELATIONSHIP_POSITIONS[0]
@@ -139,12 +169,21 @@ function buildField(
   })
 
   for (let index = 0; index < ambientCount; index += 1) {
-    const [fx, fy, fz] = fibonacciPoint(index + 1, ambientCount + 1)
+    const [rotatedX, rotatedY, rotatedZ] = rotateFieldPoint(
+      fibonacciPoint(index + 1, ambientCount + 1),
+      motifYaw,
+      motifPitch,
+      motifRoll,
+    )
+    const wave = (index / ambientCount) * Math.PI * 2 * motifFrequency + motifPhase
+    const fieldX = rotatedX * motifStretchX + Math.sin(wave + rotatedY * 2.3) * motifBendX
+    const fieldY = rotatedY * motifStretchY + Math.cos(wave * 0.73 + rotatedZ * 2.1) * motifBendY
+    const fieldZ = rotatedZ * motifStretchZ + Math.sin(wave * 0.57 + rotatedX * 2.2) * motifBendZ
     const radius = worldRadius * (0.34 + random() * 0.72)
     nodes.push({
-      bx: fx * radius + (random() - 0.5) * worldRadius * 0.18,
-      by: fy * radius * 0.68 + (random() - 0.5) * worldRadius * 0.12,
-      bz: fz * radius,
+      bx: fieldX * radius + (random() - 0.5) * worldRadius * 0.14,
+      by: fieldY * radius * 0.72 + (random() - 0.5) * worldRadius * 0.1,
+      bz: fieldZ * radius + (random() - 0.5) * worldRadius * 0.08,
       radius: 0.9 + random() * 1.7,
       phaseX: random() * Math.PI * 2,
       phaseY: random() * Math.PI * 2,
@@ -339,28 +378,28 @@ export default function TickerRelationshipField({
       context.fillStyle = halo
       context.fillRect(0, 0, width, height)
 
+      const continuationPoints = relationshipCount > 0
+        ? [
+            { x: -width * 0.14, y: anchor.y + height * 0.12 },
+            { x: anchor.x + width * 0.24, y: -height * 0.14 },
+          ]
+        : []
+
       context.save()
       context.filter = `blur(${((width < 640 ? 0.85 : 1.35) * dpr).toFixed(2)}px)`
 
-      if (relationshipCount > 0) {
-        const continuationPoints = [
-          { x: -width * 0.14, y: anchor.y + height * 0.12 },
-          { x: anchor.x + width * 0.24, y: -height * 0.14 },
-        ]
-
-        continuationPoints.forEach((point) => {
-          const gradient = context.createLinearGradient(anchor.x, anchor.y, point.x, point.y)
-          gradient.addColorStop(0, colorWithAlpha(palette.accent, 0.08 * focus.progress))
-          gradient.addColorStop(0.55, colorWithAlpha(palette.accent, 0.025 * focus.progress))
-          gradient.addColorStop(1, colorWithAlpha(palette.accent, 0))
-          context.strokeStyle = gradient
-          context.lineWidth = width < 640 ? 0.65 : 0.75
-          context.beginPath()
-          context.moveTo(anchor.x, anchor.y)
-          context.lineTo(point.x, point.y)
-          context.stroke()
-        })
-      }
+      continuationPoints.forEach((point) => {
+        const gradient = context.createLinearGradient(anchor.x, anchor.y, point.x, point.y)
+        gradient.addColorStop(0, colorWithAlpha(palette.accent, 0.08 * focus.progress))
+        gradient.addColorStop(0.55, colorWithAlpha(palette.accent, 0.025 * focus.progress))
+        gradient.addColorStop(1, colorWithAlpha(palette.accent, 0))
+        context.strokeStyle = gradient
+        context.lineWidth = width < 640 ? 0.65 : 0.75
+        context.beginPath()
+        context.moveTo(anchor.x, anchor.y)
+        context.lineTo(point.x, point.y)
+        context.stroke()
+      })
 
       for (let index = 0; index < relationshipCount; index += 1) {
         const node = fieldNodes[index]
@@ -389,27 +428,36 @@ export default function TickerRelationshipField({
       context.save()
       context.filter = `blur(${((width < 640 ? 0.22 : 0.32) * dpr).toFixed(2)}px)`
       context.lineCap = 'round'
-      for (let index = 0; index < relationshipCount; index += 1) {
-        const node = fieldNodes[index]
-        if (!node) continue
-        const point = focusedPoint(node)
+
+      const drawAnchorFocus = (point: ProjectedPoint, localAlpha: number, lineWidth: number) => {
         const distance = Math.hypot(point.x - anchor.x, point.y - anchor.y)
         const focusRatio = Math.min(1, (width < 640 ? 34 : 52) / Math.max(1, distance))
         const focusPoint = {
           x: anchor.x + (point.x - anchor.x) * focusRatio,
           y: anchor.y + (point.y - anchor.y) * focusRatio,
         }
-        const localAlpha = (0.09 + node.strength * 0.11 + node.confidence * 0.03) * focus.progress
         const localGradient = context.createLinearGradient(anchor.x, anchor.y, focusPoint.x, focusPoint.y)
         localGradient.addColorStop(0, colorWithAlpha(palette.accent, localAlpha))
         localGradient.addColorStop(0.38, colorWithAlpha(palette.accent, localAlpha * 0.62))
         localGradient.addColorStop(1, colorWithAlpha(palette.accent, 0))
         context.strokeStyle = localGradient
-        context.lineWidth = width < 640 ? 0.95 : 1.05 + node.strength * 0.22
+        context.lineWidth = lineWidth
         context.beginPath()
         context.moveTo(anchor.x, anchor.y)
         context.lineTo(focusPoint.x, focusPoint.y)
         context.stroke()
+      }
+
+      continuationPoints.forEach((point) => {
+        drawAnchorFocus(point, 0.16 * focus.progress, width < 640 ? 0.85 : 0.95)
+      })
+
+      for (let index = 0; index < relationshipCount; index += 1) {
+        const node = fieldNodes[index]
+        if (!node) continue
+        const point = focusedPoint(node)
+        const localAlpha = (0.09 + node.strength * 0.11 + node.confidence * 0.03) * focus.progress
+        drawAnchorFocus(point, localAlpha, width < 640 ? 0.95 : 1.05 + node.strength * 0.22)
       }
       context.restore()
       context.globalAlpha = 1

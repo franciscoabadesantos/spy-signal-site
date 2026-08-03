@@ -34,10 +34,10 @@
 
 .fallback {
   background:
-    radial-gradient(circle at 3% 8%, color-mix(in srgb, var(--relationship-accent) 25%, transparent) 0 3px, transparent 4px),
     radial-gradient(circle at 72% 22%, color-mix(in srgb, var(--relationship-node) 19%, transparent) 0 2px, transparent 3px),
     radial-gradient(circle at 46% 68%, color-mix(in srgb, var(--relationship-node) 15%, transparent) 0 2px, transparent 3px),
-    linear-gradient(108deg, color-mix(in srgb, var(--relationship-accent) 8%, transparent), transparent 38%);
+    radial-gradient(circle at 88% 76%, color-mix(in srgb, var(--relationship-node) 12%, transparent) 0 1.5px, transparent 3px),
+    linear-gradient(112deg, color-mix(in srgb, var(--relationship-node) 4%, transparent), transparent 42%);
 }
 
 :global(html[data-theme='dark']) .field,
