@@ -8,6 +8,7 @@ import {
   marketNetworkPath,
   normalizeNetworkGraph,
   normalizeRelationshipAtlas,
+  normalizeRelationshipAtlasDetail,
 } from '../lib/network'
 
 test('forwards global-map source controls to the backend endpoint', () => {
@@ -51,7 +52,7 @@ test('normalizes the relationship-map payload with entity graph ids and represen
 
   assert.equal(graph.nodes.length, 2)
   assert.deepEqual(graph.nodes[0], {
-    ticker: 'ENTITY_SAP',
+    ticker: 'SAP.DE',
     symbol: 'SAP.DE',
     name: 'SAP SE',
     country: 'DE',
@@ -68,7 +69,7 @@ test('normalizes the relationship-map payload with entity graph ids and represen
   })
   assert.deepEqual(graph.edges, [
     {
-      source: 'ENTITY_SAP',
+      source: 'SAP.DE',
       target: 'SPY',
       correlation: 0.82,
       absCorrelation: 0.82,
@@ -103,12 +104,12 @@ test('preserves latest-metadata provenance for network node sizing/display', () 
 test('builds progressive atlas paths without exposing backend credentials to the browser', () => {
   assert.equal(marketAtlasPath(126, 'timing'), '/network/atlas?window=126&view=timing')
   assert.equal(
-    marketAtlasCommunityPath('timing-abc', { window: 126, view: 'timing', limit: 40 }),
-    '/network/communities/timing-abc?window=126&view=timing&limit=40'
+    marketAtlasCommunityPath('timing-abc', { window: 126, view: 'timing', limit: 40, asOf: '2026-07-31' }),
+    '/network/communities/timing-abc?window=126&view=timing&limit=40&asOf=2026-07-31'
   )
   assert.equal(
-    marketAtlasNeighborhoodPath('aapl', { view: 'residual' }),
-    '/network/neighborhoods/AAPL?window=252&view=residual&limit=28'
+    marketAtlasNeighborhoodPath('aapl', { view: 'residual', asOf: '2026-07-31' }),
+    '/network/neighborhoods/AAPL?window=252&view=residual&limit=28&asOf=2026-07-31'
   )
 })
 
@@ -123,6 +124,10 @@ test('normalizes community positions and confidence for the three-dimensional at
       memberCount: 12,
       averageConfidence: 1.4,
       dominantSector: 'Technology',
+      dominantCountry: null,
+      dominantRegion: null,
+      marketCapTotal: null,
+      bridgeCount: 0,
       position: { x: 1, y: -2, z: 3 },
       representativeSymbols: ['msft'],
       themes: ['Cloud infrastructure'],
@@ -135,7 +140,38 @@ test('normalizes community positions and confidence for the three-dimensional at
   assert.deepEqual(atlas.communities[0]?.representativeSymbols, ['MSFT'])
 })
 
-test('legacy fail-open collapses the global payload into community-level data', () => {
+test('normalizes enriched company landmarks without overloading importance', () => {
+  const detail = normalizeRelationshipAtlasDetail({
+    asOf: '2026-07-31',
+    window: 252,
+    view: 'market',
+    focus: 'AAPL',
+    nodes: [{
+      symbol: 'aapl',
+      name: 'Apple Inc.',
+      communityId: 'market-1',
+      position: { x: 1, y: 2, z: 3 },
+      importance: 0.4,
+      centrality: 0.8,
+      bridgeScore: 0.7,
+      volatility: 0.21,
+      sector: 'Technology',
+      industry: 'Consumer Electronics',
+      country: 'US',
+      region: 'northAmerica',
+      marketCap: 3_000_000_000_000,
+      context: true,
+    }],
+    edges: [],
+  })
+
+  assert.equal(detail.nodes[0]?.symbol, 'AAPL')
+  assert.equal(detail.nodes[0]?.centrality, 0.8)
+  assert.equal(detail.nodes[0]?.bridgeScore, 0.7)
+  assert.equal(detail.nodes[0]?.context, true)
+})
+
+test('legacy fail-open preserves real companies and edges instead of inventing category communities', () => {
   const graph = normalizeNetworkGraph({
     asOf: '2026-07-31',
     window: '252',
@@ -145,13 +181,16 @@ test('legacy fail-open collapses the global payload into community-level data', 
       { ticker: 'JPM', name: 'JPMorgan', sector: 'Financials' },
     ],
     edges: [
-      { source: 'AAPL', target: 'MSFT', strength: 0.8, confidence: 0.9 },
-      { source: 'AAPL', target: 'JPM', strength: 0.4, confidence: 0.6 },
+      { source: 'AAPL', target: 'MSFT', strength: 0.8 },
+      { source: 'AAPL', target: 'JPM', strength: 0.4 },
     ],
   }, null)
 
   const fallback = deriveFallbackAtlas(graph, 'market')
   assert.equal(fallback.atlas.materialized, false)
-  assert.equal(fallback.atlas.communities.length, 2)
-  assert.ok(Object.keys(fallback.details).every((id) => id.startsWith('fallback-')))
+  assert.equal(fallback.atlas.communities.length, 0)
+  assert.deepEqual(fallback.atlas.landmarks.map((node) => node.symbol), ['AAPL', 'MSFT', 'JPM'])
+  assert.equal(fallback.atlas.backbone.length, 2)
+  assert.equal(fallback.atlas.backbone[0]?.confidence, null)
+  assert.deepEqual(fallback.details, {})
 })

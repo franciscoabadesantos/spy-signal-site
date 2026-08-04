@@ -107,6 +107,13 @@ function normalizedSymbol(value: unknown): string {
 }
 
 export function normalizeNetworkGraph(graph: BackendNetworkGraph, focus: string | null): NetworkGraph {
+  const aliases = new Map<string, string>()
+  for (const node of graph.nodes ?? []) {
+    const symbol = normalizedSymbol(node.symbol ?? node.ticker)
+    const entityId = normalizedSymbol(node.entityId ?? node.entity_id)
+    if (symbol) aliases.set(symbol, symbol)
+    if (entityId && symbol) aliases.set(entityId, symbol)
+  }
   return {
     asOf: graph.asOf ?? null,
     window: graph.window || '1y',
@@ -115,7 +122,7 @@ export function normalizeNetworkGraph(graph: BackendNetworkGraph, focus: string 
       .map((node): NetworkNode | null => {
         const symbol = normalizedSymbol(node.symbol ?? node.ticker)
         const entityId = normalizedSymbol(node.entityId ?? node.entity_id)
-        const ticker = entityId || symbol
+        const ticker = symbol || entityId
         if (!ticker) return null
         return {
           ticker,
@@ -143,8 +150,8 @@ export function normalizeNetworkGraph(graph: BackendNetworkGraph, focus: string 
         const strength = Number(edge.strength ?? edge.absCorrelation ?? edge.correlation)
         const confidence = edge.confidence ?? edge.relationshipConfidence ?? null
         return {
-          source: normalizedSymbol(edge.source),
-          target: normalizedSymbol(edge.target),
+          source: aliases.get(normalizedSymbol(edge.source)) ?? normalizedSymbol(edge.source),
+          target: aliases.get(normalizedSymbol(edge.target)) ?? normalizedSymbol(edge.target),
           correlation: strength,
           absCorrelation: strength,
           inMst: Boolean(edge.inMst),
@@ -193,6 +200,10 @@ export type AtlasCommunity = {
   memberCount: number
   averageConfidence: number
   dominantSector: string | null
+  dominantCountry: string | null
+  dominantRegion: string | null
+  marketCapTotal: number | null
+  bridgeCount: number
   position: AtlasPosition
   representativeSymbols: string[]
   themes: string[]
@@ -212,6 +223,8 @@ export type RelationshipAtlas = {
   view: AtlasView
   communities: AtlasCommunity[]
   links: AtlasCommunityLink[]
+  landmarks: AtlasNode[]
+  backbone: AtlasEdge[]
   materialized: boolean
 }
 
@@ -221,9 +234,16 @@ export type AtlasNode = {
   communityId: string
   position: AtlasPosition
   importance: number
+  centrality: number
+  bridgeScore: number
+  volatility: number | null
   sector: string | null
   industry: string | null
+  country: string | null
+  region: string | null
   marketCap: number | null
+  context: boolean
+  isBoundary?: boolean
 }
 
 export type AtlasEdge = {
@@ -232,7 +252,7 @@ export type AtlasEdge = {
   sourceCommunityId: string
   targetCommunityId: string
   strength: number
-  confidence: number
+  confidence: number | null
   direction: string
   score: number
 }
@@ -257,17 +277,29 @@ export function marketAtlasPath(window = 252, view: AtlasView = 'market'): strin
 
 export function marketAtlasCommunityPath(
   communityId: string,
-  { window = 252, view = 'market', limit = 64 }: { window?: number; view?: AtlasView; limit?: number } = {}
+  {
+    window = 252,
+    view = 'market',
+    limit = 64,
+    asOf,
+  }: { window?: number; view?: AtlasView; limit?: number; asOf?: string } = {}
 ): string {
   const params = new URLSearchParams({ window: String(window), view, limit: String(limit) })
+  if (asOf) params.set('asOf', asOf)
   return `/network/communities/${encodeURIComponent(communityId)}?${params.toString()}`
 }
 
 export function marketAtlasNeighborhoodPath(
   ticker: string,
-  { window = 252, view = 'market', limit = 28 }: { window?: number; view?: AtlasView; limit?: number } = {}
+  {
+    window = 252,
+    view = 'market',
+    limit = 28,
+    asOf,
+  }: { window?: number; view?: AtlasView; limit?: number; asOf?: string } = {}
 ): string {
   const params = new URLSearchParams({ window: String(window), view, limit: String(limit) })
+  if (asOf) params.set('asOf', asOf)
   return `/network/neighborhoods/${encodeURIComponent(ticker.trim().toUpperCase())}?${params.toString()}`
 }
 
@@ -295,6 +327,12 @@ export function normalizeRelationshipAtlas(payload: Partial<RelationshipAtlas>):
       memberCount: Math.max(1, finite(community.memberCount, 1)),
       averageConfidence: Math.max(0, Math.min(1, finite(community.averageConfidence))),
       dominantSector: community.dominantSector ? String(community.dominantSector) : null,
+      dominantCountry: community.dominantCountry ? String(community.dominantCountry) : null,
+      dominantRegion: community.dominantRegion ? String(community.dominantRegion) : null,
+      marketCapTotal: community.marketCapTotal === null || community.marketCapTotal === undefined
+        ? null
+        : Math.max(0, finite(community.marketCapTotal)),
+      bridgeCount: Math.max(0, finite(community.bridgeCount)),
       position: normalizedPosition(community.position),
       representativeSymbols: Array.isArray(community.representativeSymbols)
         ? community.representativeSymbols.map(normalizedSymbol).filter(Boolean)
@@ -310,7 +348,44 @@ export function normalizeRelationshipAtlas(payload: Partial<RelationshipAtlas>):
         edgeCount: Math.max(1, finite(link.edgeCount, 1)),
       }))
       .filter((link) => link.source && link.target && link.source !== link.target),
+    landmarks: normalizeAtlasNodes(payload.landmarks ?? []),
+    backbone: normalizeAtlasEdges(payload.backbone ?? []),
   }
+}
+
+function normalizeAtlasNodes(nodes: AtlasNode[]): AtlasNode[] {
+  return nodes.map((node) => ({
+    symbol: normalizedSymbol(node.symbol),
+    name: String(node.name || node.symbol || ''),
+    communityId: String(node.communityId || ''),
+    position: normalizedPosition(node.position),
+    importance: Math.max(0, Math.min(1, finite(node.importance))),
+    centrality: Math.max(0, Math.min(1, finite(node.centrality, finite(node.importance)))),
+    bridgeScore: Math.max(0, Math.min(1, finite(node.bridgeScore))),
+    volatility: node.volatility === null || node.volatility === undefined ? null : Math.max(0, finite(node.volatility)),
+    sector: node.sector ? String(node.sector) : null,
+    industry: node.industry ? String(node.industry) : null,
+    country: node.country ? String(node.country) : null,
+    region: node.region ? String(node.region) : null,
+    marketCap: node.marketCap === null || node.marketCap === undefined ? null : Math.max(0, finite(node.marketCap)),
+    context: node.context === true || node.isBoundary === true,
+    isBoundary: Boolean(node.isBoundary),
+  })).filter((node) => node.symbol)
+}
+
+function normalizeAtlasEdges(edges: AtlasEdge[]): AtlasEdge[] {
+  return edges.map((edge) => ({
+    source: normalizedSymbol(edge.source),
+    target: normalizedSymbol(edge.target),
+    sourceCommunityId: String(edge.sourceCommunityId || ''),
+    targetCommunityId: String(edge.targetCommunityId || ''),
+    strength: finite(edge.strength),
+    confidence: edge.confidence === null || edge.confidence === undefined
+      ? null
+      : Math.max(0, Math.min(1, finite(edge.confidence))),
+    direction: String(edge.direction || 'undirected'),
+    score: Math.max(0, finite(edge.score)),
+  })).filter((edge) => edge.source && edge.target && edge.source !== edge.target)
 }
 
 export function normalizeRelationshipAtlasDetail(payload: Partial<RelationshipAtlasDetail>): RelationshipAtlasDetail {
@@ -325,26 +400,8 @@ export function normalizeRelationshipAtlasDetail(payload: Partial<RelationshipAt
     community: payload.community
       ? normalizeRelationshipAtlas({ communities: [payload.community], view, window: payload.window }).communities[0] ?? null
       : null,
-    nodes: (payload.nodes ?? []).map((node) => ({
-      symbol: normalizedSymbol(node.symbol),
-      name: String(node.name || node.symbol || ''),
-      communityId: String(node.communityId || ''),
-      position: normalizedPosition(node.position),
-      importance: Math.max(0, finite(node.importance)),
-      sector: node.sector ? String(node.sector) : null,
-      industry: node.industry ? String(node.industry) : null,
-      marketCap: node.marketCap === null || node.marketCap === undefined ? null : finite(node.marketCap),
-    })).filter((node) => node.symbol),
-    edges: (payload.edges ?? []).map((edge) => ({
-      source: normalizedSymbol(edge.source),
-      target: normalizedSymbol(edge.target),
-      sourceCommunityId: String(edge.sourceCommunityId || ''),
-      targetCommunityId: String(edge.targetCommunityId || ''),
-      strength: finite(edge.strength),
-      confidence: Math.max(0, Math.min(1, finite(edge.confidence))),
-      direction: String(edge.direction || 'undirected'),
-      score: Math.max(0, finite(edge.score)),
-    })).filter((edge) => edge.source && edge.target),
+    nodes: normalizeAtlasNodes(payload.nodes ?? []),
+    edges: normalizeAtlasEdges(payload.edges ?? []),
   }
 }
 
@@ -359,7 +416,7 @@ export async function getRelationshipAtlas(window = 252, view: AtlasView = 'mark
 
 export async function getRelationshipAtlasCommunity(
   communityId: string,
-  options: { window?: number; view?: AtlasView; limit?: number } = {}
+  options: { window?: number; view?: AtlasView; limit?: number; asOf?: string } = {}
 ): Promise<RelationshipAtlasDetail> {
   const payload = await fetchBackendJson<Partial<RelationshipAtlasDetail>>(
     marketAtlasCommunityPath(communityId, options),
@@ -370,7 +427,7 @@ export async function getRelationshipAtlasCommunity(
 
 export async function getRelationshipAtlasNeighborhood(
   ticker: string,
-  options: { window?: number; view?: AtlasView; limit?: number } = {}
+  options: { window?: number; view?: AtlasView; limit?: number; asOf?: string } = {}
 ): Promise<RelationshipAtlasDetail> {
   const payload = await fetchBackendJson<Partial<RelationshipAtlasDetail>>(
     marketAtlasNeighborhoodPath(ticker, options),
@@ -379,8 +436,54 @@ export async function getRelationshipAtlasNeighborhood(
   return normalizeRelationshipAtlasDetail(payload)
 }
 
-function fallbackCommunityId(view: AtlasView, value: string): string {
-  return `fallback-${view}-${value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'market'}`
+function fallbackTopologyPositions(nodes: NetworkNode[], edges: NetworkEdge[]): Map<string, AtlasPosition> {
+  type MutablePoint = AtlasPosition & { vx: number; vy: number }
+  const points = new Map<string, MutablePoint>()
+  nodes.forEach((node, index) => {
+    const angle = index * 2.399963229728653
+    const radius = 0.9 + Math.sqrt(index) * 0.52
+    points.set(node.ticker, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius * 0.74, z: 0, vx: 0, vy: 0 })
+  })
+  const visibleEdges = edges.filter((edge) => points.has(edge.source) && points.has(edge.target))
+  const values = [...points.values()]
+  for (let tick = 0; tick < 130; tick += 1) {
+    const cooling = 1 - tick / 150
+    for (const edge of visibleEdges) {
+      const source = points.get(edge.source)
+      const target = points.get(edge.target)
+      if (!source || !target) continue
+      const dx = target.x - source.x || 0.001
+      const dy = target.y - source.y || 0.001
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      const desired = 1.05 + Math.pow(1 - Math.min(1, Math.abs(edge.correlation)), 1.4) * 2.8
+      const force = (distance - desired) * 0.018 * cooling
+      source.vx += (dx / distance) * force
+      source.vy += (dy / distance) * force
+      target.vx -= (dx / distance) * force
+      target.vy -= (dy / distance) * force
+    }
+    for (let left = 0; left < values.length; left += 1) {
+      for (let right = left + 1; right < values.length; right += 1) {
+        const a = values[left]
+        const b = values[right]
+        const dx = b.x - a.x || 0.001
+        const dy = b.y - a.y || 0.001
+        const distanceSquared = Math.max(0.08, dx * dx + dy * dy)
+        const force = (0.008 * cooling) / distanceSquared
+        a.vx -= dx * force
+        a.vy -= dy * force
+        b.vx += dx * force
+        b.vy += dy * force
+      }
+    }
+    for (const point of values) {
+      point.vx = (point.vx - point.x * 0.0018) * 0.82
+      point.vy = (point.vy - point.y * 0.0018) * 0.82
+      point.x += point.vx
+      point.y += point.vy
+    }
+  }
+  return new Map([...points.entries()].map(([symbol, point]) => [symbol, { x: point.x, y: point.y, z: 0 }]))
 }
 
 export function deriveFallbackAtlas(graph: NetworkGraph, view: AtlasView): {
@@ -394,112 +497,62 @@ export function deriveFallbackAtlas(graph: NetworkGraph, view: AtlasView): {
     theme: 'theme_etf',
   }
   const viewEdges = graph.edges.filter((edge) => (edge.relationshipSourceLayer ?? 'raw_price') === sourceLayer[view])
-  const groups = new Map<string, NetworkNode[]>()
-  for (const node of graph.nodes) {
-    const label = node.sector || node.region || 'Connected market'
-    groups.set(label, [...(groups.get(label) ?? []), node])
+  const scoreBySymbol = new Map<string, number>()
+  for (const edge of viewEdges) {
+    const score = Math.abs(edge.correlation)
+    scoreBySymbol.set(edge.source, (scoreBySymbol.get(edge.source) ?? 0) + score)
+    scoreBySymbol.set(edge.target, (scoreBySymbol.get(edge.target) ?? 0) + score)
   }
-  const rankedGroups = [...groups.entries()].sort((left, right) => right[1].length - left[1].length)
-  const communityBySymbol = new Map<string, string>()
-  const communities = rankedGroups.map(([label, nodes], index): AtlasCommunity => {
-    const id = fallbackCommunityId(view, label)
-    nodes.forEach((node) => communityBySymbol.set(node.ticker, id))
-    const angle = index * 2.399963229728653
-    const radius = 3.2 + Math.sqrt(index) * 1.45
+  const sourceNodes = [...graph.nodes]
+    .sort((left, right) => (scoreBySymbol.get(right.ticker) ?? 0) - (scoreBySymbol.get(left.ticker) ?? 0))
+    .slice(0, 84)
+  const symbols = new Set(sourceNodes.map((node) => node.ticker))
+  const maxScore = Math.max(...sourceNodes.map((node) => scoreBySymbol.get(node.ticker) ?? 0), 1)
+  const positions = fallbackTopologyPositions(sourceNodes, viewEdges)
+  const landmarks: AtlasNode[] = sourceNodes.map((node, index) => {
+    const centrality = Math.sqrt((scoreBySymbol.get(node.ticker) ?? 0) / maxScore)
     return {
-      id,
-      label,
-      memberCount: nodes.length,
-      averageConfidence: 0.56,
-      dominantSector: nodes[0]?.sector ?? null,
-      position: {
-        x: Math.cos(angle) * radius,
-        y: Math.sin(angle) * radius * 0.72,
-        z: ((index % 5) - 2) * 0.7,
-      },
-      representativeSymbols: nodes.slice(0, 4).map((node) => node.ticker),
-      themes: [],
+      symbol: node.ticker,
+      name: node.name || node.ticker,
+      communityId: '',
+      position: positions.get(node.ticker) ?? { x: index, y: 0, z: 0 },
+      importance: centrality,
+      centrality,
+      bridgeScore: 0,
+      volatility: null,
+      sector: node.sector,
+      industry: null,
+      country: node.country,
+      region: node.region,
+      marketCap: node.marketCap,
+      context: false,
     }
   })
-  const aggregates = new Map<string, AtlasCommunityLink>()
-  for (const edge of viewEdges) {
-    const source = communityBySymbol.get(edge.source)
-    const target = communityBySymbol.get(edge.target)
-    if (!source || !target || source === target) continue
-    const [left, right] = [source, target].sort()
-    const key = `${left}:${right}`
-    const confidence = edge.relationshipConfidence ?? 0.5
-    const current = aggregates.get(key) ?? { source: left, target: right, strength: 0, confidence: 0, edgeCount: 0 }
-    current.strength += Math.abs(edge.correlation) * confidence
-    current.confidence += confidence
-    current.edgeCount += 1
-    aggregates.set(key, current)
-  }
-  const links = [...aggregates.values()].map((link) => ({
-    ...link,
-    confidence: link.confidence / Math.max(1, link.edgeCount),
-  })).sort((left, right) => right.strength - left.strength).slice(0, 40)
-  const details: Record<string, RelationshipAtlasDetail> = {}
-  for (const community of communities) {
-    const sourceNodes = groups.get(community.label) ?? []
-    const limited = sourceNodes.slice(0, 36)
-    const symbols = new Set(limited.map((node) => node.ticker))
-    const nodes = limited.map((node, index): AtlasNode => {
-      const angle = index * 2.399963229728653
-      const radius = 0.35 + Math.sqrt(index) * 0.28
-      return {
-        symbol: node.ticker,
-        name: node.name || node.ticker,
-        communityId: community.id,
-        position: {
-          x: community.position.x + Math.cos(angle) * radius,
-          y: community.position.y + Math.sin(angle) * radius,
-          z: community.position.z + ((index % 3) - 1) * 0.24,
-        },
-        importance: 1 - index / Math.max(1, limited.length),
-        sector: node.sector,
-        industry: null,
-        marketCap: node.marketCap,
-      }
-    })
-    const edgeByPair = new Map<string, AtlasEdge>()
-    for (const edge of viewEdges) {
-      if (!symbols.has(edge.source) || !symbols.has(edge.target)) continue
-      const [left, right] = [edge.source, edge.target].sort()
-      const confidence = edge.relationshipConfidence ?? 0.5
-      const candidate: AtlasEdge = {
-        source: left,
-        target: right,
-        sourceCommunityId: community.id,
-        targetCommunityId: community.id,
-        strength: edge.correlation,
-        confidence,
-        direction: edge.relationshipDirectional ? 'a_leads_b' : 'undirected',
-        score: Math.abs(edge.correlation) * confidence,
-      }
-      const key = `${left}:${right}`
-      if ((edgeByPair.get(key)?.score ?? -1) < candidate.score) edgeByPair.set(key, candidate)
-    }
-    const edges = [...edgeByPair.values()].sort((left, right) => right.score - left.score).slice(0, 90)
-    details[community.id] = {
-      asOf: graph.asOf ?? '',
-      window: Number(graph.window) || 252,
-      view,
-      focus: community.id,
-      community,
-      nodes,
-      edges,
-    }
-  }
+  const backbone: AtlasEdge[] = viewEdges
+    .filter((edge) => symbols.has(edge.source) && symbols.has(edge.target))
+    .map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      sourceCommunityId: '',
+      targetCommunityId: '',
+      strength: edge.correlation,
+      confidence: edge.relationshipConfidence ?? null,
+      direction: edge.relationshipDirectional ? 'a_leads_b' : 'undirected',
+      score: Math.abs(edge.correlation),
+    }))
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 120)
   return {
     atlas: {
       asOf: graph.asOf ?? '',
       window: Number(graph.window) || 252,
       view,
-      communities,
-      links,
+      communities: [],
+      links: [],
+      landmarks,
+      backbone,
       materialized: false,
     },
-    details,
+    details: {},
   }
 }

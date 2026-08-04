@@ -37,7 +37,6 @@ export default async function MarketNetworkPage({
   const window = evidenceWindow(singleSearchParam(resolved.window))
   const view = atlasView(singleSearchParam(resolved.view))
 
-  let fallbackDetails = {}
   const materialized = await getRelationshipAtlas(window, view).catch(() => null)
   let atlas = materialized
   if (!atlas) {
@@ -45,7 +44,6 @@ export default async function MarketNetworkPage({
     if (legacy) {
       const fallback = deriveFallbackAtlas(legacy, view)
       atlas = fallback.atlas
-      fallbackDetails = fallback.details
     }
   }
 
@@ -63,7 +61,7 @@ export default async function MarketNetworkPage({
 
   return (
     <Suspense fallback={<div className="min-h-[70svh]" aria-hidden="true" />}>
-      <MarketUniverse initialAtlas={atlas} fallbackDetails={fallbackDetails} />
+      <MarketUniverse initialAtlas={atlas} />
     </Suspense>
   )
 }
