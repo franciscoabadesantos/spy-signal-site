@@ -5,17 +5,19 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, ArrowUpRight } from 'lucide-react'
-import React, { useEffect, useMemo, useState, type ReactNode } from 'react'
+import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import ExpandingSelector from '@/components/ui/ExpandingSelector'
 import SegmentedControl from '@/components/ui/SegmentedControl'
-import type {
-  AtlasCommunity,
-  AtlasEdge,
-  AtlasNode,
-  AtlasView,
-  RelationshipAtlas,
-  RelationshipAtlasDetail,
-} from '@/lib/network'
+import {
+  normalizeRelationshipAtlas,
+  normalizeRelationshipAtlasDetail,
+  type AtlasCommunity,
+  type AtlasEdge,
+  type AtlasNode,
+  type AtlasView,
+  type RelationshipAtlas,
+  type RelationshipAtlasDetail,
+} from '@/lib/network-atlas'
 import styles from './MarketUniverse.module.css'
 
 const MarketUniverseScene = dynamic(() => import('./MarketUniverseScene'), {
@@ -93,29 +95,11 @@ function edgeForNode(edges: AtlasEdge[], symbol: string): AtlasEdge[] {
 }
 
 function clientAtlas(payload: RelationshipAtlas): RelationshipAtlas {
-  return {
-    ...payload,
-    communities: payload.communities ?? [],
-    links: payload.links ?? [],
-    landmarks: payload.landmarks ?? [],
-    backbone: payload.backbone ?? [],
-  }
+  return normalizeRelationshipAtlas(payload)
 }
 
 function clientDetail(payload: RelationshipAtlasDetail): RelationshipAtlasDetail {
-  return {
-    ...payload,
-    nodes: (payload.nodes ?? []).map((node) => ({
-      ...node,
-      centrality: node.centrality ?? node.importance ?? 0,
-      bridgeScore: node.bridgeScore ?? 0,
-      volatility: node.volatility ?? null,
-      country: node.country ?? null,
-      region: node.region ?? null,
-      context: node.context === true || node.isBoundary === true,
-    })),
-    edges: payload.edges ?? [],
-  }
+  return normalizeRelationshipAtlasDetail(payload)
 }
 
 function StaticUniverse({ atlas, onSelectNode }: { atlas: RelationshipAtlas; onSelectNode: (node: AtlasNode) => void }) {
@@ -194,10 +178,22 @@ function AccessibleNavigator({
   onSelectCommunity: (community: AtlasCommunity) => void
   onSelectNode: (node: AtlasNode) => void
 }) {
+  const navigatorRef = useRef<HTMLDetailsElement>(null)
+
+  function selectCommunityAndClose(community: AtlasCommunity) {
+    navigatorRef.current?.removeAttribute('open')
+    onSelectCommunity(community)
+  }
+
+  function selectNodeAndClose(node: AtlasNode) {
+    navigatorRef.current?.removeAttribute('open')
+    onSelectNode(node)
+  }
+
   return (
-    <details className={styles.accessibleNavigator}>
+    <details ref={navigatorRef} className={styles.accessibleNavigator} aria-label="Browse economic atlas">
       <summary>Browse atlas</summary>
-      <div className={styles.navigatorPanel}>
+      <div className={styles.navigatorPanel} data-lenis-prevent>
         <section aria-labelledby="atlas-community-list">
           <h2 id="atlas-community-list">Economic fields</h2>
           {communities.length ? communities.map((community) => (
@@ -205,7 +201,7 @@ function AccessibleNavigator({
               key={community.id}
               type="button"
               aria-pressed={selectedId === community.id}
-              onClick={() => onSelectCommunity(community)}
+              onClick={() => selectCommunityAndClose(community)}
             >
               <span>{community.label}</span>
               <small>{community.memberCount} companies · {community.dominantRegion || community.dominantCountry || 'Global'}</small>
@@ -219,7 +215,7 @@ function AccessibleNavigator({
               key={node.symbol}
               type="button"
               aria-pressed={activeSymbol === node.symbol}
-              onClick={() => onSelectNode(node)}
+              onClick={() => selectNodeAndClose(node)}
             >
               <span>{node.name}</span>
               <small>{node.symbol} · {node.country || node.sector || 'Global'}</small>
@@ -256,7 +252,9 @@ function Inspector({
   const relationships = activeNode && source ? edgeForNode(source.edges, activeNode.symbol) : []
   const nodeBySymbol = new Map(source?.nodes.map((node) => [node.symbol, node]) ?? [])
   const members = detail?.nodes.filter((node) => !node.context && node.communityId === community?.id) ?? []
-  const location = activeNode ? [activeNode.country, activeNode.region].filter(Boolean).join(' · ') : ''
+  const location = activeNode
+    ? [...new Set([activeNode.country, activeNode.region].filter((value): value is string => Boolean(value)))].join(' · ')
+    : ''
 
   return (
     <motion.aside
@@ -282,7 +280,9 @@ function Inspector({
             </div>
           </div>
           <div className={styles.metrics}>
-            <Metric label="Market value" value={formatMarketCap(activeNode.marketCap)} />
+            {activeNode.marketCap && activeNode.marketCap > 0
+              ? <Metric label="Market value" value={formatMarketCap(activeNode.marketCap)} />
+              : null}
             <Metric label="Systemic reach" value={formatPercent(activeNode.centrality)} />
             <Metric label="Bridge role" value={formatPercent(activeNode.bridgeScore)} />
             <Metric label="20d volatility" value={formatVolatility(activeNode.volatility)} />
@@ -315,16 +315,19 @@ function Inspector({
               <span>{community.memberCount} companies</span>
               <span>{formatConfidence(community.averageConfidence)} confidence</span>
             </div>
+            <small className={styles.fieldNote}>A relationship field, not a sector classification. Members can cross industries and regions.</small>
           </div>
           <div className={styles.metrics}>
-            <Metric label="Economic mass" value={formatMarketCap(community.marketCapTotal)} />
+            {community.marketCapTotal && community.marketCapTotal > 0
+              ? <Metric label="Known market value" value={formatMarketCap(community.marketCapTotal)} />
+              : null}
             <Metric label="External bridges" value={String(community.bridgeCount || 0)} />
             <Metric label="Primary sector" value={community.dominantSector || 'Mixed'} />
             <Metric label="Primary region" value={community.dominantRegion || community.dominantCountry || 'Global'} />
           </div>
           {loading ? <UniverseWait /> : null}
           {!loading && members.length ? (
-            <div className={styles.companyGrid}>
+            <div className={styles.companyGrid} aria-label="Companies in this field">
               {members.slice(0, 12).map((node) => (
                 <button key={node.symbol} type="button" onClick={() => onSelectNode(node)}>
                   <span>{node.symbol}</span><small>{node.name}</small>
@@ -351,7 +354,7 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
   const [activeSymbol, setActiveSymbol] = useState<string | null>(null)
   const [loadingAtlas, setLoadingAtlas] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
-  const [requestError, setRequestError] = useState(false)
+  const [requestError, setRequestError] = useState<string | null>(null)
   const [atlasCache] = useState(() => new Map<string, RelationshipAtlas>([[`${initialAtlas.window}:${initialAtlas.view}`, initialAtlas]]))
   const [detailCache] = useState(() => new Map<string, RelationshipAtlasDetail>())
   const [neighborhoodCache] = useState(() => new Map<string, RelationshipAtlasDetail>())
@@ -381,20 +384,23 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
     setDetail(null)
     setNeighborhood(null)
     setActiveSymbol(null)
-    setRequestError(false)
-    syncUrl(window, view)
+    setRequestError(null)
     const key = `${window}:${view}`
     const cached = atlasCache.get(key)
-    if (cached) { setAtlas(cached); return }
+    if (cached) { setAtlas(cached); syncUrl(window, view); return }
     setLoadingAtlas(true)
     try {
       const response = await fetch(`/api/network/atlas?window=${window}&view=${view}`, { cache: 'no-store' })
       if (!response.ok) throw new Error('Atlas unavailable')
       const next = clientAtlas(await response.json() as RelationshipAtlas)
+      if (!next.materialized || next.communities.length === 0) {
+        throw new Error(`${VIEW_OPTIONS.find((option) => option.value === view)?.label ?? 'This view'} is not materialized yet.`)
+      }
       atlasCache.set(key, next)
       setAtlas(next)
-    } catch {
-      setRequestError(true)
+      syncUrl(window, view)
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : 'This atlas view is temporarily unavailable.')
     } finally {
       setLoadingAtlas(false)
     }
@@ -403,8 +409,9 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
   async function selectCommunity(community: AtlasCommunity) {
     setSelectedId(community.id)
     setActiveSymbol(null)
+    setDetail(null)
     setNeighborhood(null)
-    setRequestError(false)
+    setRequestError(null)
     const key = `${atlas.asOf}:${atlas.window}:${atlas.view}:${community.id}`
     const cached = detailCache.get(key)
     if (cached) { setDetail(cached); return }
@@ -425,7 +432,7 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
       detailCache.set(key, next)
       setDetail(next)
     } catch {
-      setRequestError(true)
+      setRequestError('This economic field is temporarily unavailable. Return to the full economy and try again.')
     } finally {
       setLoadingDetail(false)
     }
@@ -434,7 +441,8 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
   async function selectNode(node: AtlasNode) {
     setActiveSymbol(node.symbol)
     setSelectedId(node.communityId || selectedId)
-    setRequestError(false)
+    setNeighborhood(null)
+    setRequestError(null)
     const key = `${atlas.asOf}:${atlas.window}:${atlas.view}:${node.symbol}`
     const cached = neighborhoodCache.get(key)
     if (cached) { setNeighborhood(cached); return }
@@ -456,7 +464,7 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
       setNeighborhood(next)
     } catch {
       setNeighborhood(null)
-      setRequestError(true)
+      setRequestError('This company neighborhood is temporarily unavailable. The current field remains interactive.')
     } finally {
       setLoadingDetail(false)
     }
@@ -467,16 +475,23 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
     setDetail(null)
     setNeighborhood(null)
     setActiveSymbol(null)
-    setRequestError(false)
+    setRequestError(null)
   }
 
   return (
     <section className={styles.root} aria-labelledby="market-universe-title">
       <div className={styles.chrome}>
         <div className={styles.intro}>
-          <p>Economic atlas</p>
           <h1 id="market-universe-title">The world economy, connected.</h1>
           <span>{VIEW_COPY[atlas.view]}</span>
+          <AccessibleNavigator
+            communities={atlas.communities}
+            nodes={atlas.landmarks}
+            selectedId={selectedId}
+            activeSymbol={activeSymbol}
+            onSelectCommunity={(community) => void selectCommunity(community)}
+            onSelectNode={(node) => void selectNode(node)}
+          />
         </div>
         <div className={styles.controls}>
           <ExpandingSelector
@@ -515,14 +530,6 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
 
         {loadingAtlas ? <div className={styles.loadingVeil}><UniverseWait /></div> : null}
         {!selectedId && !activeSymbol ? <LandmarkIndex nodes={atlas.landmarks} activeSymbol={activeSymbol} onSelect={(node) => void selectNode(node)} /> : null}
-        <AccessibleNavigator
-          communities={atlas.communities}
-          nodes={atlas.landmarks}
-          selectedId={selectedId}
-          activeSymbol={activeSymbol}
-          onSelectCommunity={(community) => void selectCommunity(community)}
-          onSelectNode={(node) => void selectNode(node)}
-        />
         <UniverseLegend view={atlas.view} />
         <div className={styles.snapshot}>
           <span>{atlas.asOf ? `As of ${atlas.asOf}` : 'Latest snapshot'}</span>
@@ -544,8 +551,8 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
         </AnimatePresence>
 
         {requestError ? (
-          <button type="button" className={styles.errorToast} onClick={() => setRequestError(false)}>
-            Some deeper context is not available yet. The atlas remains interactive.
+          <button type="button" className={styles.errorToast} onClick={() => setRequestError(null)}>
+            {requestError}
           </button>
         ) : null}
       </div>

@@ -17,9 +17,15 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=86400' },
     })
   } catch {
+    if (view !== 'market') {
+      return NextResponse.json(
+        { error: 'This relationship view is not materialized for the requested window.' },
+        { status: 503 },
+      )
+    }
     const legacy = await getMarketNetwork({ window: String(window), minAbsCorrelation: 0.28, topK: 8 }).catch(() => null)
     if (!legacy) return NextResponse.json({ error: 'The market atlas is temporarily unavailable.' }, { status: 502 })
-    return NextResponse.json(deriveFallbackAtlas(legacy, view).atlas, {
+    return NextResponse.json(deriveFallbackAtlas(legacy, 'market').atlas, {
       headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' },
     })
   }

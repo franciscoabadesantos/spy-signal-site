@@ -39,10 +39,10 @@ export default async function MarketNetworkPage({
 
   const materialized = await getRelationshipAtlas(window, view).catch(() => null)
   let atlas = materialized
-  if (!atlas) {
+  if (!atlas && view === 'market') {
     const legacy = await getMarketNetwork({ window: String(window), minAbsCorrelation: 0.28, topK: 8 }).catch(() => null)
     if (legacy) {
-      const fallback = deriveFallbackAtlas(legacy, view)
+      const fallback = deriveFallbackAtlas(legacy, 'market')
       atlas = fallback.atlas
     }
   }
@@ -51,8 +51,10 @@ export default async function MarketNetworkPage({
     return (
       <div className="container-lg py-16">
         <EmptyState
-          title="The market universe is temporarily unavailable"
-          description="The latest relationship snapshot could not be loaded."
+          title={`${view === 'market' ? 'The market universe' : 'This relationship view'} is temporarily unavailable`}
+          description={view === 'market'
+            ? 'The latest relationship snapshot could not be loaded.'
+            : 'No materialized topology is available for this view and evidence window yet.'}
           action={<RetryButton>Retry</RetryButton>}
         />
       </div>

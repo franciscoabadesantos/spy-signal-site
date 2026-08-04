@@ -140,6 +140,47 @@ test('normalizes community positions and confidence for the three-dimensional at
   assert.deepEqual(atlas.communities[0]?.representativeSymbols, ['MSFT'])
 })
 
+test('removes textual missing-value sentinels from atlas metadata', () => {
+  const atlas = normalizeRelationshipAtlas({
+    communities: [{
+      id: 'market-unknown',
+      label: 'NaN',
+      memberCount: 4,
+      averageConfidence: 0.8,
+      dominantSector: 'UNKNOWN',
+      dominantCountry: '<NA>',
+      dominantRegion: 'null',
+      marketCapTotal: null,
+      bridgeCount: 0,
+      position: { x: 0, y: 0, z: 0 },
+      representativeSymbols: [],
+      themes: [],
+    }],
+    landmarks: [{
+      symbol: 'abc',
+      name: 'none',
+      communityId: 'market-unknown',
+      position: { x: 0, y: 0, z: 0 },
+      importance: 0.4,
+      centrality: 0.4,
+      bridgeScore: 0,
+      volatility: null,
+      sector: 'NaN',
+      industry: 'UNKNOWN',
+      country: null,
+      region: null,
+      marketCap: null,
+      context: false,
+    }],
+  })
+
+  assert.equal(atlas.communities[0]?.label, 'Market cluster')
+  assert.equal(atlas.communities[0]?.dominantSector, null)
+  assert.equal(atlas.communities[0]?.dominantCountry, null)
+  assert.equal(atlas.landmarks[0]?.name, 'ABC')
+  assert.equal(atlas.landmarks[0]?.sector, null)
+})
+
 test('normalizes enriched company landmarks without overloading importance', () => {
   const detail = normalizeRelationshipAtlasDetail({
     asOf: '2026-07-31',

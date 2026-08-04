@@ -1,6 +1,28 @@
 import 'server-only'
 
 import { fetchBackendJson } from './backend'
+import {
+  normalizeRelationshipAtlas,
+  normalizeRelationshipAtlasDetail,
+  type AtlasEdge,
+  type AtlasNode,
+  type AtlasPosition,
+  type AtlasView,
+  type RelationshipAtlas,
+  type RelationshipAtlasDetail,
+} from './network-atlas'
+
+export { normalizeRelationshipAtlas, normalizeRelationshipAtlasDetail } from './network-atlas'
+export type {
+  AtlasCommunity,
+  AtlasCommunityLink,
+  AtlasEdge,
+  AtlasNode,
+  AtlasPosition,
+  AtlasView,
+  RelationshipAtlas,
+  RelationshipAtlasDetail,
+} from './network-atlas'
 
 export type NetworkNode = {
   ticker: string
@@ -190,83 +212,6 @@ export async function getMarketNetwork(options: MarketNetworkOptions = {}): Prom
   return normalizeNetworkGraph(graph, null)
 }
 
-export type AtlasView = 'market' | 'residual' | 'timing' | 'theme'
-
-export type AtlasPosition = { x: number; y: number; z: number }
-
-export type AtlasCommunity = {
-  id: string
-  label: string
-  memberCount: number
-  averageConfidence: number
-  dominantSector: string | null
-  dominantCountry: string | null
-  dominantRegion: string | null
-  marketCapTotal: number | null
-  bridgeCount: number
-  position: AtlasPosition
-  representativeSymbols: string[]
-  themes: string[]
-}
-
-export type AtlasCommunityLink = {
-  source: string
-  target: string
-  strength: number
-  confidence: number
-  edgeCount: number
-}
-
-export type RelationshipAtlas = {
-  asOf: string
-  window: number
-  view: AtlasView
-  communities: AtlasCommunity[]
-  links: AtlasCommunityLink[]
-  landmarks: AtlasNode[]
-  backbone: AtlasEdge[]
-  materialized: boolean
-}
-
-export type AtlasNode = {
-  symbol: string
-  name: string
-  communityId: string
-  position: AtlasPosition
-  importance: number
-  centrality: number
-  bridgeScore: number
-  volatility: number | null
-  sector: string | null
-  industry: string | null
-  country: string | null
-  region: string | null
-  marketCap: number | null
-  context: boolean
-  isBoundary?: boolean
-}
-
-export type AtlasEdge = {
-  source: string
-  target: string
-  sourceCommunityId: string
-  targetCommunityId: string
-  strength: number
-  confidence: number | null
-  direction: string
-  score: number
-}
-
-export type RelationshipAtlasDetail = {
-  asOf: string
-  window: number
-  view: AtlasView
-  focus: string
-  community: AtlasCommunity | null
-  nodes: AtlasNode[]
-  edges: AtlasEdge[]
-}
-
 function atlasParams(window: number, view: AtlasView): string {
   return new URLSearchParams({ window: String(window), view }).toString()
 }
@@ -301,108 +246,6 @@ export function marketAtlasNeighborhoodPath(
   const params = new URLSearchParams({ window: String(window), view, limit: String(limit) })
   if (asOf) params.set('asOf', asOf)
   return `/network/neighborhoods/${encodeURIComponent(ticker.trim().toUpperCase())}?${params.toString()}`
-}
-
-function finite(value: unknown, fallback = 0): number {
-  const numeric = Number(value)
-  return Number.isFinite(numeric) ? numeric : fallback
-}
-
-function normalizedPosition(value: Partial<AtlasPosition> | null | undefined): AtlasPosition {
-  return { x: finite(value?.x), y: finite(value?.y), z: finite(value?.z) }
-}
-
-export function normalizeRelationshipAtlas(payload: Partial<RelationshipAtlas>): RelationshipAtlas {
-  const view: AtlasView = ['market', 'residual', 'timing', 'theme'].includes(String(payload.view))
-    ? (payload.view as AtlasView)
-    : 'market'
-  return {
-    asOf: String(payload.asOf ?? ''),
-    window: finite(payload.window, 252),
-    view,
-    materialized: payload.materialized !== false,
-    communities: (payload.communities ?? []).map((community) => ({
-      id: String(community.id),
-      label: String(community.label || 'Market cluster'),
-      memberCount: Math.max(1, finite(community.memberCount, 1)),
-      averageConfidence: Math.max(0, Math.min(1, finite(community.averageConfidence))),
-      dominantSector: community.dominantSector ? String(community.dominantSector) : null,
-      dominantCountry: community.dominantCountry ? String(community.dominantCountry) : null,
-      dominantRegion: community.dominantRegion ? String(community.dominantRegion) : null,
-      marketCapTotal: community.marketCapTotal === null || community.marketCapTotal === undefined
-        ? null
-        : Math.max(0, finite(community.marketCapTotal)),
-      bridgeCount: Math.max(0, finite(community.bridgeCount)),
-      position: normalizedPosition(community.position),
-      representativeSymbols: Array.isArray(community.representativeSymbols)
-        ? community.representativeSymbols.map(normalizedSymbol).filter(Boolean)
-        : [],
-      themes: Array.isArray(community.themes) ? community.themes.map(String).filter(Boolean) : [],
-    })),
-    links: (payload.links ?? [])
-      .map((link) => ({
-        source: String(link.source),
-        target: String(link.target),
-        strength: Math.max(0, finite(link.strength)),
-        confidence: Math.max(0, Math.min(1, finite(link.confidence))),
-        edgeCount: Math.max(1, finite(link.edgeCount, 1)),
-      }))
-      .filter((link) => link.source && link.target && link.source !== link.target),
-    landmarks: normalizeAtlasNodes(payload.landmarks ?? []),
-    backbone: normalizeAtlasEdges(payload.backbone ?? []),
-  }
-}
-
-function normalizeAtlasNodes(nodes: AtlasNode[]): AtlasNode[] {
-  return nodes.map((node) => ({
-    symbol: normalizedSymbol(node.symbol),
-    name: String(node.name || node.symbol || ''),
-    communityId: String(node.communityId || ''),
-    position: normalizedPosition(node.position),
-    importance: Math.max(0, Math.min(1, finite(node.importance))),
-    centrality: Math.max(0, Math.min(1, finite(node.centrality, finite(node.importance)))),
-    bridgeScore: Math.max(0, Math.min(1, finite(node.bridgeScore))),
-    volatility: node.volatility === null || node.volatility === undefined ? null : Math.max(0, finite(node.volatility)),
-    sector: node.sector ? String(node.sector) : null,
-    industry: node.industry ? String(node.industry) : null,
-    country: node.country ? String(node.country) : null,
-    region: node.region ? String(node.region) : null,
-    marketCap: node.marketCap === null || node.marketCap === undefined ? null : Math.max(0, finite(node.marketCap)),
-    context: node.context === true || node.isBoundary === true,
-    isBoundary: Boolean(node.isBoundary),
-  })).filter((node) => node.symbol)
-}
-
-function normalizeAtlasEdges(edges: AtlasEdge[]): AtlasEdge[] {
-  return edges.map((edge) => ({
-    source: normalizedSymbol(edge.source),
-    target: normalizedSymbol(edge.target),
-    sourceCommunityId: String(edge.sourceCommunityId || ''),
-    targetCommunityId: String(edge.targetCommunityId || ''),
-    strength: finite(edge.strength),
-    confidence: edge.confidence === null || edge.confidence === undefined
-      ? null
-      : Math.max(0, Math.min(1, finite(edge.confidence))),
-    direction: String(edge.direction || 'undirected'),
-    score: Math.max(0, finite(edge.score)),
-  })).filter((edge) => edge.source && edge.target && edge.source !== edge.target)
-}
-
-export function normalizeRelationshipAtlasDetail(payload: Partial<RelationshipAtlasDetail>): RelationshipAtlasDetail {
-  const view: AtlasView = ['market', 'residual', 'timing', 'theme'].includes(String(payload.view))
-    ? (payload.view as AtlasView)
-    : 'market'
-  return {
-    asOf: String(payload.asOf ?? ''),
-    window: finite(payload.window, 252),
-    view,
-    focus: String(payload.focus ?? ''),
-    community: payload.community
-      ? normalizeRelationshipAtlas({ communities: [payload.community], view, window: payload.window }).communities[0] ?? null
-      : null,
-    nodes: normalizeAtlasNodes(payload.nodes ?? []),
-    edges: normalizeAtlasEdges(payload.edges ?? []),
-  }
 }
 
 export async function getRelationshipAtlas(window = 252, view: AtlasView = 'market'): Promise<RelationshipAtlas> {
