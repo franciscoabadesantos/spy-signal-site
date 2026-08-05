@@ -23,11 +23,20 @@ test.describe('progressive market universe', () => {
 
     await expect(page.getByRole('button', { name: 'Full economy' })).toBeVisible()
     await expect(page.getByText(/companies$/).first()).toBeVisible()
-    await expect(page.getByLabel('Companies in this field')).toBeVisible()
+    const companyGrid = page.getByLabel('Companies in this field')
+    await expect(companyGrid).toBeVisible()
     if (process.env.PLAYWRIGHT_CAPTURE === '1') {
       await page.waitForTimeout(700)
       await page.screenshot({ path: testInfo.outputPath('economic-atlas-field.png'), fullPage: false })
     }
+    await companyGrid.getByRole('button').first().click()
+    await expect(page.getByRole('button', { name: 'Economic field' })).toBeVisible()
+    if (process.env.PLAYWRIGHT_CAPTURE === '1') {
+      await page.waitForTimeout(700)
+      await page.screenshot({ path: testInfo.outputPath('economic-atlas-company.png'), fullPage: false })
+    }
+    await page.getByRole('button', { name: 'Economic field' }).click()
+    await expect(page.getByLabel('Companies in this field')).toBeVisible()
     await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1)
     expect(consoleErrors).toEqual([])
   })

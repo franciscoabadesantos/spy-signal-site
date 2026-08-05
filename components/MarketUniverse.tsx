@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, ArrowUpRight } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Waypoints } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import ExpandingSelector from '@/components/ui/ExpandingSelector'
 import SegmentedControl from '@/components/ui/SegmentedControl'
@@ -18,6 +18,7 @@ import {
   type RelationshipAtlas,
   type RelationshipAtlasDetail,
 } from '@/lib/network-atlas'
+import type { MarketUniverseLevel } from '@/lib/market-universe-layout'
 import styles from './MarketUniverse.module.css'
 
 const MarketUniverseScene = dynamic(() => import('./MarketUniverseScene'), {
@@ -31,13 +32,6 @@ const VIEW_OPTIONS = [
   { value: 'timing', label: 'Timing' },
   { value: 'theme', label: 'Shared themes' },
 ] as const
-
-const VIEW_COPY: Record<AtlasView, string> = {
-  market: 'See the economic centres, bridges and relationships that move together.',
-  residual: 'Reveal connections that remain after broad market movement is removed.',
-  timing: 'Follow where movement has tended to appear earlier or later.',
-  theme: 'Trace companies connected through concentrated investment themes.',
-}
 
 function UniverseWait() {
   return (
@@ -112,9 +106,9 @@ function StaticUniverse({ atlas, onSelectNode }: { atlas: RelationshipAtlas; onS
   const maxY = Math.max(...ys, 1)
   return (
     <div className={styles.staticUniverse} aria-label="Accessible market atlas">
-      {nodes.map((node) => (
+      {nodes.map((node, index) => (
         <button
-          key={node.symbol}
+          key={`${node.communityId}:${node.symbol}:${index}`}
           type="button"
           onClick={() => onSelectNode(node)}
           style={{
@@ -132,11 +126,14 @@ function StaticUniverse({ atlas, onSelectNode }: { atlas: RelationshipAtlas; onS
   )
 }
 
-function UniverseLegend({ view }: { view: AtlasView }) {
+function UniverseLegend({ view, level, mobile }: { view: AtlasView; level: MarketUniverseLevel; mobile: boolean }) {
   return (
     <div className={styles.legend} aria-label="How to read the economic atlas">
-      <span><i data-kind="mass" />Core: market value</span>
-      <span><i data-kind="halo" />Halo: systemic reach</span>
+      <span className={styles.travelHint}><i data-kind="travel" />{mobile ? 'Pinch to travel · drag to orbit' : 'Scroll to travel · drag to orbit'}</span>
+      {level === 'economy' ? <span><i data-kind="mass" />Field size: companies</span> : null}
+      {level !== 'economy' ? <span><i data-kind="mass" />Core: market value</span> : null}
+      {level === 'company' ? <span><i data-kind="distance" />Closer: stronger link</span> : null}
+      {level !== 'economy' ? <span><i data-kind="halo" />Halo: systemic reach</span> : null}
       <span><i data-kind="line" />Line: relationship strength</span>
       <span><i data-kind="fade" />Fade: confidence</span>
       {view === 'timing' ? <span><i data-kind="timing" />Pulse: direction</span> : null}
@@ -152,8 +149,8 @@ function LandmarkIndex({ nodes, activeSymbol, onSelect }: {
   return (
     <div className={styles.index} aria-label="Systemic market landmarks">
       <p>Systemic landmarks</p>
-      {nodes.slice(0, 6).map((node) => (
-        <button key={node.symbol} type="button" aria-pressed={activeSymbol === node.symbol} onClick={() => onSelect(node)}>
+      {nodes.slice(0, 6).map((node, index) => (
+        <button key={`${node.communityId}:${node.symbol}:${index}`} type="button" aria-pressed={activeSymbol === node.symbol} onClick={() => onSelect(node)}>
           <i style={{ opacity: 0.28 + node.centrality * 0.72 }} />
           <span>{node.symbol}</span>
           <small>{node.country || node.sector || 'Global'}</small>
@@ -192,7 +189,7 @@ function AccessibleNavigator({
 
   return (
     <details ref={navigatorRef} className={styles.accessibleNavigator} aria-label="Browse economic atlas">
-      <summary>Browse atlas</summary>
+      <summary><Waypoints aria-hidden="true" /> Browse atlas</summary>
       <div className={styles.navigatorPanel} data-lenis-prevent>
         <section aria-labelledby="atlas-community-list">
           <h2 id="atlas-community-list">Economic fields</h2>
@@ -203,16 +200,16 @@ function AccessibleNavigator({
               aria-pressed={selectedId === community.id}
               onClick={() => selectCommunityAndClose(community)}
             >
-              <span>{community.label}</span>
-              <small>{community.memberCount} companies · {community.dominantRegion || community.dominantCountry || 'Global'}</small>
+              <span>{community.displayLabel}</span>
+              <small>{community.memberCount} companies · {community.scopeLabel}</small>
             </button>
           )) : <p>No materialized fields are available in this preview.</p>}
         </section>
         <section aria-labelledby="atlas-landmark-list">
           <h2 id="atlas-landmark-list">Company landmarks</h2>
-          {nodes.map((node) => (
+          {nodes.map((node, index) => (
             <button
-              key={node.symbol}
+              key={`${node.communityId}:${node.symbol}:${index}`}
               type="button"
               aria-pressed={activeSymbol === node.symbol}
               onClick={() => selectNodeAndClose(node)}
@@ -237,6 +234,7 @@ function Inspector({
   neighborhood,
   activeNode,
   loading,
+  backLabel,
   onBack,
   onSelectNode,
 }: {
@@ -245,6 +243,7 @@ function Inspector({
   neighborhood: RelationshipAtlasDetail | null
   activeNode: AtlasNode | null
   loading: boolean
+  backLabel: 'Full economy' | 'Economic field'
   onBack: () => void
   onSelectNode: (node: AtlasNode) => void
 }) {
@@ -263,10 +262,10 @@ function Inspector({
       animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
       exit={{ opacity: 0, x: 14, filter: 'blur(6px)' }}
       transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
-      aria-label={activeNode ? `${activeNode.name} relationship context` : `${community?.label ?? 'Market'} context`}
+      aria-label={activeNode ? `${activeNode.name} relationship context` : `${community?.displayName ?? 'Market'} context`}
     >
       <button type="button" className={styles.back} onClick={onBack}>
-        <ArrowLeft aria-hidden="true" /> Full economy
+        <ArrowLeft aria-hidden="true" /> {backLabel}
       </button>
 
       {activeNode ? (
@@ -291,11 +290,11 @@ function Inspector({
           {!loading ? (
             <div className={styles.relations}>
               <div className={styles.sectionLabel}><span>Strongest visible links</span><small>strength · confidence</small></div>
-              {relationships.slice(0, 6).map((edge) => {
+              {relationships.slice(0, 6).map((edge, index) => {
                 const peerSymbol = edge.source === activeNode.symbol ? edge.target : edge.source
                 const peer = nodeBySymbol.get(peerSymbol)
                 return (
-                  <button key={`${edge.source}:${edge.target}`} type="button" onClick={() => peer && onSelectNode(peer)} disabled={!peer}>
+                  <button key={`${edge.source}:${edge.target}:${index}`} type="button" onClick={() => peer && onSelectNode(peer)} disabled={!peer}>
                     <span><strong>{peerSymbol}</strong><small>{peer?.name ?? 'Connected company'}</small></span>
                     <span><b>{Math.abs(edge.strength).toFixed(2)}</b><small>{formatConfidence(edge.confidence)}</small></span>
                   </button>
@@ -309,13 +308,12 @@ function Inspector({
       ) : community ? (
         <>
           <div className={styles.inspectorHeading}>
-            <p>Economic field</p>
-            <h2>{community.label}</h2>
+            <h2>{community.displayName}</h2>
             <div>
               <span>{community.memberCount} companies</span>
               <span>{formatConfidence(community.averageConfidence)} confidence</span>
             </div>
-            <small className={styles.fieldNote}>A relationship field, not a sector classification. Members can cross industries and regions.</small>
+            <small className={styles.fieldNote}>{community.description} This is a relationship field, not a sector classification.</small>
           </div>
           <div className={styles.metrics}>
             {community.marketCapTotal && community.marketCapTotal > 0
@@ -328,8 +326,8 @@ function Inspector({
           {loading ? <UniverseWait /> : null}
           {!loading && members.length ? (
             <div className={styles.companyGrid} aria-label="Companies in this field">
-              {members.slice(0, 12).map((node) => (
-                <button key={node.symbol} type="button" onClick={() => onSelectNode(node)}>
+              {members.slice(0, 12).map((node, index) => (
+                <button key={`${node.communityId}:${node.symbol}:${index}`} type="button" onClick={() => onSelectNode(node)}>
                   <span>{node.symbol}</span><small>{node.name}</small>
                 </button>
               ))}
@@ -350,11 +348,16 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
   const [atlas, setAtlas] = useState(initialAtlas)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<RelationshipAtlasDetail | null>(null)
+  const [lodCommunityId, setLodCommunityId] = useState<string | null>(null)
+  const [lodDetail, setLodDetail] = useState<RelationshipAtlasDetail | null>(null)
   const [neighborhood, setNeighborhood] = useState<RelationshipAtlasDetail | null>(null)
   const [activeSymbol, setActiveSymbol] = useState<string | null>(null)
   const [loadingAtlas, setLoadingAtlas] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [requestError, setRequestError] = useState<string | null>(null)
+  const atlasRequestId = useRef(0)
+  const detailRequestId = useRef(0)
+  const lodRequestId = useRef(0)
   const [atlasCache] = useState(() => new Map<string, RelationshipAtlas>([[`${initialAtlas.window}:${initialAtlas.view}`, initialAtlas]]))
   const [detailCache] = useState(() => new Map<string, RelationshipAtlasDetail>())
   const [neighborhoodCache] = useState(() => new Map<string, RelationshipAtlasDetail>())
@@ -380,14 +383,19 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
   }
 
   async function selectAtlas(window: number, view: AtlasView) {
+    const requestId = ++atlasRequestId.current
+    detailRequestId.current += 1
+    lodRequestId.current += 1
     setSelectedId(null)
     setDetail(null)
+    setLodCommunityId(null)
+    setLodDetail(null)
     setNeighborhood(null)
     setActiveSymbol(null)
     setRequestError(null)
     const key = `${window}:${view}`
     const cached = atlasCache.get(key)
-    if (cached) { setAtlas(cached); syncUrl(window, view); return }
+    if (cached) { setLoadingAtlas(false); setAtlas(cached); syncUrl(window, view); return }
     setLoadingAtlas(true)
     try {
       const response = await fetch(`/api/network/atlas?window=${window}&view=${view}`, { cache: 'no-store' })
@@ -396,94 +404,162 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
       if (!next.materialized || next.communities.length === 0) {
         throw new Error(`${VIEW_OPTIONS.find((option) => option.value === view)?.label ?? 'This view'} is not materialized yet.`)
       }
+      if (requestId !== atlasRequestId.current) return
       atlasCache.set(key, next)
       setAtlas(next)
       syncUrl(window, view)
     } catch (error) {
+      if (requestId !== atlasRequestId.current) return
       setRequestError(error instanceof Error ? error.message : 'This atlas view is temporarily unavailable.')
     } finally {
-      setLoadingAtlas(false)
+      if (requestId === atlasRequestId.current) setLoadingAtlas(false)
     }
   }
 
-  async function selectCommunity(community: AtlasCommunity) {
-    setSelectedId(community.id)
-    setActiveSymbol(null)
-    setDetail(null)
-    setNeighborhood(null)
-    setRequestError(null)
+  async function loadCommunityDetail(community: AtlasCommunity): Promise<RelationshipAtlasDetail> {
     const key = `${atlas.asOf}:${atlas.window}:${atlas.view}:${community.id}`
     const cached = detailCache.get(key)
-    if (cached) { setDetail(cached); return }
+    if (cached) return cached
+    const params = new URLSearchParams({
+      window: String(atlas.window),
+      view: atlas.view,
+      limit: String(mobile ? 44 : 84),
+    })
+    if (atlas.asOf) params.set('asOf', atlas.asOf)
+    const response = await fetch(
+      `/api/network/atlas/communities/${encodeURIComponent(community.id)}?${params.toString()}`,
+      { cache: 'no-store' },
+    )
+    if (!response.ok) throw new Error('Community unavailable')
+    const next = clientDetail(await response.json() as RelationshipAtlasDetail)
+    detailCache.set(key, next)
+    return next
+  }
+
+  async function loadNeighborhood(node: AtlasNode): Promise<RelationshipAtlasDetail> {
+    const key = `${atlas.asOf}:${atlas.window}:${atlas.view}:${node.symbol}`
+    const cached = neighborhoodCache.get(key)
+    if (cached) return cached
+    const params = new URLSearchParams({
+      window: String(atlas.window),
+      view: atlas.view,
+      limit: String(mobile ? 18 : 32),
+    })
+    if (atlas.asOf) params.set('asOf', atlas.asOf)
+    const response = await fetch(
+      `/api/network/atlas/neighborhoods/${encodeURIComponent(node.symbol)}?${params.toString()}`,
+      { cache: 'no-store' },
+    )
+    if (!response.ok) throw new Error('Neighborhood unavailable')
+    const next = clientDetail(await response.json() as RelationshipAtlasDetail)
+    neighborhoodCache.set(key, next)
+    return next
+  }
+
+  async function selectCommunity(community: AtlasCommunity) {
+    const requestId = ++detailRequestId.current
+    lodRequestId.current += 1
+    setSelectedId(community.id)
+    setLodCommunityId(community.id)
+    setActiveSymbol(null)
+    setDetail(null)
+    setLodDetail(null)
+    setNeighborhood(null)
+    setRequestError(null)
     setLoadingDetail(true)
     try {
-      const params = new URLSearchParams({
-        window: String(atlas.window),
-        view: atlas.view,
-        limit: String(mobile ? 44 : 84),
-      })
-      if (atlas.asOf) params.set('asOf', atlas.asOf)
-      const response = await fetch(
-        `/api/network/atlas/communities/${encodeURIComponent(community.id)}?${params.toString()}`,
-        { cache: 'no-store' },
-      )
-      if (!response.ok) throw new Error('Community unavailable')
-      const next = clientDetail(await response.json() as RelationshipAtlasDetail)
-      detailCache.set(key, next)
-      setDetail(next)
+      const next = await loadCommunityDetail(community)
+      if (requestId === detailRequestId.current) {
+        setDetail(next)
+        setLodDetail(next)
+      }
     } catch {
-      setRequestError('This economic field is temporarily unavailable. Return to the full economy and try again.')
+      if (requestId === detailRequestId.current) {
+        setRequestError('This economic field is temporarily unavailable. Return to the full economy and try again.')
+      }
     } finally {
-      setLoadingDetail(false)
+      if (requestId === detailRequestId.current) setLoadingDetail(false)
     }
   }
 
   async function selectNode(node: AtlasNode) {
+    const requestId = ++detailRequestId.current
+    lodRequestId.current += 1
     setActiveSymbol(node.symbol)
     setSelectedId(node.communityId || selectedId)
+    setLodCommunityId(node.communityId || selectedId)
     setNeighborhood(null)
     setRequestError(null)
-    const key = `${atlas.asOf}:${atlas.window}:${atlas.view}:${node.symbol}`
-    const cached = neighborhoodCache.get(key)
-    if (cached) { setNeighborhood(cached); return }
     setLoadingDetail(true)
     try {
-      const params = new URLSearchParams({
-        window: String(atlas.window),
-        view: atlas.view,
-        limit: String(mobile ? 18 : 32),
-      })
-      if (atlas.asOf) params.set('asOf', atlas.asOf)
-      const response = await fetch(
-        `/api/network/atlas/neighborhoods/${encodeURIComponent(node.symbol)}?${params.toString()}`,
-        { cache: 'no-store' },
-      )
-      if (!response.ok) throw new Error('Neighborhood unavailable')
-      const next = clientDetail(await response.json() as RelationshipAtlasDetail)
-      neighborhoodCache.set(key, next)
-      setNeighborhood(next)
+      const parent = atlas.communities.find((community) => community.id === node.communityId) ?? null
+      const [fieldResult, neighborhoodResult] = await Promise.allSettled([
+        detail || !parent ? Promise.resolve(detail) : loadCommunityDetail(parent),
+        loadNeighborhood(node),
+      ])
+      if (requestId !== detailRequestId.current) return
+      if (fieldResult.status === 'fulfilled' && fieldResult.value) {
+        setDetail(fieldResult.value)
+        setLodDetail(fieldResult.value)
+      }
+      if (neighborhoodResult.status === 'rejected') throw neighborhoodResult.reason
+      setNeighborhood(neighborhoodResult.value)
     } catch {
+      if (requestId !== detailRequestId.current) return
       setNeighborhood(null)
       setRequestError('This company neighborhood is temporarily unavailable. The current field remains interactive.')
     } finally {
-      setLoadingDetail(false)
+      if (requestId === detailRequestId.current) setLoadingDetail(false)
     }
   }
 
   function clearFocus() {
+    detailRequestId.current += 1
+    lodRequestId.current += 1
+    setLoadingDetail(false)
     setSelectedId(null)
     setDetail(null)
+    setLodCommunityId(null)
+    setLodDetail(null)
     setNeighborhood(null)
     setActiveSymbol(null)
     setRequestError(null)
   }
 
+  function stepBack() {
+    if (activeSymbol && detail && selectedId) {
+      detailRequestId.current += 1
+      setLoadingDetail(false)
+      setActiveSymbol(null)
+      setNeighborhood(null)
+      setRequestError(null)
+      return
+    }
+    clearFocus()
+  }
+
+  async function requestLodCommunity(community: AtlasCommunity) {
+    if (selectedId === community.id || lodCommunityId === community.id) return
+    const requestId = ++lodRequestId.current
+    setLodCommunityId(community.id)
+    setLodDetail(null)
+    try {
+      const next = await loadCommunityDetail(community)
+      if (requestId === lodRequestId.current && selectedId === null) setLodDetail(next)
+    } catch {
+      if (requestId === lodRequestId.current && selectedId === null) {
+        setLodCommunityId(null)
+        setLodDetail(null)
+      }
+    }
+  }
+
+  const sceneLevel = activeNode ? 'company' : selectedCommunity ? 'field' : 'economy'
+
   return (
-    <section className={styles.root} aria-labelledby="market-universe-title">
+    <section className={styles.root} aria-label="Market relationship map">
       <div className={styles.chrome}>
         <div className={styles.intro}>
-          <h1 id="market-universe-title">The world economy, connected.</h1>
-          <span>{VIEW_COPY[atlas.view]}</span>
           <AccessibleNavigator
             communities={atlas.communities}
             nodes={atlas.landmarks}
@@ -513,24 +589,27 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
         </div>
       </div>
 
-      <div className={styles.stage} data-focused={selectedId || activeSymbol ? 'true' : 'false'}>
+      <div className={styles.stage} data-focused={sceneLevel === 'economy' ? 'false' : 'true'} data-level={sceneLevel}>
         <UniverseBoundary fallback={<StaticUniverse atlas={atlas} onSelectNode={(node) => void selectNode(node)} />}>
           <MarketUniverseScene
             atlas={atlas}
             detail={detail}
             neighborhood={neighborhood}
             selectedCommunityId={selectedId}
+            lodCommunityId={lodCommunityId}
+            lodDetail={lodDetail}
             activeSymbol={activeSymbol}
             reducedMotion={reducedMotion}
             mobile={mobile}
             onSelectCommunity={(community) => void selectCommunity(community)}
             onSelectNode={(node) => void selectNode(node)}
+            onRequestLodCommunity={(community) => void requestLodCommunity(community)}
           />
         </UniverseBoundary>
 
         {loadingAtlas ? <div className={styles.loadingVeil}><UniverseWait /></div> : null}
         {!selectedId && !activeSymbol ? <LandmarkIndex nodes={atlas.landmarks} activeSymbol={activeSymbol} onSelect={(node) => void selectNode(node)} /> : null}
-        <UniverseLegend view={atlas.view} />
+        <UniverseLegend view={atlas.view} level={sceneLevel} mobile={mobile} />
         <div className={styles.snapshot}>
           <span>{atlas.asOf ? `As of ${atlas.asOf}` : 'Latest snapshot'}</span>
           {!atlas.materialized ? <small>Live relationship preview</small> : <small>Materialized topology</small>}
@@ -544,7 +623,8 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
               neighborhood={neighborhood}
               activeNode={activeNode}
               loading={loadingDetail}
-              onBack={clearFocus}
+              backLabel={activeNode && detail ? 'Economic field' : 'Full economy'}
+              onBack={stepBack}
               onSelectNode={(node) => void selectNode(node)}
             />
           ) : null}

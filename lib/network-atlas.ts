@@ -5,6 +5,10 @@ export type AtlasPosition = { x: number; y: number; z: number }
 export type AtlasCommunity = {
   id: string
   label: string
+  displayLabel: string
+  displayName: string
+  description: string
+  scopeLabel: string
   memberCount: number
   averageConfidence: number
   dominantSector: string | null
@@ -142,6 +146,16 @@ export function normalizeRelationshipAtlas(payload: Partial<RelationshipAtlas>):
     communities: (payload.communities ?? []).map((community) => ({
       id: String(community.id),
       label: optionalAtlasText(community.label) ?? 'Market cluster',
+      displayLabel: optionalAtlasText(community.displayLabel)
+        ?? communityDisplayLabel(community),
+      displayName: optionalAtlasText(community.displayName)
+        ?? communityDisplayName(community),
+      description: optionalAtlasText(community.description)
+        ?? communityDescription(community),
+      scopeLabel: optionalAtlasText(community.scopeLabel)
+        ?? optionalAtlasText(community.dominantRegion)
+        ?? optionalAtlasText(community.dominantCountry)
+        ?? 'Global',
       memberCount: Math.max(1, finite(community.memberCount, 1)),
       averageConfidence: Math.max(0, Math.min(1, finite(community.averageConfidence))),
       dominantSector: optionalAtlasText(community.dominantSector),
@@ -169,6 +183,40 @@ export function normalizeRelationshipAtlas(payload: Partial<RelationshipAtlas>):
     landmarks: normalizeAtlasNodes(payload.landmarks ?? []),
     backbone: normalizeAtlasEdges(payload.backbone ?? []),
   }
+}
+
+function communityBaseLabel(community: Partial<AtlasCommunity>): string {
+  const label = optionalAtlasText(community.label) ?? 'Market cluster'
+  return label.toLowerCase() === 'market cluster' ? 'Cross-market' : label
+}
+
+function communityRepresentatives(community: Partial<AtlasCommunity>): string[] {
+  return Array.isArray(community.representativeSymbols)
+    ? community.representativeSymbols.map(normalizedSymbol).filter(Boolean)
+    : []
+}
+
+function communityDisplayLabel(community: Partial<AtlasCommunity>): string {
+  const base = communityBaseLabel(community)
+  const anchor = communityRepresentatives(community)[0]
+  return anchor ? `${base} · ${anchor}` : base
+}
+
+function communityDisplayName(community: Partial<AtlasCommunity>): string {
+  const base = communityBaseLabel(community)
+  return communityRepresentatives(community).length ? `${base}-led network` : `${base} network`
+}
+
+function communityDescription(community: Partial<AtlasCommunity>): string {
+  const scope = optionalAtlasText(community.dominantRegion)
+    ?? optionalAtlasText(community.dominantCountry)
+    ?? 'Global'
+  const anchors = communityRepresentatives(community).slice(0, 3)
+  if (!anchors.length) return `${scope} relationship field.`
+  const anchorCopy = anchors.length === 1
+    ? anchors[0]
+    : `${anchors.slice(0, -1).join(', ')} and ${anchors.at(-1)}`
+  return `${scope} relationship field anchored by ${anchorCopy}.`
 }
 
 export function normalizeRelationshipAtlasDetail(payload: Partial<RelationshipAtlasDetail>): RelationshipAtlasDetail {

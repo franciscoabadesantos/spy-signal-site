@@ -121,6 +121,10 @@ test('normalizes community positions and confidence for the three-dimensional at
     communities: [{
       id: 'theme-cloud',
       label: 'Cloud infrastructure',
+      displayLabel: 'Cloud infrastructure · MSFT',
+      displayName: 'Cloud infrastructure-led network',
+      description: 'Global relationship field anchored by MSFT.',
+      scopeLabel: 'Global',
       memberCount: 12,
       averageConfidence: 1.4,
       dominantSector: 'Technology',
@@ -145,6 +149,10 @@ test('removes textual missing-value sentinels from atlas metadata', () => {
     communities: [{
       id: 'market-unknown',
       label: 'NaN',
+      displayLabel: 'NaN',
+      displayName: 'null',
+      description: '<NA>',
+      scopeLabel: 'unknown',
       memberCount: 4,
       averageConfidence: 0.8,
       dominantSector: 'UNKNOWN',
@@ -175,6 +183,9 @@ test('removes textual missing-value sentinels from atlas metadata', () => {
   })
 
   assert.equal(atlas.communities[0]?.label, 'Market cluster')
+  assert.equal(atlas.communities[0]?.displayLabel, 'Cross-market')
+  assert.equal(atlas.communities[0]?.displayName, 'Cross-market network')
+  assert.equal(atlas.communities[0]?.description, 'Global relationship field.')
   assert.equal(atlas.communities[0]?.dominantSector, null)
   assert.equal(atlas.communities[0]?.dominantCountry, null)
   assert.equal(atlas.landmarks[0]?.name, 'ABC')

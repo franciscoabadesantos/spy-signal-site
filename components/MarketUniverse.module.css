@@ -26,26 +26,6 @@
 .intro,
 .controls { pointer-events: auto; }
 
-.intro { max-width: min(31rem, 41vw); }
-
-.intro h1 {
-  margin: 0;
-  color: var(--content-primary);
-  font-size: clamp(2rem, 3.5vw, 3.85rem);
-  font-weight: 610;
-  letter-spacing: -0.038em;
-  line-height: 0.98;
-}
-
-.intro > span {
-  display: block;
-  max-width: 31rem;
-  margin-top: 0.68rem;
-  color: var(--content-secondary);
-  font-size: clamp(0.75rem, 0.92vw, 0.88rem);
-  line-height: 1.45;
-}
-
 .controls {
   display: flex;
   align-items: center;
@@ -102,10 +82,10 @@
 
 .sceneLabel button:focus-visible,
 .fieldLabel button:focus-visible { border-radius: 0.35rem; outline: 2px solid var(--brand-spark); outline-offset: 2px; }
-.sceneLabel span { display: block; font-size: 0.69rem; font-weight: 740; letter-spacing: -0.01em; }
+.sceneLabel span { display: block; font-size: 0.67rem; font-weight: 740; letter-spacing: -0.01em; }
 .sceneLabel small { display: block; margin-top: 0.08rem; color: var(--content-muted); font-size: 0.53rem; font-weight: 560; }
-.fieldLabel span { display: block; font-size: 0.67rem; font-weight: 690; }
-.fieldLabel small { display: block; margin-top: 0.1rem; color: var(--content-muted); font-size: 0.52rem; font-weight: 560; }
+.fieldLabel span { display: block; font-size: 0.7rem; font-weight: 710; }
+.fieldLabel small { display: block; margin-top: 0.1rem; color: var(--content-muted); font-size: 0.54rem; font-weight: 560; }
 
 .index {
   position: absolute;
@@ -187,7 +167,7 @@
 }
 
 .accessibleNavigator > summary::-webkit-details-marker { display: none; }
-.accessibleNavigator > summary::before { margin-right: 0.38rem; color: var(--brand-spark); content: '⌘'; font-size: 0.68rem; }
+.accessibleNavigator > summary svg { width: 0.78rem; height: 0.78rem; margin-right: 0.38rem; color: var(--brand-spark); }
 .accessibleNavigator > summary:focus-visible { outline: 2px solid var(--brand-spark); outline-offset: 2px; }
 
 .navigatorPanel {
@@ -240,8 +220,17 @@
 .legend i[data-kind='mass'] { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: rgba(20, 41, 67, 0.36); }
 .legend i[data-kind='halo'] { width: 0.48rem; height: 0.48rem; border: 1px solid rgba(20, 41, 67, 0.25); border-radius: 50%; box-shadow: 0 0 0 0.18rem rgba(27, 166, 154, 0.07); }
 .legend i[data-kind='line'] { height: 2px; background: rgba(20, 41, 67, 0.42); }
+.legend i[data-kind='distance'] { width: 0.84rem; height: 0.18rem; border-radius: 999px; background: linear-gradient(90deg, rgba(20, 41, 67, 0.55) 0 58%, rgba(20, 41, 67, 0.18) 58% 100%); }
 .legend i[data-kind='fade'] { border-radius: 50%; background: rgba(20, 41, 67, 0.14); filter: blur(1.5px); }
 .legend i[data-kind='timing'] { height: 1px; background: repeating-linear-gradient(90deg, rgba(20, 41, 67, 0.42) 0 3px, transparent 3px 5px); }
+.legend i[data-kind='travel'] {
+  width: 0.48rem;
+  height: 0.48rem;
+  border: 1px solid rgba(11, 129, 120, 0.42);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.12rem rgba(255, 255, 255, 0.72), 0 0 0 0.12rem rgba(27, 166, 154, 0.08);
+}
+.travelHint { color: var(--content-secondary); font-weight: 620; }
 
 .snapshot {
   position: absolute;
@@ -262,7 +251,7 @@
   top: 6.65rem;
   right: 1.1rem;
   bottom: 1.1rem;
-  width: min(22.5rem, 30vw);
+  width: min(21.75rem, 29vw);
   overflow: auto;
   padding: 0.9rem;
   border: 1px solid rgba(20, 41, 67, 0.11);
@@ -294,9 +283,11 @@
   border-bottom: 1px solid var(--border);
 }
 .inspectorHeading > p { margin: 0 0 0.4rem; color: var(--brand-spark); font-size: 0.63rem; font-weight: 730; letter-spacing: 0.13em; text-transform: uppercase; }
-.inspectorHeading h2 { margin: 0; color: var(--content-primary); font-size: clamp(1.7rem, 2.35vw, 2.85rem); font-weight: 590; letter-spacing: -0.05em; line-height: 0.98; overflow-wrap: anywhere; }
+.inspectorHeading h2 { margin: 0; color: var(--content-primary); font-size: clamp(1.65rem, 2.05vw, 2.35rem); font-weight: 600; letter-spacing: -0.038em; line-height: 1; overflow-wrap: anywhere; }
 .inspectorHeading > div { display: flex; flex-wrap: wrap; gap: 0.38rem 0.8rem; margin-top: 0.85rem; color: var(--content-muted); font-size: 0.64rem; }
-.fieldNote { display: block; max-width: 18rem; margin-top: 0.72rem; color: var(--content-muted); font-size: 0.58rem; line-height: 1.45; }
+.fieldNote { display: block; max-width: 19rem; margin-top: 0.72rem; color: var(--content-muted); font-size: 0.61rem; line-height: 1.5; }
+
+.stage[data-focused='true'] .legend { right: calc(min(21.75rem, 29vw) + 2.4rem); }
 
 .metrics {
   display: grid;
@@ -373,17 +364,14 @@
 
 @media (max-width: 1000px) {
   .chrome { gap: 1rem; }
-  .intro { max-width: 42vw; }
   .inspector { top: 7.2rem; width: min(22rem, 38vw); }
   .legend { max-width: 34rem; }
+  .stage[data-focused='true'] .legend { right: calc(min(22rem, 38vw) + 2.2rem); }
 }
 
 @media (max-width: 767px) {
   .root { min-height: calc(100svh - 7rem); }
-  .chrome { flex-direction: column; gap: 0.72rem; padding: 0.95rem 0.82rem; }
-  .intro { max-width: 100%; }
-  .intro h1 { font-size: clamp(1.65rem, 8vw, 2.45rem); }
-  .intro > span { display: none; }
+  .chrome { flex-direction: column; gap: 0.72rem; padding: 1.5rem 0.82rem 0.95rem; }
   .controls { width: 100%; align-items: center; justify-content: flex-end; gap: 0.42rem; }
   .windowControl { min-height: 2.65rem; padding-left: 0.72rem; }
   .windowControl > span { display: none; }
@@ -395,9 +383,10 @@
   .accessibleNavigator { margin-top: 0.52rem; }
   .navigatorPanel { width: calc(100vw - 1.64rem); max-height: 48vh; grid-template-columns: 1fr; }
   .legend { right: 0.75rem; bottom: 0.9rem; left: 0.75rem; justify-content: flex-start; gap: 0.45rem 0.7rem; }
+  .stage[data-focused='true'] .legend { right: 0.75rem; bottom: calc(48% + 0.9rem); }
   .legend span:nth-child(2), .legend span:nth-child(4) { display: none; }
   .snapshot { bottom: 3.35rem; left: 0.82rem; }
-  .inspector { top: auto; right: 0.5rem; bottom: 0.5rem; left: 0.5rem; width: auto; max-height: 54%; border-radius: 1.2rem; }
+  .inspector { top: auto; right: 0.5rem; bottom: 0.5rem; left: 0.5rem; width: auto; max-height: 48%; border-radius: 1.2rem; }
   .inspectorHeading { padding-top: 1.25rem; }
   .inspectorHeading h2 { font-size: 2rem; }
   .companyGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
