@@ -1,8 +1,8 @@
 'use client'
 
-import { Html, Line, OrbitControls } from '@react-three/drei'
+import { Html, Instance, Instances, Line, OrbitControls } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type {
@@ -21,7 +21,7 @@ import {
   type SceneCommunity,
   type SceneNode,
 } from '@/lib/market-universe-layout'
-import { sectorColor } from '@/lib/network-regions'
+import { marketRegionColor, normalizeMarketRegion } from '@/lib/network-regions'
 import styles from './MarketUniverse.module.css'
 
 function clamp(value: number, minimum = 0, maximum = 1): number {
@@ -53,41 +53,47 @@ function cameraFrame(
   communities: SceneCommunity[],
   key: string,
 ): CameraFrame {
-  const objects = communities.map((community) => ({ position: community.position, radius: community.sceneRadius }))
-  if (!objects.length) return { center: { x: 0, y: 0, z: 0 }, key }
-  // Enter through a stable systemic field, rather than fitting the bounding
-  // box of the whole economy. It is an atlas landing point, not a selection.
-  const landing = [...communities].sort((left, right) => (
-    right.bridgeCount * 1.2 + right.memberCount + right.averageConfidence * 24
-    - left.bridgeCount * 1.2 - left.memberCount - left.averageConfidence * 24
-  ))[0]!
-  return { center: landing.position, key }
+  if (!communities.length) return { center: { x: 0, y: 0, z: 0 }, radius: 6, key }
+  // Open on the whole economy, framed to fit every field. The map reads as a
+  // single territory on launch, then is explored by panning and zooming — rather
+  // than dropping the viewer into one landing field.
+  let cx = 0
+  let cy = 0
+  let cz = 0
+  for (const community of communities) {
+    cx += community.position.x
+    cy += community.position.y
+    cz += community.position.z
+  }
+  const count = communities.length
+  const center = { x: cx / count, y: cy / count, z: cz / count }
+  let radius = 1
+  for (const community of communities) {
+    const spread = Math.hypot(community.position.x - center.x, community.position.y - center.y) + community.sceneRadius
+    radius = Math.max(radius, spread)
+  }
+  return { center, radius, key }
 }
 
 type CameraFrame = {
   center: AtlasPosition
+  radius: number
   key: string
 }
 
 function CameraRig({
   frame,
-  communities,
-  hoveredCommunity,
   reducedMotion,
   mobile,
-  onLodCandidate,
 }: {
   frame: CameraFrame
-  communities: SceneCommunity[]
-  hoveredCommunity: AtlasCommunity | null
   reducedMotion: boolean
   mobile: boolean
-  onLodCandidate: (community: AtlasCommunity) => void
 }) {
   const { camera } = useThree()
   const controls = useRef<OrbitControlsImpl>(null)
   const initialized = useRef(false)
-  const lastLodCandidate = useRef<string | null>(null)
+  const lastLandedKey = useRef<string | null>(null)
   const transition = useRef<{
     active: boolean
     elapsed: number
@@ -99,16 +105,30 @@ function CameraRig({
     onComplete?: () => void
   } | null>(null)
 
-  // This is a world-navigation camera, not a fit-to-selection camera. The
-  // distance is intentionally independent of the bounding box so growing the
-  // atlas makes it feel larger rather than simply shrinking it on screen.
-  const initialDistance = mobile ? 8.4 : 8.8
+  // Fit the whole economy in view on landing. A fixed assumed aspect (rather
+  // than the live viewport) keeps the framing stable and avoids re-landing the
+  // camera on every resize.
+  const perspectiveFov = (camera as THREE.PerspectiveCamera).fov ?? 42
+  const verticalFov = (perspectiveFov * Math.PI) / 180
+  const assumedAspect = mobile ? 0.72 : 1.6
+  const fitVertical = frame.radius / Math.tan(verticalFov / 2)
+  const fitHorizontal = frame.radius / (Math.tan(verticalFov / 2) * assumedAspect)
+  const initialDistance = Math.max(fitVertical, fitHorizontal) * (mobile ? 1.18 : 1.04)
 
   useLayoutEffect(() => {
+    // Land the camera only on first mount and when the view/window changes —
+    // never on the scene rebuilds that a selection or a zoom-triggered detail
+    // load causes. Re-landing on every rebuild is what yanked the camera back to
+    // a fixed area instead of letting the viewer freely zoom where they liked.
+    if (initialized.current && lastLandedKey.current === frame.key) return
+    lastLandedKey.current = frame.key
     const target = new THREE.Vector3(frame.center.x, frame.center.y, frame.center.z)
+    // Read as a map: look at the correlation plane almost face-on. A small,
+    // fixed y-lift keeps a hint of 2.5D depth (fog layering the z axis) without
+    // the oblique framing that made the old free-orbit scene feel like a globe.
     const destination = new THREE.Vector3(
-      target.x + initialDistance * (mobile ? 0.05 : 0.1),
-      target.y + initialDistance * 0.08,
+      target.x,
+      target.y + initialDistance * 0.05,
       frame.center.z + initialDistance,
     )
     const immediate = !initialized.current || reducedMotion
@@ -130,30 +150,6 @@ function CameraRig({
       controls.current?.update()
     }
   }, [camera, frame.center.x, frame.center.y, frame.center.z, frame.key, initialDistance, mobile, reducedMotion])
-
-  function handleCameraEnd() {
-    if (!controls.current || transition.current?.active) return
-    const distance = camera.position.distanceTo(controls.current.target)
-    // Semantic detail is only requested when the camera is actually near a
-    // field. This keeps level-of-detail tied to navigation through the world,
-    // not to a click, selected inspector, or arbitrary control target.
-    if (distance > (mobile ? 9.2 : 8.4)) {
-      lastLodCandidate.current = null
-      return
-    }
-    const target = controls.current.target
-    const candidate = hoveredCommunity
-      ? communities.find((community) => community.id === hoveredCommunity.id)
-      : communities
-        .map((community) => ({ community, distance: target.distanceTo(new THREE.Vector3(...vector(community.position))) }))
-        .sort((left, right) => left.distance - right.distance)[0]?.community
-    if (!candidate) return
-    const physicalDistance = camera.position.distanceTo(new THREE.Vector3(...vector(candidate.position)))
-    const activationDistance = candidate.sceneRadius * (mobile ? 2.15 : 2.45) + (mobile ? 2.4 : 2.8)
-    if (physicalDistance > activationDistance || lastLodCandidate.current === candidate.id) return
-    lastLodCandidate.current = candidate.id
-    onLodCandidate(candidate)
-  }
 
   useFrame((_state, delta) => {
     const current = transition.current
@@ -178,22 +174,74 @@ function CameraRig({
     <OrbitControls
       ref={controls}
       enablePan
-      panSpeed={0.48}
+      panSpeed={0.9}
+      screenSpacePanning
       enableZoom
-      enableRotate
+      // A map, not a globe: drag pans, wheel/pinch zooms, but the view stays
+      // locked face-on to the correlation plane. Rotation is what made the old
+      // scene disorienting and hard to read.
+      enableRotate={false}
+      // Remap inputs to a map scheme. OrbitControls defaults LEFT=rotate; with
+      // rotation disabled that made left-drag a no-op (the "can't drag" bug).
+      // Left OR right drag pans; wheel/middle dollies; one finger pans, two
+      // fingers pinch-zoom and pan.
+      mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }}
+      touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN }}
       enableDamping={!reducedMotion}
       dampingFactor={0.045}
       autoRotate={false}
       zoomToCursor={!mobile}
       onStart={() => { if (transition.current) transition.current.active = false }}
-      onEnd={handleCameraEnd}
       minDistance={mobile ? 3.6 : 2.8}
       maxDistance={mobile ? 44 : 68}
-      minPolarAngle={Math.PI * 0.2}
-      maxPolarAngle={Math.PI * 0.8}
-      minAzimuthAngle={-Infinity}
-      maxAzimuthAngle={Infinity}
     />
+  )
+}
+
+// Soft radial-gradient territory glow behind each field. This is what fills the
+// space between the dots and makes the economy read as continuous, overlapping
+// regions rather than scattered clusters. One camera-facing sprite per field.
+let sharedFieldGlowTexture: THREE.Texture | null = null
+function fieldGlowTexture(): THREE.Texture {
+  if (sharedFieldGlowTexture) return sharedFieldGlowTexture
+  const size = 128
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')!
+  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  gradient.addColorStop(0, 'rgba(255,255,255,1)')
+  gradient.addColorStop(0.4, 'rgba(255,255,255,0.5)')
+  gradient.addColorStop(1, 'rgba(255,255,255,0)')
+  context.fillStyle = gradient
+  context.fillRect(0, 0, size, size)
+  sharedFieldGlowTexture = new THREE.CanvasTexture(canvas)
+  return sharedFieldGlowTexture
+}
+
+function FieldGlow({ community, hovered, selected }: {
+  community: SceneCommunity
+  hovered: boolean
+  selected: boolean
+}) {
+  const texture = useMemo(() => fieldGlowTexture(), [])
+  // Most communities carry no dominant region yet, which would render an
+  // invisible slate glow; fall back to a soft warm tint so every field still
+  // reads as a territory.
+  const region = normalizeMarketRegion(community.dominantRegion)
+  const color = region === 'unknown' ? '#b9c2b0' : marketRegionColor(community.dominantRegion)
+  const scale = community.sceneRadius * (selected ? 6.4 : 5.6)
+  const opacity = selected ? 0.36 : hovered ? 0.32 : 0.28
+  return (
+    <sprite scale={[scale, scale, 1]} renderOrder={-2}>
+      <spriteMaterial
+        map={texture}
+        color={color}
+        transparent
+        opacity={opacity}
+        depthWrite={false}
+      />
+    </sprite>
   )
 }
 
@@ -205,7 +253,7 @@ function FieldCloud({ community, level, reducedMotion, hovered }: {
 }) {
   const ref = useRef<THREE.Points>(null)
   const radius = community.sceneRadius
-  const color = sectorColor(community.dominantSector)
+  const color = marketRegionColor(community.dominantRegion)
   const positions = useMemo(() => {
     const count = level === 'economy'
       ? Math.round(clamp(radius * 34, 72, 146))
@@ -304,11 +352,12 @@ function CommunityField({
   const interactive = level === 'economy'
   return (
     <group position={vector(community.position)}>
+      {level === 'economy' ? <FieldGlow community={community} hovered={hovered} selected={selected} /> : null}
       <FieldCloud community={community} level={level} reducedMotion={reducedMotion} hovered={hovered || selected} />
       <mesh scale={selected ? 1.2 : hovered ? 1.1 : 1}>
         <sphereGeometry args={[0.13 + radius * 0.04, 18, 18]} />
         <meshBasicMaterial
-          color={sectorColor(community.dominantSector)}
+          color={marketRegionColor(community.dominantRegion)}
           transparent
           opacity={selected ? 0.48 : hovered ? 0.32 : 0.17}
           depthWrite={false}
@@ -338,110 +387,197 @@ function CommunityField({
   )
 }
 
-function VolatilityHalo({ node, radius, reducedMotion, active }: {
-  node: AtlasNode
-  radius: number
-  reducedMotion: boolean
-  active: boolean
-}) {
-  const ref = useRef<THREE.Mesh>(null)
-  const volatility = node.volatility === null ? 0 : clamp(node.volatility / 0.8)
+// Instanced overview layer. The economy view can carry hundreds of landmark
+// nodes; rendering each as its own React mesh + useFrame does not scale, so the
+// bodies and halos are drawn as two InstancedMesh batches (two draw calls) with
+// per-instance color and scale. Per-instance opacity is not available on a
+// shared material, so contextual nodes are faded by blending their color toward
+// the paper background rather than by transparency.
+const PAPER_COLOR = new THREE.Color('#f3efe6')
+
+function nodeBodyColor(node: SceneNode, active: boolean, contextual: boolean): THREE.Color {
+  const base = new THREE.Color(marketRegionColor(node.region))
+  if (active) return base.lerp(new THREE.Color('#ffffff'), 0.14)
+  // Grade prominence by relevance so systemic leaders read from a distance and
+  // the long tail recedes toward the paper ground instead of forming a uniform
+  // mass. Boundary/context nodes fade the most.
   const reach = clamp(node.centrality || node.importance)
-  useFrame(({ clock }) => {
-    if (!ref.current || reducedMotion) return
-    const pulse = 1 + Math.sin(clock.elapsedTime * (0.45 + volatility * 0.7) + node.symbol.length) * (0.012 + volatility * 0.028)
-    ref.current.scale.setScalar(pulse)
-  })
-  return (
-    <mesh ref={ref} scale={1}>
-      <sphereGeometry args={[radius * (1.38 + reach * 0.72 + volatility * 0.2), 18, 18]} />
-      <meshBasicMaterial
-        color={sectorColor(node.sector)}
-        transparent
-        opacity={active ? 0.13 : 0.025 + reach * 0.045 + volatility * 0.035}
-        depthWrite={false}
-      />
-    </mesh>
-  )
+  const fade = contextual ? 0.5 : 0.08 + (1 - reach) * 0.34
+  return base.lerp(PAPER_COLOR, fade)
 }
 
-function CompanyNode({
-  node,
-  active,
-  contextual,
+function NodeInstances({
+  nodes,
+  activeSymbol,
   layer,
-  showLabel,
-  reducedMotion,
+  labelSymbols,
+  isContextual,
   onSelect,
   onHover,
 }: {
-  node: SceneNode
-  active: boolean
-  contextual: boolean
+  nodes: SceneNode[]
+  activeSymbol: string | null
   layer: 'overview' | 'field' | 'focus'
-  showLabel: boolean
-  reducedMotion: boolean
+  labelSymbols: Set<string>
+  isContextual: (node: SceneNode) => boolean
   onSelect: (node: AtlasNode) => void
   onHover?: (node: AtlasNode | null) => void
 }) {
-  const color = sectorColor(node.sector)
-  const radius = node.sceneRadius
-  const opacity = active
-    ? 1
-    : layer === 'overview' && contextual
-      ? 0.16 + clamp(node.centrality) * 0.1
-      : contextual
-        ? 0.46
-        : 0.62 + clamp(node.centrality) * 0.3
-  const motionRef = useRef<THREE.Group>(null)
-  useFrame(({ clock }) => {
-    if (!motionRef.current || reducedMotion) return
-    const phase = stableUnit(`${node.symbol}:${node.communityId}:motion`) * Math.PI * 2
-    const energy = 0.018 + clamp(node.centrality) * 0.024
-    motionRef.current.position.set(
-      Math.sin(clock.elapsedTime * 0.34 + phase) * energy,
-      Math.cos(clock.elapsedTime * 0.28 + phase) * energy * 0.75,
-      Math.sin(clock.elapsedTime * 0.22 + phase) * energy * 0.5,
-    )
-    motionRef.current.scale.setScalar(1 + Math.sin(clock.elapsedTime * 0.5 + phase) * (0.012 + clamp(node.importance) * 0.018))
-  })
+  const count = nodes.length
+  // The overview fits the whole economy, so nodes are seen from far away; give
+  // them more presence there than in the closer field/focus layers.
+  const sizeBoost = layer === 'overview' ? 1.5 : 1
+  const bridges = useMemo(() => nodes.filter((node) => node.bridgeScore > 0.5), [nodes])
+  const labels = useMemo(() => nodes.filter((node) => labelSymbols.has(node.symbol)), [labelSymbols, nodes])
+  const active = useMemo(() => nodes.find((node) => node.symbol === activeSymbol) ?? null, [activeSymbol, nodes])
+  if (!count) return null
   return (
-    <group
-      position={vector(node.position)}
-      onClick={(event) => { event.stopPropagation(); onSelect(node) }}
-      onPointerEnter={(event) => { event.stopPropagation(); document.body.style.cursor = 'pointer'; onHover?.(node) }}
-      onPointerLeave={() => { document.body.style.cursor = ''; onHover?.(null) }}
-    >
-      <group ref={motionRef}>
-        <VolatilityHalo node={node} radius={radius} reducedMotion={reducedMotion} active={active} />
-        <mesh scale={active ? 1.25 : layer === 'overview' && contextual ? 0.84 : 1}>
-          <sphereGeometry args={[radius, 22, 22]} />
-          <meshPhysicalMaterial
-            color={color}
-            emissive={color}
-            emissiveIntensity={active ? 0.42 : 0.09 + node.centrality * 0.12}
-            roughness={0.3}
-            metalness={0.01}
-            transparent
-            opacity={opacity}
-            depthWrite={opacity > 0.5}
-          />
+    <group>
+      <Instances key={`halo:${count}`} limit={count} range={count} frustumCulled={false} renderOrder={0}>
+        <sphereGeometry args={[1, 16, 16]} />
+        <meshBasicMaterial transparent opacity={layer === 'overview' ? 0.09 : 0.1} depthWrite={false} />
+        {nodes.map((node, index) => {
+          const reach = clamp(node.centrality || node.importance)
+          const volatility = node.volatility === null ? 0 : clamp(node.volatility / 0.8)
+          return (
+            <Instance
+              key={`halo:${node.communityId}:${node.symbol}:${index}`}
+              position={vector(node.position)}
+              scale={node.sceneRadius * sizeBoost * (1.34 + reach * 0.72 + volatility * 0.2)}
+              color={marketRegionColor(node.region)}
+            />
+          )
+        })}
+      </Instances>
+
+      <Instances key={`body:${count}`} limit={count} range={count} frustumCulled={false} renderOrder={1}>
+        <sphereGeometry args={[1, 22, 22]} />
+        <meshStandardMaterial roughness={0.34} metalness={0.02} envMapIntensity={0.4} />
+        {nodes.map((node, index) => {
+          const isActive = node.symbol === activeSymbol
+          const contextual = isContextual(node)
+          const scale = node.sceneRadius * sizeBoost * (isActive ? 1.28 : contextual && layer === 'overview' ? 0.82 : 1)
+          return (
+            <Instance
+              key={`body:${node.communityId}:${node.symbol}:${index}`}
+              position={vector(node.position)}
+              scale={scale}
+              color={nodeBodyColor(node, isActive, contextual)}
+              onClick={(event) => { event.stopPropagation(); onSelect(node) }}
+              onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = 'pointer'; onHover?.(node) }}
+              onPointerOut={() => { document.body.style.cursor = ''; onHover?.(null) }}
+            />
+          )
+        })}
+      </Instances>
+
+      {bridges.map((node, index) => (
+        <mesh key={`bridge:${node.symbol}:${index}`} position={vector(node.position)} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[node.sceneRadius * 1.6, 0.012 + node.bridgeScore * 0.01, 8, 36]} />
+          <meshBasicMaterial color="#168f86" transparent opacity={0.2 + node.bridgeScore * 0.26} depthWrite={false} />
         </mesh>
-        {node.bridgeScore > 0.5 ? (
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[radius * 1.58, 0.012 + node.bridgeScore * 0.01, 8, 36]} />
-            <meshBasicMaterial color="#168f86" transparent opacity={0.18 + node.bridgeScore * 0.28} depthWrite={false} />
-          </mesh>
-        ) : null}
-      </group>
-      {showLabel ? (
-        <Html center distanceFactor={10.5} position={[0, -radius - 0.13, 0]} className={styles.sceneLabel}>
+      ))}
+
+      {active ? (
+        <mesh position={vector(active.position)} renderOrder={2}>
+          <sphereGeometry args={[active.sceneRadius * 3.4, 20, 20]} />
+          <meshBasicMaterial color={marketRegionColor(active.region)} transparent opacity={0.14} depthWrite={false} />
+        </mesh>
+      ) : null}
+
+      {labels.map((node, index) => (
+        <Html
+          key={`label:${node.symbol}:${index}`}
+          center
+          distanceFactor={layer === 'overview' ? 11 : 10.5}
+          position={[node.position.x, node.position.y - node.sceneRadius - 0.13, node.position.z]}
+          className={styles.sceneLabel}
+        >
           <button type="button" onClick={() => onSelect(node)} aria-label={`Focus ${node.name}`}>
             <span>{node.symbol}</span>
-            {active ? <small>{node.country || node.sector || ''}</small> : null}
+            {node.symbol === activeSymbol ? <small>{node.country || node.sector || ''}</small> : null}
           </button>
         </Html>
-      ) : null}
+      ))}
+    </group>
+  )
+}
+
+// A field's extra members (beyond its always-visible landmarks), loaded on
+// approach and rendered in the overview's OWN coordinates. The whole batch fades
+// in by camera proximity to the field, so the field grows denser in place as you
+// near it — no separate overlay, no re-projection. One InstancedMesh per loaded
+// field; invisible and non-interactive until you are close enough to matter.
+function ProximityField({
+  community,
+  members,
+  activeSymbol,
+  mobile,
+  onSelect,
+  onHover,
+}: {
+  community: SceneCommunity
+  members: SceneNode[]
+  activeSymbol: string | null
+  mobile: boolean
+  onSelect: (node: AtlasNode) => void
+  onHover?: (node: AtlasNode | null) => void
+}) {
+  const { camera } = useThree()
+  const groupRef = useRef<THREE.Group>(null)
+  const material = useRef<THREE.MeshStandardMaterial>(null)
+  const center = useMemo(
+    () => new THREE.Vector3(community.position.x, community.position.y, community.position.z),
+    [community.position.x, community.position.y, community.position.z],
+  )
+  // Reveal is gated by TWO independent things so zooming in only fills in the
+  // field you are actually over — not every field in the world. Raw eye-distance
+  // conflated the two: dollying in shrinks the distance to every field at once.
+  //  - height gate: how close the camera is to the correlation plane (zoom).
+  //  - lateral gate: how centred this field is under the look-point (its XY
+  //    offset from the camera), so fields off to the side stay hidden.
+  const zoomNear = mobile ? 8 : 10
+  const zoomFar = mobile ? 15 : 18
+  const latNear = community.sceneRadius * 0.9
+  const latFar = community.sceneRadius * 2 + 2
+  useFrame(() => {
+    const cam = camera.position
+    const height = Math.abs(cam.z - center.z)
+    const lateral = Math.hypot(cam.x - center.x, cam.y - center.y)
+    const heightGate = clamp((zoomFar - height) / Math.max(0.001, zoomFar - zoomNear))
+    const lateralGate = clamp((latFar - lateral) / Math.max(0.001, latFar - latNear))
+    const raw = heightGate * lateralGate
+    const eased = raw * raw * (3 - 2 * raw)
+    if (groupRef.current) groupRef.current.visible = eased > 0.02
+    if (material.current) material.current.opacity = eased
+  })
+  if (!members.length) return null
+  return (
+    <group ref={groupRef} visible={false}>
+      <Instances
+        key={`members:${community.id}:${members.length}`}
+        limit={members.length}
+        range={members.length}
+        frustumCulled={false}
+        renderOrder={1}
+      >
+        <sphereGeometry args={[1, 18, 18]} />
+        <meshStandardMaterial ref={material} roughness={0.34} metalness={0.02} envMapIntensity={0.4} transparent opacity={0} depthWrite={false} />
+        {members.map((node, index) => {
+          const isActive = node.symbol === activeSymbol
+          return (
+            <Instance
+              key={`member:${node.communityId}:${node.symbol}:${index}`}
+              position={vector(node.position)}
+              scale={node.sceneRadius * (isActive ? 1.28 : 1)}
+              color={nodeBodyColor(node, isActive, false)}
+              onClick={(event) => { event.stopPropagation(); onSelect(node) }}
+              onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = 'pointer'; onHover?.(node) }}
+              onPointerOut={() => { document.body.style.cursor = ''; onHover?.(null) }}
+            />
+          )
+        })}
+      </Instances>
     </group>
   )
 }
@@ -529,123 +665,82 @@ function RelationshipLine({
   )
 }
 
-function AtlasCommunityLinks({
-  atlas,
-  communities,
-  selectedId,
-}: {
-  atlas: RelationshipAtlas
-  communities: SceneCommunity[]
-  selectedId: string | null
-}) {
-  const positions = useMemo(() => new Map(communities.map((item) => [item.id, item.position])), [communities])
-  const visibleLinks = useMemo(
-    () => [...atlas.links]
-      .sort((left, right) => right.strength * right.confidence - left.strength * left.confidence)
-      .slice(0, 48),
-    [atlas.links],
-  )
-  const strongest = Math.max(...visibleLinks.map((link) => link.strength), 1)
-  return visibleLinks.map((link, index) => {
-    const source = positions.get(link.source)
-    const target = positions.get(link.target)
-    if (!source || !target) return null
-    const active = selectedId === link.source || selectedId === link.target
-    const normalized = Math.sqrt(link.strength / strongest)
-    const midpoint: AtlasPosition = {
-      x: (source.x + target.x) * 0.5,
-      y: (source.y + target.y) * 0.5 + (stableUnit(`${link.source}:${link.target}:arc`) - 0.5) * 0.55,
-      z: (source.z + target.z) * 0.5 + 0.35 + normalized * 0.45,
-    }
-    return (
-      <Line
-        key={`${link.source}:${link.target}:${index}`}
-        points={[vector(source), vector(midpoint), vector(target)]}
-        color={active ? '#168f86' : '#84949a'}
-        lineWidth={0.42 + normalized * (active ? 1.65 : 1.05)}
-        transparent
-        opacity={(0.055 + Math.pow(link.confidence, 2) * 0.27) * (selectedId && !active ? 0.32 : 1)}
-        depthWrite={false}
-      />
-    )
-  })
+// The overview edges are the ticker-to-ticker web that crosses between fields —
+// each line runs between two actual companies, never between field centroids, so
+// you can see which companies bridge sectors. Drawn as one batched LineSegments
+// (a single draw call) regardless of edge count. Per-edge prominence is encoded
+// in the vertex color (faint edges blend toward the paper background), since a
+// shared line material has no per-segment opacity.
+function overviewEdgeColor(edge: AtlasEdge): THREE.Color {
+  const base = new THREE.Color(edge.strength < 0 ? '#b56883' : '#5f7a86')
+  const strength = clamp(Math.abs(edge.strength))
+  const confidence = edge.confidence === null ? strength : clamp(edge.confidence)
+  const prominence = clamp(confidence * 0.6 + strength * 0.4)
+  return base.lerp(PAPER_COLOR, 0.7 - Math.pow(prominence, 1.2) * 0.64)
 }
 
-function SemanticDetailLayer({
-  anchor,
-  mobile,
-  children,
-}: {
-  anchor: AtlasPosition
-  mobile: boolean
-  children: ReactNode
-}) {
-  const { camera } = useThree()
-  const ref = useRef<THREE.Group>(null)
-
-  useFrame(() => {
-    if (!ref.current) return
-    const distance = camera.position.distanceTo(new THREE.Vector3(...vector(anchor)))
-    const near = mobile ? 5.6 : 4.6
-    const far = mobile ? 12.8 : 10.8
-    const raw = clamp((far - distance) / Math.max(0.001, far - near))
-    const detail = raw * raw * (3 - 2 * raw)
-    ref.current.visible = detail > 0.06
-    ref.current.scale.setScalar(0.22 + detail * 0.78)
-  })
-
+function OverviewEdges({ edges, positions }: { edges: AtlasEdge[]; positions: Map<string, AtlasPosition> }) {
+  const geometry = useMemo(() => {
+    const points: number[] = []
+    const colors: number[] = []
+    for (const edge of edges) {
+      const source = positions.get(marketUniverseEdgeEndpointKey(edge.sourceCommunityId, edge.source))
+      const target = positions.get(marketUniverseEdgeEndpointKey(edge.targetCommunityId, edge.target))
+      if (!source || !target) continue
+      const color = overviewEdgeColor(edge)
+      points.push(source.x, source.y, source.z, target.x, target.y, target.z)
+      colors.push(color.r, color.g, color.b, color.r, color.g, color.b)
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(points, 3))
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+    return geo
+  }, [edges, positions])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  if (geometry.getAttribute('position').count === 0) return null
   return (
-    <group ref={ref} position={vector(anchor)}>
-      <group position={[-anchor.x, -anchor.y, -anchor.z]}>{children}</group>
-    </group>
+    <lineSegments geometry={geometry} renderOrder={1} frustumCulled={false}>
+      <lineBasicMaterial vertexColors transparent opacity={0.85} depthWrite={false} />
+    </lineSegments>
   )
 }
 
 function Universe(props: MarketUniverseSceneProps) {
   const {
     atlas,
-    detail,
-    neighborhood,
+    fieldDetails,
     selectedCommunityId,
-    lodCommunityId,
-    lodDetail,
     activeSymbol,
     reducedMotion,
     mobile,
     onSelectCommunity,
     onSelectNode,
-    onRequestLodCommunity,
   } = props
   const [hoveredCommunity, setHoveredCommunity] = useState<AtlasCommunity | null>(null)
+  // One relevance-graded map: the persistent overview is the whole scene. There
+  // is no separate re-projected cloud floated over the map. From afar you see
+  // each field's landmarks; as the camera nears a field, its members (all loaded
+  // up front) fade in *in place* — same coordinates, the field just grows denser
+  // — rather than a layer laid on top. Selection drives the inspector.
   const scene = useMemo(
     () => buildMarketUniverseScene({
       atlas,
-      detail,
-      neighborhood,
+      detail: null,
+      neighborhood: null,
       selectedCommunityId,
-      lodCommunityId,
-      lodDetail,
+      fieldDetails,
       activeSymbol,
       mobile,
     }),
-    [activeSymbol, atlas, detail, lodCommunityId, lodDetail, mobile, neighborhood, selectedCommunityId],
+    [activeSymbol, atlas, fieldDetails, mobile, selectedCommunityId],
   )
   const overviewPositions = useMemo(
     () => new Map(scene.overview.nodes.map((node) => [marketUniverseNodeKey(node), node.position])),
     [scene.overview.nodes],
   )
-  const fieldPositions = useMemo(
-    () => new Map(scene.field?.nodes.map((node) => [marketUniverseNodeKey(node), node.position]) ?? []),
-    [scene.field?.nodes],
-  )
-  const companyPositions = useMemo(
-    () => new Map(scene.company?.nodes.map((node) => [marketUniverseNodeKey(node), node.position]) ?? []),
-    [scene.company?.nodes],
-  )
-  const fieldSymbols = useMemo(() => new Set(scene.field?.nodes.map((node) => node.symbol) ?? []), [scene.field?.nodes])
-  // Selection layers decorate the persistent world; they must never become a
-  // new camera frame. Reframing here is what made a zoomed-out user remain
-  // visually locked to the last company or economic field.
+  // Selection decorates the persistent world; it must never become a new camera
+  // frame. Reframing here is what made a zoomed-out user remain visually locked
+  // to the last company or economic field.
   const frame = useMemo(
     () => cameraFrame(scene.overview.communities, `${atlas.window}:${atlas.view}:${mobile ? 'mobile' : 'desktop'}`),
     [atlas.view, atlas.window, mobile, scene.overview.communities],
@@ -659,22 +754,14 @@ function Universe(props: MarketUniverseSceneProps) {
       <directionalLight position={[4, 8, 10]} intensity={1.35} color="#ffffff" />
       <pointLight position={[-8, -2, 5]} intensity={9} distance={36} color="#63b8b0" />
       <AmbientDust reducedMotion={reducedMotion} />
-      <CameraRig
-        frame={frame}
-        communities={scene.overview.communities}
-        hoveredCommunity={hoveredCommunity}
-        reducedMotion={reducedMotion}
-        mobile={mobile}
-        onLodCandidate={onRequestLodCommunity}
-      />
+      <CameraRig frame={frame} reducedMotion={reducedMotion} mobile={mobile} />
 
-      <AtlasCommunityLinks atlas={atlas} communities={scene.overview.communities} selectedId={selectedCommunityId ?? lodCommunityId} />
       {scene.overview.communities.map((community, index) => (
         <CommunityField
           key={community.id}
           community={community}
           level="economy"
-          selected={community.id === selectedCommunityId || community.id === lodCommunityId}
+          selected={community.id === selectedCommunityId}
           hovered={community.id === hoveredCommunity?.id}
           dimmed={false}
           showLabel={index < (mobile ? 4 : 8)}
@@ -686,128 +773,81 @@ function Universe(props: MarketUniverseSceneProps) {
           onHover={setHoveredCommunity}
         />
       ))}
-      {scene.overview.edges.map((edge, index) => {
-        const source = endpointPosition(overviewPositions, edge.sourceCommunityId, edge.source)
-        const target = endpointPosition(overviewPositions, edge.targetCommunityId, edge.target)
-        if (!source || !target) return null
-        const active = activeSymbol === edge.source || activeSymbol === edge.target
+      <OverviewEdges edges={scene.overview.edges} positions={overviewPositions} />
+      {activeSymbol
+        ? scene.overview.edges
+          .filter((edge) => edge.source === activeSymbol || edge.target === activeSymbol)
+          .slice(0, 14)
+          .map((edge, index) => {
+            const source = endpointPosition(overviewPositions, edge.sourceCommunityId, edge.source)
+            const target = endpointPosition(overviewPositions, edge.targetCommunityId, edge.target)
+            if (!source || !target) return null
+            return (
+              <RelationshipLine
+                key={`active:${edge.source}:${edge.target}:${index}`}
+                edge={edge}
+                source={source}
+                target={target}
+                active
+                timing={atlas.view === 'timing'}
+                ambientPulse={false}
+                reducedMotion={reducedMotion}
+              />
+            )
+          })
+        : null}
+      <NodeInstances
+        nodes={scene.overview.nodes}
+        activeSymbol={activeSymbol}
+        layer="overview"
+        labelSymbols={scene.overview.labelSymbols}
+        isContextual={(node) => Boolean(node.context || node.isBoundary)}
+        onSelect={onSelectNode}
+        onHover={(hoveredNode) => setHoveredCommunity(
+          hoveredNode
+            ? atlas.communities.find((community) => community.id === hoveredNode.communityId) ?? null
+            : null,
+        )}
+      />
+      {scene.overview.communities.map((community) => {
+        const members = scene.overview.memberNodesByCommunity.get(community.id)
+        if (!members?.length) return null
         return (
-          <RelationshipLine
-            key={`${edge.source}:${edge.target}:${index}`}
-            edge={edge}
-            source={source}
-            target={target}
-            active={active}
-            timing={atlas.view === 'timing'}
-            ambientPulse={!active && index < (mobile ? 2 : 5) && (edge.confidence ?? 0) >= 0.7}
-            reducedMotion={reducedMotion}
+          <ProximityField
+            key={`members:${community.id}`}
+            community={community}
+            members={members}
+            activeSymbol={activeSymbol}
+            mobile={mobile}
+            onSelect={onSelectNode}
+            onHover={(hoveredNode) => setHoveredCommunity(
+              hoveredNode
+                ? atlas.communities.find((item) => item.id === hoveredNode.communityId) ?? null
+                : null,
+            )}
           />
         )
       })}
-      {scene.overview.nodes.map((node, index) => (
-        <CompanyNode
-          key={`${node.communityId}:${node.symbol}:${index}`}
-          node={node}
-          active={node.symbol === activeSymbol}
-          contextual={Boolean(node.context || node.isBoundary || fieldSymbols.has(node.symbol))}
-          layer="overview"
-          showLabel={scene.overview.labelSymbols.has(node.symbol) && !fieldSymbols.has(node.symbol)}
-          reducedMotion={reducedMotion}
-          onSelect={onSelectNode}
-          onHover={(hoveredNode) => setHoveredCommunity(
-            hoveredNode
-              ? atlas.communities.find((community) => community.id === hoveredNode.communityId) ?? null
-              : null,
-          )}
-        />
-      ))}
-      {scene.field ? (
-        <SemanticDetailLayer anchor={scene.field.communities[0]?.position ?? { x: 0, y: 0, z: 0 }} mobile={mobile}>
-          {scene.field.communities.map((community) => (
-            <CommunityField
-              key={`field:${community.id}`}
-              community={community}
-              level="field"
-              selected={community.id === selectedCommunityId}
-              hovered={community.id === hoveredCommunity?.id}
-              dimmed={false}
-              showLabel={false}
-              reducedMotion={reducedMotion}
-              onSelect={onSelectCommunity}
-              onHover={setHoveredCommunity}
-            />
-          ))}
-          {scene.field.edges.map((edge, index) => {
-            const source = endpointPosition(fieldPositions, edge.sourceCommunityId, edge.source)
-            const target = endpointPosition(fieldPositions, edge.targetCommunityId, edge.target)
-            if (!source || !target) return null
-            const active = activeSymbol === edge.source || activeSymbol === edge.target
-            return <RelationshipLine key={`field:${edge.source}:${edge.target}:${index}`} edge={edge} source={source} target={target} active={active} timing={atlas.view === 'timing'} ambientPulse={!active && index < (mobile ? 2 : 5)} reducedMotion={reducedMotion} />
-          })}
-          {scene.field.nodes.filter((node) => !scene.company || node.symbol !== activeSymbol).map((node, index) => (
-            <CompanyNode
-              key={`field:${node.communityId}:${node.symbol}:${index}`}
-              node={node}
-              active={node.symbol === activeSymbol}
-              contextual={Boolean(node.context || node.isBoundary)}
-              layer="field"
-              showLabel={Boolean(selectedCommunityId && scene.field?.labelSymbols.has(node.symbol))}
-              reducedMotion={reducedMotion}
-              onSelect={onSelectNode}
-            />
-          ))}
-          {scene.company ? (
-            <>
-              {scene.company.edges.map((edge, index) => {
-                const source = endpointPosition(companyPositions, edge.sourceCommunityId, edge.source)
-                  ?? endpointPosition(fieldPositions, edge.sourceCommunityId, edge.source)
-                  ?? endpointPosition(overviewPositions, edge.sourceCommunityId, edge.source)
-                const target = endpointPosition(companyPositions, edge.targetCommunityId, edge.target)
-                  ?? endpointPosition(fieldPositions, edge.targetCommunityId, edge.target)
-                  ?? endpointPosition(overviewPositions, edge.targetCommunityId, edge.target)
-                if (!source || !target) return null
-                return <RelationshipLine key={`focus:${edge.source}:${edge.target}:${index}`} edge={edge} source={source} target={target} active timing={atlas.view === 'timing'} ambientPulse={false} reducedMotion={reducedMotion} />
-              })}
-              {scene.company.nodes.filter((node) => node.symbol === activeSymbol || !fieldSymbols.has(node.symbol)).map((node, index) => (
-                <CompanyNode
-                  key={`focus:${node.communityId}:${node.symbol}:${index}`}
-                  node={node}
-                  active={node.symbol === activeSymbol}
-                  contextual={Boolean(node.context || node.isBoundary)}
-                  layer="focus"
-                  showLabel={Boolean(scene.company?.labelSymbols.has(node.symbol))}
-                  reducedMotion={reducedMotion}
-                  onSelect={onSelectNode}
-                />
-              ))}
-            </>
-          ) : null}
-        </SemanticDetailLayer>
-      ) : null}
     </>
   )
 }
 
 export type MarketUniverseSceneProps = {
   atlas: RelationshipAtlas
-  detail: RelationshipAtlasDetail | null
-  neighborhood: RelationshipAtlasDetail | null
+  fieldDetails: Map<string, RelationshipAtlasDetail>
   selectedCommunityId: string | null
-  lodCommunityId: string | null
-  lodDetail: RelationshipAtlasDetail | null
   activeSymbol: string | null
   reducedMotion: boolean
   mobile: boolean
   onSelectCommunity: (community: AtlasCommunity) => void
   onSelectNode: (node: AtlasNode) => void
-  onRequestLodCommunity: (community: AtlasCommunity) => void
 }
 
 export default function MarketUniverseScene(props: MarketUniverseSceneProps) {
   return (
     <Canvas
       dpr={[1, 1.5]}
-      camera={{ position: [0, 0.8, 10.8], fov: 48, near: 0.1, far: 120 }}
+      camera={{ position: [0, 0.5, 10.8], fov: 42, near: 0.1, far: 120 }}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       onPointerMissed={() => { document.body.style.cursor = '' }}
     >

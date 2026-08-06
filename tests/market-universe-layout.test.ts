@@ -75,7 +75,11 @@ test('economy projection is bounded, selective, and deterministic', () => {
   assert.equal(first.overview.communities.length, 14)
   assert.ok(first.overview.communities.every((item) => item.sceneRadius >= 1.5 && item.sceneRadius <= 3.3))
   assert.ok(first.overview.communities.every((item) => item.visibleMemberCount > 0))
-  assert.ok(Math.max(...first.overview.communities.map((item) => Math.abs(item.position.x))) > 12)
+  // The economy is spread across the correlation plane but bounded to a compact,
+  // topology-true world (fields sit nearly tangent so distances read as relatedness)
+  // rather than the old deliberately-wide layout that pushed the camera far back.
+  const maxAbsX = Math.max(...first.overview.communities.map((item) => Math.abs(item.position.x)))
+  assert.ok(maxAbsX > 6 && maxAbsX <= 16, `communities spread but bounded: ${maxAbsX}`)
   assert.ok(Math.max(...first.overview.communities.map((item) => item.position.z)) - Math.min(...first.overview.communities.map((item) => item.position.z)) > 1)
   assert.deepEqual(first.overview.communities.map((item) => item.position), second.overview.communities.map((item) => item.position))
 })
@@ -91,6 +95,42 @@ test('economy fields expose multiple real landmarks when the overview payload pr
   assert.equal(scene.overview.communities.length, 14)
   assert.equal(scene.overview.nodes.length, 42)
   assert.ok(scene.overview.communities.every((item) => item.visibleMemberCount === 3))
+})
+
+test('loaded field members fill in around the landmarks without moving them', () => {
+  const target = communities[0]!
+  const landmark = atlas.landmarks.find((item) => item.communityId === target.id)!
+  const members = Array.from({ length: 6 }, (_, index) => node(`M${index}`, target.id, index + 1, index + 1))
+  const detail: RelationshipAtlasDetail = {
+    asOf: atlas.asOf,
+    window: atlas.window,
+    view: atlas.view,
+    focus: target.id,
+    community: target,
+    nodes: [landmark, ...members],
+    edges: [],
+  }
+  const base = buildMarketUniverseScene({ atlas, detail: null, neighborhood: null, selectedCommunityId: null, activeSymbol: null, mobile: false })
+  const withMembers = buildMarketUniverseScene({ atlas, detail: null, neighborhood: null, selectedCommunityId: null, fieldDetails: new Map([[target.id, detail]]), activeSymbol: null, mobile: false })
+
+  // No extra members until that field's detail has been loaded.
+  assert.equal(base.overview.memberNodesByCommunity.size, 0)
+
+  // Once loaded, the members appear, excluding the landmark already on the map.
+  const loaded = withMembers.overview.memberNodesByCommunity.get(target.id) ?? []
+  assert.equal(loaded.length, 6)
+  assert.ok(loaded.every((item) => item.symbol !== landmark.symbol))
+
+  // The landmark keeps its exact position whether or not members were loaded —
+  // members fill in around it, the map never re-lays-out.
+  const key = `${landmark.communityId}:${landmark.symbol}`
+  const before = base.overview.nodes.find((item) => `${item.communityId}:${item.symbol}` === key)!.position
+  const after = withMembers.overview.nodes.find((item) => `${item.communityId}:${item.symbol}` === key)!.position
+  assert.deepEqual(before, after)
+
+  // Members sit in the same field neighbourhood as the landmark, not scattered.
+  const maxSpread = Math.max(...loaded.map((item) => Math.hypot(item.position.x - after.x, item.position.y - after.y)))
+  assert.ok(maxSpread < 8, `members cluster near the field: ${maxSpread}`)
 })
 
 test('world overview retains cross-field bridge companies and their relationship', () => {

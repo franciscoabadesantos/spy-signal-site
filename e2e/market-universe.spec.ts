@@ -9,7 +9,7 @@ test.describe('progressive market universe', () => {
     await page.setViewportSize({ width: 1440, height: 920 })
     await page.goto('/markets/network')
 
-    await expect(page.getByRole('heading', { name: 'The world economy, connected.' })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Market relationship map' })).toBeVisible()
     await expect(page.locator('canvas')).toBeVisible()
     if (process.env.PLAYWRIGHT_CAPTURE === '1') {
       await page.waitForTimeout(800)
@@ -50,7 +50,7 @@ test.describe('progressive market universe', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/markets/network?window=126&view=residual')
 
-    await expect(page.getByRole('heading', { name: 'The world economy, connected.' })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Market relationship map' })).toBeVisible()
     await expect(page.locator('canvas')).toBeVisible()
     await expect(page.getByRole('button', { name: /View/ })).toBeVisible()
     await expect(page.getByLabel('Evidence window')).toBeVisible()

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import OptionalSessionReplay from '@/components/analytics/OptionalSessionReplay'
 import { ScrollRuntimeProvider } from '@/components/motion/ScrollRuntime'
+import ConditionalFooter from '@/components/ConditionalFooter'
 import SiteFooter from '@/components/SiteFooter'
 import 'lenis/dist/lenis.css'
 import "./globals.css";
@@ -37,7 +38,9 @@ export default function RootLayout({
           <ScrollRuntimeProvider defaultProfile="standard">
             <OptionalSessionReplay />
             {children}
-            <SiteFooter />
+            <ConditionalFooter>
+              <SiteFooter />
+            </ConditionalFooter>
           </ScrollRuntimeProvider>
         </ClerkProvider>
       </body>

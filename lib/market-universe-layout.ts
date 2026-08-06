@@ -23,6 +23,11 @@ export type MarketUniverseSceneLayer = {
   nodes: SceneNode[]
   edges: AtlasEdge[]
   labelSymbols: Set<string>
+  // Progressive detail: for each community whose member detail has been loaded
+  // (on approach or selection), the extra members beyond the always-visible
+  // landmarks — positioned in the SAME overview coordinates so they fill the
+  // field in place as the camera nears it, rather than as a separate layer.
+  memberNodesByCommunity: Map<string, SceneNode[]>
 }
 
 export type MarketUniverseSceneModel = {
@@ -41,6 +46,9 @@ type SceneInput = {
   selectedCommunityId: string | null
   lodCommunityId?: string | null
   lodDetail?: RelationshipAtlasDetail | null
+  // Per-community member detail loaded on approach/selection, keyed by community
+  // id. Drives progressive in-place density in the overview.
+  fieldDetails?: Map<string, RelationshipAtlasDetail>
   activeSymbol: string | null
   mobile: boolean
 }
@@ -214,15 +222,18 @@ function economyCommunityPositions(atlas: RelationshipAtlas, mobile: boolean): M
       source: community.position,
       radius: marketUniverseCommunityRadius(community),
     })),
-    // Deliberately wide coordinates: the initial camera sits *inside* this
-    // field and can travel through it. Do not shrink the world to fit all
-    // communities into a single overview shot.
+    // The economy reads as one connected territory framed on open. Coordinates
+    // stay close to the backend correlation positions (low dispersion) so the
+    // distance between two fields actually means how related they are; fields
+    // are packed nearly tangent (small spacing) rather than scattered as
+    // isolated islands. The bounds are sized so the whole map fits the viewport
+    // at a comfortable distance instead of pushing the camera far back.
     {
-      width: mobile ? 13.5 : 32,
-      height: mobile ? 13 : 20,
-      depth: mobile ? 7.4 : 15,
-      spacing: mobile ? 2.05 : 3.65,
-      dispersion: 0.38,
+      width: mobile ? 9 : 16,
+      height: mobile ? 8 : 10,
+      depth: mobile ? 4 : 6,
+      spacing: mobile ? 0.45 : 0.6,
+      dispersion: 0.12,
     },
   )
 }
@@ -266,7 +277,7 @@ function uniqueEdges(edges: AtlasEdge[]): AtlasEdge[] {
 function fieldOffset(key: string, index: number, radius: number): AtlasPosition {
   const longitude = stableUnit(`${key}:longitude`) * Math.PI * 2 + index * GOLDEN_ANGLE
   const latitude = (stableUnit(`${key}:latitude`) - 0.5) * Math.PI * 0.9
-  const distance = radius * (0.36 + stableUnit(`${key}:radius`) * 0.78)
+  const distance = radius * (0.46 + stableUnit(`${key}:radius`) * 0.82)
   return {
     x: Math.cos(longitude) * Math.cos(latitude) * distance,
     y: Math.sin(latitude) * distance * 0.82,
@@ -274,7 +285,11 @@ function fieldOffset(key: string, index: number, radius: number): AtlasPosition 
   }
 }
 
-function overviewScene(atlas: RelationshipAtlas, mobile: boolean): MarketUniverseSceneLayer {
+function overviewScene(
+  atlas: RelationshipAtlas,
+  mobile: boolean,
+  fieldDetails?: Map<string, RelationshipAtlasDetail>,
+): MarketUniverseSceneLayer {
   const sourceCommunities = rankedCommunities(atlas, mobile)
   const positions = economyCommunityPositions(atlas, mobile)
   const visibleIds = new Set(sourceCommunities.map((community) => community.id))
@@ -299,7 +314,12 @@ function overviewScene(atlas: RelationshipAtlas, mobile: boolean): MarketUnivers
     const bridgeKeys = bridgeKeysByCommunity.get(community.id) ?? new Set<string>()
     const bridgeNodes = rankedNodes(communityNodes.filter((node) => bridgeKeys.has(marketUniverseNodeKey(node))))
     const landmarks = rankedNodes(communityNodes)
-    const capacity = mobile ? 3 : 6
+    // Overview density: the backend now serves up to ~256 landmarks. Show more
+    // per field so the economy reads as a populated map rather than a sparse
+    // schematic — and so the members are already present (faded by relevance)
+    // instead of popping in on zoom. Nodes are instanced, so this cost is a
+    // couple of draw calls.
+    const capacity = mobile ? 8 : 20
     const candidates = uniqueNodes([...bridgeNodes, ...landmarks]).slice(0, capacity)
     return [community.id, candidates] as const
   }))
@@ -325,16 +345,55 @@ function overviewScene(atlas: RelationshipAtlas, mobile: boolean): MarketUnivers
     })
   })
   const landmarkKeys = new Set(landmarks.map((node) => marketUniverseNodeKey(node)))
+  // Progressive detail: for any community whose members have been loaded, place
+  // the extra members (beyond the landmark candidates already shown) using the
+  // SAME field center + fieldOffset scheme, continuing the index sequence after
+  // the landmarks so the landmark positions never move — the field just fills in
+  // denser in place. The scene fades these in by camera proximity.
+  const memberNodesByCommunity = new Map<string, SceneNode[]>()
+  if (fieldDetails && fieldDetails.size) {
+    for (const community of sourceCommunities) {
+      const detail = fieldDetails.get(community.id)
+      if (!detail) continue
+      const candidates = candidatesByCommunity.get(community.id) ?? []
+      const landmarkKeySet = new Set(candidates.map((node) => marketUniverseNodeKey(node)))
+      const center = positions.get(community.id) ?? community.position
+      const radius = marketUniverseCommunityRadius(community)
+      const memberSource = rankedNodes(
+        uniqueNodes(detail.nodes).filter((node) => (
+          node.communityId === community.id
+          && !node.context
+          && !node.isBoundary
+          && !landmarkKeySet.has(marketUniverseNodeKey(node))
+        )),
+      ).slice(0, mobile ? 40 : 120)
+      if (!memberSource.length) continue
+      const base = candidates.length
+      const members = memberSource.map((node, index) => {
+        const offset = fieldOffset(marketUniverseNodeKey(node), base + index, radius)
+        return {
+          ...node,
+          position: { x: center.x + offset.x, y: center.y + offset.y, z: center.z + offset.z },
+          sceneRadius: marketUniverseNodeRadius(node) * 0.86,
+        }
+      })
+      memberNodesByCommunity.set(community.id, members)
+    }
+  }
+  // Cross-field ticker-to-ticker edges (the web that crosses between fields).
+  // Batched into a single LineSegments draw call in the scene, so the cap can be
+  // generous without a per-edge draw-call cost.
   const edges = crossFieldEdges
     .filter((edge) => (
       landmarkKeys.has(marketUniverseEdgeEndpointKey(edge.sourceCommunityId, edge.source))
       && landmarkKeys.has(marketUniverseEdgeEndpointKey(edge.targetCommunityId, edge.target))
     ))
-    .slice(0, mobile ? 18 : 54)
+    .slice(0, mobile ? 90 : 260)
   return {
     communities,
     nodes: landmarks,
     edges,
+    memberNodesByCommunity,
     labelSymbols: new Set(
       communities
         .flatMap((community) => (candidatesByCommunity.get(community.id) ?? []).slice(0, 1))
@@ -403,6 +462,7 @@ function fieldScene(
     communities: [sceneCommunity],
     nodes,
     edges,
+    memberNodesByCommunity: new Map(),
     labelSymbols: new Set(labelNodes.map((node) => node.symbol)),
   }
 }
@@ -463,11 +523,11 @@ function companyScene(
     visibleEdges.push(edge)
   })
   const labels = [activeSymbol, ...positioned.slice(1, mobile ? 4 : 7).map((node) => node.symbol)]
-  return { communities: [], nodes: positioned, edges: visibleEdges, labelSymbols: new Set(labels) }
+  return { communities: [], nodes: positioned, edges: visibleEdges, memberNodesByCommunity: new Map(), labelSymbols: new Set(labels) }
 }
 
 export function buildMarketUniverseScene(input: SceneInput): MarketUniverseSceneModel {
-  const overview = overviewScene(input.atlas, input.mobile)
+  const overview = overviewScene(input.atlas, input.mobile, input.fieldDetails)
   const selected = input.atlas.communities.find((community) => community.id === input.selectedCommunityId) ?? null
   const lodCommunity = input.atlas.communities.find((community) => community.id === input.lodCommunityId) ?? null
   const fieldCommunity = selected ?? lodCommunity

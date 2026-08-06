@@ -19,6 +19,13 @@ import {
   type RelationshipAtlasDetail,
 } from '@/lib/network-atlas'
 import type { MarketUniverseLevel } from '@/lib/market-universe-layout'
+import {
+  MARKET_REGION_COLORS,
+  MARKET_REGION_LABELS,
+  MARKET_REGION_ORDER,
+  normalizeMarketRegion,
+  type MarketRegionKey,
+} from '@/lib/network-regions'
 import styles from './MarketUniverse.module.css'
 
 const MarketUniverseScene = dynamic(() => import('./MarketUniverseScene'), {
@@ -126,10 +133,15 @@ function StaticUniverse({ atlas, onSelectNode }: { atlas: RelationshipAtlas; onS
   )
 }
 
-function UniverseLegend({ view, level, mobile }: { view: AtlasView; level: MarketUniverseLevel; mobile: boolean }) {
+function UniverseLegend({ view, level, mobile, regions }: {
+  view: AtlasView
+  level: MarketUniverseLevel
+  mobile: boolean
+  regions: Array<{ key: string; label: string; color: string }>
+}) {
   return (
     <div className={styles.legend} aria-label="How to read the economic atlas">
-      <span className={styles.travelHint}><i data-kind="travel" />{mobile ? 'Pinch to travel · drag to orbit' : 'Scroll to travel · drag to orbit'}</span>
+      <span className={styles.travelHint}><i data-kind="travel" />{mobile ? 'Pinch to zoom · drag to pan' : 'Scroll to zoom · drag to pan'}</span>
       {level === 'economy' ? <span><i data-kind="mass" />Field size: companies</span> : null}
       {level !== 'economy' ? <span><i data-kind="mass" />Core: market value</span> : null}
       {level === 'company' ? <span><i data-kind="distance" />Closer: stronger link</span> : null}
@@ -137,6 +149,12 @@ function UniverseLegend({ view, level, mobile }: { view: AtlasView; level: Marke
       <span><i data-kind="line" />Line: relationship strength</span>
       <span><i data-kind="fade" />Fade: confidence</span>
       {view === 'timing' ? <span><i data-kind="timing" />Pulse: direction</span> : null}
+      {regions.map((region) => (
+        <span key={region.key}>
+          <i style={{ background: region.color, width: '0.5rem', height: '0.5rem', borderRadius: '50%' }} />
+          {region.label}
+        </span>
+      ))}
     </div>
   )
 }
@@ -348,8 +366,11 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
   const [atlas, setAtlas] = useState(initialAtlas)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<RelationshipAtlasDetail | null>(null)
-  const [lodCommunityId, setLodCommunityId] = useState<string | null>(null)
-  const [lodDetail, setLodDetail] = useState<RelationshipAtlasDetail | null>(null)
+  // Every field's members, loaded once when the atlas loads (bounded: ~24 fields
+  // × ≤84 nodes, flat in universe size). Rendered in-place in the overview; each
+  // field's members reveal purely by zoom (see ProximityField), the data is
+  // always present.
+  const [fieldDetails, setFieldDetails] = useState<Map<string, RelationshipAtlasDetail>>(() => new Map())
   const [neighborhood, setNeighborhood] = useState<RelationshipAtlasDetail | null>(null)
   const [activeSymbol, setActiveSymbol] = useState<string | null>(null)
   const [loadingAtlas, setLoadingAtlas] = useState(false)
@@ -357,7 +378,6 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
   const [requestError, setRequestError] = useState<string | null>(null)
   const atlasRequestId = useRef(0)
   const detailRequestId = useRef(0)
-  const lodRequestId = useRef(0)
   const [atlasCache] = useState(() => new Map<string, RelationshipAtlas>([[`${initialAtlas.window}:${initialAtlas.view}`, initialAtlas]]))
   const [detailCache] = useState(() => new Map<string, RelationshipAtlasDetail>())
   const [neighborhoodCache] = useState(() => new Map<string, RelationshipAtlasDetail>())
@@ -385,11 +405,9 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
   async function selectAtlas(window: number, view: AtlasView) {
     const requestId = ++atlasRequestId.current
     detailRequestId.current += 1
-    lodRequestId.current += 1
     setSelectedId(null)
     setDetail(null)
-    setLodCommunityId(null)
-    setLodDetail(null)
+    setFieldDetails(new Map())
     setNeighborhood(null)
     setActiveSymbol(null)
     setRequestError(null)
@@ -458,12 +476,9 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
 
   async function selectCommunity(community: AtlasCommunity) {
     const requestId = ++detailRequestId.current
-    lodRequestId.current += 1
     setSelectedId(community.id)
-    setLodCommunityId(community.id)
     setActiveSymbol(null)
     setDetail(null)
-    setLodDetail(null)
     setNeighborhood(null)
     setRequestError(null)
     setLoadingDetail(true)
@@ -471,7 +486,6 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
       const next = await loadCommunityDetail(community)
       if (requestId === detailRequestId.current) {
         setDetail(next)
-        setLodDetail(next)
       }
     } catch {
       if (requestId === detailRequestId.current) {
@@ -484,10 +498,8 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
 
   async function selectNode(node: AtlasNode) {
     const requestId = ++detailRequestId.current
-    lodRequestId.current += 1
     setActiveSymbol(node.symbol)
     setSelectedId(node.communityId || selectedId)
-    setLodCommunityId(node.communityId || selectedId)
     setNeighborhood(null)
     setRequestError(null)
     setLoadingDetail(true)
@@ -500,7 +512,6 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
       if (requestId !== detailRequestId.current) return
       if (fieldResult.status === 'fulfilled' && fieldResult.value) {
         setDetail(fieldResult.value)
-        setLodDetail(fieldResult.value)
       }
       if (neighborhoodResult.status === 'rejected') throw neighborhoodResult.reason
       setNeighborhood(neighborhoodResult.value)
@@ -515,12 +526,9 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
 
   function clearFocus() {
     detailRequestId.current += 1
-    lodRequestId.current += 1
     setLoadingDetail(false)
     setSelectedId(null)
     setDetail(null)
-    setLodCommunityId(null)
-    setLodDetail(null)
     setNeighborhood(null)
     setActiveSymbol(null)
     setRequestError(null)
@@ -538,28 +546,44 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
     clearFocus()
   }
 
-  async function requestLodCommunity(community: AtlasCommunity) {
-    if (selectedId === community.id || lodCommunityId === community.id) return
-    const requestId = ++lodRequestId.current
-    setLodCommunityId(community.id)
-    setLodDetail(null)
-    try {
-      const next = await loadCommunityDetail(community)
-      if (requestId === lodRequestId.current && selectedId === null) setLodDetail(next)
-    } catch {
-      if (requestId === lodRequestId.current && selectedId === null) {
-        setLodCommunityId(null)
-        setLodDetail(null)
+  // Load every field's members once, when the atlas loads. The dataset is small
+  // and bounded (~24 fields × ≤84 nodes, flat in universe size). It's fired off
+  // the initial-render critical path — when the browser is idle, after the canvas
+  // is up — so the requests don't compete with first paint; the map renders
+  // immediately from the atlas landmarks, each field fills in as its request
+  // returns, and the reveal is purely visual (by zoom). Re-runs on view/window.
+  useEffect(() => {
+    let cancelled = false
+    const warmAllFields = () => {
+      for (const community of atlas.communities) {
+        loadCommunityDetail(community)
+          .then((next) => { if (!cancelled) setFieldDetails((prev) => new Map(prev).set(community.id, next)) })
+          .catch(() => { /* best-effort; the field stays at landmark density */ })
       }
     }
-  }
+    if (typeof window.requestIdleCallback === 'function') {
+      const handle = window.requestIdleCallback(warmAllFields, { timeout: 2000 })
+      return () => { cancelled = true; window.cancelIdleCallback?.(handle) }
+    }
+    const timer = setTimeout(warmAllFields, 200)
+    return () => { cancelled = true; clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [atlas])
+
+  const regionLegend = useMemo(() => {
+    const present = new Set<MarketRegionKey>()
+    for (const node of atlas.landmarks) present.add(normalizeMarketRegion(node.region))
+    return MARKET_REGION_ORDER
+      .filter((key) => present.has(key))
+      .map((key) => ({ key, label: MARKET_REGION_LABELS[key], color: MARKET_REGION_COLORS[key] }))
+  }, [atlas.landmarks])
 
   const sceneLevel = activeNode ? 'company' : selectedCommunity ? 'field' : 'economy'
 
   return (
-    <section className={styles.root} aria-label="Market relationship map">
-      <div className={styles.chrome}>
-        <div className={styles.intro}>
+    <section className={styles.root} data-atlas-root aria-label="Market relationship map">
+      <div className={styles.chrome} data-atlas-chrome>
+        <div className={styles.intro} data-atlas-intro>
           <AccessibleNavigator
             communities={atlas.communities}
             nodes={atlas.landmarks}
@@ -569,15 +593,16 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
             onSelectNode={(node) => void selectNode(node)}
           />
         </div>
-        <div className={styles.controls}>
+        <div className={styles.controls} data-atlas-controls>
           <ExpandingSelector
+            className="atlas-view"
             label="View"
             ariaLabel="Choose how relationships are interpreted"
             value={atlas.view}
             options={VIEW_OPTIONS}
             onValueChange={(value) => void selectAtlas(atlas.window, value as AtlasView)}
           />
-          <div className={styles.windowControl}>
+          <div className={styles.windowControl} data-atlas-window>
             <span>Window</span>
             <SegmentedControl
               options={['126', '252'] as const}
@@ -589,27 +614,23 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
         </div>
       </div>
 
-      <div className={styles.stage} data-focused={sceneLevel === 'economy' ? 'false' : 'true'} data-level={sceneLevel}>
+      <div className={styles.stage} data-atlas-stage data-focused={sceneLevel === 'economy' ? 'false' : 'true'} data-level={sceneLevel}>
         <UniverseBoundary fallback={<StaticUniverse atlas={atlas} onSelectNode={(node) => void selectNode(node)} />}>
           <MarketUniverseScene
             atlas={atlas}
-            detail={detail}
-            neighborhood={neighborhood}
+            fieldDetails={fieldDetails}
             selectedCommunityId={selectedId}
-            lodCommunityId={lodCommunityId}
-            lodDetail={lodDetail}
             activeSymbol={activeSymbol}
             reducedMotion={reducedMotion}
             mobile={mobile}
             onSelectCommunity={(community) => void selectCommunity(community)}
             onSelectNode={(node) => void selectNode(node)}
-            onRequestLodCommunity={(community) => void requestLodCommunity(community)}
           />
         </UniverseBoundary>
 
         {loadingAtlas ? <div className={styles.loadingVeil}><UniverseWait /></div> : null}
         {!selectedId && !activeSymbol ? <LandmarkIndex nodes={atlas.landmarks} activeSymbol={activeSymbol} onSelect={(node) => void selectNode(node)} /> : null}
-        <UniverseLegend view={atlas.view} level={sceneLevel} mobile={mobile} />
+        <UniverseLegend view={atlas.view} level={sceneLevel} mobile={mobile} regions={regionLegend} />
         <div className={styles.snapshot}>
           <span>{atlas.asOf ? `As of ${atlas.asOf}` : 'Latest snapshot'}</span>
           {!atlas.materialized ? <small>Live relationship preview</small> : <small>Materialized topology</small>}

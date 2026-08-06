@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
+import AtlasImmersiveMode from '@/components/AtlasImmersiveMode'
 import MarketUniverse from '@/components/MarketUniverse'
+import { MarketingHeader } from '@/components/marketing/site-chrome'
 import EmptyState from '@/components/ui/EmptyState'
 import RetryButton from '@/components/ui/RetryButton'
 import {
@@ -63,6 +65,8 @@ export default async function MarketNetworkPage({
 
   return (
     <Suspense fallback={<div className="min-h-[70svh]" aria-hidden="true" />}>
+      <AtlasImmersiveMode />
+      <MarketingHeader activeHref="/" />
       <MarketUniverse initialAtlas={atlas} />
     </Suspense>
   )

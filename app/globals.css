@@ -639,6 +639,71 @@
   border-bottom-color: color-mix(in srgb, var(--brand-spark) 28%, var(--border));
 }
 
+/* ── Immersive atlas route (/markets/network) ──────────────────────────────
+   Full-screen dashboard: lock page scroll and let the map fill the whole
+   viewport. The app top bar is replaced (in the route) by the compact marketing
+   pill, which floats over the map on the same row as the atlas chrome, so there
+   is no separate header band. Lenis is paused while this route is mounted. */
+html.atlas-immersive,
+html.atlas-immersive body {
+  overflow: hidden;
+}
+html.atlas-immersive .app-shell > main {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+html.atlas-immersive [data-atlas-root] {
+  min-height: 0;
+  height: 100svh;
+}
+html.atlas-immersive [data-atlas-stage] {
+  min-height: 0;
+  height: 100%;
+}
+/* The full-width header shell must not swallow clicks meant for the atlas chrome
+   sitting behind it (Browse atlas / View / Window); only the pill is clickable. */
+html.atlas-immersive .site-header,
+html.atlas-immersive .site-header__inner {
+  pointer-events: none;
+}
+html.atlas-immersive .site-header__row,
+html.atlas-immersive .site-header__inner > .mt-3 {
+  pointer-events: auto;
+}
+
+/* Atlas chrome (Browse atlas / View / Window) shares the pill's top row: same
+   top offset, and lifted above the header shell so its controls always take the
+   click. The three controls are normalised to the pill's height. */
+html.atlas-immersive [data-atlas-chrome] {
+  z-index: 100;
+  padding-top: 12px;
+}
+html.atlas-immersive [data-atlas-intro] > details {
+  margin-top: 0;
+}
+html.atlas-immersive [data-atlas-intro] summary,
+html.atlas-immersive [data-atlas-window],
+html.atlas-immersive .atlas-view,
+html.atlas-immersive .atlas-view [data-expanding-selector],
+html.atlas-immersive .atlas-view [data-expanding-selector] > button,
+html.atlas-immersive .atlas-view [role="radiogroup"] {
+  min-height: 38px;
+  height: 38px;
+}
+
+/* Stack the controls so View (with its options) sits directly below Window,
+   right-aligned, instead of to Window's left. */
+html.atlas-immersive [data-atlas-controls] {
+  flex-direction: column;
+  align-items: flex-end;
+}
+html.atlas-immersive [data-atlas-window] {
+  order: 1;
+}
+html.atlas-immersive .atlas-view {
+  order: 2;
+}
+
 /* Semantic font roles keep the app on Geist without forcing a global font swap. */
 :root {
   --font-display: var(--font-geist-sans);
