@@ -84,8 +84,8 @@
 .fieldLabel button:focus-visible { border-radius: 0.35rem; outline: 2px solid var(--brand-spark); outline-offset: 2px; }
 .sceneLabel span { display: block; font-size: 0.67rem; font-weight: 740; letter-spacing: -0.01em; }
 .sceneLabel small { display: block; margin-top: 0.08rem; color: var(--content-muted); font-size: 0.53rem; font-weight: 560; }
-.fieldLabel span { display: block; font-size: 0.7rem; font-weight: 710; }
-.fieldLabel small { display: block; margin-top: 0.1rem; color: var(--content-muted); font-size: 0.54rem; font-weight: 560; }
+.fieldLabel span { display: block; font-size: 1.06rem; font-weight: 730; letter-spacing: -0.012em; }
+.fieldLabel small { display: block; margin-top: 0.12rem; color: var(--content-muted); font-size: 0.64rem; font-weight: 560; }
 
 .index {
   position: absolute;
@@ -176,9 +176,9 @@
   top: calc(100% + 0.45rem);
   left: 0;
   display: grid;
-  width: min(31rem, calc(100vw - 2rem));
+  width: min(21rem, calc(100vw - 2rem));
   max-height: min(52vh, 28rem);
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: 1fr;
   gap: 0.8rem;
   overflow: auto;
   padding: 0.75rem;

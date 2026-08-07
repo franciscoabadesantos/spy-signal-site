@@ -79,8 +79,13 @@ test('economy projection is bounded, selective, and deterministic', () => {
   // topology-true world (fields sit nearly tangent so distances read as relatedness)
   // rather than the old deliberately-wide layout that pushed the camera far back.
   const maxAbsX = Math.max(...first.overview.communities.map((item) => Math.abs(item.position.x)))
-  assert.ok(maxAbsX > 6 && maxAbsX <= 16, `communities spread but bounded: ${maxAbsX}`)
-  assert.ok(Math.max(...first.overview.communities.map((item) => item.position.z)) - Math.min(...first.overview.communities.map((item) => item.position.z)) > 1)
+  assert.ok(maxAbsX > 6 && maxAbsX <= 17, `communities spread but bounded: ${maxAbsX}`)
+  // Every field sits on one level — none is stacked in front of or behind
+  // another. Depth lives inside each field (its balls form a rounded 3D cluster),
+  // not between fields, so the field centers stay coplanar.
+  const zSpread = Math.max(...first.overview.communities.map((item) => item.position.z))
+    - Math.min(...first.overview.communities.map((item) => item.position.z))
+  assert.ok(zSpread < 0.001, `field centers are coplanar: ${zSpread}`)
   assert.deepEqual(first.overview.communities.map((item) => item.position), second.overview.communities.map((item) => item.position))
 })
 
@@ -100,7 +105,9 @@ test('economy fields expose multiple real landmarks when the overview payload pr
 test('loaded field members fill in around the landmarks without moving them', () => {
   const target = communities[0]!
   const landmark = atlas.landmarks.find((item) => item.communityId === target.id)!
-  const members = Array.from({ length: 6 }, (_, index) => node(`M${index}`, target.id, index + 1, index + 1))
+  // Members share the same embedding as their landmark, so their coordinates sit
+  // in its neighbourhood (near the landmark at 0,0) — not scattered across the map.
+  const members = Array.from({ length: 6 }, (_, index) => node(`M${index}`, target.id, (index + 1) * 0.2, (index + 1) * -0.15))
   const detail: RelationshipAtlasDetail = {
     asOf: atlas.asOf,
     window: atlas.window,

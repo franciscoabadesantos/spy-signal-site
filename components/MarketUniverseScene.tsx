@@ -4,7 +4,7 @@ import { Html, Instance, Instances, Line, OrbitControls } from '@react-three/dre
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import type { Line2, OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type {
   AtlasCommunity,
   AtlasEdge,
@@ -31,6 +31,10 @@ function clamp(value: number, minimum = 0, maximum = 1): number {
 function vector(position: AtlasPosition): [number, number, number] {
   return [position.x, position.y, position.z]
 }
+
+// A raycast that never hits — assigned to a field's hit sphere while zoomed in so
+// it stops swallowing clicks meant for the individual company balls inside it.
+const noopRaycast: THREE.Object3D['raycast'] = () => {}
 
 function endpointPosition(
   positions: Map<string, AtlasPosition>,
@@ -123,13 +127,14 @@ function CameraRig({
     if (initialized.current && lastLandedKey.current === frame.key) return
     lastLandedKey.current = frame.key
     const target = new THREE.Vector3(frame.center.x, frame.center.y, frame.center.z)
-    // Read as a map: look at the correlation plane almost face-on. A small,
-    // fixed y-lift keeps a hint of 2.5D depth (fog layering the z axis) without
-    // the oblique framing that made the old free-orbit scene feel like a globe.
+    // The fields all lie on one level, so the camera stays close to face-on and
+    // no field reads as stacked in front of another. The depth comes from within
+    // each field — every field is a rounded 3D cluster (see `fieldOffset`) — so
+    // only a mild tilt is needed to let that volume, its shading and fog, read.
     const destination = new THREE.Vector3(
       target.x,
-      target.y + initialDistance * 0.05,
-      frame.center.z + initialDistance,
+      target.y + initialDistance * 0.22,
+      frame.center.z + initialDistance * 0.97,
     )
     const immediate = !initialized.current || reducedMotion
     initialized.current = true
@@ -245,6 +250,21 @@ function FieldGlow({ community, hovered, selected }: {
   )
 }
 
+// A field's boundary ring — a thin circle drawn around the field's balls to show
+// where a field is. The points trace a closed circle in the correlation (x/y)
+// plane; the map is viewed near face-on, so it reads as a ring encircling the
+// cluster. The ring and the field label only live when the camera is zoomed OUT
+// (see `CommunityField`); as you dive into a field they fade away and hand the
+// frame to the company balls.
+function fieldRingPoints(radius: number, segments = 96): [number, number, number][] {
+  const points: [number, number, number][] = []
+  for (let index = 0; index <= segments; index += 1) {
+    const angle = (index / segments) * Math.PI * 2
+    points.push([Math.cos(angle) * radius, Math.sin(angle) * radius, 0])
+  }
+  return points
+}
+
 function FieldCloud({ community, level, reducedMotion, hovered }: {
   community: SceneCommunity
   level: MarketUniverseLevel
@@ -332,9 +352,8 @@ function CommunityField({
   level,
   selected,
   hovered,
-  dimmed,
-  showLabel,
   reducedMotion,
+  mobile,
   onSelect,
   onHover,
 }: {
@@ -342,29 +361,63 @@ function CommunityField({
   level: MarketUniverseLevel
   selected: boolean
   hovered: boolean
-  dimmed: boolean
-  showLabel: boolean
   reducedMotion: boolean
+  mobile: boolean
   onSelect: (community: AtlasCommunity) => void
   onHover: (community: AtlasCommunity | null) => void
 }) {
   const radius = community.sceneRadius
   const interactive = level === 'economy'
+  const { camera } = useThree()
+  const ringRef = useRef<Line2>(null)
+  const hitboxRef = useRef<THREE.Mesh>(null)
+  const color = marketRegionColor(community.dominantRegion)
+  const ringPoints = useMemo(() => fieldRingPoints(community.coreRadius), [community.coreRadius])
+  // The field boundary ring belongs to the "from afar" reading of the map: it
+  // marks where each field sits while the whole economy is in view, then
+  // dissolves as the camera dives into a field so the individual company balls
+  // own the close-up. `fade` is 1 when zoomed out and eases to 0 as the camera
+  // nears the plane — the exact inverse of the member reveal in `ProximityField`,
+  // so the two crossfade. (The field NAME labels fade on the same curve but are
+  // rendered by `FieldNameLabels` so they can declutter against each other.)
+  const centerZ = community.position.z
+  const fadeNear = mobile ? 8 : 10
+  const fadeFar = mobile ? 15 : 18
+  useFrame(() => {
+    if (!interactive) return
+    const height = Math.abs(camera.position.z - centerZ)
+    const fade = clamp((height - fadeNear) / Math.max(0.001, fadeFar - fadeNear))
+    if (ringRef.current) {
+      const material = ringRef.current.material as THREE.Material & { opacity: number }
+      material.opacity = fade * (selected ? 0.62 : hovered ? 0.5 : 0.34)
+      ringRef.current.visible = fade > 0.01
+    }
+    if (hitboxRef.current) {
+      // Zoomed in, the field name is gone and the individual balls own the frame:
+      // switch off the field's big invisible hit sphere so a click lands on the
+      // bubble under the cursor (→ company info) instead of re-selecting the field.
+      hitboxRef.current.raycast = fade > 0.4 ? THREE.Mesh.prototype.raycast : noopRaycast
+    }
+  })
   return (
     <group position={vector(community.position)}>
-      {level === 'economy' ? <FieldGlow community={community} hovered={hovered} selected={selected} /> : null}
+      {interactive ? <FieldGlow community={community} hovered={hovered} selected={selected} /> : null}
       <FieldCloud community={community} level={level} reducedMotion={reducedMotion} hovered={hovered || selected} />
-      <mesh scale={selected ? 1.2 : hovered ? 1.1 : 1}>
-        <sphereGeometry args={[0.13 + radius * 0.04, 18, 18]} />
-        <meshBasicMaterial
-          color={marketRegionColor(community.dominantRegion)}
+      {interactive ? (
+        <Line
+          ref={ringRef}
+          points={ringPoints}
+          color={color}
+          lineWidth={selected || hovered ? 2 : 1.4}
           transparent
-          opacity={selected ? 0.48 : hovered ? 0.32 : 0.17}
+          opacity={0.34}
           depthWrite={false}
+          renderOrder={-1}
         />
-      </mesh>
+      ) : null}
       {interactive ? (
         <mesh
+          ref={hitboxRef}
           onClick={(event) => { event.stopPropagation(); onSelect(community) }}
           onDoubleClick={(event) => { event.stopPropagation(); onSelect(community) }}
           onPointerEnter={() => { document.body.style.cursor = 'zoom-in'; onHover(community) }}
@@ -375,14 +428,131 @@ function CommunityField({
           <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
         </mesh>
       ) : null}
-      {!dimmed && showLabel ? (
-        <Html center distanceFactor={level === 'economy' ? 12 : 14} position={[0, -radius * 0.88, 0]} className={styles.fieldLabel}>
-          <button type="button" onClick={() => onSelect(community)}>
-            <span>{community.label}</span>
-            <small>{community.scopeLabel} · {community.memberCount} companies</small>
-          </button>
+    </group>
+  )
+}
+
+// Field NAME labels, anchored at the centre of each field's ring. Every field
+// keeps its name — none are dropped — but when two names would print on top of
+// each other they are NUDGED apart in screen space instead. Each throttled tick
+// projects the centres to the screen and runs a few passes of pairwise
+// separation (using each label's actual measured box, so wide names like
+// "Consumer Defensive" get the room they need), producing a small target offset
+// per label; every frame the applied offset eases toward that target so the
+// names glide rather than snap. Opacity rides the same zoom `fade` as the rings,
+// so the names read from afar and dissolve as you dive in.
+const ZERO_OFFSET = { x: 0, y: 0 }
+function FieldNameLabels({
+  communities,
+  mobile,
+  onSelect,
+}: {
+  communities: SceneCommunity[]
+  mobile: boolean
+  onSelect: (community: AtlasCommunity) => void
+}) {
+  const { camera, size } = useThree()
+  const sinceLast = useRef(0)
+  const scratch = useRef(new THREE.Vector3())
+  const labelRefs = useRef(new Map<string, HTMLDivElement | null>())
+  const targetOffsets = useRef(new Map<string, { x: number; y: number }>())
+  const appliedOffsets = useRef(new Map<string, { x: number; y: number }>())
+  const byId = useMemo(() => new Map(communities.map((community) => [community.id, community])), [communities])
+  const fadeNear = mobile ? 8 : 10
+  const fadeFar = mobile ? 15 : 18
+  // Extra breathing room (CSS px) added to each label's half-extents when testing
+  // for overlap, and the most a name may drift from its field centre.
+  const padX = 12
+  const padY = 8
+  const maxOffset = mobile ? 60 : 96
+  const fadeFor = (community: SceneCommunity) =>
+    clamp((Math.abs(camera.position.z - community.position.z) - fadeNear) / Math.max(0.001, fadeFar - fadeNear))
+  useFrame((_state, delta) => {
+    // Throttled: recompute the target nudge for every visible name.
+    sinceLast.current += delta
+    if (sinceLast.current >= 0.12) {
+      sinceLast.current = 0
+      const items: Array<{ id: string; x: number; y: number; hw: number; hh: number }> = []
+      for (const community of communities) {
+        if (fadeFor(community) <= 0.02) continue
+        const projected = scratch.current
+          .set(community.position.x, community.position.y, community.position.z)
+          .project(camera)
+        if (projected.z > 1) continue
+        const x = (projected.x * 0.5 + 0.5) * size.width
+        const y = (-projected.y * 0.5 + 0.5) * size.height
+        if (x < -120 || x > size.width + 120 || y < -80 || y > size.height + 80) continue
+        const element = labelRefs.current.get(community.id)
+        const hw = (element?.offsetWidth ?? 90) / 2 + padX
+        const hh = (element?.offsetHeight ?? 30) / 2 + padY
+        items.push({ id: community.id, x, y, hw, hh })
+      }
+      // Start from zero each tick (names spring back toward centre when nothing
+      // crowds them) and push overlapping pairs apart along their shallowest axis
+      // of penetration — the standard minimum-translation separation.
+      const offsets = items.map(() => ({ x: 0, y: 0 }))
+      for (let pass = 0; pass < 12; pass += 1) {
+        for (let i = 0; i < items.length; i += 1) {
+          for (let j = i + 1; j < items.length; j += 1) {
+            const dx = (items[i]!.x + offsets[i]!.x) - (items[j]!.x + offsets[j]!.x)
+            const dy = (items[i]!.y + offsets[i]!.y) - (items[j]!.y + offsets[j]!.y)
+            const overlapX = items[i]!.hw + items[j]!.hw - Math.abs(dx)
+            const overlapY = items[i]!.hh + items[j]!.hh - Math.abs(dy)
+            if (overlapX <= 0 || overlapY <= 0) continue
+            if (overlapX < overlapY) {
+              const push = ((dx === 0 ? (i < j ? 1 : -1) : Math.sign(dx)) * overlapX) / 2
+              offsets[i]!.x += push
+              offsets[j]!.x -= push
+            } else {
+              const push = ((dy === 0 ? (i < j ? 1 : -1) : Math.sign(dy)) * overlapY) / 2
+              offsets[i]!.y += push
+              offsets[j]!.y -= push
+            }
+          }
+        }
+      }
+      const next = new Map<string, { x: number; y: number }>()
+      for (let i = 0; i < items.length; i += 1) {
+        next.set(items[i]!.id, {
+          x: clamp(offsets[i]!.x, -maxOffset, maxOffset),
+          y: clamp(offsets[i]!.y, -maxOffset, maxOffset),
+        })
+      }
+      targetOffsets.current = next
+    }
+    // Every frame: ease each mounted name toward its target offset and drive its
+    // opacity off the current zoom.
+    const ease = Math.min(1, delta * 9)
+    for (const [id, element] of labelRefs.current) {
+      if (!element) continue
+      const community = byId.get(id)
+      if (!community) continue
+      const target = targetOffsets.current.get(id) ?? ZERO_OFFSET
+      let applied = appliedOffsets.current.get(id)
+      if (!applied) {
+        applied = { x: target.x, y: target.y }
+        appliedOffsets.current.set(id, applied)
+      }
+      applied.x += (target.x - applied.x) * ease
+      applied.y += (target.y - applied.y) * ease
+      const fade = fadeFor(community)
+      element.style.transform = `translate(${applied.x.toFixed(1)}px, ${applied.y.toFixed(1)}px)`
+      element.style.opacity = String(fade)
+      element.style.pointerEvents = fade > 0.35 ? 'auto' : 'none'
+    }
+  })
+  return (
+    <group>
+      {communities.map((community) => (
+        <Html key={community.id} center zIndexRange={[6, 0]} position={vector(community.position)} className={styles.fieldLabel}>
+          <div ref={(element) => { labelRefs.current.set(community.id, element) }}>
+            <button type="button" onClick={() => onSelect(community)}>
+              <span>{community.label}</span>
+              <small>{community.scopeLabel} · {community.memberCount} companies</small>
+            </button>
+          </div>
         </Html>
-      ) : null}
+      ))}
     </group>
   )
 }
@@ -489,6 +659,7 @@ function NodeInstances({
         <Html
           key={`label:${node.symbol}:${index}`}
           center
+          zIndexRange={[6, 0]}
           distanceFactor={layer === 'overview' ? 11 : 10.5}
           position={[node.position.x, node.position.y - node.sceneRadius - 0.13, node.position.z]}
           className={styles.sceneLabel}
@@ -578,6 +749,111 @@ function ProximityField({
           )
         })}
       </Instances>
+    </group>
+  )
+}
+
+// Per-field ticker labels with screen-space decluttering. Zoomed out, the map
+// shows one flagship ticker per field (the always-on layer); as the camera nears
+// a field, tickers reveal — but only as many as can be read without piling on
+// top of each other. Each frame (throttled) every ball is projected to the
+// screen; off-screen and behind-camera balls are dropped, then labels are placed
+// greedily in importance order, skipping any that would overlap one already
+// placed. The closer you zoom, the fewer balls share the frame, so more of them
+// earn a readable label — a ball you can actually resolve is named, a wall of
+// overlapping text never appears. `skip` holds the always-on flagship symbols so
+// they are not labeled twice.
+function FieldLabels({
+  community,
+  nodes,
+  skip,
+  mobile,
+  onSelect,
+}: {
+  community: SceneCommunity
+  nodes: SceneNode[]
+  skip: Set<string>
+  mobile: boolean
+  onSelect: (node: AtlasNode) => void
+}) {
+  const { camera, size } = useThree()
+  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => new Set())
+  const sinceLast = useRef(0)
+  const scratch = useRef(new THREE.Vector3())
+  const center = useMemo(
+    () => new THREE.Vector3(community.position.x, community.position.y, community.position.z),
+    [community.position.x, community.position.y, community.position.z],
+  )
+  const zoomNear = mobile ? 8 : 10
+  const zoomFar = mobile ? 15 : 18
+  const latNear = community.sceneRadius * 0.9
+  const latFar = community.sceneRadius * 2 + 2
+  const maxLabels = mobile ? 16 : 34
+  // Minimum screen-space gap (CSS px) between two labels before one is dropped.
+  const minGapX = 52
+  const minGapY = 20
+  useFrame((_state, delta) => {
+    sinceLast.current += delta
+    if (sinceLast.current < 0.12) return
+    sinceLast.current = 0
+    const cam = camera.position
+    const height = Math.abs(cam.z - center.z)
+    const lateral = Math.hypot(cam.x - center.x, cam.y - center.y)
+    const heightGate = clamp((zoomFar - height) / Math.max(0.001, zoomFar - zoomNear))
+    const lateralGate = clamp((latFar - lateral) / Math.max(0.001, latFar - latNear))
+    if (heightGate * lateralGate <= 0.02) {
+      setVisibleKeys((previous) => (previous.size ? new Set<string>() : previous))
+      return
+    }
+    const placed: Array<{ x: number; y: number }> = []
+    const chosen = new Set<string>()
+    for (const node of nodes) {
+      if (skip.has(node.symbol)) continue
+      const projected = scratch.current.set(node.position.x, node.position.y, node.position.z).project(camera)
+      if (projected.z > 1) continue
+      const screenX = (projected.x * 0.5 + 0.5) * size.width
+      const screenY = (-projected.y * 0.5 + 0.5) * size.height
+      if (screenX < -40 || screenX > size.width + 40 || screenY < -20 || screenY > size.height + 20) continue
+      let overlaps = false
+      for (const point of placed) {
+        if (Math.abs(point.x - screenX) < minGapX && Math.abs(point.y - screenY) < minGapY) {
+          overlaps = true
+          break
+        }
+      }
+      if (overlaps) continue
+      placed.push({ x: screenX, y: screenY })
+      chosen.add(`${node.communityId}:${node.symbol}`)
+      if (chosen.size >= maxLabels) break
+    }
+    setVisibleKeys((previous) => {
+      if (previous.size === chosen.size) {
+        let identical = true
+        for (const key of chosen) if (!previous.has(key)) { identical = false; break }
+        if (identical) return previous
+      }
+      return chosen
+    })
+  })
+  if (!visibleKeys.size) return null
+  return (
+    <group>
+      {nodes.map((node, index) => (
+        visibleKeys.has(`${node.communityId}:${node.symbol}`) ? (
+          <Html
+            key={`field-label:${node.symbol}:${index}`}
+            center
+            zIndexRange={[6, 0]}
+            distanceFactor={mobile ? 12 : 11}
+            position={[node.position.x, node.position.y - node.sceneRadius - 0.12, node.position.z]}
+            className={styles.sceneLabel}
+          >
+            <button type="button" onClick={() => onSelect(node)} aria-label={`Focus ${node.name}`}>
+              <span>{node.symbol}</span>
+            </button>
+          </Html>
+        ) : null
+      ))}
     </group>
   )
 }
@@ -738,13 +1014,59 @@ function Universe(props: MarketUniverseSceneProps) {
     () => new Map(scene.overview.nodes.map((node) => [marketUniverseNodeKey(node), node.position])),
     [scene.overview.nodes],
   )
-  // Selection decorates the persistent world; it must never become a new camera
-  // frame. Reframing here is what made a zoomed-out user remain visually locked
-  // to the last company or economic field.
+  // Every ball in a field (its always-visible landmarks plus the members that
+  // fade in on approach) grouped by field, so the proximity label layer can name
+  // them all as the camera nears.
+  const fieldLabelNodes = useMemo(() => {
+    const byCommunity = new Map<string, SceneNode[]>()
+    for (const node of scene.overview.nodes) {
+      const list = byCommunity.get(node.communityId) ?? []
+      list.push(node)
+      byCommunity.set(node.communityId, list)
+    }
+    for (const [id, members] of scene.overview.memberNodesByCommunity) {
+      byCommunity.set(id, [...(byCommunity.get(id) ?? []), ...members])
+    }
+    return byCommunity
+  }, [scene.overview.nodes, scene.overview.memberNodesByCommunity])
+  // The whole-economy frame — where the camera sits with nothing selected.
   const frame = useMemo(
     () => cameraFrame(scene.overview.communities, `${atlas.window}:${atlas.view}:${mobile ? 'mobile' : 'desktop'}`),
     [atlas.view, atlas.window, mobile, scene.overview.communities],
   )
+  // Selection flies the camera in: pick a company → zoom to that bubble; pick a
+  // field → zoom to that zone; clear the selection → pull back to the whole
+  // economy. The `key` changes only when the selected target changes, so a scene
+  // rebuild from a detail load never re-flies the camera — only an actual new
+  // selection does. Between flights OrbitControls owns the camera (free pan/zoom).
+  const focus = useMemo<CameraFrame>(() => {
+    if (activeSymbol) {
+      let node: SceneNode | undefined
+      if (selectedCommunityId) {
+        node = fieldLabelNodes.get(selectedCommunityId)?.find((item) => item.symbol === activeSymbol)
+      }
+      if (!node) {
+        for (const [, nodes] of fieldLabelNodes) {
+          node = nodes.find((item) => item.symbol === activeSymbol)
+          if (node) break
+        }
+      }
+      if (node) {
+        return { center: node.position, radius: mobile ? 2.1 : 1.8, key: `node:${node.communityId}:${node.symbol}` }
+      }
+    }
+    if (selectedCommunityId) {
+      const community = scene.overview.communities.find((item) => item.id === selectedCommunityId)
+      if (community) {
+        return {
+          center: community.position,
+          radius: Math.min(community.sceneRadius * 1.5, mobile ? 3 : 3.4),
+          key: `field:${community.id}`,
+        }
+      }
+    }
+    return frame
+  }, [activeSymbol, selectedCommunityId, fieldLabelNodes, scene.overview.communities, frame, mobile])
 
   return (
     <>
@@ -754,18 +1076,17 @@ function Universe(props: MarketUniverseSceneProps) {
       <directionalLight position={[4, 8, 10]} intensity={1.35} color="#ffffff" />
       <pointLight position={[-8, -2, 5]} intensity={9} distance={36} color="#63b8b0" />
       <AmbientDust reducedMotion={reducedMotion} />
-      <CameraRig frame={frame} reducedMotion={reducedMotion} mobile={mobile} />
+      <CameraRig frame={focus} reducedMotion={reducedMotion} mobile={mobile} />
 
-      {scene.overview.communities.map((community, index) => (
+      {scene.overview.communities.map((community) => (
         <CommunityField
           key={community.id}
           community={community}
           level="economy"
           selected={community.id === selectedCommunityId}
           hovered={community.id === hoveredCommunity?.id}
-          dimmed={false}
-          showLabel={index < (mobile ? 4 : 8)}
           reducedMotion={reducedMotion}
+          mobile={mobile}
           onSelect={(community) => {
             setHoveredCommunity(community)
             onSelectCommunity(community)
@@ -773,6 +1094,14 @@ function Universe(props: MarketUniverseSceneProps) {
           onHover={setHoveredCommunity}
         />
       ))}
+      <FieldNameLabels
+        communities={scene.overview.communities}
+        mobile={mobile}
+        onSelect={(community) => {
+          setHoveredCommunity(community)
+          onSelectCommunity(community)
+        }}
+      />
       <OverviewEdges edges={scene.overview.edges} positions={overviewPositions} />
       {activeSymbol
         ? scene.overview.edges
@@ -825,6 +1154,20 @@ function Universe(props: MarketUniverseSceneProps) {
                 ? atlas.communities.find((item) => item.id === hoveredNode.communityId) ?? null
                 : null,
             )}
+          />
+        )
+      })}
+      {scene.overview.communities.map((community) => {
+        const nodes = fieldLabelNodes.get(community.id)
+        if (!nodes?.length) return null
+        return (
+          <FieldLabels
+            key={`labels:${community.id}`}
+            community={community}
+            nodes={nodes}
+            skip={scene.overview.labelSymbols}
+            mobile={mobile}
+            onSelect={onSelectNode}
           />
         )
       })}

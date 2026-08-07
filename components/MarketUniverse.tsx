@@ -180,29 +180,18 @@ function LandmarkIndex({ nodes, activeSymbol, onSelect }: {
 
 function AccessibleNavigator({
   communities,
-  nodes,
   selectedId,
-  activeSymbol,
   onSelectCommunity,
-  onSelectNode,
 }: {
   communities: AtlasCommunity[]
-  nodes: AtlasNode[]
   selectedId: string | null
-  activeSymbol: string | null
   onSelectCommunity: (community: AtlasCommunity) => void
-  onSelectNode: (node: AtlasNode) => void
 }) {
   const navigatorRef = useRef<HTMLDetailsElement>(null)
 
   function selectCommunityAndClose(community: AtlasCommunity) {
     navigatorRef.current?.removeAttribute('open')
     onSelectCommunity(community)
-  }
-
-  function selectNodeAndClose(node: AtlasNode) {
-    navigatorRef.current?.removeAttribute('open')
-    onSelectNode(node)
   }
 
   return (
@@ -222,20 +211,6 @@ function AccessibleNavigator({
               <small>{community.memberCount} companies · {community.scopeLabel}</small>
             </button>
           )) : <p>No materialized fields are available in this preview.</p>}
-        </section>
-        <section aria-labelledby="atlas-landmark-list">
-          <h2 id="atlas-landmark-list">Company landmarks</h2>
-          {nodes.map((node, index) => (
-            <button
-              key={`${node.communityId}:${node.symbol}:${index}`}
-              type="button"
-              aria-pressed={activeSymbol === node.symbol}
-              onClick={() => selectNodeAndClose(node)}
-            >
-              <span>{node.name}</span>
-              <small>{node.symbol} · {node.country || node.sector || 'Global'}</small>
-            </button>
-          ))}
         </section>
       </div>
     </details>
@@ -586,11 +561,8 @@ export default function MarketUniverse({ initialAtlas }: { initialAtlas: Relatio
         <div className={styles.intro} data-atlas-intro>
           <AccessibleNavigator
             communities={atlas.communities}
-            nodes={atlas.landmarks}
             selectedId={selectedId}
-            activeSymbol={activeSymbol}
             onSelectCommunity={(community) => void selectCommunity(community)}
-            onSelectNode={(node) => void selectNode(node)}
           />
         </div>
         <div className={styles.controls} data-atlas-controls>

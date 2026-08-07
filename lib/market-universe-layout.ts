@@ -11,6 +11,9 @@ export type MarketUniverseLevel = 'economy' | 'field' | 'company'
 
 export type SceneCommunity = AtlasCommunity & {
   sceneRadius: number
+  // Radius the field's zoomed-out (landmark-only) core actually occupies, used to
+  // draw the boundary ring so it hugs the visible cluster instead of floating.
+  coreRadius: number
   visibleMemberCount: number
 }
 
@@ -216,23 +219,27 @@ function rankedCommunities(atlas: RelationshipAtlas, mobile: boolean): AtlasComm
 }
 
 function economyCommunityPositions(atlas: RelationshipAtlas, mobile: boolean): Map<string, AtlasPosition> {
+  const ranked = rankedCommunities(atlas, mobile)
+  // Pack the fields on a single plane (depth 0), so the collision solver is
+  // forced to separate them in the x/y screen projection — never by pushing one
+  // field behind another in z, which is what let fields hide behind their
+  // neighbours. The bounds are sized so the whole map fits the viewport; a little
+  // extra spacing guarantees a visible gap between territories.
+  // Every field sits on ONE level — no field is pushed in front of or behind
+  // another. Depth lives INSIDE each field instead (see `fieldOffset`): each
+  // field is a rounded 3D cluster, so the map has volume without any field
+  // occluding its neighbours.
   return projectedPositions(
-    rankedCommunities(atlas, mobile).map((community) => ({
+    ranked.map((community) => ({
       key: community.id,
       source: community.position,
       radius: marketUniverseCommunityRadius(community),
     })),
-    // The economy reads as one connected territory framed on open. Coordinates
-    // stay close to the backend correlation positions (low dispersion) so the
-    // distance between two fields actually means how related they are; fields
-    // are packed nearly tangent (small spacing) rather than scattered as
-    // isolated islands. The bounds are sized so the whole map fits the viewport
-    // at a comfortable distance instead of pushing the camera far back.
     {
-      width: mobile ? 9 : 16,
-      height: mobile ? 8 : 10,
-      depth: mobile ? 4 : 6,
-      spacing: mobile ? 0.45 : 0.6,
+      width: mobile ? 9.5 : 17,
+      height: mobile ? 9 : 11,
+      depth: 0,
+      spacing: mobile ? 0.6 : 0.9,
       dispersion: 0.12,
     },
   )
@@ -274,14 +281,83 @@ function uniqueEdges(edges: AtlasEdge[]): AtlasEdge[] {
   return [...edgesByPair.values()]
 }
 
-function fieldOffset(key: string, index: number, radius: number): AtlasPosition {
-  const longitude = stableUnit(`${key}:longitude`) * Math.PI * 2 + index * GOLDEN_ANGLE
-  const latitude = (stableUnit(`${key}:latitude`) - 0.5) * Math.PI * 0.9
-  const distance = radius * (0.46 + stableUnit(`${key}:radius`) * 0.82)
+// The backend already lays every ticker out in ONE relationship embedding
+// (`node.position`) — correlated companies sit together, weakly-related ones far
+// apart, across the whole economy. That IS the force layout, so we honour it
+// instead of synthesising positions: every ball is placed at its own embedding
+// coordinate. This transform just centres that cloud on the origin and scales it
+// uniformly (preserving every relative distance = every relationship) so it fits
+// the scene, with depth (z) compressed so related fields don't heavily occlude.
+type EmbeddingTransform = { cx: number; cy: number; cz: number; scale: number }
+
+function embeddingTransform(sources: AtlasPosition[], mobile: boolean): EmbeddingTransform {
+  if (!sources.length) return { cx: 0, cy: 0, cz: 0, scale: 1 }
+  let cx = 0
+  let cy = 0
+  let cz = 0
+  for (const source of sources) {
+    cx += source.x
+    cy += source.y
+    cz += source.z
+  }
+  cx /= sources.length
+  cy /= sources.length
+  cz /= sources.length
+  let maxX = 0.001
+  let maxY = 0.001
+  for (const source of sources) {
+    maxX = Math.max(maxX, Math.abs(source.x - cx))
+    maxY = Math.max(maxY, Math.abs(source.y - cy))
+  }
+  const scale = Math.min((mobile ? 8.5 : 13) / maxX, (mobile ? 8 : 8.5) / maxY)
+  return { cx, cy, cz, scale }
+}
+
+const EMBEDDING_DEPTH = 0.42
+function applyEmbedding(transform: EmbeddingTransform, source: AtlasPosition): AtlasPosition {
   return {
-    x: Math.cos(longitude) * Math.cos(latitude) * distance,
-    y: Math.sin(latitude) * distance * 0.82,
-    z: Math.sin(longitude) * Math.cos(latitude) * distance,
+    x: (source.x - transform.cx) * transform.scale,
+    y: (source.y - transform.cy) * transform.scale,
+    z: (source.z - transform.cz) * transform.scale * EMBEDDING_DEPTH,
+  }
+}
+
+// Minimal in-place declutter: nudge only the balls that actually overlap far
+// enough apart to be readable, in x/y (depth is kept as the embedding gave it).
+// It moves points as little as possible, so the relationship arrangement the
+// embedding encodes is preserved — this is repulsion finishing a force layout,
+// not a re-layout. Run over a fixed set (the landmarks) it is deterministic and
+// stable, so those positions never shift when members later fade in.
+function relaxOverlaps(
+  items: Array<{ key: string; x: number; y: number; z: number; radius: number }>,
+  spacing: number,
+  iterations: number,
+): void {
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    for (let leftIndex = 0; leftIndex < items.length; leftIndex += 1) {
+      const left = items[leftIndex]!
+      for (let rightIndex = leftIndex + 1; rightIndex < items.length; rightIndex += 1) {
+        const right = items[rightIndex]!
+        let dx = right.x - left.x
+        let dy = right.y - left.y
+        let distance = Math.hypot(dx, dy)
+        const minimum = left.radius + right.radius + spacing
+        if (distance >= minimum) continue
+        if (distance < 0.0001) {
+          const angle = stableUnit(`${left.key}:${right.key}`) * Math.PI * 2
+          dx = Math.cos(angle)
+          dy = Math.sin(angle)
+          distance = 1
+        }
+        const push = (minimum - distance) * 0.5
+        const unitX = dx / distance
+        const unitY = dy / distance
+        left.x -= unitX * push
+        left.y -= unitY * push
+        right.x += unitX * push
+        right.y += unitY * push
+      }
+    }
   }
 }
 
@@ -291,74 +367,31 @@ function overviewScene(
   fieldDetails?: Map<string, RelationshipAtlasDetail>,
 ): MarketUniverseSceneLayer {
   const sourceCommunities = rankedCommunities(atlas, mobile)
-  const positions = economyCommunityPositions(atlas, mobile)
   const visibleIds = new Set(sourceCommunities.map((community) => community.id))
-  const crossFieldEdges = uniqueEdges(atlas.backbone)
-    .filter((edge) => (
-      edge.sourceCommunityId !== edge.targetCommunityId
-      && visibleIds.has(edge.sourceCommunityId)
-      && visibleIds.has(edge.targetCommunityId)
-    ))
+  // The backend's real relationship lines. Every backbone edge runs between two
+  // actual tickers; we keep them all (the old code dropped every within-field
+  // edge, which is why the map had no connections). Positions follow these
+  // relationships because the balls sit at their embedding coordinates.
+  const backboneEdges = uniqueEdges(atlas.backbone)
+    .filter((edge) => visibleIds.has(edge.sourceCommunityId) && visibleIds.has(edge.targetCommunityId))
     .sort((left, right) => right.score - left.score)
-  const bridgeKeysByCommunity = new Map<string, Set<string>>()
-  for (const edge of crossFieldEdges) {
-    const source = bridgeKeysByCommunity.get(edge.sourceCommunityId) ?? new Set<string>()
-    source.add(marketUniverseEdgeEndpointKey(edge.sourceCommunityId, edge.source))
-    bridgeKeysByCommunity.set(edge.sourceCommunityId, source)
-    const target = bridgeKeysByCommunity.get(edge.targetCommunityId) ?? new Set<string>()
-    target.add(marketUniverseEdgeEndpointKey(edge.targetCommunityId, edge.target))
-    bridgeKeysByCommunity.set(edge.targetCommunityId, target)
-  }
   const candidatesByCommunity = new Map(sourceCommunities.map((community) => {
     const communityNodes = atlas.landmarks.filter((node) => node.communityId === community.id)
-    const bridgeKeys = bridgeKeysByCommunity.get(community.id) ?? new Set<string>()
-    const bridgeNodes = rankedNodes(communityNodes.filter((node) => bridgeKeys.has(marketUniverseNodeKey(node))))
-    const landmarks = rankedNodes(communityNodes)
-    // Overview density: the backend now serves up to ~256 landmarks. Show more
-    // per field so the economy reads as a populated map rather than a sparse
-    // schematic — and so the members are already present (faded by relevance)
-    // instead of popping in on zoom. Nodes are instanced, so this cost is a
-    // couple of draw calls.
+    // The always-visible landmarks for a field, ranked by standing. Instanced, so
+    // showing a generous set costs only a couple of draw calls.
     const capacity = mobile ? 8 : 20
-    const candidates = uniqueNodes([...bridgeNodes, ...landmarks]).slice(0, capacity)
+    const candidates = rankedNodes(uniqueNodes(communityNodes)).slice(0, capacity)
     return [community.id, candidates] as const
   }))
-  const communities = sourceCommunities.map((community) => {
-    const candidates = candidatesByCommunity.get(community.id) ?? []
-    return {
-      ...community,
-      position: positions.get(community.id) ?? community.position,
-      sceneRadius: marketUniverseCommunityRadius(community),
-      visibleMemberCount: candidates.length,
-    }
-  })
-  const landmarks = communities.flatMap((community) => {
-    const candidates = candidatesByCommunity.get(community.id) ?? []
-    const center = positions.get(community.id) ?? community.position
-    return candidates.map((node, index) => {
-      const offset = fieldOffset(marketUniverseNodeKey(node), index, community.sceneRadius)
-      return {
-        ...node,
-        position: { x: center.x + offset.x, y: center.y + offset.y, z: center.z + offset.z },
-        sceneRadius: marketUniverseNodeRadius(node) * 0.86,
-      }
-    })
-  })
-  const landmarkKeys = new Set(landmarks.map((node) => marketUniverseNodeKey(node)))
-  // Progressive detail: for any community whose members have been loaded, place
-  // the extra members (beyond the landmark candidates already shown) using the
-  // SAME field center + fieldOffset scheme, continuing the index sequence after
-  // the landmarks so the landmark positions never move — the field just fills in
-  // denser in place. The scene fades these in by camera proximity.
-  const memberNodesByCommunity = new Map<string, SceneNode[]>()
+  // Members loaded on approach. They live in the SAME global embedding as the
+  // landmarks, so they drop straight into their field's real neighbourhood.
+  const memberSourceByCommunity = new Map<string, AtlasNode[]>()
   if (fieldDetails && fieldDetails.size) {
     for (const community of sourceCommunities) {
       const detail = fieldDetails.get(community.id)
       if (!detail) continue
       const candidates = candidatesByCommunity.get(community.id) ?? []
       const landmarkKeySet = new Set(candidates.map((node) => marketUniverseNodeKey(node)))
-      const center = positions.get(community.id) ?? community.position
-      const radius = marketUniverseCommunityRadius(community)
       const memberSource = rankedNodes(
         uniqueNodes(detail.nodes).filter((node) => (
           node.communityId === community.id
@@ -367,38 +400,84 @@ function overviewScene(
           && !landmarkKeySet.has(marketUniverseNodeKey(node))
         )),
       ).slice(0, mobile ? 40 : 120)
-      if (!memberSource.length) continue
-      const base = candidates.length
-      const members = memberSource.map((node, index) => {
-        const offset = fieldOffset(marketUniverseNodeKey(node), base + index, radius)
-        return {
-          ...node,
-          position: { x: center.x + offset.x, y: center.y + offset.y, z: center.z + offset.z },
-          sceneRadius: marketUniverseNodeRadius(node) * 0.86,
-        }
-      })
-      memberNodesByCommunity.set(community.id, members)
+      if (memberSource.length) memberSourceByCommunity.set(community.id, memberSource)
     }
   }
-  // Cross-field ticker-to-ticker edges (the web that crosses between fields).
-  // Batched into a single LineSegments draw call in the scene, so the cap can be
-  // generous without a per-edge draw-call cost.
-  const edges = crossFieldEdges
+  // Place every landmark at its OWN embedding coordinate — the relationship-driven
+  // layout — transformed once so the whole cloud fits the scene, then a light
+  // repulsion pass so overlapping balls become readable without disturbing the
+  // arrangement. The transform and repulsion depend only on the landmarks, so a
+  // landmark's position never shifts when members later fade in.
+  const allCandidates = sourceCommunities.flatMap((community) => candidatesByCommunity.get(community.id) ?? [])
+  const transform = embeddingTransform(allCandidates.map((node) => node.position), mobile)
+  const landmarkItems = allCandidates.map((node) => {
+    const scene = applyEmbedding(transform, node.position)
+    return { key: marketUniverseNodeKey(node), x: scene.x, y: scene.y, z: scene.z, radius: marketUniverseNodeRadius(node) * 0.86 }
+  })
+  relaxOverlaps(landmarkItems, mobile ? 0.12 : 0.16, 26)
+  const landmarkPositions = new Map(landmarkItems.map((item) => [item.key, { x: item.x, y: item.y, z: item.z }]))
+  const landmarks: SceneNode[] = allCandidates.map((node) => ({
+    ...node,
+    position: landmarkPositions.get(marketUniverseNodeKey(node)) ?? applyEmbedding(transform, node.position),
+    sceneRadius: marketUniverseNodeRadius(node) * 0.86,
+  }))
+  // Each field's centre and extent come from where its landmarks actually landed,
+  // so the boundary ring hugs the real cluster and the label sits over it —
+  // wherever the relationships placed the field.
+  const communities = sourceCommunities.map((community) => {
+    const candidates = candidatesByCommunity.get(community.id) ?? []
+    const points = candidates
+      .map((node) => landmarkPositions.get(marketUniverseNodeKey(node)))
+      .filter((point): point is AtlasPosition => Boolean(point))
+    const center = points.length
+      ? points.reduce(
+          (total, point) => ({ x: total.x + point.x / points.length, y: total.y + point.y / points.length, z: total.z + point.z / points.length }),
+          { x: 0, y: 0, z: 0 },
+        )
+      : applyEmbedding(transform, community.position)
+    const extent = points.reduce((max, point) => Math.max(max, Math.hypot(point.x - center.x, point.y - center.y)), 0)
+    return {
+      ...community,
+      position: center,
+      sceneRadius: marketUniverseCommunityRadius(community),
+      coreRadius: Math.max(0.6, extent + (mobile ? 0.4 : 0.55)),
+      visibleMemberCount: candidates.length,
+    }
+  })
+  const memberNodesByCommunity = new Map<string, SceneNode[]>()
+  for (const community of sourceCommunities) {
+    const memberSource = memberSourceByCommunity.get(community.id)
+    if (!memberSource?.length) continue
+    const members = memberSource.map((node) => ({
+      ...node,
+      position: applyEmbedding(transform, node.position),
+      sceneRadius: marketUniverseNodeRadius(node) * 0.86,
+    }))
+    memberNodesByCommunity.set(community.id, members)
+  }
+  const landmarkKeys = new Set(landmarks.map((node) => marketUniverseNodeKey(node)))
+  // The ticker-to-ticker relationship web, drawn between the landmarks the lines
+  // actually connect. Batched into a single LineSegments draw call, so the cap
+  // can be generous without a per-edge cost.
+  const edges = backboneEdges
     .filter((edge) => (
       landmarkKeys.has(marketUniverseEdgeEndpointKey(edge.sourceCommunityId, edge.source))
       && landmarkKeys.has(marketUniverseEdgeEndpointKey(edge.targetCommunityId, edge.target))
     ))
-    .slice(0, mobile ? 90 : 260)
+    .slice(0, mobile ? 120 : 340)
   return {
     communities,
     nodes: landmarks,
     edges,
     memberNodesByCommunity,
+    // Always-on labels: one flagship ticker per field, so the zoomed-out map
+    // reads without collapsing into an unreadable pile of overlapping labels.
+    // Every other ball's ticker is revealed by the scene's per-field label layer
+    // as the camera approaches, so a ball you can actually resolve is named.
     labelSymbols: new Set(
       communities
-        .flatMap((community) => (candidatesByCommunity.get(community.id) ?? []).slice(0, 1))
-        .slice(0, mobile ? 4 : 8)
-        .map((node) => node.symbol),
+        .map((community) => (candidatesByCommunity.get(community.id) ?? [])[0]?.symbol)
+        .filter((symbol): symbol is string => Boolean(symbol)),
     ),
   }
 }
@@ -455,6 +534,7 @@ function fieldScene(
     ...community,
     position: anchor,
     sceneRadius: extent,
+    coreRadius: extent,
     visibleMemberCount: nodes.length,
   }
   const labelNodes = [...internalNodes.slice(0, mobile ? 4 : 7), ...boundaryNodes.slice(0, mobile ? 1 : 2)]
