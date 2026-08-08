@@ -2,6 +2,21 @@ export type AtlasView = 'market' | 'residual' | 'timing' | 'theme'
 
 export type AtlasPosition = { x: number; y: number; z: number }
 
+// A node's weight across the fields it genuinely belongs to. `communityId`
+// stays the single, stable assignment; this is additive, and only ~26% of nodes
+// carry more than one entry. Weights are normalized over the whole
+// distribution rather than over the entries kept, so a node with a long tail is
+// not reported as more concentrated than it is.
+export type AtlasNodeMembership = { communityId: string; weight: number }
+
+// What the server chose to send, so a caller can tell a complete structure from
+// a clipped one instead of guessing from the number of edges.
+export type AtlasDetailBudget = {
+  backboneTier: number | null
+  nodeBudget: number
+  backboneTruncated: boolean
+}
+
 export type AtlasCommunity = {
   id: string
   label: string
@@ -38,6 +53,7 @@ export type RelationshipAtlas = {
   landmarks: AtlasNode[]
   backbone: AtlasEdge[]
   materialized: boolean
+  detail: AtlasDetailBudget | null
 }
 
 export type AtlasNode = {
@@ -56,6 +72,7 @@ export type AtlasNode = {
   marketCap: number | null
   context: boolean
   isBoundary?: boolean
+  memberships: AtlasNodeMembership[]
 }
 
 export type AtlasEdge = {
@@ -116,7 +133,35 @@ function normalizeAtlasNodes(nodes: AtlasNode[]): AtlasNode[] {
     marketCap: node.marketCap === null || node.marketCap === undefined ? null : Math.max(0, finite(node.marketCap)),
     context: node.context === true || node.isBoundary === true,
     isBoundary: Boolean(node.isBoundary),
+    memberships: normalizeMemberships(node.memberships),
   })).filter((node) => node.symbol)
+}
+
+function normalizeMemberships(value: unknown): AtlasNodeMembership[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((entry) => {
+      const record = (entry ?? {}) as Partial<AtlasNodeMembership>
+      return {
+        communityId: String(record.communityId ?? '').trim(),
+        weight: Math.max(0, Math.min(1, finite(record.weight))),
+      }
+    })
+    .filter((entry) => entry.communityId && entry.weight > 0)
+    .sort((left, right) => right.weight - left.weight)
+}
+
+function normalizeDetail(value: unknown): AtlasDetailBudget | null {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  const tier = record.backboneTier
+  return {
+    // Null means the snapshot predates tiering and the server fell back to its
+    // older selection, which is worth being able to see rather than defaulting.
+    backboneTier: tier === null || tier === undefined ? null : finite(tier),
+    nodeBudget: finite(record.nodeBudget),
+    backboneTruncated: record.backboneTruncated === true,
+  }
 }
 
 function normalizeAtlasEdges(edges: AtlasEdge[]): AtlasEdge[] {
@@ -143,6 +188,7 @@ export function normalizeRelationshipAtlas(payload: Partial<RelationshipAtlas>):
     window: finite(payload.window, 252),
     view,
     materialized: payload.materialized !== false,
+    detail: normalizeDetail((payload as { detail?: unknown }).detail),
     communities: (payload.communities ?? []).map((community) => ({
       id: String(community.id),
       label: optionalAtlasText(community.label) ?? 'Market cluster',

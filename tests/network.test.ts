@@ -179,6 +179,7 @@ test('removes textual missing-value sentinels from atlas metadata', () => {
       region: null,
       marketCap: null,
       context: false,
+      memberships: [],
     }],
   })
 
@@ -213,6 +214,7 @@ test('normalizes enriched company landmarks without overloading importance', () 
       region: 'northAmerica',
       marketCap: 3_000_000_000_000,
       context: true,
+      memberships: [],
     }],
     edges: [],
   })
@@ -245,4 +247,45 @@ test('legacy fail-open preserves real companies and edges instead of inventing c
   assert.equal(fallback.atlas.backbone.length, 2)
   assert.equal(fallback.atlas.backbone[0]?.confidence, null)
   assert.deepEqual(fallback.details, {})
+})
+
+test('atlas nodes carry their field memberships', () => {
+  const atlas = normalizeRelationshipAtlas({
+    view: 'theme',
+    landmarks: [
+      {
+        symbol: 'lrcx',
+        communityId: 'c1',
+        memberships: [
+          { communityId: 'c2', weight: 0.08 },
+          { communityId: 'c1', weight: 0.87 },
+          { communityId: '', weight: 0.5 },
+          { communityId: 'c3', weight: 0 },
+        ],
+      } as never,
+    ],
+  })
+
+  // Sorted by weight, and entries with no field or no weight dropped.
+  assert.deepEqual(atlas.landmarks[0].memberships, [
+    { communityId: 'c1', weight: 0.87 },
+    { communityId: 'c2', weight: 0.08 },
+  ])
+})
+
+test('a payload without memberships or detail degrades quietly', () => {
+  // Snapshots built before tiering exist, and must not become an error here.
+  const atlas = normalizeRelationshipAtlas({ view: 'market', landmarks: [{ symbol: 'AAPL' } as never] })
+
+  assert.equal(atlas.detail, null)
+  assert.deepEqual(atlas.landmarks[0].memberships, [])
+})
+
+test('the served budget says whether the backbone was clipped', () => {
+  const atlas = normalizeRelationshipAtlas({
+    view: 'market',
+    detail: { backboneTier: 0, nodeBudget: 1000, backboneTruncated: false },
+  } as never)
+
+  assert.deepEqual(atlas.detail, { backboneTier: 0, nodeBudget: 1000, backboneTruncated: false })
 })

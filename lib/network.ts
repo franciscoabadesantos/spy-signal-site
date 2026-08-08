@@ -369,6 +369,7 @@ export function deriveFallbackAtlas(graph: NetworkGraph, view: AtlasView): {
       region: node.region,
       marketCap: node.marketCap,
       context: false,
+      memberships: [],
     }
   })
   const backbone: AtlasEdge[] = viewEdges
@@ -395,6 +396,8 @@ export function deriveFallbackAtlas(graph: NetworkGraph, view: AtlasView): {
       landmarks,
       backbone,
       materialized: false,
+      // Not a served atlas, so there is no budget the server chose.
+      detail: null,
     },
     details: {},
   }
