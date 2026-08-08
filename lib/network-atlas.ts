@@ -73,6 +73,11 @@ export type AtlasNode = {
   context: boolean
   isBoundary?: boolean
   memberships: AtlasNodeMembership[]
+  // False when the node reached a field's listing through its membership weight
+  // rather than through its assignment. Colour, member counts and the market cap
+  // total still follow the assignment, so a secondary appearance never
+  // double-counts. Always true outside a field listing.
+  isPrimary: boolean
 }
 
 export type AtlasEdge = {
@@ -134,6 +139,7 @@ function normalizeAtlasNodes(nodes: AtlasNode[]): AtlasNode[] {
     context: node.context === true || node.isBoundary === true,
     isBoundary: Boolean(node.isBoundary),
     memberships: normalizeMemberships(node.memberships),
+    isPrimary: node.isPrimary !== false,
   })).filter((node) => node.symbol)
 }
 

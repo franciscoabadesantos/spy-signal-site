@@ -370,6 +370,7 @@ export function deriveFallbackAtlas(graph: NetworkGraph, view: AtlasView): {
       marketCap: node.marketCap,
       context: false,
       memberships: [],
+      isPrimary: true,
     }
   })
   const backbone: AtlasEdge[] = viewEdges

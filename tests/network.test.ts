@@ -180,6 +180,7 @@ test('removes textual missing-value sentinels from atlas metadata', () => {
       marketCap: null,
       context: false,
       memberships: [],
+      isPrimary: true,
     }],
   })
 
@@ -215,6 +216,7 @@ test('normalizes enriched company landmarks without overloading importance', () 
       marketCap: 3_000_000_000_000,
       context: true,
       memberships: [],
+      isPrimary: true,
     }],
     edges: [],
   })
