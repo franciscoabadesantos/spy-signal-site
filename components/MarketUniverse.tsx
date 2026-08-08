@@ -66,6 +66,14 @@ function useMobileScene(): boolean {
   return mobile
 }
 
+// A node reaching a field by weight rather than assignment: say how much of it
+// is here, so "also here" is a fact the reader can weigh rather than a label.
+function fieldShare(node: AtlasNode, communityId: string | undefined): string {
+  if (!communityId) return ''
+  const share = node.memberships.find((entry) => entry.communityId === communityId)?.weight
+  return share ? ` — ${Math.round(share * 100)}% of its connections` : ''
+}
+
 function formatConfidence(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return 'Unknown'
   return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`
@@ -243,7 +251,12 @@ function Inspector({
   const source = neighborhood ?? detail
   const relationships = activeNode && source ? edgeForNode(source.edges, activeNode.symbol) : []
   const nodeBySymbol = new Map(source?.nodes.map((node) => [node.symbol, node]) ?? [])
-  const members = detail?.nodes.filter((node) => !node.context && node.communityId === community?.id) ?? []
+  // Not filtered by communityId any more. Louvain gives each node one home, and
+  // for some it picks the field holding the smaller share — TLS.AX carries all
+  // of its weight in one field and is assigned to another, so filtering by
+  // assignment hid it from the field it actually belongs to. The server decides
+  // membership now and marks it with isPrimary; assigned members come first.
+  const members = detail?.nodes.filter((node) => !node.context) ?? []
   const location = activeNode
     ? [...new Set([activeNode.country, activeNode.region].filter((value): value is string => Boolean(value)))].join(' · ')
     : ''
@@ -320,8 +333,15 @@ function Inspector({
           {!loading && members.length ? (
             <div className={styles.companyGrid} aria-label="Companies in this field">
               {members.slice(0, 12).map((node, index) => (
-                <button key={`${node.communityId}:${node.symbol}:${index}`} type="button" onClick={() => onSelectNode(node)}>
+                <button
+                  key={`${node.communityId}:${node.symbol}:${index}`}
+                  type="button"
+                  onClick={() => onSelectNode(node)}
+                  className={node.isPrimary ? undefined : styles.alsoHere}
+                  title={node.isPrimary ? undefined : `Also belongs here${fieldShare(node, community?.id)}`}
+                >
                   <span>{node.symbol}</span><small>{node.name}</small>
+                  {node.isPrimary ? null : <em aria-label="Also belongs to this field">also here</em>}
                 </button>
               ))}
             </div>

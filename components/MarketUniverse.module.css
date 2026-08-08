@@ -343,6 +343,12 @@
 .companyGrid span { display: block; font-size: 0.72rem; font-weight: 720; }
 .companyGrid small { display: -webkit-box; overflow: hidden; margin-top: 0.23rem; color: var(--content-muted); font-size: 0.58rem; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 
+/* A node that belongs here by weight rather than by assignment. Dashed and
+   recessed so it reads as a real member of this field without competing with
+   the ones the field is built from. */
+.alsoHere { border-style: dashed !important; background: rgba(255, 255, 255, 0.16) !important; }
+.alsoHere em { display: block; margin-top: 0.2rem; color: var(--content-muted); font-size: 0.5rem; font-style: normal; letter-spacing: 0.04em; text-transform: uppercase; }
+
 .wait { display: flex; min-height: 7rem; align-items: center; justify-content: center; gap: 0.46rem; }
 .wait i { width: 0.4rem; height: 0.4rem; border: 1px solid rgba(11, 129, 120, 0.34); border-radius: 50%; background: rgba(255, 255, 255, 0.8); box-shadow: 0 0 0.8rem rgba(27, 166, 154, 0.15); animation: universe-wait 1.45s ease-in-out infinite; }
 .wait i:nth-child(2) { animation-delay: 0.12s; }
