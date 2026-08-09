@@ -1517,7 +1517,9 @@ html.chrome-scrolled .site-header__bar {
 html.chrome-scrolled .site-header__row[data-menu-open],
 html.chrome-scrolled .site-header__row[data-home][data-menu-open] {
   max-width: 1160px;
-  border-radius: var(--radius-2xl);
+  /* A step rounder than --radius-2xl (24px): at this size 24 read as a slab.
+     Stays above the 16px tiles so the corners nest instead of fighting. */
+  border-radius: 32px;
 }
 .site-header__row[data-menu-open] .site-header__bar {
   gap: 16px;
@@ -1571,6 +1573,10 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search
   max-height: 0;
   opacity: 0;
   overflow: hidden;
+  /* Follow the row's own corner so the panel ends on the glass edge instead of
+     squaring it off. inherit tracks the row's radius transition for free. */
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
   transition:
     max-height 0.42s var(--chrome-ease),
     opacity 0.28s var(--chrome-ease);
@@ -1617,6 +1623,113 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search
 }
 .site-header__tile:hover .site-header__tile-media {
   transform: scale(1.05);
+}
+/* Tile artwork — inline SVG (see TileArt.tsx), so hover can reach individual
+   strokes and bars. Sits above the gradient media and under the label scrim. */
+.site-header__tile-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 12px 46px;
+  pointer-events: none;
+}
+.site-header__tile-art .tile-art {
+  width: 78%;
+  height: auto;
+  overflow: visible;
+}
+/* Each tile picks its own two ink stops, per theme. */
+.site-header__tile {
+  --tile-ink-a: var(--ink-a-dark, rgba(255, 255, 255, 0.45));
+  --tile-ink-b: var(--ink-b-dark, rgba(255, 255, 255, 0.28));
+}
+
+/* --- artwork motion: the marks move, not the picture ------------------------
+   Every animated part transitions off a --i index so it resolves in sequence
+   left to right. Transforms use fill-box origins; an SVG child's default
+   transform box is the whole viewport, which would swing it off-canvas. */
+.tile-art :is(rect, circle, path) {
+  transform-box: fill-box;
+}
+.tile-art__curve,
+.tile-art__trace {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.9s var(--chrome-ease);
+}
+.site-header__tile:hover .tile-art__curve,
+.site-header__tile:hover .tile-art__trace {
+  /* Negative, so the dash travels WITH the path direction — both paths are
+     authored left to right, and a positive offset ran the redraw backwards. */
+  stroke-dashoffset: -200;
+}
+.tile-art__ghost {
+  transform-origin: left bottom;
+  transition: transform 0.6s var(--chrome-ease), opacity 0.6s ease;
+}
+.site-header__tile:hover .tile-art__ghost {
+  transform: translateY(3px) scaleY(0.94);
+  opacity: 0.12;
+}
+.site-header__tile:hover .tile-art__ghost--near {
+  transform: translateY(1.5px) scaleY(0.97);
+  opacity: 0.24;
+}
+.tile-art__target {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.5s var(--chrome-ease) 0.32s;
+}
+.site-header__tile:hover .tile-art__target {
+  transform: scale(1.18);
+}
+.tile-art__halo {
+  transform-origin: center;
+  transition: transform 0.6s var(--chrome-ease) 0.36s, opacity 0.6s ease 0.36s;
+}
+.site-header__tile:hover .tile-art__halo {
+  transform: scale(1.3);
+  opacity: 0.1;
+}
+.tile-art__ticks path,
+.tile-art__bars rect,
+.tile-art__dots circle,
+.tile-art__wicks path,
+.tile-art__candles rect {
+  transition:
+    transform 0.5s var(--chrome-ease),
+    opacity 0.5s ease;
+  transition-delay: calc(var(--i, 0) * 45ms);
+}
+.tile-art__bars rect,
+.tile-art__candles rect {
+  transform-origin: bottom;
+}
+.site-header__tile:hover .tile-art__bars rect {
+  transform: scaleY(1.14);
+}
+.site-header__tile:hover .tile-art__dots circle {
+  transform: translateY(-7px);
+}
+.site-header__tile:hover .tile-art__ticks path {
+  transform: translateY(-2px);
+  opacity: 0.7;
+}
+/* Out of phase on purpose — short term should read unsettled, not marching. */
+.site-header__tile:hover .tile-art__wicks path:nth-child(odd) {
+  transform: scaleY(1.16);
+}
+.site-header__tile:hover .tile-art__wicks path:nth-child(even) {
+  transform: scaleY(0.84);
+}
+.site-header__tile:hover .tile-art__candles rect:nth-child(odd) {
+  transform: translateY(-5px);
+}
+.site-header__tile:hover .tile-art__candles rect:nth-child(even) {
+  transform: translateY(4px);
 }
 .site-header__tile-label {
   font-family: var(--font-display, 'Sora', ui-sans-serif, sans-serif);
@@ -1668,10 +1781,19 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search
   border-color: color-mix(in srgb, var(--brand-spark) 45%, transparent);
 }
 
-/* Page backdrop while a menu is open (part of the fixed header, above the page). */
+/* Page backdrop while a menu is open (part of the fixed header, above the page).
+   .site-header carries will-change: transform, so it is the containing block for
+   this fixed child — inset: 0 would only cover the header's own box and cut the
+   dim off on a hard line. Sized explicitly against the viewport instead. */
 .site-header__backdrop {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* Full viewport, flat. A masked fall-off was tried and read worse: Chrome
+     applies backdrop-filter over the whole box and only then masks it, so the
+     blur kept ending on a hard line even where the tint had faded out. */
+  height: 100vh;
   z-index: 0;
   background: var(--menu-backdrop, rgba(4, 6, 12, 0.42));
   -webkit-backdrop-filter: blur(2px);
@@ -1690,6 +1812,18 @@ html.has-header-menu .site-header__backdrop {
   .site-nav__chev,
   .site-header__backdrop {
     transition: opacity 0.2s ease;
+  }
+  /* The tile hover is one gesture — the media scale and every animated mark in
+     the artwork stand down together. */
+  .site-header__tile:hover .site-header__tile-media,
+  .site-header__tile:hover .tile-art :is(rect, circle, path, g) {
+    transform: none;
+  }
+  .site-header__tile:hover :is(.tile-art__curve, .tile-art__trace) {
+    stroke-dashoffset: 0;
+  }
+  .tile-art :is(rect, circle, path, g) {
+    transition: none;
   }
 }
 
@@ -2150,11 +2284,14 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) .site-header__brand
 .site-header__cluster {
   margin-left: auto;
 }
-html.chrome-scrolled .site-header__row[data-home] {
+html.chrome-scrolled .site-header__row[data-home]:not([data-menu-open]) {
   max-width: 418px;
 }
-/* Focus widens the pill so the field can grow AND the neighbours spread apart. */
-html.chrome-scrolled .site-header__row[data-home]:focus-within {
+/* Focus widens the pill so the field can grow AND the neighbours spread apart.
+   The nav triggers opt out of taking focus on mousedown (see HeaderBar) — this
+   rule reflowing the row 418→600 mid-press was what swallowed their first click.
+   Excluded while a menu is open so it cannot beat the wide menu width. */
+html.chrome-scrolled .site-header__row[data-home]:focus-within:not([data-menu-open]) {
   max-width: 600px;
 }
 
@@ -2177,9 +2314,35 @@ html.chrome-scrolled .site-header__pill-search {
   max-width: 150px;
   opacity: 1;
   pointer-events: auto;
+  /* The clip is only needed to hide the field while collapsed at max-width: 0.
+     Once the pill exists it has to go: it was cutting off both the suggestion
+     panel (absolute, at top-full) and the input's focus ring. */
+  overflow: visible;
 }
 html.chrome-scrolled .site-header__row[data-home]:focus-within .site-header__pill-search {
   max-width: 280px;
+}
+/* The panel is absolutely positioned, so it is free to be wider than the field
+   it hangs from. At the pill's 280px the row grid (40px icon + name + symbol +
+   chips) has ~190px left and the columns collide. left-0 anchors it; the extra
+   width grows rightward, where there is room inside the expanded row. */
+html.chrome-scrolled .site-header__pill-search .ticker-search__panel {
+  width: min(400px, calc(100vw - 3rem));
+  /* Re-substitute the Tailwind colour tokens against the palette in scope here.
+     @theme declares --color-content-primary: var(--content-primary) on :root, and
+     var() resolves where it is DECLARED — so those utilities keep the root's
+     scheme-flipped value no matter what the surrounding tokens say. The panel's
+     surface comes from --glass-bg, which stays light, so under a dark system
+     scheme the text turned white on a white sheet. The dock's copy of this panel
+     never showed it because it carries explicit per-element colour rules. */
+  --color-content-primary: var(--content-primary);
+  --color-content-secondary: var(--content-secondary);
+  --color-content-muted: var(--content-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-brand-spark: var(--brand-spark);
 }
 
 /* =========================================================================
@@ -2292,8 +2455,16 @@ main.marketing-home[data-theme="dark"] .dock-search :is(input) {
   text-shadow: 0 1px 0 color-mix(in srgb, var(--page-bg) 70%, transparent);
 }
 
+/* The panel thins toward its bottom edge so the row's own glass takes over and
+   the two read as one surface — a flat fill ends on a hard line and the panel
+   detaches into a slab hovering over the page. */
 .marketing-home .site-header__dropdowns {
-  background: color-mix(in srgb, var(--page-bg) 88%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--page-bg) 90%, transparent) 0%,
+    color-mix(in srgb, var(--page-bg) 86%, transparent) 58%,
+    color-mix(in srgb, var(--page-bg) 60%, transparent) 100%
+  );
   border-top: 1px solid color-mix(in srgb, var(--content-primary) 8%, transparent);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
@@ -2321,6 +2492,14 @@ html[data-theme="light"] .marketing-home .site-header__tile-media {
 html[data-theme="dark"] .marketing-home .site-header__tile-media,
 .marketing-home[data-theme="dark"] .site-header__tile-media {
   background: var(--tile-grad);
+}
+/* Artwork ink follows the same light/dark split as the tile gradient it sits on:
+   saturated and dark over the pale light tiles, light and airy over the deep
+   dark ones. The --ink-*-dark pair is the default, mirroring --tile-grad. */
+.marketing-home:not([data-theme="dark"]) .site-header__tile,
+html[data-theme="light"] .marketing-home .site-header__tile {
+  --tile-ink-a: var(--ink-a-light, var(--ink-a-dark));
+  --tile-ink-b: var(--ink-b-light, var(--ink-b-dark));
 }
 .marketing-home .site-header__tile-label {
   font-size: clamp(21px, 2.1vw, 28px);
