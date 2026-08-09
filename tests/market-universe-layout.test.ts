@@ -40,6 +40,8 @@ function node(symbol: string, communityId: string, x: number, y: number): AtlasN
     region: 'US',
     marketCap: null,
     context: false,
+    memberships: [],
+    isPrimary: true,
   }
 }
 
@@ -66,6 +68,7 @@ const atlas: RelationshipAtlas = {
   landmarks: communities.map((item, index) => node(item.representativeSymbols[0]!, item.id, index, index)),
   backbone: [],
   materialized: true,
+  detail: null,
 }
 
 test('economy projection is bounded, selective, and deterministic', () => {

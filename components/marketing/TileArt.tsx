@@ -6,7 +6,7 @@
 
 import type { CSSProperties } from 'react'
 
-export type TileArtKey = 'long-term' | 'income' | 'short-term'
+export type TileArtKey = 'long-term' | 'income' | 'short-term' | 'signals'
 
 const BARS = [
   { x: 12, y: 76, h: 28, o: 0.36 },
@@ -191,8 +191,46 @@ function ShortTermArt() {
   )
 }
 
+/* Signals: a state that flips. A stepped line holds a level, crosses, and holds the
+   next one — the flip marker is the whole point, so on hover it lands last. */
+function SignalsArt() {
+  return (
+    <svg viewBox="0 0 160 120" fill="none" aria-hidden="true" className="tile-art tile-art--signals">
+      <Ink id="tile-ink-signals" />
+      <g stroke="url(#tile-ink-signals)" strokeLinecap="round">
+        <path opacity="0.2" strokeWidth="2" d="M8 60h144" strokeDasharray="4 7" />
+        <g className="tile-art__ticks" strokeWidth="2" opacity="0.26">
+          {[24, 48, 72, 96, 120, 144].map((x, i) => (
+            <path key={x} d={`M${x} 100v8`} style={{ '--i': i } as CSSProperties} />
+          ))}
+        </g>
+        <path
+          className="tile-art__trace"
+          pathLength="100"
+          strokeWidth="4.5"
+          strokeLinejoin="round"
+          d="M14 84H50V44H86V72H122V32H150"
+        />
+      </g>
+      <g className="tile-art__target">
+        <circle cx="86" cy="72" r="6.5" fill="url(#tile-ink-signals)" />
+        <circle
+          className="tile-art__halo"
+          cx="86"
+          cy="72"
+          r="13"
+          stroke="url(#tile-ink-signals)"
+          strokeWidth="2.5"
+          opacity="0.34"
+        />
+      </g>
+    </svg>
+  )
+}
+
 export default function TileArt({ art }: { art: TileArtKey }) {
   if (art === 'long-term') return <LongTermArt />
   if (art === 'income') return <IncomeArt />
+  if (art === 'signals') return <SignalsArt />
   return <ShortTermArt />
 }

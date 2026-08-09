@@ -8,7 +8,14 @@ Use `api-request-template.md`, assign an owner, and keep status one of `draft`, 
 
 | ID | Need | Consumer | Proposed endpoint | Priority | Status | Owner |
 | --- | --- | --- | --- | --- | --- | --- |
-| _None_ |  |  |  |  |  |  |
+| REQ-001 | Batch quote and short price history for a set of symbols, so a ranking page can show price, day change and a sparkline per row | `app/(app)/picks/[reading]/page.tsx` via `lib/picks.ts` | `GET /quotes?symbols=A,B,C` returning last price, previous close and a short close series per symbol | Medium | `draft` | unassigned |
+
+**REQ-001 detail.** `GET /screener/rankings` returns `symbol`, `name`, `sector`, `score`,
+`coverage` and `components` — no price and no series. The existing per-symbol helpers
+(`getStockQuote`, `getHistoricalData` in `lib/finance.ts`) are cached individually, so
+covering 25 rows means roughly 50 backend calls per render, which is why the picks pages
+ship score-led without price visuals rather than fanning out. Not blocking: the pages are
+useful without it. Revisit before adding sparklines or a day-change column.
 
 ## Confirmed Phase 2 contract gaps
 

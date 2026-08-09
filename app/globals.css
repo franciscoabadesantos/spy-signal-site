@@ -630,6 +630,28 @@
   isolation: isolate;
 }
 
+/* Picks hero — rank 1 gets the navy treatment so the top of a ranking reads as a
+   conclusion rather than as the first row of a table. Deep enough that the white
+   type on it clears contrast in both themes, which is why it does not use the
+   surface tokens: those follow the theme and this card deliberately does not. */
+.picks-hero {
+  background:
+    radial-gradient(circle at 88% 6%, rgba(25, 201, 182, 0.28), transparent 58%),
+    radial-gradient(circle at 8% 92%, rgba(63, 99, 230, 0.24), transparent 62%),
+    linear-gradient(155deg, #1b2f56 0%, #101c38 52%, #0a1226 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 24px 60px -28px rgba(10, 18, 38, 0.7);
+}
+.picks-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .app-header__inner {
   border-bottom: 1px solid color-mix(in srgb, var(--brand-spark) 10%, var(--border));
   background: linear-gradient(180deg, color-mix(in srgb, var(--glass-bg) 82%, transparent), transparent);
@@ -1587,7 +1609,8 @@ html.chrome-scrolled .site-header__row:not([data-menu-open]) [data-header-search
 }
 .site-header__dropgrid {
   display: grid;
-  grid-template-columns: 1.15fr 1fr 1fr 1fr;
+  /* Text panel, then one column per tile — menus do not all carry the same count. */
+  grid-template-columns: 1.15fr repeat(var(--menu-tiles, 3), minmax(0, 1fr));
   gap: 8px;
   padding: 2px 12px 12px;
 }
@@ -2664,8 +2687,9 @@ html[data-theme="dark"] .marketing-home .dock-search .ticker-search__panel butto
   .marketing-home .site-header__dropgrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  /* Two columns: the four-tile menu wraps to three rows, not two. */
   .marketing-home .site-header__row[data-menu-open] .site-header__dropdowns {
-    max-height: 520px;
+    max-height: 700px;
   }
   .marketing-home .site-header__tile {
     min-height: 170px;

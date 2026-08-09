@@ -32,11 +32,11 @@ const MENUS: Menu[] = [
     blurb: 'The market changes every day. The kind of investor you are does not. Start there.',
     // The three readings are one measurement seen from three horizons, not three
     // weightings of one score — short term barely touches the axes the other two
-    // live on. Dedicated pages land later; until then every tile goes to /dashboard.
+    // live on.
     tiles: [
       {
         label: 'Long term',
-        href: '/dashboard',
+        href: '/picks/long-term',
         grad: 'linear-gradient(150deg,#3a4d8f,#0b1730)',
         lightGrad: 'linear-gradient(145deg,#d6e3f6,#f1f5fc 74%)',
         art: 'long-term',
@@ -47,7 +47,7 @@ const MENUS: Menu[] = [
       },
       {
         label: 'Income',
-        href: '/dashboard',
+        href: '/picks/income',
         grad: 'linear-gradient(150deg,#0f9e8e,#0a3a44)',
         lightGrad: 'linear-gradient(145deg,#c8ece2,#eefaf5 74%)',
         art: 'income',
@@ -58,7 +58,7 @@ const MENUS: Menu[] = [
       },
       {
         label: 'Short term',
-        href: '/dashboard',
+        href: '/picks/short-term',
         grad: 'linear-gradient(145deg,#8a5a37,#301a0b)',
         lightGrad: 'linear-gradient(145deg,#f7e0c9,#fdf3e8 74%)',
         art: 'short-term',
@@ -73,11 +73,22 @@ const MENUS: Menu[] = [
     key: 'correlation',
     label: 'Correlation',
     href: '/markets/network',
-    blurb: 'Placeholder — how names move together: the network, correlated pairs, and sector clusters.',
+    blurb: 'How names move together — the network, the pairs that track each other, and where a sector ends.',
     tiles: [
       { label: 'Network', href: '/markets/network', grad: 'linear-gradient(150deg,#0f9e8e,#0a3a44)', lightGrad: 'linear-gradient(145deg,#d9eee9,#f4efe5 72%)' },
       { label: 'Pairs', href: '/markets', grad: 'linear-gradient(145deg,#8a5a37,#301a0b)', lightGrad: 'linear-gradient(145deg,#eee4d9,#f4efe5 72%)' },
       { label: 'Sectors', href: '/markets', grad: 'linear-gradient(150deg,#3a4d8f,#0b1730)', lightGrad: 'linear-gradient(145deg,#dfe8ee,#f4efe5 72%)' },
+      {
+        label: 'Signals',
+        href: '/screener',
+        grad: 'linear-gradient(150deg,#5b3d8c,#160c30)',
+        lightGrad: 'linear-gradient(145deg,#e3dbf3,#f6f2fb 74%)',
+        art: 'signals',
+        inkA: '#8d6ec9',
+        inkB: '#c4b0ec',
+        inkALight: '#3d2470',
+        inkBLight: '#6b45b8',
+      },
     ],
   },
 ]
@@ -223,7 +234,11 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
 
       <div className="site-header__dropdowns" aria-hidden={!open} inert={!open ? true : undefined}>
         {displayed ? (
-          <div className="site-header__dropgrid">
+          <div
+            className="site-header__dropgrid"
+            // The grid was fixed at three tiles; Correlation now carries four.
+            style={{ ['--menu-tiles' as string]: String(displayed.tiles.length) }}
+          >
             <div className="site-header__tile site-header__tile--text">
               <div>
                 <p className="site-header__tile-eyebrow">{displayed.label}</p>

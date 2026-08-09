@@ -106,12 +106,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily',
       priority: 1,
     },
-    {
-      url: `${baseUrl}/screener`,
+    // /screener is deliberately absent: Signals is locked while it is rebuilt, and
+    // its page is noindex. It returns here when there is something to read.
+    ...(['long-term', 'income', 'short-term'] as const).map((slug) => ({
+      url: `${baseUrl}/picks/${slug}`,
       lastModified: now,
-      changeFrequency: 'hourly',
+      changeFrequency: 'daily' as const,
       priority: 0.9,
-    },
+    })),
     {
       url: `${baseUrl}/markets`,
       lastModified: now,
