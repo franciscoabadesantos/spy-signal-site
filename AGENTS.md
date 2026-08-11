@@ -1,62 +1,49 @@
 # Repository Working Agreement
 
+## Route the work first
+
+Main is the Product Lead and may work alone. Classify a task before editing:
+
+- **Lightweight:** bounded maintenance or engineering work using an established decision and contract. Proceed with a compact scope and proportional validation; the product-change template is optional.
+- **Meaningful:** changes product behavior, user journey, semantics, visual direction, entitlement, or scope. Work must approve the decisions in `.github/ISSUE_TEMPLATE/product-change.md`, then hand Codex the compact `docs/agents/implementation-packet.md`. The packet—not a discovery transcript—is the Work → Codex trigger.
+
+Specialists are conditional, not gates or a mandatory team. Use the smallest set that resolves concrete uncertainty. Technical checks do not grant product, visual, release, or outcome acceptance; the founder records those human decisions separately.
+
 ## Sources of truth
 
 - Stack: Next.js 16.2 App Router, React 19, strict TypeScript, Tailwind CSS 4, Clerk, and server-side access to `finance-backend`.
-- Runtime UI truth is `app/globals.css` plus the rendered components in `components/ui`, `components/shells`, and the target route. Files under `design/` are references only.
-- The homepage is `app/(marketing)/page.tsx` and `components/marketing/*`. Preserve its structure, copy, motion language, and visual identity unless homepage work is explicitly requested.
-- Read `DATA_SOURCE_POLICY.md` before changing ticker autocomplete, stock-page data loading, or backend proxy routes. API contracts live under `docs/api/`.
-- Study the runtime exemplars in `docs/design/visual-references.md` before reproducing a visual or interaction pattern. Tokens alone are not a design brief.
+- Runtime UI truth is `app/globals.css` and rendered components. `design/` is reference only. Preserve the homepage structure, copy, motion, and identity unless homepage work is explicit.
+- GitHub is durable implementation and decision truth. Vercel Preview is the frontend human-review surface; deployment ownership is routed by `docs/agents/system-topology.md`.
+- Before visual work, study `docs/design/visual-references.md`. Tokens alone are not a brief.
 
 ## Before editing
 
-1. Check `git status --short --branch` and task-local instructions.
-2. Use `rg --files` and targeted `rg` before opening large files. Ignore `.next`, artifacts, logs, and generated files.
-3. Identify the rendered component, its direct dependencies, contracts, states, tests, and nearest existing pattern.
-4. Before changing Next.js code, read the relevant guide under `node_modules/next/dist/docs/`; this version has breaking changes.
-5. Preserve unrelated local changes. Do not perform opportunistic cleanup or improvements inside otherwise legitimate files.
-
-## Agent selection
-
-- Use the smallest set of roles that resolves concrete uncertainty or risk. Main may discover and implement a localized frontend change directly.
-- A localized motion correction remains eligible for direct Main implementation when its cause is confirmed, it reuses the existing architecture, affects one surface, introduces no new visual direction or complex state/focus management, and has limited blast radius.
-- Homepage dropdown work is significant only when it introduces a new composition, interaction, responsive behavior, visual direction, or comparable risk; an existing easing or trajectory correction is not significant by default.
-- Running `npm run qa:browser` does not require a Browser QA Agent. Use separate implementation or read-only review roles only when delegation, risk, residual uncertainty, or a concrete need for independent evidence justifies them; follow `docs/agents/workflow.md` for ownership, handoffs, and recovery.
+1. Check `git status --short --branch`, task-local instructions, the rendered code, direct dependencies, contracts, states, tests, and nearest pattern.
+2. Use `rg --files` and targeted `rg`; ignore generated output. Preserve unrelated changes and avoid opportunistic cleanup.
+3. Before changing Next.js code, read the relevant guide in `node_modules/next/dist/docs/`.
+4. For backend-dependent work, discover contracts progressively: backend `docs/api-contract.json`, then backend `docs/openapi.json`, owning-repository semantic evidence, local route/helper/types/tests, then frontend `docs/api/` consumption notes and gap records. Frontend documentation is not primary backend contract truth.
+5. If support is missing, classify the owning layer using `DATA_SOURCE_POLICY.md` and record an owned gap. Never invent product intent, semantics, endpoints, fields, authentication, or response shapes; do not derive, fan out, substitute, or use a third party without explicit approval. Cross into another repository only when the classified gap or authoritative evidence requires it.
 
 ## Canonical commands
 
 - `npm run verify`: lint, strict typecheck, and unit/contract tests.
-- `npm run qa:browser`: browser preflight plus Playwright. Playwright owns the fixed test server, waits for readiness, and stops it.
-- `npm run qa:frontend`: `verify`, production build, and browser QA.
-- `npm run test:e2e` remains a compatibility alias for `qa:browser`. Use `npm run test:e2e:screenshots` only for deliberate captures.
+- `npm run qa:browser`: browser preflight plus Playwright on its owned fixed server.
+- `npm run qa:frontend`: verify, production build, and browser QA.
+- `npm run agents:sync` after canonical agent-source changes; never hand-edit managed `.codex` mirrors.
 
-Do not manually start a server, choose a QA port, kill processes, or launch Chromium for browser QA. Use `PLAYWRIGHT_BASE_URL` only when intentionally testing an already-running external server. Run checks in proportion to the changed surface; do not repeat expensive checks when no relevant code or configuration changed.
+Do not manually run a QA server, choose a port, kill processes, or launch Chromium. Use `PLAYWRIGHT_BASE_URL` only for an intentionally external server. Run checks in proportion to the changed surface.
 
-## Implementation boundaries
+## Engineering invariants
 
-- Keep pages and layouts as Server Components unless a focused interactive boundary needs `'use client'`.
-- Use semantic HTML, strict TypeScript, accessible React, existing primitives, and the current navy/electric, teal, and signal-color language. Do not introduce a parallel design system.
-- Design mobile-first through wide desktop. Preserve keyboard operation, visible focus, contrast, zoom, touch behavior, and reduced motion.
-- Use CSS for simple transitions, Framer Motion for React state/orchestration, and GSAP/ScrollTrigger only for complex scroll narratives. The root scroll runtime owns the site's single Lenis instance; route groups register profiles and narrative components register scoped scenes instead of creating another controller.
-- Canvas, 3D, or force graphs need a real data/interaction requirement, cleanup, a nonblank fallback, reduced-motion behavior, and browser QA.
-- Do not add dependencies unless the repository cannot meet the requirement without them; record cost, runtime impact, and rejected existing options.
-- Do not copy third-party branding, layouts, copy, code, or assets. Record transformed reference principles in `docs/design/visual-references.md`.
+- Keep pages/layouts server-rendered unless a focused client boundary is needed. Use semantic, accessible React, strict TypeScript, existing primitives, and the current visual language; add no dependency or parallel design system without necessity.
+- Design mobile-first through wide desktop. Preserve keyboard, focus, contrast, zoom, touch, and reduced motion. Use CSS for simple transitions, Framer Motion for orchestration, and scoped GSAP scenes only for complex scroll; the root owns the single Lenis instance.
+- Canvas/3D/force graphs require real data and interaction needs, cleanup, fallback, reduced motion, and browser QA.
+- Browser code calls local routes; server helpers call the configured backend. Never expose secrets or call providers directly from the browser.
+- Ticker autocomplete loads `/api/tickers/index` once and filters locally; it never calls enrichment, scorecard, per-symbol, or external lookup endpoints while suggesting. Read `DATA_SOURCE_POLICY.md` before changing ticker or stock data.
+- Cover applicable loading, empty, malformed, unauthorized, upstream error, timeout, retry, unavailable, partial, and stale states while preserving documented fail-open behavior.
 
-## Data and integration
+## Validation and completion
 
-- Browser code calls local routes; server helpers call the configured backend. Never expose secrets or call data providers directly from the browser.
-- Ticker autocomplete loads `/api/tickers/index` once and filters locally. It must not call enrichment, scorecard, per-symbol, or external lookup endpoints while opening, typing, or rendering suggestions.
-- Do not invent endpoints, fields, authentication, or response shapes. Use existing types and normalizers; request missing backend support in `docs/api/requested-endpoints.md`.
-- Cover the applicable success, loading, empty, malformed, authorization, upstream error, timeout, retry, and unavailable states. Preserve documented fail-open behavior.
+For visual/interaction work, follow `docs/qa/viewport-matrix.md` and `docs/qa/browser-qa.md`; inspect console errors, overflow, layout shift, focus order, keyboard, touch, bidirectional scroll, and reduced motion. Report infrastructure blockers exactly rather than improvising.
 
-## Browser QA and blockers
-
-- For visual or interaction changes, use the relevant matrix in `docs/qa/viewport-matrix.md` and the checks in `docs/qa/browser-qa.md`.
-- Review console errors, overflow, layout shift, focus order, keyboard, touch, bidirectional scroll, and reduced motion where applicable.
-- If a command is blocked by missing browser binaries, system libraries, sandbox policy, secrets, or an unavailable service, stop improvising. Preserve the exact command, exit status, useful log excerpt, and artifact path; distinguish infrastructure/startup failure from an application assertion or runtime failure.
-- Never hide essential stack traces to shorten output.
-
-## Completion
-
-- Keep the diff within the requested scope; do not format, reorganize, delete, commit, push, or open a PR unless asked.
-- Inspect every changed file and the final diff. Report commands and exact results, pre-existing failures, unverified assumptions, remaining risks, and the next step.
+Keep the diff scoped. Inspect every changed file and the final diff. Unless explicitly asked, do not commit, push, or open a PR. Report exact checks/results, pre-existing failures, deviations, unresolved assumptions, risks, and next steps.

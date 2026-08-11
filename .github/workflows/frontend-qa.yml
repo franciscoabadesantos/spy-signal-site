@@ -1,0 +1,72 @@
+name: Frontend QA
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candidate:
+    name: Frontend candidate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Route changed files
+        id: route
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base="$PR_BASE"
+          elif [[ -n "${BEFORE:-}" && ! "$BEFORE" =~ ^0+$ ]]; then
+            base="$BEFORE"
+          else
+            base="$(git rev-list --max-parents=0 "$HEAD_SHA")"
+          fi
+
+          needed=false
+          while IFS= read -r file; do
+            case "$file" in
+              app/*|components/*|hooks/*|public/*|e2e/*|playwright.config.*|next.config.*|postcss.config.*|proxy.ts|vercel.json)
+                needed=true
+                break ;;
+            esac
+          done < <(git diff --name-only "$base" "$HEAD_SHA")
+          echo "needed=$needed" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.route.outputs.needed == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.route.outputs.needed == 'true'
+        run: npm ci
+
+      - name: Install Chromium
+        if: steps.route.outputs.needed == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run complete frontend candidate check
+        if: steps.route.outputs.needed == 'true'
+        run: npm run qa:frontend
+
+      - name: Record not-applicable result
+        if: steps.route.outputs.needed != 'true'
+        run: echo "No frontend/runtime candidate paths changed; frontend QA is not applicable."

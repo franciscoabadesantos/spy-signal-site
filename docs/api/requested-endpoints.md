@@ -1,8 +1,8 @@
 # Requested Backend Support
 
-There are no active endpoint requests recorded at the creation of this document. Add an entry only after confirming that existing local routes, backend helpers, payload fields, and graceful empty states cannot support the frontend need.
+There are no active endpoint requests recorded at the creation of this document. Before adding one, inspect the machine-readable backend contract (`finance-backend/docs/api-contract.json`, then `docs/openapi.json`) and record the lookup result. Classify whether the gap belongs to source, canonical/derived semantics, ML evidence, signal intent, realized simulation, experiment lineage, eligibility/activation, HTTP exposure, deployment/runtime, or frontend consumption/state. Propose a backend endpoint only when verified upstream semantics exist and HTTP exposure is the missing ownership layer.
 
-Use `api-request-template.md`, assign an owner, and keep status one of `draft`, `frontend-reviewed`, `backend-reviewed`, `approved`, `implemented`, `verified`, or `declined`. A proposed route is not available to frontend code until implementation and contract verification are complete.
+Use `api-request-template.md`, assign both the semantic owner and gap layer, and keep status one of `draft`, `frontend-reviewed`, `backend-reviewed`, `approved`, `implemented`, `verified`, or `declined`. A proposed route is not available to frontend code until implementation and contract verification are complete. Do not compensate with frontend derivation, third-party lookup, endpoint fan-out, or approximate substitution without explicit approval.
 
 ## Requests
 
