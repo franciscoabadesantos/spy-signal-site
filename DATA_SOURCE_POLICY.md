@@ -28,6 +28,25 @@ The ticker index must include every field the autocomplete needs. Do not add a b
 
 Stock pages should use backend summary/profile/scorecard/history routes exposed through the local API and server helpers. If a field is missing, render a graceful empty state instead of adding a client-side provider lookup.
 
+## Backend Contract Discovery and Gap Ownership
+
+Before changing backend-dependent behavior, check accessible `finance-backend/docs/api-contract.json`, then `finance-backend/docs/openapi.json`, then the owning repository's semantic evidence. Only after that inspect this repository's local routes, helpers, types, tests, and `docs/api/` consumption/gap notes. Frontend documentation is not primary backend contract truth.
+
+Classify missing support before proposing an endpoint:
+
+- source missing → `finance-data-ops`
+- canonical/derived semantic → `finance-feature-store`
+- ML evidence → `ml-lab`
+- signal intent → `finance-strategy-lab`
+- realized simulated validation → `finance-backtest`
+- experiment lineage → `finance-research-orchestrator`
+- eligibility/activation → `finance-model-registry`
+- HTTP exposure → `finance-backend`
+- deployment/runtime composition → `finance-infra`
+- frontend consumption/state → `spy-signal-site`
+
+The HTTP owner is not automatically the semantic owner. Record the owned gap and upstream evidence. Without an explicit approved decision, do not fill it through frontend derivation, third-party lookup, endpoint fan-out, approximate substitution, or a graceful state presented as complete data.
+
 ## Agent Checklist
 
 - Do not create public free-text ticker lookup endpoints.
@@ -35,3 +54,4 @@ Stock pages should use backend summary/profile/scorecard/history routes exposed 
 - Do not add direct-open/manual ticker suggestions that bypass the index.
 - Do not add autocomplete enrichment, scorecard, or per-symbol fetches.
 - Add or update tests when changing ticker autocomplete or data-source behavior.
+- Verify backend contracts and classify the ownership layer before recording a gap or proposing HTTP exposure.
