@@ -36,7 +36,7 @@ Do not manually run a QA server, choose a port, kill processes, or launch Chromi
 ## Engineering invariants
 
 - Keep pages/layouts server-rendered unless a focused client boundary is needed. Use semantic, accessible React, strict TypeScript, existing primitives, and the current visual language; add no dependency or parallel design system without necessity.
-- Design mobile-first through wide desktop. Preserve keyboard, focus, contrast, zoom, touch, and reduced motion. Use CSS for simple transitions, Framer Motion for orchestration, and scoped GSAP scenes only for complex scroll; the root owns the single Lenis instance.
+- Design mobile-first through wide desktop. Preserve keyboard, focus, contrast, zoom, touch, and reduced motion. Use CSS for simple transitions, Framer Motion for orchestration, and scoped GSAP scenes only for complex scroll; the root scroll runtime owns the site's single Lenis instance.
 - Canvas/3D/force graphs require real data and interaction needs, cleanup, fallback, reduced motion, and browser QA.
 - Browser code calls local routes; server helpers call the configured backend. Never expose secrets or call providers directly from the browser.
 - Ticker autocomplete loads `/api/tickers/index` once and filters locally; it never calls enrichment, scorecard, per-symbol, or external lookup endpoints while suggesting. Read `DATA_SOURCE_POLICY.md` before changing ticker or stock data.
