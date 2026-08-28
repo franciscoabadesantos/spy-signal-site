@@ -12,8 +12,15 @@ export default clerkMiddleware(async (auth, req) => {
 })
 
 export const config = {
+  // clerkMiddleware() has to run wherever server code calls auth(), or auth()
+  // throws and lib/auth.ts degrades the viewer to signed out. Ticker pages read
+  // the viewer through getViewerUserId() for the watchlist control, so they are
+  // matched here. Matching only establishes the auth context; protection is
+  // decided by isProtectedRoute above, which deliberately excludes /stocks so
+  // ticker pages stay public.
   matcher: [
     '/dashboard(.*)',
+    '/stocks(.*)',
     '/api/watchlist(.*)',
     '/api/export-signals(.*)',
   ],
