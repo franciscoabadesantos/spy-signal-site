@@ -8,7 +8,7 @@ npx playwright install chromium
 npm run qa:browser
 ```
 
-`qa:browser` first checks that the project Chromium executable exists, then delegates the full run to Playwright. `playwright.config.ts` starts `npm run dev` on the fixed internal URL `http://127.0.0.1:3100`, uses the isolated `.next-playwright` output directory, waits for readiness, pipes server logs, applies a startup timeout, and shuts the process down. The isolated output avoids contention with a normal `.next/dev/lock`; Playwright does not silently reuse a process on the QA port. `PLAYWRIGHT_BASE_URL` is the explicit opt-in for an intentionally managed external server.
+`qa:browser` first checks that the project Chromium executable exists, then delegates the full run to Playwright. `playwright.config.ts` starts the deterministic backend fixture, then the application server on the fixed internal URL `http://localhost:3100`, waits for readiness, pipes server logs, applies a startup timeout, and shuts both down. Locally it runs `npm run dev` with the isolated `.next-playwright` output directory; when `PLAYWRIGHT_SERVER_MODE=production` is set it runs `npm run start` against the build already in `.next`. The isolated output avoids contention with a normal `.next/dev/lock`; Playwright does not silently reuse a process on the QA port. `PLAYWRIGHT_BASE_URL` is the explicit opt-in for an intentionally managed external server.
 
 Do not start or stop a server manually, select another port, invoke Chromium directly, or repair browser locks during a QA run. The committed smoke test is deliberately content-light and checks homepage load, console/page errors, horizontal overflow, and deliberate screenshot capture across representative viewports.
 
@@ -21,6 +21,16 @@ npm run qa:frontend
 ```
 
 The workflow does not reproduce the command's internal lint, typecheck, test, build, or Playwright steps. GitHub-connected Vercel—not Actions—creates the frontend Preview.
+
+## Harness invariants
+
+These are load-bearing. Each was learned from a failure that looked like an application bug.
+
+- **`localhost` is the canonical frontend loopback origin.** The browser addresses the app server as `localhost`, and the app server does not pin a hostname. Next middleware normalizes loopback request origins to `localhost`, so pinning the server to `127.0.0.1` leaves the router comparing that against its literal init URL, misclassifying an internal rewrite as external and network-proxying the request back into itself. The visible symptom is a long stall ending in `Failed to proxy …`, `socket hang up` and `ECONNRESET` on routes that run middleware and then render. Never mix the two names for the application origin. The backend fixture is unaffected and stays on `127.0.0.1`, because nothing rewrites through it.
+- **Candidate QA exercises the production runtime.** `qa:frontend` already builds, so Frontend QA sets `PLAYWRIGHT_SERVER_MODE=production` and the browser suite runs against that build via `next start`, which is what Vercel serves. Local `qa:browser` still defaults to `next dev`. Do not let a green `next dev` run stand alone as release evidence for a runtime concern.
+- **CI Clerk uses a dedicated Development instance.** Browser QA needs a publishable key wherever `clerkMiddleware()` runs, so the workflow supplies a disposable Clerk development application through a repository variable and secret, scoped to the single candidate-check step rather than the job or workflow. Never point CI at production credentials, and never commit key values.
+- **Playwright `page.route()` cannot mock server-side fetching.** It intercepts browser requests only, so anything a server component or route handler fetches during render is out of reach. A page whose data is fetched server-side will render its empty or error state no matter what the browser mock returns.
+- **Server-side backend dependencies use the local fixture backend.** `scripts/e2e-backend-stub.mjs` serves repository-owned synthetic data from `e2e/fixtures/`, and `playwright.config.ts` points `BACKEND_BASE_URL` at it. Paths the fixture does not model answer 503, matching what the application already sees when no backend is reachable. Fixture data is deliberately unmistakable and must never reach a production data path.
 
 ## Infrastructure blockers
 
