@@ -19,6 +19,10 @@ export const config = {
   // decided by isProtectedRoute above, which deliberately excludes /stocks so
   // ticker pages stay public.
   matcher: [
+    // THROWAWAY DIAGNOSTIC route (see app/diagclerkauth). Matched so that
+    // clerkMiddleware runs on it; deliberately absent from isProtectedRoute so
+    // it stays public and must actually render.
+    '/diagclerkauth(.*)',
     '/dashboard(.*)',
     '/stocks(.*)',
     '/api/watchlist(.*)',

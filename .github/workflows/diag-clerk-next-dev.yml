@@ -1,0 +1,135 @@
+# THROWAWAY DIAGNOSTIC WORKFLOW — delete with this branch.
+#
+# Question: does the matched-public-route `next dev` failure reproduce on a
+# GitHub-hosted runner, or only in the local WSL sandbox?
+#
+# Locally we established that an unmatched rendered route works, a matched
+# protected route that redirects works, and a matched route that must render
+# hangs for ~29.5s and ends in 500 / ECONNRESET. That holds for a trivial
+# auth()-only page as much as for the ticker page, under both bundlers, and
+# across Next 16.2.10/16.2.11 and Clerk 7.5.17/7.8.2. The same commit is fine on
+# Vercel Preview.
+#
+# No Clerk key is injected. The Next child runs the ordinary no-credentials
+# keyless development path, which is what the harness does locally.
+#
+# This job is EXPECTED to be red while the bug reproduces. That is the result,
+# not a failure of the workflow.
+name: Diagnostic - Clerk + Next dev
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Matched-route probe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Record versions
+        run: |
+          node -e "console.log('node', process.version)"
+          node -e "console.log('next', require('./node_modules/next/package.json').version)"
+          node -e "console.log('@clerk/nextjs', JSON.parse(require('fs').readFileSync('node_modules/@clerk/nextjs/package.json','utf8')).version)"
+
+      - name: Start fixture backend
+        run: |
+          nohup node scripts/e2e-backend-stub.mjs > /tmp/stub.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf -m 2 http://127.0.0.1:3101/health && break
+            sleep 1
+          done
+          curl -sf -m 3 http://127.0.0.1:3101/health
+
+      # The runner keeps CI=true. Only this child clears CI and the keyless
+      # switch, so Clerk takes its ordinary no-credentials development path
+      # instead of throwing "Missing publishableKey" on every matched route.
+      - name: Start Next dev (child without CI / keyless-disabled)
+        env:
+          BACKEND_BASE_URL: http://127.0.0.1:3101
+          BACKEND_SHARED_SECRET: diagnostic-not-a-secret
+        run: |
+          echo "runner sees CI=${CI:-<unset>}"
+          env -u CI -u NEXT_PUBLIC_CLERK_KEYLESS_DISABLED \
+            nohup npx next dev -p 3100 -H 127.0.0.1 > /tmp/next-dev.log 2>&1 &
+          for i in $(seq 1 120); do
+            curl -sf -o /dev/null -m 2 http://127.0.0.1:3100/product && break
+            sleep 1
+          done
+          echo "dev server reachable: $(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:3100/product)"
+
+      - name: Probe routes sequentially
+        id: probe
+        run: |
+          set +e
+          probe() {
+            local path="$1"
+            local out
+            out=$(curl -s -o /tmp/body.txt -w '%{http_code} %{time_total}' -m 40 "http://127.0.0.1:3100$path")
+            local rc=$?
+            if [ $rc -ne 0 ]; then
+              echo "$path -> CURL_ERROR rc=$rc (likely timeout/reset)"
+              echo "${path}=curl_error" >> /tmp/results.txt
+            else
+              echo "$path -> HTTP ${out%% *} in ${out##* }s"
+              echo "${path}=${out%% *}" >> /tmp/results.txt
+            fi
+          }
+          : > /tmp/results.txt
+          echo "=== sequential curl probes (40s cap each) ==="
+          probe /product
+          probe /diagclerkauth
+          probe /stocks/AAPL
+          probe /dashboard
+          echo
+          echo "=== results ==="
+          cat /tmp/results.txt
+
+      - name: Next dev server output
+        if: always()
+        run: |
+          echo "=== next-dev.log ==="
+          cat /tmp/next-dev.log || true
+          echo
+          echo "=== stub.log ==="
+          cat /tmp/stub.log || true
+
+      - name: Verdict
+        if: always()
+        run: |
+          set +e
+          diag=$(grep '^/diagclerkauth=' /tmp/results.txt | cut -d= -f2)
+          stocks=$(grep '^/stocks/AAPL=' /tmp/results.txt | cut -d= -f2)
+          reset=0
+          grep -qiE "socket hang up|ECONNRESET|Failed to proxy" /tmp/next-dev.log && reset=1
+
+          echo "trivial matched auth() route : ${diag:-<none>}"
+          echo "ticker matched route         : ${stocks:-<none>}"
+          echo "socket reset in server log   : ${reset}"
+
+          # Healthy means both matched rendered routes answered 200 and the
+          # server logged no reset. Anything else reproduces the failure.
+          bad=0
+          [ "$diag" = "200" ] || bad=1
+          [ "$stocks" = "200" ] || bad=1
+          [ "$reset" = "1" ] && bad=1
+
+          if [ "$bad" = "0" ]; then
+            echo "VERDICT: NOT REPRODUCED - matched rendered routes behave normally on a GitHub runner."
+            exit 0
+          fi
+          echo "VERDICT: REPRODUCED - a matched rendered route failed on a GitHub runner."
+          echo "This red result is the finding, not a broken workflow."
+          exit 1
