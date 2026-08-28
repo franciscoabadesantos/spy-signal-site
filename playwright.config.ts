@@ -4,6 +4,34 @@ const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim()
 const baseURL = externalBaseUrl || 'http://127.0.0.1:3100'
 const stubBaseUrl = `http://127.0.0.1:${process.env.E2E_BACKEND_STUB_PORT || 3101}`
 
+// Frontend QA sets PLAYWRIGHT_SERVER_MODE=production so the browser suite runs
+// against the production build `qa:frontend` has just produced, which is the
+// runtime Vercel actually serves. The switch is explicit rather than keyed off
+// CI, so a runner and a laptop can each choose either mode deliberately.
+// Absent the variable, local `qa:browser` keeps using `next dev` exactly as
+// before.
+const useProductionServer = process.env.PLAYWRIGHT_SERVER_MODE?.trim() === 'production'
+
+// Shared by both modes. BACKEND_SHARED_SECRET is not a credential: the proxy
+// routes require it to be present before they will call upstream at all, and
+// the fixture backend never reads it.
+const appServerEnv = {
+  BACKEND_BASE_URL: stubBaseUrl,
+  BACKEND_SHARED_SECRET: 'e2e-fixture-not-a-secret',
+}
+
+const appServer = useProductionServer
+  ? {
+      // `npm run build` writes to the default .next directory, so this mode
+      // must not override NEXT_DIST_DIR or `next start` would find no build.
+      command: 'npm run start -- --hostname 127.0.0.1 --port 3100',
+      env: appServerEnv,
+    }
+  : {
+      command: 'npm run dev -- --hostname 127.0.0.1 --port 3100',
+      env: { NEXT_DIST_DIR: '.next-playwright', ...appServerEnv },
+    }
+
 export default defineConfig({
   testDir: './e2e',
   outputDir: 'test-results',
@@ -44,16 +72,7 @@ export default defineConfig({
           },
         },
         {
-          command: 'npm run dev -- --hostname 127.0.0.1 --port 3100',
-          env: {
-            NEXT_DIST_DIR: '.next-playwright',
-            BACKEND_BASE_URL: stubBaseUrl,
-            // Not a credential. The proxy routes require this to be present
-            // before they will call upstream at all; the fixture backend never
-            // reads it. No real secret is involved and nothing external is
-            // reachable with it.
-            BACKEND_SHARED_SECRET: 'e2e-fixture-not-a-secret',
-          },
+          ...appServer,
           url: baseURL,
           reuseExistingServer: false,
           timeout: 120_000,
