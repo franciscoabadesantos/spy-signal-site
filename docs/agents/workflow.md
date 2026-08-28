@@ -40,6 +40,17 @@ Approved product decisions, an owned boundary, verified contracts/owned gaps, in
 
 Running `qa:browser` does not require Browser QA. Data consumption does not automatically require API Contract Agent when authoritative evidence already resolves the contract. Do not create a mandatory sequence or team.
 
+## Diagnostic branches and validation-only PRs
+
+When a failure resists explanation, an isolated branch is cheaper and more honest than speculative edits to a product PR.
+
+- A validation-only PR may exist purely to prove a composition — for example merging two open PRs together to see them interact — without ever being merged itself.
+- A diagnostic branch or PR is explicitly disposable. Mark it `DO NOT MERGE` in the title or description and say so in the first line of the body.
+- Keep the scope narrow: one hypothesis, the smallest reproducer that tests it, and nothing else. A trivial route that isolates one mechanism beats instrumenting the real feature.
+- Such a branch may legitimately be red. A red diagnostic that reproduces the failure is the result, not a broken pipeline; do not weaken it to go green.
+- Close it once the investigation concludes, and record the finding in the durable docs rather than leaving the branch as the only evidence.
+- It must never contaminate a product PR's delta. Diagnostic routes, throwaway workflows and dependency experiments stay on their own branch; the product PR carries only the change under review.
+
 ## Ownership and execution
 
 - Main supplies only the compact packet and linked evidence. One editor owns an area at a time; reviewers are read-only unless ownership is explicitly transferred.
