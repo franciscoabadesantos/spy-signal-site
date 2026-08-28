@@ -1,7 +1,13 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim()
-const baseURL = externalBaseUrl || 'http://127.0.0.1:3100'
+// DIAGNOSTIC: loopback hostname experiment. Next 16 middleware normalizes
+// loopback URLs to `localhost`; when the server was started with an explicit
+// -H 127.0.0.1 the router compares that against its literal init URL, decides an
+// internal rewrite is external, and network-proxies the request back into
+// itself. So the app server no longer pins a loopback hostname, and the browser
+// addresses it by the same name the middleware uses.
+const baseURL = externalBaseUrl || 'http://localhost:3100'
 const stubBaseUrl = `http://127.0.0.1:${process.env.E2E_BACKEND_STUB_PORT || 3101}`
 
 // Frontend QA sets PLAYWRIGHT_SERVER_MODE=production so the browser suite runs
@@ -24,11 +30,11 @@ const appServer = useProductionServer
   ? {
       // `npm run build` writes to the default .next directory, so this mode
       // must not override NEXT_DIST_DIR or `next start` would find no build.
-      command: 'npm run start -- --hostname 127.0.0.1 --port 3100',
+      command: 'npm run start -- --port 3100',
       env: appServerEnv,
     }
   : {
-      command: 'npm run dev -- --hostname 127.0.0.1 --port 3100',
+      command: 'npm run dev -- --port 3100',
       env: { NEXT_DIST_DIR: '.next-playwright', ...appServerEnv },
     }
 
