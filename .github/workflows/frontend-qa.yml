@@ -65,6 +65,12 @@ jobs:
 
       - name: Run complete frontend candidate check
         if: steps.route.outputs.needed == 'true'
+        env:
+          # Runners set CI, which the Next server reads to disable Clerk keyless
+          # mode, but the browser bundle never sees it and enables keyless. The
+          # extra client-only provider that follows shifts every useId() and
+          # breaks hydration. NEXT_PUBLIC_ is inlined into both, so both agree.
+          NEXT_PUBLIC_CLERK_KEYLESS_DISABLED: '1'
         run: npm run qa:frontend
 
       - name: Record not-applicable result
