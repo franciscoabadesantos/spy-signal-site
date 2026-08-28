@@ -1,7 +1,14 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim()
-const baseURL = externalBaseUrl || 'http://127.0.0.1:3100'
+// The browser addresses the app server as localhost, and the app server does not
+// pin a loopback hostname, because Next 16 middleware normalizes loopback
+// request origins to localhost. Pinning 127.0.0.1 left the router comparing
+// localhost against its literal init URL, so an internal middleware rewrite was
+// misclassified as external and network-proxied back into the same server.
+// Keeping both names aligned avoids that. The fixture backend is unaffected:
+// nothing rewrites through it.
+const baseURL = externalBaseUrl || 'http://localhost:3100'
 const stubBaseUrl = `http://127.0.0.1:${process.env.E2E_BACKEND_STUB_PORT || 3101}`
 
 // Frontend QA sets PLAYWRIGHT_SERVER_MODE=production so the browser suite runs
@@ -24,11 +31,11 @@ const appServer = useProductionServer
   ? {
       // `npm run build` writes to the default .next directory, so this mode
       // must not override NEXT_DIST_DIR or `next start` would find no build.
-      command: 'npm run start -- --hostname 127.0.0.1 --port 3100',
+      command: 'npm run start -- --port 3100',
       env: appServerEnv,
     }
   : {
-      command: 'npm run dev -- --hostname 127.0.0.1 --port 3100',
+      command: 'npm run dev -- --port 3100',
       env: { NEXT_DIST_DIR: '.next-playwright', ...appServerEnv },
     }
 
