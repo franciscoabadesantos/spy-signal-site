@@ -22,7 +22,7 @@
     "test:e2e:screenshots": "PLAYWRIGHT_CAPTURE=1 npm run qa:browser --"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.0.11",
+    "@clerk/nextjs": "7.8.2",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@types/d3-force": "^3.0.10",
