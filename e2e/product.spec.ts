@@ -6,7 +6,12 @@ test.describe('Product marketing page', () => {
     await page.goto('/product', { waitUntil: 'load' })
 
     await expect(page.getByRole('heading', { name: 'Research the market with more context.' })).toBeVisible()
-    await expect(page.locator('.site-header__bar nav a')).toHaveText(['Product', 'Pricing', 'FAQ'])
+    // The reduced marketing navigation is HeaderBar's desktop nav, which renders
+    // one menu trigger per MENUS entry as a button. Join is a link, and it sits
+    // in the header cluster beside the nav rather than inside it.
+    await expect(page.locator('.site-header__bar nav button')).toHaveText(['Today', 'Correlation'])
+    await expect(page.locator('.site-header__bar nav a')).toHaveCount(0)
+    await expect(page.locator('.site-header__bar .site-header__join')).toHaveText('Join')
     await expect(page.locator('#flow')).toBeVisible()
     await expect(page.locator('#ticker-pages')).toBeVisible()
     await expect(page.locator('#compare')).toBeVisible()
