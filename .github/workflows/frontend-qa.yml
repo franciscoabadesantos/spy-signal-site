@@ -66,10 +66,17 @@ jobs:
       - name: Run complete frontend candidate check
         if: steps.route.outputs.needed == 'true'
         env:
-          # Runners set CI, which the Next server reads to disable Clerk keyless
-          # mode, but the browser bundle never sees it and enables keyless. The
-          # extra client-only provider that follows shifts every useId() and
-          # breaks hydration. NEXT_PUBLIC_ is inlined into both, so both agree.
+          # A dedicated disposable Clerk development application, scoped to this
+          # step alone rather than the job or workflow. clerkMiddleware() needs a
+          # publishable key wherever it runs, and without one it throws on every
+          # matched route.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_CI_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_CI_SECRET_KEY }}
+          # Keyless stays off. Runners set CI, which the Next server reads to
+          # disable keyless while the browser bundle never sees it and would
+          # enable it; the extra client-only provider that follows shifts every
+          # useId() and breaks hydration. NEXT_PUBLIC_ is inlined into both, so
+          # both agree.
           NEXT_PUBLIC_CLERK_KEYLESS_DISABLED: '1'
         run: npm run qa:frontend
 
