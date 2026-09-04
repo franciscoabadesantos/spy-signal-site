@@ -111,6 +111,33 @@
   gap: 12px;
 }
 
+.chartQuote {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.chartPrice {
+  color: var(--color-text-primary);
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.4px;
+}
+
+.chartDelta {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 560px) {
+  .chartToolbar {
+    flex-wrap: wrap;
+  }
+}
+
 .heroChartWrap {
   border-top: 1px solid var(--color-border-light);
   padding-top: 8px;

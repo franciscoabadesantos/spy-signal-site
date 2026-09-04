@@ -5,6 +5,7 @@ import StockResearchNav from '@/components/stocks/StockResearchNav'
 import StockTickerIdentity from '@/components/stocks/StockTickerIdentity'
 import TickerRelationshipField, { TickerRelationshipFieldFallback } from '@/components/stocks/TickerRelationshipField'
 import WatchlistButton from '@/components/WatchlistButton'
+import { assetOrientation } from '@/lib/asset-orientation'
 import type { StockTickerChromeData } from '@/lib/stock-ticker-chrome'
 import { tickerIdentityColor } from '@/lib/ticker-identity-color'
 import styles from './StockTickerChrome.module.css'
@@ -26,12 +27,7 @@ export function StockTickerChromeFallback({
           <StockTickerIdentity
             ticker={ticker}
             displayName={ticker}
-            assetBadgeLabel={null}
-            currency="USD"
-            exchange={null}
-            price={null}
-            dailyMoveAmount={null}
-            dailyMovePercent={null}
+            orientation={null}
             identityColor={identityColor}
             nameAsHeading={isOverview}
             loading
@@ -63,12 +59,7 @@ export default function StockTickerChrome({
           <StockTickerIdentity
             ticker={resolved.ticker}
             displayName={resolved.displayName}
-            assetBadgeLabel={resolved.assetBadgeLabel}
-            currency={resolved.currency}
-            exchange={resolved.exchange}
-            price={resolved.price}
-            dailyMoveAmount={resolved.dailyMoveAmount}
-            dailyMovePercent={resolved.dailyMovePercent}
+            orientation={assetOrientation(resolved.assetBadgeLabel, resolved.exchange, resolved.currency)}
             identityColor={resolved.identityColor}
             nameAsHeading={isOverview}
           />

@@ -27,6 +27,20 @@ const PREFIX_SYMBOL: Record<string, string> = {
 
 const KR_SUFFIX_CURRENCIES = new Set(['DKK', 'SEK', 'NOK'])
 
+const CURRENCY_DISPLAY_NAMES: Readonly<Record<string, string>> = {
+  USD: 'US dollars',
+  EUR: 'euros',
+  GBP: 'British pounds',
+  AUD: 'Australian dollars',
+  HKD: 'Hong Kong dollars',
+  CNY: 'Chinese yuan',
+  INR: 'Indian rupees',
+  JPY: 'Japanese yen',
+  DKK: 'Danish kroner',
+  SEK: 'Swedish kronor',
+  NOK: 'Norwegian kroner',
+}
+
 /** Moeda a partir do sufixo do ticker; sem sufixo = USD. */
 export function currencyForTicker(ticker: string | null | undefined): string {
   const t = String(ticker ?? '').trim().toUpperCase()
@@ -34,6 +48,14 @@ export function currencyForTicker(ticker: string | null | undefined): string {
     if (t.endsWith(suffix)) return currency
   }
   return 'USD'
+}
+
+export function currencyDisplayName(code: string): string {
+  const rawCode = code.trim()
+  const normalizedCode = rawCode === 'GBp' || rawCode.toUpperCase() === 'GBX'
+    ? 'GBP'
+    : rawCode.toUpperCase()
+  return CURRENCY_DISPLAY_NAMES[normalizedCode] ?? rawCode
 }
 
 function normalizeMoneyValue(

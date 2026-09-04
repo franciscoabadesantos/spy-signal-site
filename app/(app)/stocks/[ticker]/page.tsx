@@ -576,6 +576,9 @@ export default async function TickerPage({
       <StockOverviewClient
         ticker={ticker}
         currency={currency}
+        price={marketQuote?.price ?? null}
+        dailyMoveAmount={marketQuote?.change ?? null}
+        dailyMovePercent={marketQuote?.changePercent ?? null}
         assetBadgeLabel={isEtf ? 'ETF' : 'Equity'}
         latestSignal={latestSignal}
         historicalData={historicalData}
