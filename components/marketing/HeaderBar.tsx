@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, ChevronDown } from 'lucide-react'
+import HeaderAccountControl from '@/components/HeaderAccountControl'
 import TileArt, { type TileArtKey } from '@/components/marketing/TileArt'
 import HeaderSearch from '@/components/HeaderSearch'
 import { cn } from '@/lib/utils'
@@ -222,13 +223,11 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
                 <ChevronDown className="site-nav__chev size-3.5" aria-hidden="true" />
               </button>
             ))}
+            <Link href="/community" className="site-header__navlink">
+              Community
+            </Link>
           </nav>
-          <Link
-            href="/sign-up"
-            className="site-header__join inline-flex items-center justify-center rounded-full bg-brand-spark px-4 font-semibold text-[color:var(--brand-spark-on)] shadow-[0_10px_24px_-8px_var(--brand-spark)] transition duration-200 hover:brightness-[1.08]"
-          >
-            Join
-          </Link>
+          <HeaderAccountControl />
         </div>
       </div>
 

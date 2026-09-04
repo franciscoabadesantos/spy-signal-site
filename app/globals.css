@@ -626,10 +626,6 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 18%);
 }
 
-.app-header {
-  isolation: isolate;
-}
-
 /* Picks hero — rank 1 gets the navy treatment so the top of a ranking reads as a
    conclusion rather than as the first row of a table. Deep enough that the white
    type on it clears contrast in both themes, which is why it does not use the
@@ -650,15 +646,6 @@
   pointer-events: none;
   border-radius: inherit;
   border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.app-header__inner {
-  border-bottom: 1px solid color-mix(in srgb, var(--brand-spark) 10%, var(--border));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--glass-bg) 82%, transparent), transparent);
-}
-
-.app-header:focus-within .app-header__inner {
-  border-bottom-color: color-mix(in srgb, var(--brand-spark) 28%, var(--border));
 }
 
 /* ── Immersive atlas route (/markets/network) ──────────────────────────────
