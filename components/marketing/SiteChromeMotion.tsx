@@ -24,10 +24,13 @@ import { useScrollRuntime } from '@/components/motion/ScrollRuntime'
  */
 
 const SCROLLED = 40
-// How far you must scroll before the header is allowed to hide on scroll-down.
-// Kept high so the search stays reachable well into the page (incl. the pinned
-// hero) and only tucks away once you're deep past it.
-const FOLD = 1200
+const FOLD_BY_PROFILE = {
+  // The pinned narrative hero keeps search reachable well into the page and
+  // only lets the header tuck away once the reader is deep past it.
+  narrative: 1200,
+  operational: 120,
+  standard: 120,
+} as const
 const DELTA = 5
 
 export default function SiteChromeMotion() {
@@ -46,8 +49,12 @@ export default function SiteChromeMotion() {
       ticking = true
       requestAnimationFrame(() => {
         const y = window.scrollY
+        const profile = root.dataset.scrollProfile
+        const fold = profile === 'narrative'
+          ? FOLD_BY_PROFILE.narrative
+          : FOLD_BY_PROFILE[profile === 'operational' ? 'operational' : 'standard']
         root.classList.toggle('chrome-scrolled', y > SCROLLED)
-        root.classList.toggle('chrome-past-fold', y > FOLD)
+        root.classList.toggle('chrome-past-fold', y > fold)
         if (Math.abs(y - lastY) > DELTA) {
           const down = y > lastY && y > SCROLLED
           root.classList.toggle('chrome-scroll-down', down)
