@@ -7,10 +7,6 @@
   min-width: 0;
 }
 
-.content {
-  display: contents;
-}
-
 .nodeRail {
   --selected-node-tone: var(--brand-spark);
   position: relative;
@@ -87,14 +83,11 @@
   white-space: nowrap;
 }
 
-.orientation {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  margin-left: calc((var(--selected-node-column) - var(--selected-node-size)) / 2);
-  margin-top: 6px;
+.metadata {
   color: var(--color-text-secondary);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 @media (max-width: 560px) {

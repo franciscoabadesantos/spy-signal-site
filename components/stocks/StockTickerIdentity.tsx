@@ -4,7 +4,7 @@ import styles from './StockTickerIdentity.module.css'
 type StockTickerIdentityProps = {
   ticker: string
   displayName: string
-  orientation: string | null
+  metadata: string | null
   identityColor: string
   nameAsHeading?: boolean
   loading?: boolean
@@ -13,7 +13,7 @@ type StockTickerIdentityProps = {
 export default function StockTickerIdentity({
   ticker,
   displayName,
-  orientation,
+  metadata,
   identityColor,
   nameAsHeading = false,
   loading = false,
@@ -32,17 +32,16 @@ export default function StockTickerIdentity({
       >
         <span className={styles.node} data-selected-ticker-anchor="" />
       </span>
-      <div className={styles.content}>
-        <div className={styles.nameRow} data-ticker-identity="">
-          {name}
-          {!loading ? <span className={styles.tickerBadge}>{ticker}</span> : null}
-        </div>
-
-        <div className={styles.orientation}>
-          {loading ? (
-            <LoadingPulse label={`Loading ${ticker}`} size="compact" />
-          ) : orientation}
-        </div>
+      <div className={styles.nameRow} data-ticker-identity="">
+        {name}
+        {loading ? (
+          <LoadingPulse label={`Loading ${ticker}`} size="compact" />
+        ) : (
+          <>
+            <span className={styles.tickerBadge}>{ticker}</span>
+            {metadata ? <span className={styles.metadata}>{metadata}</span> : null}
+          </>
+        )}
       </div>
     </div>
   )
