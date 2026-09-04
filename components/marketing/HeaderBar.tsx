@@ -223,9 +223,11 @@ export default function HeaderBar({ isHome }: { isHome: boolean }) {
                 <ChevronDown className="site-nav__chev size-3.5" aria-hidden="true" />
               </button>
             ))}
-            <Link href="/community" className="site-header__navlink">
-              Community
-            </Link>
+            {!isHome ? (
+              <Link href="/community" className="site-header__navlink">
+                Community
+              </Link>
+            ) : null}
           </nav>
           <HeaderAccountControl />
         </div>
