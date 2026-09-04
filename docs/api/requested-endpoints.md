@@ -9,6 +9,7 @@ Use `api-request-template.md`, assign both the semantic owner and gap layer, and
 | ID | Need | Consumer | Proposed endpoint | Priority | Status | Owner |
 | --- | --- | --- | --- | --- | --- | --- |
 | REQ-001 | Batch quote and short price history for a set of symbols, so a ranking page can show price, day change and a sparkline per row | `app/(app)/picks/[reading]/page.tsx` via `lib/picks.ts` | `GET /quotes?symbols=A,B,C` returning last price, previous close and a short close series per symbol | Medium | `draft` | unassigned |
+| REQ-002 | As-of-dated FX reference so non-USD listing prices can include a USD equivalent | `components/stocks/StockTickerIdentity.tsx` via `lib/stock-ticker-chrome.ts` | Deferred until source and canonical semantics exist | Normal | `draft` | `finance-data-ops` → `finance-feature-store` → `finance-backend` |
 
 **REQ-001 detail.** `GET /screener/rankings` returns `symbol`, `name`, `sector`, `score`,
 `coverage` and `components` — no price and no series. The existing per-symbol helpers
@@ -16,6 +17,30 @@ Use `api-request-template.md`, assign both the semantic owner and gap layer, and
 covering 25 rows means roughly 50 backend calls per render, which is why the picks pages
 ship score-led without price visuals rather than fanning out. Not blocking: the pages are
 useful without it. Revisit before adding sparklines or a day-change column.
+
+### REQ-002 — As-of-dated currency conversion reference
+
+- **Need / user outcome:** An FX rate with an explicit as-of date so a non-USD listing price can be shown with a USD equivalent for readers who do not price in the local currency.
+- **Frontend consumer:** `components/stocks/StockTickerIdentity.tsx`, supplied by `lib/stock-ticker-chrome.ts`.
+- **Why existing contracts are insufficient:** The ticker summary identifies the listing currency and exchange but provides no conversion rate or converted value.
+- **Backend contract lookup result:** At `finance-backend` commit `6bf5f1ec87a1a3739888be62aa4af3222981c1c0`, searches of `docs/api-contract.json` followed by `docs/openapi.json` found no FX, currency-rate, or conversion endpoint or field.
+- **Semantic owner:** `finance-data-ops` for source ingestion, then `finance-feature-store` for canonical/derived exposure.
+- **Gap layer:** Source missing in `finance-data-ops` (no FX series is ingested) → canonical/derived exposure in `finance-feature-store` → HTTP exposure in `finance-backend`.
+- **Upstream evidence:** None yet; an authoritative FX source, pair convention, valuation timestamp, market-calendar treatment, and lineage must be approved before transport is designed.
+- **Why HTTP exposure is the correct missing layer:** It is not yet the only missing layer. Source and canonical semantics are absent, so an HTTP route must not be proposed as if the value already exists.
+- **Proposed method and endpoint:** Deferred until upstream source and semantic contracts are approved.
+- **Minimum request fields:** To be defined after the upstream contract exists; expected concerns include source currency, target currency, and as-of date.
+- **Minimum response fields:** To be defined after the upstream contract exists; must include currencies, rate, as-of timestamp/date, source, and nullability semantics.
+- **Authentication/authorization:** To be defined by `finance-backend` if and when HTTP exposure is approved.
+- **Errors:** Must distinguish unsupported pairs, unavailable dates, stale/partial source data, upstream failure, and timeout; exact statuses are not yet approved.
+- **Caching/pagination/rate limits:** To be defined from the approved series frequency and revision behavior; pagination is not expected for a single reference lookup.
+- **Privacy and logging constraints:** No user data is required; avoid logging secrets or unnecessary request context.
+- **Priority:** Normal.
+- **Dependencies and owners:** `finance-data-ops` source ingestion, `finance-feature-store` canonical semantics, then `finance-backend` transport.
+- **Compatibility/versioning:** Additive contract only; conversion semantics and timestamp basis must be versioned if they can change.
+- **Approval state:** `draft`.
+- **Contract evidence:** No backend schema or examples exist yet.
+- **Frontend fallback until available:** Show the backend-supplied local listing currency only. Render no conversion, estimate, approximation, third-party lookup, or unavailable placeholder.
 
 ## Confirmed Phase 2 contract gaps
 

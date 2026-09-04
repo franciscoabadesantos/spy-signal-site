@@ -6,6 +6,7 @@ import StockTickerIdentity from '@/components/stocks/StockTickerIdentity'
 import TickerRelationshipField, { TickerRelationshipFieldFallback } from '@/components/stocks/TickerRelationshipField'
 import WatchlistButton from '@/components/WatchlistButton'
 import type { StockTickerChromeData } from '@/lib/stock-ticker-chrome'
+import { tickerIdentityColor } from '@/lib/ticker-identity-color'
 import styles from './StockTickerChrome.module.css'
 
 export function StockTickerChromeFallback({
@@ -15,9 +16,11 @@ export function StockTickerChromeFallback({
   ticker: string
   isOverview: boolean
 }) {
+  const identityColor = tickerIdentityColor(ticker)
+
   return (
     <section className={styles.chrome} data-ticker-hero="" data-ticker-chrome="loading" aria-label={`${ticker} research`}>
-      <TickerRelationshipFieldFallback tone="brand" />
+      <TickerRelationshipFieldFallback accentColor={identityColor} />
       <div className={styles.content}>
         <div className={styles.identityRow}>
           <StockTickerIdentity
@@ -25,10 +28,11 @@ export function StockTickerChromeFallback({
             displayName={ticker}
             assetBadgeLabel={null}
             currency="USD"
+            exchange={null}
             price={null}
             dailyMoveAmount={null}
             dailyMovePercent={null}
-            tone="brand"
+            identityColor={identityColor}
             nameAsHeading={isOverview}
             loading
           />
@@ -51,8 +55,8 @@ export default function StockTickerChrome({
 
   return (
     <section className={styles.chrome} data-ticker-hero="" data-ticker-chrome="ready" aria-label={`${resolved.ticker} research`}>
-      <Suspense fallback={<TickerRelationshipFieldFallback tone={resolved.tone} />}>
-        <TickerRelationshipField ticker={resolved.ticker} tone={resolved.tone} relationships={relationships} />
+      <Suspense fallback={<TickerRelationshipFieldFallback accentColor={resolved.identityColor} />}>
+        <TickerRelationshipField ticker={resolved.ticker} accentColor={resolved.identityColor} relationships={relationships} />
       </Suspense>
       <div className={styles.content}>
         <div className={styles.identityRow}>
@@ -61,11 +65,11 @@ export default function StockTickerChrome({
             displayName={resolved.displayName}
             assetBadgeLabel={resolved.assetBadgeLabel}
             currency={resolved.currency}
+            exchange={resolved.exchange}
             price={resolved.price}
             dailyMoveAmount={resolved.dailyMoveAmount}
             dailyMovePercent={resolved.dailyMovePercent}
-            tone={resolved.tone}
-            signal={isOverview ? resolved.signal : null}
+            identityColor={resolved.identityColor}
             nameAsHeading={isOverview}
           />
           <div className={styles.controlRail}>

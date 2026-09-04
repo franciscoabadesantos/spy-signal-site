@@ -3,47 +3,29 @@ import { cn } from '@/lib/utils'
 import LoadingPulse from '@/components/ui/LoadingPulse'
 import styles from './StockTickerIdentity.module.css'
 
-export type StockIdentityTone = 'bullish' | 'neutral' | 'bearish' | 'brand'
-
-type StockIdentitySignal = {
-  direction: 'bullish' | 'neutral' | 'bearish'
-  signalDate: string | null
-}
-
 type StockTickerIdentityProps = {
   ticker: string
   displayName: string
   assetBadgeLabel: string | null
   currency: string
+  exchange: string | null
   price: number | null
   dailyMoveAmount: number | null
   dailyMovePercent: number | null
-  tone: StockIdentityTone
-  signal?: StockIdentitySignal | null
+  identityColor: string
   nameAsHeading?: boolean
   loading?: boolean
 }
 
-function formatCompactPercent(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return '—'
+function formatCompactPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
-function formatSignalDate(value: string | null): string {
-  if (!value) return '—'
-  const parsed = Date.parse(value)
-  if (!Number.isFinite(parsed)) return '—'
-  return new Date(parsed).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+function isFiniteNumber(value: number | null): value is number {
+  return value !== null && Number.isFinite(value)
 }
 
-function signalLabel(direction: StockIdentitySignal['direction']): string {
-  if (direction === 'bullish') return 'Bullish regime'
-  if (direction === 'bearish') return 'Bearish regime'
-  return 'Neutral regime'
-}
-
-function deltaClass(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return styles.deltaNeutral
+function deltaClass(value: number): string {
   if (value > 0) return styles.deltaPositive
   if (value < 0) return styles.deltaNegative
   return styles.deltaNeutral
@@ -54,21 +36,28 @@ export default function StockTickerIdentity({
   displayName,
   assetBadgeLabel,
   currency,
+  exchange,
   price,
   dailyMoveAmount,
   dailyMovePercent,
-  tone,
-  signal,
+  identityColor,
   nameAsHeading = false,
   loading = false,
 }: StockTickerIdentityProps) {
+  const hasDailyMove = isFiniteNumber(dailyMoveAmount) && isFiniteNumber(dailyMovePercent)
+  const listing = exchange === null ? currency : `${exchange} · ${currency}`
   const name = nameAsHeading
     ? <h1 className={styles.name}>{displayName}</h1>
     : <p className={styles.name}>{displayName}</p>
 
   return (
     <div className={styles.identity}>
-      <span className={styles.nodeRail} data-selected-ticker-node="" data-tone={tone} aria-hidden="true">
+      <span
+        className={styles.nodeRail}
+        data-selected-ticker-node=""
+        style={{ ['--selected-node-tone' as never]: identityColor }}
+        aria-hidden="true"
+      >
         <span className={styles.node} data-selected-ticker-anchor="" />
       </span>
       <div className={styles.content}>
@@ -83,20 +72,17 @@ export default function StockTickerIdentity({
             <LoadingPulse label={`Loading ${ticker} quote`} size="compact" />
           ) : (
             <>
-              <strong className={styles.price}>{formatMoney(price, currency)}</strong>
-              <span className={cn(styles.delta, deltaClass(dailyMoveAmount))}>
-                {formatSignedMoney(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
-              </span>
+              {isFiniteNumber(price) ? <strong className={styles.price}>{formatMoney(price, currency)}</strong> : null}
+              {hasDailyMove ? (
+                <span className={cn(styles.delta, deltaClass(dailyMoveAmount))}>
+                  {formatSignedMoney(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
+                </span>
+              ) : null}
+              {/* Local currency intentionally has no USD equivalent; see docs/api/requested-endpoints.md#req-002. */}
+              <span className={styles.listing}>{listing}</span>
             </>
           )}
         </div>
-
-        {signal ? (
-          <div className={styles.signalRow}>
-            <span className={styles.regimeBadge} data-tone={signal.direction}>{signalLabel(signal.direction)}</span>
-            {signal.signalDate ? <span className={styles.signalDateBadge}>Signal: {formatSignalDate(signal.signalDate)}</span> : null}
-          </div>
-        ) : null}
       </div>
     </div>
   )
