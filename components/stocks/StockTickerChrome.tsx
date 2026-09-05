@@ -2,6 +2,7 @@
 
 import { Suspense, use, useMemo } from 'react'
 import StockResearchNav from '@/components/stocks/StockResearchNav'
+import TickerExportButton from '@/components/stocks/TickerExportButton'
 import StockTickerIdentity from '@/components/stocks/StockTickerIdentity'
 import TickerRelationshipField, { TickerRelationshipFieldFallback } from '@/components/stocks/TickerRelationshipField'
 import WatchlistButton from '@/components/WatchlistButton'
@@ -72,11 +73,14 @@ export default function StockTickerChrome({
           />
           <div className={styles.controlRail}>
             {metadata ? <span className={styles.metadata}>{metadata}</span> : null}
-            <WatchlistButton
-              ticker={resolved.ticker}
-              initialInWatchlist={resolved.watchlist.initialInWatchlist}
-              signedIn={resolved.watchlist.signedIn}
-            />
+            <div className={styles.actionCluster}>
+              <TickerExportButton ticker={resolved.ticker} />
+              <WatchlistButton
+                ticker={resolved.ticker}
+                initialInWatchlist={resolved.watchlist.initialInWatchlist}
+                signedIn={resolved.watchlist.signedIn}
+              />
+            </div>
           </div>
         </div>
         <div className={styles.navigation} data-ticker-navigation=""><StockResearchNav ticker={resolved.ticker} /></div>

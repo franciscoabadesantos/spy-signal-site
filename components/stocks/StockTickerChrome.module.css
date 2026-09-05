@@ -59,6 +59,12 @@
   white-space: nowrap;
 }
 
+.actionCluster {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
 .navigation {
   min-width: 0;
   margin-top: 8px;
@@ -98,17 +104,20 @@
  * where both fit side by side, the rail takes its own row instead.
  */
 @media (max-width: 720px) {
-  .identityRow:has([data-watchlist-recovery='open']) {
+  .identityRow:has([data-watchlist-recovery='open']),
+  .identityRow:has([data-ticker-export-recovery='open']) {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .identityRow:has([data-watchlist-recovery='open']) .controlRail {
+  .identityRow:has([data-watchlist-recovery='open']) .controlRail,
+  .identityRow:has([data-ticker-export-recovery='open']) .controlRail {
     justify-content: flex-start;
   }
 }
 
 @media (max-width: 560px) {
-  .identityRow:has([data-watchlist-recovery='open']) .controlRail {
+  .identityRow:has([data-watchlist-recovery='open']) .controlRail,
+  .identityRow:has([data-ticker-export-recovery='open']) .controlRail {
     flex-direction: column;
     align-items: flex-start;
   }
