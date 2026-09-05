@@ -112,6 +112,14 @@
 
 .chartFooterControl {
   margin-left: auto;
+  max-width: 100%;
+}
+
+.chartFooterControlInner {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  justify-content: flex-end;
 }
 
 .heroChartWrap {
@@ -164,9 +172,15 @@
 
 @media (max-width: 768px) {
   .chartFooterControl {
-    display: flex;
+    display: block;
     flex-basis: 100%;
-    justify-content: flex-end;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .chartFooterControl::-webkit-scrollbar {
+    display: none;
   }
 
   .indicatorModalGrid {

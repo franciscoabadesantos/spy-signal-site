@@ -628,12 +628,14 @@ export default function StockOverviewClient({
                 </dl>
               ) : null}
               <div className={styles.chartFooterControl}>
-                <SegmentedControl
-                  options={HERO_TIMEFRAMES}
-                  value={heroTimeframe}
-                  onChange={selectHeroTimeframe}
-                  ariaLabel="Chart timeframe"
-                />
+                <div className={styles.chartFooterControlInner}>
+                  <SegmentedControl
+                    options={HERO_TIMEFRAMES}
+                    value={heroTimeframe}
+                    onChange={selectHeroTimeframe}
+                    ariaLabel="Chart timeframe"
+                  />
+                </div>
               </div>
             </div>
           </div>
