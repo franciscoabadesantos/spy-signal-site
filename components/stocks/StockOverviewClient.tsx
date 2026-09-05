@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, use, useMemo, useState } from 'react'
+import { Suspense, use, useMemo, useRef, useState } from 'react'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import TemporalLineChart from '@/components/charts/TemporalLineChart'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
@@ -17,8 +17,9 @@ import styles from './StockOverviewClient.module.css'
 import ScorecardDisc from './ScorecardDisc'
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
-type ChartTimeframe = '1D' | '5D' | '1M' | '3M' | 'YTD' | '1Y' | '5Y'
+type ChartTimeframe = '1D' | '5D' | '1M' | '3M' | 'YTD' | '1Y' | '5Y' | 'ALL'
 type HistoricalChartState = 'loaded' | 'empty' | 'error'
+type FullHistoryState = 'idle' | 'loading' | 'loaded' | 'error'
 
 type OverviewStat = {
   label: string
@@ -98,7 +99,7 @@ type StockOverviewClientProps = {
   scorecard: Scorecard
 }
 
-const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y']
+const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y', 'ALL']
 const SIGNAL_TIMEFRAMES: TechnicalTimeframe[] = ['1D', '1W', '1M']
 
 function formatDate(value: string | null, options?: Intl.DateTimeFormatOptions): string {
@@ -172,6 +173,7 @@ function parseChartDate(value: string): number {
 }
 
 function startDateForHeroTimeframe(timeframe: ChartTimeframe, latestDate: Date): number | null {
+  if (timeframe === 'ALL') return null
   if (timeframe === '1D') return latestDate.getTime() - 1 * 24 * 60 * 60 * 1000
   if (timeframe === '5D') return latestDate.getTime() - 5 * 24 * 60 * 60 * 1000
   if (timeframe === '1M') return latestDate.getTime() - 30 * 24 * 60 * 60 * 1000
@@ -182,6 +184,7 @@ function startDateForHeroTimeframe(timeframe: ChartTimeframe, latestDate: Date):
 }
 
 function filterChartData(data: PricePoint[], timeframe: ChartTimeframe): PricePoint[] {
+  if (timeframe === 'ALL') return data
   if (data.length <= 2) return data
   if (timeframe === '1D') return data.slice(-2)
   if (timeframe === '5D') return data.slice(-5)
@@ -398,10 +401,17 @@ export default function StockOverviewClient({
   scorecard,
 }: StockOverviewClientProps) {
   const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1M')
+  const [fullHistoricalData, setFullHistoricalData] = useState<PricePoint[] | null>(null)
+  const [fullHistoryState, setFullHistoryState] = useState<FullHistoryState>('idle')
+  const fullHistoryRequested = useRef(false)
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
   const scorecardMessage = scorecardReadinessMessage(scorecard)
 
-  const filteredChartData = useMemo(() => filterChartData(historicalData, heroTimeframe), [historicalData, heroTimeframe])
+  const chartHistory = heroTimeframe === 'ALL' && fullHistoricalData ? fullHistoricalData : historicalData
+  const filteredChartData = useMemo(
+    () => filterChartData(chartHistory, heroTimeframe),
+    [chartHistory, heroTimeframe],
+  )
   const technicalSummary = useMemo(
     () => buildTechnicalSummary(ohlcData, signalTimeframe),
     [ohlcData, signalTimeframe]
@@ -429,6 +439,48 @@ export default function StockOverviewClient({
     : fundamentalGroups
   const visibleFundamentalGroups = orderedFundamentalGroups.slice(0, 6)
   const availableScorecardAxes = scorecard.axes.filter((axis) => axis.available && axis.score !== null).length
+
+  const selectHeroTimeframe = (timeframe: ChartTimeframe) => {
+    if (timeframe !== 'ALL') {
+      setHeroTimeframe(timeframe)
+      return
+    }
+
+    if (fullHistoricalData) {
+      setHeroTimeframe('ALL')
+      return
+    }
+    if (fullHistoryRequested.current) {
+      setHeroTimeframe(fullHistoryState === 'error' ? '5Y' : 'ALL')
+      return
+    }
+
+    fullHistoryRequested.current = true
+    setHeroTimeframe('ALL')
+    setFullHistoryState('loading')
+
+    void fetch(`/api/stocks/${encodeURIComponent(ticker)}/history`)
+      .then(async (response) => {
+        const payload: unknown = await response.json().catch(() => null)
+        if (!response.ok || !Array.isArray(payload)) throw new Error('Full history request failed.')
+
+        const points = payload.filter((point): point is PricePoint => {
+          if (!point || typeof point !== 'object') return false
+          const candidate = point as Partial<PricePoint>
+          return typeof candidate.date === 'string'
+            && typeof candidate.close === 'number'
+            && Number.isFinite(candidate.close)
+        })
+        if (points.length < 2) throw new Error('Full history is empty.')
+
+        setFullHistoricalData(points)
+        setFullHistoryState('loaded')
+      })
+      .catch(() => {
+        setFullHistoryState('error')
+        setHeroTimeframe((current) => current === 'ALL' ? '5Y' : current)
+      })
+  }
 
   const researchSnapshot = [
     {
@@ -557,12 +609,20 @@ export default function StockOverviewClient({
               <SegmentedControl
                 options={HERO_TIMEFRAMES}
                 value={heroTimeframe}
-                onChange={setHeroTimeframe}
+                onChange={selectHeroTimeframe}
                 ariaLabel="Chart timeframe"
               />
             </div>
-            <div className={styles.heroChartWrap}>
-              <HeroPriceChart data={filteredChartData} state={historicalChartState} currency={currency} />
+            <div className={styles.heroChartWrap} aria-busy={fullHistoryState === 'loading'}>
+              <HeroPriceChart
+                data={filteredChartData}
+                state={fullHistoryState === 'error' ? 'error' : historicalChartState}
+                currency={currency}
+              />
+              {fullHistoryState === 'loading' ? <span className="sr-only" role="status">Loading full price history.</span> : null}
+              {fullHistoryState === 'error' ? (
+                <p className={styles.chartStatus} role="status">Historical price data could not be loaded. Showing the longest available range.</p>
+              ) : null}
             </div>
           </div>
 
