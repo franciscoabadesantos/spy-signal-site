@@ -431,9 +431,7 @@ export default function StockOverviewClient({
     { key: 'oscillators', label: 'Oscillators', gauge: technicalSummary.gauges.oscillators },
     { key: 'moving-averages', label: 'Moving averages', gauge: technicalSummary.gauges.movingAverages },
   ] as const
-  const marketReference = ['Market Cap', 'Net Assets', 'Volume', 'P/E']
-    .map((label) => keyStats.find((stat) => stat.label === label))
-    .find((stat): stat is OverviewStat => Boolean(stat))
+  const marketCapReference = keyStats.find((stat) => stat.label === 'Market Cap')
   const orderedFundamentalGroups = assetBadgeLabel === 'ETF'
     ? [...fundamentalGroups].sort((left, right) => Number(right.key === 'fund') - Number(left.key === 'fund'))
     : fundamentalGroups
@@ -482,33 +480,34 @@ export default function StockOverviewClient({
       })
   }
 
-  const researchSnapshot = [
+  const researchVerdicts = [
     {
       label: 'Model signal',
       value: latestSignal ? regimeCopy(latestSignal.direction) : 'Unavailable',
-      detail: latestSignal ? `${formatConviction(latestSignal.conviction)} conviction` : 'No current model signal',
+      detail: latestSignal?.conviction !== null
+        && latestSignal?.conviction !== undefined
+        && Number.isFinite(latestSignal.conviction)
+        ? `${formatConviction(latestSignal.conviction)} conviction`
+        : null,
     },
     {
       label: `Technical · ${signalTimeframe}`,
       value: hasTechnicalData ? technicalSummary.gauges.summary.verdict : 'Data pending',
-      detail: hasTechnicalData ? `${Math.round(technicalSummary.gauges.summary.position)} / 100` : 'Insufficient price history',
-    },
-    {
-      label: '30D volatility',
-      value: volatility30d === null ? '—' : `${volatility30d.toFixed(1)}%`,
-      detail: 'Realized price movement',
-    },
-    {
-      label: marketReference?.label ?? 'Market reference',
-      value: marketReference?.value ?? '—',
-      detail: 'Latest available observation',
-    },
-    {
-      label: 'Next earnings',
-      value: nextEarnings?.date ? formatDate(nextEarnings.date, { month: 'short', day: 'numeric' }) : 'Data pending',
-      detail: nextEarnings?.fiscalPeriod ?? 'No confirmed fiscal period',
+      detail: hasTechnicalData ? `${Math.round(technicalSummary.gauges.summary.position)} / 100` : null,
     },
   ]
+  const nextEarningsReference = nextEarnings?.date
+    ? formatDate(nextEarnings.date, { month: 'short', day: 'numeric' })
+    : null
+  const referenceFacts = [
+    marketCapReference ? { label: 'Market cap', value: marketCapReference.value } : null,
+    nextEarningsReference && nextEarningsReference !== '—'
+      ? { label: 'Next earnings', value: nextEarningsReference }
+      : null,
+    volatility30d !== null && Number.isFinite(volatility30d)
+      ? { label: '30D volatility', value: `${volatility30d.toFixed(1)}%` }
+      : null,
+  ].filter((fact): fact is OverviewStat => fact !== null)
 
   const timingSection = (
     <article id="signals" className={styles.editorialChapter} aria-labelledby="timing-heading">
@@ -624,9 +623,16 @@ export default function StockOverviewClient({
                 <p className={styles.chartStatus} role="status">Historical price data could not be loaded. Showing the longest available range.</p>
               ) : null}
             </div>
+            {referenceFacts.length > 0 ? (
+              <dl className={styles.referenceLine} aria-label="Market reference">
+                {referenceFacts.map((fact) => (
+                  <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>
+                ))}
+              </dl>
+            ) : null}
           </div>
 
-          <aside className={styles.snapshotEditorial} aria-label="Final grade" data-overview-grade="">
+          <aside className={styles.snapshotEditorial} aria-label="Research score and verdicts" data-overview-grade="">
             <Link href={`/stocks/${ticker}/methodology`} className={styles.snapshotGradeLink} aria-label="Open score breakdown">
               <div className={styles.snapshotScorecard}>
                 <ScorecardDisc scorecard={scorecard} size={184} compact className={styles.overviewScorecardDisc} />
@@ -637,19 +643,17 @@ export default function StockOverviewClient({
                 </div>
               </div>
             </Link>
+            <dl className={styles.snapshotVerdicts} aria-label="Current research snapshot">
+              {researchVerdicts.map((verdict) => (
+                <div key={verdict.label} className={styles.snapshotVerdict}>
+                  <dt>{verdict.label}</dt>
+                  <dd>{verdict.value}</dd>
+                  {verdict.detail ? <p>{verdict.detail}</p> : null}
+                </div>
+              ))}
+            </dl>
           </aside>
         </div>
-
-        <section className={styles.researchSnapshot} aria-label="Current research snapshot">
-          {researchSnapshot.map((item) => (
-            <div key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-              <small>{item.detail}</small>
-            </div>
-          ))}
-        </section>
-
       </section>
 
       <div className={styles.editorialSequence}>
