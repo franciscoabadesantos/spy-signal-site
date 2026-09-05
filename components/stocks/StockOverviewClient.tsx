@@ -643,6 +643,7 @@ export default function StockOverviewClient({
                 </div>
               </div>
             </Link>
+            {/* REQ-003: show no investor reading until its endpoint exists and its contract is verified. */}
             <dl className={styles.snapshotVerdicts} aria-label="Current research snapshot">
               {researchVerdicts.map((verdict) => (
                 <div key={verdict.label} className={styles.snapshotVerdict}>
