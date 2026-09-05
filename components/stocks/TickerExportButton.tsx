@@ -95,7 +95,15 @@ export default function TickerExportButton({ ticker }: { ticker: string }) {
   }
 
   return (
-    <div className="relative flex flex-col items-start gap-1.5 md:items-end">
+    <div
+      className="relative flex flex-col items-start gap-1.5 md:items-end"
+      onKeyDown={(event) => {
+        if (recovery && event.key === 'Escape') {
+          event.stopPropagation()
+          closeRecovery()
+        }
+      }}
+    >
       <button
         ref={buttonRef}
         type="button"
@@ -106,7 +114,7 @@ export default function TickerExportButton({ ticker }: { ticker: string }) {
         aria-busy={pending}
         aria-expanded={recovery ? true : undefined}
         aria-controls={recovery ? recoveryId : undefined}
-        className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--color-text-secondary)] shadow-[inset_0_1px_0_var(--glass-highlight)] backdrop-blur-[30px] saturate-[1.8] transition-[border-color,color,transform] duration-150 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--page-bg)] active:scale-90 disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--color-text-secondary)] shadow-[inset_0_1px_0_var(--glass-highlight)] backdrop-blur-[30px] saturate-[1.8] transition-[border-color,color,transform] duration-150 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--page-bg)] active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100 disabled:cursor-wait disabled:opacity-60"
       >
         {pending ? (
           <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -121,12 +129,6 @@ export default function TickerExportButton({ ticker }: { ticker: string }) {
         <div
           id={recoveryId}
           data-ticker-export-recovery="open"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.stopPropagation()
-              closeRecovery()
-            }
-          }}
           className="flex w-[min(16.5rem,100%)] flex-col gap-2 rounded-[var(--radius-lg)] border border-border bg-surface-elevated px-3 py-2.5 text-left"
         >
           <p className="text-caption text-content-secondary">
