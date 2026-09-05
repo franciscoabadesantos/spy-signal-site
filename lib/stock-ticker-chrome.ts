@@ -14,6 +14,9 @@ export type StockTickerChromeData = {
   assetBadgeLabel: 'ETF' | 'Equity'
   currency: string
   exchange: string | null
+  price: number | null
+  dailyMoveAmount: number | null
+  dailyMovePercent: number | null
   identityColor: string
   watchlist: {
     signedIn: boolean
@@ -58,6 +61,9 @@ export async function getStockTickerChromeData(tickerRaw: string): Promise<Stock
     assetBadgeLabel: kind === 'fund' ? 'ETF' : 'Equity',
     currency: summary?.asset?.currency ?? summary?.fundamentalsSummary?.currency ?? currencyForTicker(ticker),
     exchange: summary?.asset?.exchange ?? null,
+    price: quote?.price ?? summary?.marketStats?.lastPrice ?? null,
+    dailyMoveAmount: quote?.change ?? null,
+    dailyMovePercent: quote?.changePercent ?? null,
     identityColor: tickerIdentityColor(ticker),
     watchlist: {
       signedIn: Boolean(viewerUserId),

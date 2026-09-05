@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { Suspense, use, useMemo, useState } from 'react'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import TemporalLineChart from '@/components/charts/TemporalLineChart'
-import { formatMoney, formatSignedMoney } from '@/lib/currency'
 import type { OhlcPoint, PricePoint } from '@/lib/finance'
 import type { Scorecard } from '@/lib/scorecard-types'
 import {
@@ -88,9 +87,6 @@ type OverviewRegimePoint = {
 type StockOverviewClientProps = {
   ticker: string
   currency: string
-  price: number | null
-  dailyMoveAmount: number | null
-  dailyMovePercent: number | null
   assetBadgeLabel: string
   latestSignal: OverviewSignal | null
   historicalData: PricePoint[]
@@ -127,10 +123,6 @@ function formatDate(value: string | null, options?: Intl.DateTimeFormatOptions):
 function formatCompactPercent(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—'
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
-}
-
-function isFiniteNumber(value: number | null): value is number {
-  return value !== null && Number.isFinite(value)
 }
 
 function formatConviction(value: number | null): string {
@@ -398,9 +390,6 @@ function RelatedAssetsContent({
 export default function StockOverviewClient({
   ticker,
   currency,
-  price,
-  dailyMoveAmount,
-  dailyMovePercent,
   assetBadgeLabel,
   latestSignal,
   historicalData,
@@ -420,7 +409,6 @@ export default function StockOverviewClient({
   const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1M')
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
   const scorecardMessage = scorecardReadinessMessage(scorecard)
-  const hasDailyMove = isFiniteNumber(dailyMoveAmount) && isFiniteNumber(dailyMovePercent)
 
   const filteredChartData = useMemo(() => filterChartData(historicalData, heroTimeframe), [historicalData, heroTimeframe])
   const technicalSummary = useMemo(
@@ -578,16 +566,6 @@ export default function StockOverviewClient({
           <div className={styles.heroChartColumn}>
             <h2 className="sr-only">Quick Read</h2>
             <div className={styles.chartToolbar}>
-              {isFiniteNumber(price) ? (
-                <div className={styles.chartQuote}>
-                  <strong className={styles.chartPrice}>{formatMoney(price, currency)}</strong>
-                  {hasDailyMove ? (
-                    <span className={cn(styles.chartDelta, directionToneClass(dailyMoveAmount))}>
-                      {formatSignedMoney(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
               <SegmentedControl
                 options={HERO_TIMEFRAMES}
                 value={heroTimeframe}

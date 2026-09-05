@@ -39,14 +39,49 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 24px;
-  align-items: start;
+  align-items: center;
 }
 
 .controlRail {
   position: relative;
   z-index: 2;
   display: flex;
+  gap: 16px;
+  align-items: center;
   justify-content: flex-end;
+}
+
+.quote {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.price {
+  color: var(--color-text-primary);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.4px;
+}
+
+.delta {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.deltaPositive {
+  color: var(--color-positive);
+}
+
+.deltaNegative {
+  color: var(--color-negative);
+}
+
+.deltaNeutral {
+  color: var(--color-neutral);
 }
 
 .navigation {
@@ -65,7 +100,12 @@
   }
 
   .identityRow {
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
+  }
+
+  .controlRail {
+    justify-content: space-between;
   }
 
   .navigation {
@@ -89,5 +129,12 @@
 
   .identityRow:has([data-watchlist-recovery='open']) .controlRail {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .identityRow:has([data-watchlist-recovery='open']) .controlRail {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
