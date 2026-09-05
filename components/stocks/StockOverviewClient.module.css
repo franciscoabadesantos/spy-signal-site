@@ -102,16 +102,19 @@
   gap: 12px;
 }
 
-.chartToolbar {
+.chartFooter {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
+  gap: 12px 24px;
+  margin-top: 10px;
+}
+
+.chartFooterControl {
+  margin-left: auto;
 }
 
 .heroChartWrap {
-  border-top: 1px solid var(--color-border-light);
-  padding-top: 8px;
 }
 
 .chartStatus {
@@ -125,7 +128,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 7px 24px;
-  margin: 8px 0 0;
+  margin: 0;
 }
 
 .referenceLine > div {
@@ -160,6 +163,12 @@
 }
 
 @media (max-width: 768px) {
+  .chartFooterControl {
+    display: flex;
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+
   .indicatorModalGrid {
     grid-template-columns: 1fr;
   }

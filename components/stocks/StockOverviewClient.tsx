@@ -17,7 +17,7 @@ import styles from './StockOverviewClient.module.css'
 import ScorecardDisc from './ScorecardDisc'
 
 type SignalDirection = 'bullish' | 'neutral' | 'bearish'
-type ChartTimeframe = '1D' | '5D' | '1M' | '3M' | 'YTD' | '1Y' | '5Y' | 'ALL'
+type ChartTimeframe = '1D' | '5D' | '1M' | '3M' | 'YTD' | '1Y' | '5Y' | '10Y' | 'ALL'
 type HistoricalChartState = 'loaded' | 'empty' | 'error'
 type FullHistoryState = 'idle' | 'loading' | 'loaded' | 'error'
 
@@ -99,7 +99,7 @@ type StockOverviewClientProps = {
   scorecard: Scorecard
 }
 
-const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y', 'ALL']
+const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y', '10Y', 'ALL']
 const SIGNAL_TIMEFRAMES: TechnicalTimeframe[] = ['1D', '1W', '1M']
 
 function formatDate(value: string | null, options?: Intl.DateTimeFormatOptions): string {
@@ -180,7 +180,8 @@ function startDateForHeroTimeframe(timeframe: ChartTimeframe, latestDate: Date):
   if (timeframe === '3M') return latestDate.getTime() - 90 * 24 * 60 * 60 * 1000
   if (timeframe === 'YTD') return Date.UTC(latestDate.getUTCFullYear(), 0, 1)
   if (timeframe === '1Y') return latestDate.getTime() - 365 * 24 * 60 * 60 * 1000
-  return latestDate.getTime() - 1825 * 24 * 60 * 60 * 1000
+  if (timeframe === '5Y') return latestDate.getTime() - 1825 * 24 * 60 * 60 * 1000
+  return latestDate.getTime() - 3650 * 24 * 60 * 60 * 1000
 }
 
 function filterChartData(data: PricePoint[], timeframe: ChartTimeframe): PricePoint[] {
@@ -407,7 +408,9 @@ export default function StockOverviewClient({
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
   const scorecardMessage = scorecardReadinessMessage(scorecard)
 
-  const chartHistory = heroTimeframe === 'ALL' && fullHistoricalData ? fullHistoricalData : historicalData
+  const chartHistory = (heroTimeframe === '10Y' || heroTimeframe === 'ALL') && fullHistoricalData
+    ? fullHistoricalData
+    : historicalData
   const filteredChartData = useMemo(
     () => filterChartData(chartHistory, heroTimeframe),
     [chartHistory, heroTimeframe],
@@ -439,22 +442,23 @@ export default function StockOverviewClient({
   const availableScorecardAxes = scorecard.axes.filter((axis) => axis.available && axis.score !== null).length
 
   const selectHeroTimeframe = (timeframe: ChartTimeframe) => {
-    if (timeframe !== 'ALL') {
+    const needsFullHistory = timeframe === '10Y' || timeframe === 'ALL'
+    if (!needsFullHistory) {
       setHeroTimeframe(timeframe)
       return
     }
 
     if (fullHistoricalData) {
-      setHeroTimeframe('ALL')
+      setHeroTimeframe(timeframe)
       return
     }
     if (fullHistoryRequested.current) {
-      setHeroTimeframe(fullHistoryState === 'error' ? '5Y' : 'ALL')
+      setHeroTimeframe(fullHistoryState === 'error' ? '5Y' : timeframe)
       return
     }
 
     fullHistoryRequested.current = true
-    setHeroTimeframe('ALL')
+    setHeroTimeframe(timeframe)
     setFullHistoryState('loading')
 
     void fetch(`/api/stocks/${encodeURIComponent(ticker)}/history`)
@@ -476,7 +480,7 @@ export default function StockOverviewClient({
       })
       .catch(() => {
         setFullHistoryState('error')
-        setHeroTimeframe((current) => current === 'ALL' ? '5Y' : current)
+        setHeroTimeframe((current) => current === '10Y' || current === 'ALL' ? '5Y' : current)
       })
   }
 
@@ -604,14 +608,6 @@ export default function StockOverviewClient({
         <div className={styles.heroBody}>
           <div className={styles.heroChartColumn}>
             <h2 className="sr-only">Quick Read</h2>
-            <div className={styles.chartToolbar}>
-              <SegmentedControl
-                options={HERO_TIMEFRAMES}
-                value={heroTimeframe}
-                onChange={selectHeroTimeframe}
-                ariaLabel="Chart timeframe"
-              />
-            </div>
             <div className={styles.heroChartWrap} aria-busy={fullHistoryState === 'loading'}>
               <HeroPriceChart
                 data={filteredChartData}
@@ -623,13 +619,23 @@ export default function StockOverviewClient({
                 <p className={styles.chartStatus} role="status">Historical price data could not be loaded. Showing the longest available range.</p>
               ) : null}
             </div>
-            {referenceFacts.length > 0 ? (
-              <dl className={styles.referenceLine} aria-label="Market reference">
-                {referenceFacts.map((fact) => (
-                  <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>
-                ))}
-              </dl>
-            ) : null}
+            <div className={styles.chartFooter}>
+              {referenceFacts.length > 0 ? (
+                <dl className={styles.referenceLine} aria-label="Market reference">
+                  {referenceFacts.map((fact) => (
+                    <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>
+                  ))}
+                </dl>
+              ) : null}
+              <div className={styles.chartFooterControl}>
+                <SegmentedControl
+                  options={HERO_TIMEFRAMES}
+                  value={heroTimeframe}
+                  onChange={selectHeroTimeframe}
+                  ariaLabel="Chart timeframe"
+                />
+              </div>
+            </div>
           </div>
 
           <aside className={styles.snapshotEditorial} aria-label="Research score and verdicts" data-overview-grade="">
