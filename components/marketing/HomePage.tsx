@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { Sora, JetBrains_Mono, Inter } from 'next/font/google'
-import { MarketingHeader } from '@/components/marketing/site-chrome'
+import { SiteHeader } from '@/components/marketing/site-chrome'
 import HomeTickerStory from '@/components/marketing/HomeTickerStory'
 import HeroConstellation from '@/components/marketing/HeroConstellation'
 import DockingSearch from '@/components/marketing/DockingSearch'
@@ -81,7 +81,7 @@ export default function MarketingHomePage() {
         }}
         className="marketing-home relative min-h-screen bg-[var(--page-bg)] text-content-primary"
       >
-        <MarketingHeader activeHref="/" />
+        <SiteHeader activeHref="/" />
         <DockingSearch />
         <HeroConstellation />
         <Sections />
