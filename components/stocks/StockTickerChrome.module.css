@@ -51,37 +51,12 @@
   justify-content: flex-end;
 }
 
-.quote {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
+.metadata {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  text-align: right;
   white-space: nowrap;
-}
-
-.price {
-  color: var(--color-text-primary);
-  font-size: 22px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.4px;
-}
-
-.delta {
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.deltaPositive {
-  color: var(--color-positive);
-}
-
-.deltaNegative {
-  color: var(--color-negative);
-}
-
-.deltaNeutral {
-  color: var(--color-neutral);
 }
 
 .navigation {

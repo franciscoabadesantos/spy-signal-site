@@ -1,10 +1,29 @@
 import LoadingPulse from '@/components/ui/LoadingPulse'
+import { formatMoney, formatSignedMoney } from '@/lib/currency'
+import { cn } from '@/lib/utils'
 import styles from './StockTickerIdentity.module.css'
+
+function isFiniteNumber(value: number | null): value is number {
+  return value !== null && Number.isFinite(value)
+}
+
+function formatCompactPercent(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+}
+
+function deltaClass(value: number): string {
+  if (value > 0) return styles.deltaPositive
+  if (value < 0) return styles.deltaNegative
+  return styles.deltaNeutral
+}
 
 type StockTickerIdentityProps = {
   ticker: string
   displayName: string
-  metadata: string | null
+  currency: string
+  price: number | null
+  dailyMoveAmount: number | null
+  dailyMovePercent: number | null
   identityColor: string
   nameAsHeading?: boolean
   loading?: boolean
@@ -13,7 +32,10 @@ type StockTickerIdentityProps = {
 export default function StockTickerIdentity({
   ticker,
   displayName,
-  metadata,
+  currency,
+  price,
+  dailyMoveAmount,
+  dailyMovePercent,
   identityColor,
   nameAsHeading = false,
   loading = false,
@@ -39,7 +61,16 @@ export default function StockTickerIdentity({
         ) : (
           <>
             <span className={styles.tickerBadge}>{ticker}</span>
-            {metadata ? <span className={styles.metadata}>{metadata}</span> : null}
+            {isFiniteNumber(price) ? (
+              <div className={styles.quote}>
+                <strong className={styles.price}>{formatMoney(price, currency)}</strong>
+                {isFiniteNumber(dailyMoveAmount) && isFiniteNumber(dailyMovePercent) ? (
+                  <span className={cn(styles.delta, deltaClass(dailyMoveAmount))}>
+                    {formatSignedMoney(dailyMoveAmount, currency)} ({formatCompactPercent(dailyMovePercent)})
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </>
         )}
       </div>

@@ -5,27 +5,10 @@ import StockResearchNav from '@/components/stocks/StockResearchNav'
 import StockTickerIdentity from '@/components/stocks/StockTickerIdentity'
 import TickerRelationshipField, { TickerRelationshipFieldFallback } from '@/components/stocks/TickerRelationshipField'
 import WatchlistButton from '@/components/WatchlistButton'
-import LoadingPulse from '@/components/ui/LoadingPulse'
 import { assetMetadata } from '@/lib/asset-metadata'
-import { formatMoney, formatSignedMoney } from '@/lib/currency'
 import type { StockTickerChromeData } from '@/lib/stock-ticker-chrome'
 import { tickerIdentityColor } from '@/lib/ticker-identity-color'
-import { cn } from '@/lib/utils'
 import styles from './StockTickerChrome.module.css'
-
-function isFiniteNumber(value: number | null): value is number {
-  return value !== null && Number.isFinite(value)
-}
-
-function formatCompactPercent(value: number): string {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
-}
-
-function deltaClass(value: number): string {
-  if (value > 0) return styles.deltaPositive
-  if (value < 0) return styles.deltaNegative
-  return styles.deltaNeutral
-}
 
 export function StockTickerChromeFallback({
   ticker,
@@ -44,14 +27,14 @@ export function StockTickerChromeFallback({
           <StockTickerIdentity
             ticker={ticker}
             displayName={ticker}
-            metadata={null}
+            currency=""
+            price={null}
+            dailyMoveAmount={null}
+            dailyMovePercent={null}
             identityColor={identityColor}
             nameAsHeading={isOverview}
             loading
           />
-          <div className={styles.controlRail}>
-            <LoadingPulse label={`Loading ${ticker} quote`} size="compact" />
-          </div>
         </div>
         <div className={styles.navigation} data-ticker-navigation=""><StockResearchNav ticker={ticker} /></div>
       </div>
@@ -68,6 +51,7 @@ export default function StockTickerChrome({
 }) {
   const resolved = use(data)
   const relationships = useMemo(() => Promise.resolve(resolved.relationships), [resolved.relationships])
+  const metadata = assetMetadata(resolved.assetBadgeLabel, resolved.exchange, resolved.currency)
 
   return (
     <section className={styles.chrome} data-ticker-hero="" data-ticker-chrome="ready" aria-label={`${resolved.ticker} research`}>
@@ -79,21 +63,15 @@ export default function StockTickerChrome({
           <StockTickerIdentity
             ticker={resolved.ticker}
             displayName={resolved.displayName}
-            metadata={assetMetadata(resolved.assetBadgeLabel, resolved.exchange, resolved.currency)}
+            currency={resolved.currency}
+            price={resolved.price}
+            dailyMoveAmount={resolved.dailyMoveAmount}
+            dailyMovePercent={resolved.dailyMovePercent}
             identityColor={resolved.identityColor}
             nameAsHeading={isOverview}
           />
           <div className={styles.controlRail}>
-            {isFiniteNumber(resolved.price) ? (
-              <div className={styles.quote}>
-                <strong className={styles.price}>{formatMoney(resolved.price, resolved.currency)}</strong>
-                {isFiniteNumber(resolved.dailyMoveAmount) && isFiniteNumber(resolved.dailyMovePercent) ? (
-                  <span className={cn(styles.delta, deltaClass(resolved.dailyMoveAmount))}>
-                    {formatSignedMoney(resolved.dailyMoveAmount, resolved.currency)} ({formatCompactPercent(resolved.dailyMovePercent)})
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
+            {metadata ? <span className={styles.metadata}>{metadata}</span> : null}
             <WatchlistButton
               ticker={resolved.ticker}
               initialInWatchlist={resolved.watchlist.initialInWatchlist}
