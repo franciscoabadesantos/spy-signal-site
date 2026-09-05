@@ -37,7 +37,7 @@ export function StockTickerChromeFallback({
             loading
           />
         </div>
-        <div className={styles.navigation} data-ticker-navigation=""><StockResearchNav ticker={ticker} /></div>
+        <div className={styles.navigation} data-ticker-navigation="" data-chrome-collision=""><StockResearchNav ticker={ticker} /></div>
       </div>
     </section>
   )
@@ -83,7 +83,7 @@ export default function StockTickerChrome({
             </div>
           </div>
         </div>
-        <div className={styles.navigation} data-ticker-navigation=""><StockResearchNav ticker={resolved.ticker} /></div>
+        <div className={styles.navigation} data-ticker-navigation="" data-chrome-collision=""><StockResearchNav ticker={resolved.ticker} /></div>
       </div>
     </section>
   )

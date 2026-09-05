@@ -1406,6 +1406,13 @@ html.atlas-immersive .atlas-view {
 html.chrome-past-fold.chrome-scroll-down .site-header:not(:focus-within) {
   transform: translateY(-100%);
 }
+html.chrome-collision .site-header:not(:focus-within) {
+  transform: translateY(-100%);
+}
+html.chrome-collision .site-header:focus-within {
+  transform: translateY(0);
+  transition-duration: 0s;
+}
 
 /* The header row is ONE glass container that morphs between states:
    TOP (not scrolled): boxless bar. SCROLLED: a compact liquid-glass pill.
@@ -1482,6 +1489,9 @@ html.chrome-scrolled .site-header[data-internal] .site-header__row:not([data-men
 }
 html.chrome-scrolled .site-header[data-internal] .site-header__bar {
   grid-template-columns: minmax(0, 1fr) minmax(0, 150px) minmax(0, 1fr);
+}
+html[data-scroll-profile='operational'].chrome-scrolled .site-header[data-internal] .site-header__row:not([data-menu-open]) .site-header__bar {
+  gap: 10px;
 }
 html.chrome-scrolled .site-header[data-internal] .site-header__row:not([data-menu-open]) [data-header-search] {
   max-width: 150px;
@@ -2879,6 +2889,9 @@ html.chrome-scrolled .dock-search {
   }
   html.chrome-scroll-down .site-header:not(:focus-within) {
     transform: none;
+  }
+  html.chrome-collision .site-header:not(:focus-within) {
+    transform: translateY(-100%);
   }
   [data-reveal] {
     opacity: 1;
