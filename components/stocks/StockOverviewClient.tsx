@@ -52,11 +52,6 @@ type OverviewHolding = {
   weightPercent: number | null
 }
 
-type OverviewProfileDetail = {
-  label: string
-  value: string
-}
-
 type OverviewSectorWeight = {
   sector: string
   weightPercent: number | null
@@ -95,14 +90,12 @@ type StockOverviewClientProps = {
   keyStats: OverviewStat[]
   fundamentalGroups: OverviewFundGroup[]
   holdings: OverviewHolding[]
-  profileDetails: OverviewProfileDetail[]
   sectorWeights: OverviewSectorWeight[]
   nextEarnings: OverviewEarnings | null
   volatility30d: number | null
   relatedAssets: Promise<OverviewRelatedAsset[]>
   regimeSignals: OverviewRegimePoint[]
   scorecard: Scorecard
-  about: string | null
 }
 
 const HERO_TIMEFRAMES: ChartTimeframe[] = ['1D', '5D', '1M', '3M', 'YTD', '1Y', '5Y']
@@ -398,13 +391,11 @@ export default function StockOverviewClient({
   keyStats,
   fundamentalGroups,
   holdings,
-  profileDetails,
   sectorWeights,
   nextEarnings,
   volatility30d,
   relatedAssets: relatedAssetsPromise,
   scorecard,
-  about,
 }: StockOverviewClientProps) {
   const [heroTimeframe, setHeroTimeframe] = useState<ChartTimeframe>('1M')
   const [signalTimeframe, setSignalTimeframe] = useState<TechnicalTimeframe>('1D')
@@ -430,9 +421,6 @@ export default function StockOverviewClient({
     { key: 'oscillators', label: 'Oscillators', gauge: technicalSummary.gauges.oscillators },
     { key: 'moving-averages', label: 'Moving averages', gauge: technicalSummary.gauges.movingAverages },
   ] as const
-  const profileRows = profileDetails
-    .filter((row) => !/ticker|name|market cap|isin|identifier/i.test(row.label))
-    .slice(0, 3)
   const marketReference = ['Market Cap', 'Net Assets', 'Volume', 'P/E']
     .map((label) => keyStats.find((stat) => stat.label === label))
     .find((stat): stat is OverviewStat => Boolean(stat))
@@ -602,11 +590,6 @@ export default function StockOverviewClient({
           ))}
         </section>
 
-        <div className={styles.profileIntro}>
-          {about ? <p>{about}</p> : <span className={styles.previewNote}>{assetBadgeLabel === 'ETF' ? 'Fund profile' : 'Company profile'} · Data pending</span>}
-          {profileRows.length > 0 ? <dl>{profileRows.map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl> : null}
-          <Link href={`/stocks/${ticker}/profile`}>{assetBadgeLabel === 'ETF' ? 'Fund profile' : 'Company profile'} →</Link>
-        </div>
       </section>
 
       <div className={styles.editorialSequence}>
